@@ -1,6 +1,6 @@
 /*
  *	subsystem2.h
- *	Subsystem 2 -- Producer (sample source).  Student ID: <student ID>.
+ *	Subsystem 2 -- Motor command consumer.  Student ID: <student ID>.
  *
  *	Public interface of subsystem 2.  Other subsystems include it as
  *	"../subsystem2/subsystem2.h".
@@ -11,32 +11,40 @@
 
 #include "../app.h"
 
-#define S2_PRI_PRODUCER		14	/* priority band 14-15 (TEAM.md) */
-#define S2_PERIOD_MS		300	/* one sample every 300 ms */
+#define S2_PRI_MOTOR 14 /* priority band 14-15 (TEAM.md) */
+#define S2_COMMAND_COUNT 8
 
-/* ---------------------------------------------------------------------
- *  IF-01 data format: one sample, sent to subsystem 3's mailbox.
- *  A mailbox message MUST start with a T_MSG header: the kernel links
- *  messages together through it, so the data itself is never copied.
- * --------------------------------------------------------------------- */
+typedef enum
+{
+	S2_MOVE_STOP,
+	S2_MOVE_FORWARD,
+	S2_MOVE_REVERSE,
+	S2_MOVE_LEFT,
+	S2_MOVE_RIGHT,
+	S2_MOVE_PIVOT_RIGHT, /* left wheel forward, right wheel stopped */
+	S2_MOVE_PIVOT_LEFT   /* left wheel stopped, right wheel forward */
+} s2_move_command_t;
+
+typedef struct
+{
+	T_MSG hdr;				   /* used by the kernel, do not touch */
+	s2_move_command_t command; /*movement command*/
+	UINT power_percent;		   /* 0–100 */
+} s2_movement_msg_t;
+
+IMPORT void s2_controller_bind(void);
+/* Other subsystems submit expiring requests to the controller. */
+IMPORT ER app_vehicle_request(UINT subsystem, s2_move_command_t command,
+                              UINT power, UW lease_ms);
+
+IMPORT ER s2_movement_send(
+	s2_move_command_t command,
+	UINT power_percent);
 typedef struct {
-	T_MSG	hdr;		/* used by the kernel, do not touch */
-	UW	seq;		/* sample sequence number */
-	UW	time_ms;	/* system time when the sample was taken */
-	INT	value;		/* the "measurement", 0..100 */
-	INT	prc;		/* processor (core) that produced it: 1 or 2 */
-} SAMPLE_MSG;
-
-#define S2_POOL_COUNT	4	/* at most 4 samples in flight */
-
-/* IF-02: the receiver of a sample gives its memory block back to
-   mpf_samples (tk_rel_mpf) and then a slot back to sem_slots
-   (tk_sig_sem, count 1).  Nothing else may use these two objects. */
-IMPORT ID	sem_slots;
-IMPORT ID	mpf_samples;
-
-/* Private to subsystem 2 */
-IMPORT void	producer_task(INT stacd, void *exinf);
-IMPORT INT	s2_make_value(UW seq);
-
+    UW positive_pulses, negative_pulses;
+    UW a_edges, b_edges;
+    UINT a_level, b_level;
+} s2_encoder_status_t;
+/* Counts one pulse per rising edge of channel A; sign depends on wiring. */
+IMPORT ER s2_encoder_get_status(s2_encoder_status_t *status);
 #endif /* SUBSYSTEM2_H */
