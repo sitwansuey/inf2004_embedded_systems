@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Robo Pico · Mission dashboard</title><link rel="stylesheet" href="dashboard.css"></head>
+<body>
+<header><div class="brand">RP<span>ROBO PICO / INF2004</span></div><div id="connection" class="badge">Awaiting data</div></header>
+<main>
+<section class="intro"><div><p class="eyebrow">BUDDY 1 · COMMAND & TELEMETRY</p><h1>Mission dashboard</h1><p class="muted">One view of motion, navigation, terrain and obstacle telemetry.</p></div><div class="tools"><button id="demo">Load demo</button><label class="button">Import JSON<input id="import" type="file" accept=".json,application/json" hidden></label><button id="reset">Reset</button></div></section>
+<div class="notice" id="notice" role="status">Dashboard shell · No robot connection. Values appear when telemetry is supplied.</div>
+<section class="summary" id="summary"></section>
+<div class="section-intro"><p class="eyebrow">SENSOR DATA & SUBSYSTEM OUTPUTS</p><h2>Individual sensor sections</h2><p class="muted">Each card groups the readings received from one sensor or processing stage. Missing readings stay blank until supplied.</p></div>
+<section class="grid" id="panels" aria-label="Sensor readings and subsystem outputs"></section>
+<section class="panel events"><div class="panel-heading"><div><p class="eyebrow">MISSION HISTORY</p><h2>Events & faults</h2></div><span id="event-count" class="muted">0 events</span></div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Source</th><th>Level</th><th>Event / message</th></tr></thead><tbody id="events"></tbody></table></div></section>
+<footer><span id="updated">Last received: —</span><span>Display only · Remote commands are pending firmware integration</span></footer>
+</main><script src="dashboard.js"></script>
+</body></html>

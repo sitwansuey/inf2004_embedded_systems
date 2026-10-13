@@ -21,4 +21,8 @@
 #define MQTT_CLIENT_ID   "mtk3smp-pico"
 #define MQTT_TOPIC       "mtk3smp-pico/heartbeat"
 
+/* Optional broker authentication; NULL for an unauthenticated broker. */
+#define MQTT_USERNAME    NULL
+#define MQTT_PASSWORD    NULL
+
 #endif /* WIFI_SECRETS_H */

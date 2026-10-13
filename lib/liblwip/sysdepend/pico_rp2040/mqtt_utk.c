@@ -26,6 +26,14 @@
 #define MQTT_UTK_KEEPALIVE_S    60
 #define MQTT_UTK_RETRY_MS       3000
 
+/* Keep existing local secrets files compatible. */
+#ifndef MQTT_USERNAME
+#define MQTT_USERNAME NULL
+#endif
+#ifndef MQTT_PASSWORD
+#define MQTT_PASSWORD NULL
+#endif
+
 /* Inbound message staging. A publish arrives as one topic callback followed by
  * one or more data callbacks, so the topic has to be kept until the fragment
  * carrying MQTT_DATA_FLAG_LAST shows up. Both buffers are sized well past the
@@ -209,6 +217,8 @@ void mqtt_utk_start(void)
 
 	client_info.client_id = MQTT_CLIENT_ID;
 	client_info.keep_alive = MQTT_UTK_KEEPALIVE_S;
+	client_info.client_user = MQTT_USERNAME;
+	client_info.client_pass = MQTT_PASSWORD;
 
 	connecting = 1;
 	err = mqtt_client_connect(client, &broker_addr, MQTT_BROKER_PORT,
