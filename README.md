@@ -249,7 +249,98 @@ Each option goes through the same steps:
 
 The makefile also has `NET=lwip` and `MQTT=1` (TCP/IP and MQTT over WiFi).
 They need the SDK's `lib/lwip` submodule and a `config/wifi_secrets.h`
-(copy `config/wifi_secrets.example.h`). This guide does not cover them.
+(copy `config/wifi_secrets.example.h`). See the shared configuration guide below
+and `app_program/subsystem1/README.md` for Buddy 1 integration.
+
+## 4. Shared configuration and interfaces for all buddies
+
+All five buddies compile into **one firmware image**, so they share the same
+kernel and build configuration. There is no single file containing every
+setting: `config/config.h` is the central RTOS configuration, while
+`app_program/app.h` is the common application header. Keep subsystem-specific
+settings in that subsystem's own header.
+
+| File | Purpose | Who uses it? |
+|---|---|---|
+| `config/config.h` | Kernel limits, timer settings and system configuration | All subsystems indirectly through kernel headers |
+| `config/config_func.h` | Enables kernel API functions | Whole firmware |
+| `config/config_device.h` | Enables/configures built-in device drivers | Whole firmware; coordinate changes with peripheral owners |
+| `config/config_tm.h` | Console and T-Monitor settings | Whole firmware |
+| `app_program/app.h` | Common RTOS/board includes, task helper, stack size and subsystem lifecycle declarations | Every buddy's `subsystemN.h` includes it |
+| `app_program/subsystemN/subsystemN.h` | That buddy's constants and public APIs | Its owner and other subsystems calling those APIs |
+| `app_program/subsystem1/telemetry_topics.h` | Shared telemetry reading IDs, exact MQTT topics and message size limits | Buddy 1 and callers through `subsystem1.h` |
+| `config/wifi_secrets.h` | Local Wi-Fi credentials, broker address/port, client ID, heartbeat topic and optional authentication | Network service and Buddy 1 startup diagnostics; ignored by Git |
+| `config/wifi_secrets.example.h` | Versioned template for the local network settings | Whoever builds/configures the robot |
+| `build_make/pico_rp2040.mk` | Shared build profiles: SMP, console, Wi-Fi, networking, MQTT and tests | Everyone building the firmware |
+| `TEAM.md` | Agreed pin/peripheral ownership, priorities, interfaces and object budget | All buddies; this is documentation, not a compiled header |
+
+### What each buddy includes
+
+Inside a subsystem's public header:
+
+```c
+#include "../app.h"
+```
+
+Inside its implementation, include its own public header. When sending dashboard
+telemetry, also include Buddy 1's public interface:
+
+```c
+#include "subsystem3.h"                  /* example: Buddy 3 */
+#include "../subsystem1/subsystem1.h"
+
+/* In task context, after subsystem initialization: */
+ER er = s1_telemetry_integer(S1_LEFT_IR_IR_LEFT, 650);
+if (er < E_OK) {
+    /* Apply a bounded retry/drop policy; do not block navigation on telemetry. */
+}
+```
+
+The value above is an example; send actual measurements in the real task.
+All buddies use the same reading IDs from `telemetry_topics.h`; do not create
+independent topic strings in each subsystem. Buddy 1 copies readings into its
+16-message RTOS buffer. The existing Wi-Fi service task polls that buffer and
+publishes MQTT. Only that service task may call lwIP/MQTT functions.
+
+Control requests and safety events still go directly to the Vehicle Controller
+through the team's agreed interfaces. The telemetry buffer is for external
+reporting and does not replace the controller's command/safety inbox.
+
+### Local settings versus shared settings
+
+Keep your own sensor thresholds, sampling periods, calibration and private pins
+in your subsystem header (or a private configuration header in that folder).
+Record physical pin/peripheral ownership in `TEAM.md` before using it. Changes
+to common headers, kernel limits, build defaults and cross-subsystem interfaces
+must be coordinated with the team so everyone builds compatible code.
+
+The current motor module includes `app_program/board_pins.h`, but that shared
+header is **missing from this checkout**. Its host-test `board_pins.h` is only a
+test fixture. The team needs to provide a hardware pin header consistent with
+the agreed wiring before integrating the motor module; do not treat the test
+fixture as a verified robot pin configuration.
+
+For network builds, fill in your local `config/wifi_secrets.h`, then run from
+`build_make` with the SDK/toolchain configured:
+
+```sh
+make -j8 NET=lwip MQTT=1
+```
+
+The Pico needs the broker computer's **LAN IPv4 address** in `MQTT_BROKER_IP`.
+`localhost` would refer to the Pico itself. The desktop dashboard has separate
+Python runtime settings: it defaults to `localhost:1883`, appropriate when the
+broker is on that desktop. It does not automatically read the firmware's C
+configuration headers.
+
+```powershell
+python -m pip install -r app_program/external_systems/Dashboard/requirements.txt
+python app_program/external_systems/Dashboard/dashboard.py --broker localhost --mqtt-port 1883
+```
+
+Open http://127.0.0.1:8001. The dashboard subscribes to `Robopico/sensors/#` and
+`Robopico/Actuators/#`. If it runs on a different computer or Raspberry Pi,
+replace `localhost` with the broker's reachable address.
 
 ---
 

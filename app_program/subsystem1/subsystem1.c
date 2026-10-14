@@ -1,6 +1,6 @@
 /*
  *	subsystem1.c
- *	Subsystem 1 -- LED heartbeat: creates its objects and starts its task.
+ *	Buddy 1 -- telemetry inbox and retained example LED heartbeat.
  *
  *	APIs shown: tk_cre_cyc, tk_sta_cyc
  */
@@ -17,6 +17,8 @@ EXPORT ID	cyc_led;
 EXPORT ER subsystem1_init(void)
 {
 	T_CCYC	ccyc = {0};
+	ER er = s1_telemetry_init();
+	if (er < E_OK) return er;
 
 	/* Cyclic handler: once started, the kernel calls led_cyclic_handler
 	   every S1_TICK_MS.  Without TA_STA it is created stopped; it is

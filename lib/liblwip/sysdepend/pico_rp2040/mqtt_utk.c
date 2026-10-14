@@ -20,6 +20,7 @@
 #include "lwip/timeouts.h"
 #include "wifi_secrets.h"
 #include "mqtt_utk.h"
+#include "../../../../app_program/subsystem1/telemetry_topics.h"
 #include <tm/tmonitor.h>
 
 #define MQTT_UTK_HEARTBEAT_MS   5000
@@ -52,6 +53,32 @@ static u16_t		rx_len;
 static u8_t		rx_truncated;
 
 static void heartbeat_timeout(void *arg);
+
+void mqtt_utk_poll_telemetry(void)
+{
+    static char topic[S1_TOPIC_MAX];
+    static char payload[S1_PAYLOAD_MAX];
+    static int pending;
+    unsigned int budget, length;
+    err_t error;
+    if (client == NULL || !mqtt_client_is_connected(client)) return;
+    /* Bound each visit so network maintenance cannot be starved by producers.
+     * Keep a message staged on lwIP backpressure rather than losing it.
+     */
+    for (budget = 0; budget < 4; ++budget) {
+        if (!pending) {
+            int result = s1_telemetry_take(topic, payload);
+            if (result <= 0) return;
+            pending = 1;
+        }
+        for (length = 0; payload[length] != 0; ++length) { }
+        error = mqtt_publish(client, topic, payload, (u16_t)length,
+                             0 /* QoS 0 */, 0 /* not retained */,
+                             publish_done_cb, NULL);
+        if (error != ERR_OK) return;
+        pending = 0;
+    }
+}
 
 /* mqtt.c NUL-terminates the topic before handing it over, but it is only
  * valid for the duration of this call -- copy it out. */
