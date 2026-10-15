@@ -110,7 +110,7 @@ the drivers have no locking to stop it.
 | I2C1 | | | |
 | SPI0 | | | |
 | SPI1 | | | |
-| ADC | | | GP26–GP28 |
+| ADC | S3 (optional, disabled until analogue pads/wiring verified) | `s3_adc_worker` (priority 17, core 0) | Unconfigured; GP26–28 capability only, ADC3/GP29 reserved for radio |
 | PWM slices (list) | | | |
 | WiFi radio, TCP/IP, MQTT | *kernel* | `cyw43_utk_task` (built in) | GP23–25, GP29 |
 
