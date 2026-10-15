@@ -223,4 +223,3 @@ static void reset(void)
     gpio_reads = 0U; gpio_configs = 0U; gpio_config_error = E_OK;
     race_override = false; queue_count = 0U; auto_renew = true;
 }
-

@@ -111,6 +111,8 @@ worker may block in the legacy driver; it holds no Buddy 3 status mutex.
 A request expires after 20 ms. The client checks this before accepting even a
 buffered response. Results carry a sequence and the oldest channel timestamp;
 partial/out-of-range, wrong-sequence, future and stale results are rejected.
+Status snapshots expose complete raw scans for low-priority bench logging and
+clear the raw values/validity mask when acquisition is pending or failed.
 s3_status_get exposes the complete raw scan for low-priority bench logging;
 pending/error snapshots clear the raw values and validity mask.
 Successful receipt pipelines the next scan. While waiting, steering is revoked.
@@ -213,10 +215,12 @@ revoke steering. Status age 30 ms and event age 100 ms are checked at consumptio
 All timer intervals fit the unsigned half-range; ordinary uint32 rollover works.
 They are provisional software budgets and need on-device measurements.
 
-Objects: one priority-16 task, one priority-inheritance mutex shared with legacy
-stats, one copied message buffer holding four records (header/rounding budget
-included), and one retained legacy mailbox. No new semaphore/pool/ISR is created.
-Every S3 mutex and message-buffer access polls; failure is visible to callers.
+Objects: one priority-16 sampling task, one priority-inheritance status mutex,
+one four-record event message buffer and one retained legacy mailbox. Optional
+ADC mode adds a priority-17 worker and two one-entry request/reply message buffers.
+Kernel resources allocate once during startup. No new semaphore/pool/ISR is
+created by S3. Status mutexes and all client message-buffer accesses poll; the
+worker waits for requests without holding the status mutex.
 No unbounded drain loop, sleep inside decoding, dynamic algorithm allocation,
 network service call, encoder access or motor/PWM API is used.
 
@@ -225,21 +229,25 @@ network service call, encoder access or motor/PWM API is used.
 From the repository root, with GCC and GNU Make on PATH:
 
     make -C testing/subsystem3 test
+    make -C testing/subsystem3 analyze
     make -C testing/subsystem3 verify-failure
     make -C testing/subsystem3 check-headers
 
-The first command builds and executes algorithm and actual adapter tests against
-native RTOS/GPIO fakes. The second deliberately fails a real assertion through
-the same test target and requires the failure to propagate. The third checks
-S3 translation units against real kernel headers in both SMP profiles; it is a
-host syntax check, not an Arm build. No tests are silently skipped.
+The test command builds and executes algorithms, the actual adapter and ADC
+worker against native RTOS/device fakes. analyze rebuilds/runs all of them with
+GCC -fanalyzer. verify-failure deliberately fails a real assertion through the
+same test target and requires the failure to propagate. check-headers parses S3
+translation units against real kernel headers in both SMP profiles; this is a
+host syntax check, not an ARM build. No tests are silently skipped.
 
-CI is .github/workflows/buddy3-ci.yml: Ubuntu 24.04, checkout@v4, GCC, push to
-main, pull request and manual triggers, contents:read only. A firmware CI job is
-deferred because main's integration interfaces are already broken and its external
-Arm/SDK dependencies are not provisioned here. Actual build commands remain:
-
-    make -C build_make -j2
+CI is .github/workflows/buddy3-ci.yml: Ubuntu 24.04, checkout@v4, push to
+main, pull request and manual triggers, contents:read only. Native tests retain
+the original 19 groups and add nine ADC regression groups (28 total), plus GCC
+static analysis, real-header checks and failure propagation. A separate job
+installs Arm GCC/newlib and Pico SDK 2.2.0 with TinyUSB/cyw43, compiles Buddy 3
+ARM objects for SMP=0/1 and attempts the complete default firmware build.
+Actual build commands:
+make -C build_make -j2
     make -C build_make CONSOLE=uart WIFI=none -j2
 
 Both stop at the missing arm-none-eabi-gcc prerequisite in this environment.

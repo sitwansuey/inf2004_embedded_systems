@@ -140,3 +140,37 @@ results can be recorded after successful publication and PR creation. A successf
 See TEST_LOG.md, logs/ and HARDWARE_VALIDATION.md for evidence and bench steps.
 Do not merge while the complete firmware build, critical integration or required
 team approvals remain unresolved. No hardware validation has passed.
+
+
+## Detailed Phase 2 file changes
+
+| File | Change |
+|---|---|
+| .github/workflows/buddy3-ci.yml | Retain native tests; add GCC analysis and genuine ARM/SDK firmware job |
+| TEAM.md | Claim the previously empty ADC peripheral row for the optional sole-owner worker; no pin assignments changed |
+| app_program/subsystem3/drv_ir.c | Deadline/sequence/range-checked nonblocking ADC client; digital path retained |
+| app_program/subsystem3/drv_ir.h | Explicit ADC pending/failed state and waiting query |
+| app_program/subsystem3/drv_ir_adc.c (new) | Exclusive kernel ADC worker, fixed copied buffers, initialization cleanup and no-retry terminal state |
+| app_program/subsystem3/drv_ir_adc.h (new) | Request/reply transport, deadlines and sole-task entry points |
+| app_program/subsystem3/subsystem3.c | Accept verified optional ADC mode, preserve open errors, publish terminal timeout faults and validated raw scans |
+| app_program/subsystem3/subsystem3.h | Add raw-scan status snapshot for external bench logging/calibration |
+| app_program/subsystem3/README.md | Current acquisition, resource, CI and controller contract documentation |
+| testing/subsystem3/Makefile | Run all three native binaries; analyzer and real ARM object-check targets; include worker in header checks |
+| testing/subsystem3/host_support.h | Test-only device/message-buffer declarations and pad-enabled fixture support |
+| testing/subsystem3/adapter_fixture.h (new) | Shared deterministic RTOS/GPIO/ADC boundary fakes, extracted from original adapter tests |
+| testing/subsystem3/test_adapter.c | Retain the original seven adapter groups using the shared fixture |
+| testing/subsystem3/test_adc.c (new) | Nine new deterministic ADC/transport/controller regression groups |
+| testing/subsystem3/FIRMWARE_READINESS.md (new) | Root cause, actual dependency contracts, owners, build/provisioning limits and shared-driver review request |
+| testing/subsystem3/HARDWARE_VALIDATION.md | Updated ADC acceptance and detailed three-sensor/A/Z bench procedure, all NOT RUN |
+| testing/subsystem3/TEST_LOG.md | Preserve old evidence; add Phase 2 definitions, commands and actual results |
+
+Fourteen new text logs under testing/subsystem3/logs/ use the prefix
+2026-10-15_phase2_: arm_objects, buddy2_regression, failure_propagation,
+firmware_default, firmware_uart, headers, integration_probe, native, native_smp0,
+negative_probe, ownership, provisioning, publication and static_analysis.
+No binary, SDK, toolchain, build output or hardware measurement is committed.
+
+The existing pure line, barcode and core algorithms are unchanged. All other
+subsystems and shared app/kernel/driver/library/configuration code are unchanged.
+The S2 host fixtures were copied only into ignored .build storage for regression
+execution; no production board pin header was manufactured.

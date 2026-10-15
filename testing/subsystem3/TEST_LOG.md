@@ -1,6 +1,6 @@
 # Subsystem 3 — test log
 
-**Subsystem:** Consumer (example)  ·  **Student ID:** <student ID>  ·  **Code:** `app_program/subsystem3/`
+**Subsystem:** Buddy 3 IR line following/barcode decoding  ·  **Student ID:** 2500383  ·  **Code:** `app_program/subsystem3/`
 
 See `testing/README.md` for how to run tests and record results.
 
@@ -94,3 +94,69 @@ The -B option forces a complete native rebuild for recorded compiler evidence.
 Without -B, the documented/CI test command still executes both test binaries.
 
 Saved console logs normalize CRLF to LF and remove trailing whitespace only.
+
+
+## Phase 2 definitions and final verification
+
+Code commit: e0a44481e0d9034adcd53233cbfda0be215f7cae (following f5461c1).
+The subsequent evidence commit changes documentation/logs and removes a trailing
+blank line from the host fixture only. All original 19 native groups remain.
+S3-U21 still checks that the actual unconfigured ADC pad defaults fail safely;
+its old E_NOSPT gate is now supplemented by the pad-enabled worker tests below.
+
+| ID | What is tested | Method | Expected result |
+|---|---|---|---|
+| S3-U22 | ADC three-channel permutation, pipelining, oldest timestamp and wrap | Actual client/worker with native device fakes | Complete correctly ordered scan; one request outstanding |
+| S3-U23 | Deadline edge, no response, late 1000 ms read and rollover | Native fake time | Invalid/held at deadline; no retry or stale success |
+| S3-U24 | Unavailable exclusive device and returned read error | Native boundary | Original error; zero valid readings |
+| S3-U25 | Out-of-range, short/oversized read, invalid mask/time/sequence | Native boundary | Entire scan rejected; terminal hold |
+| S3-U26 | MBF/task allocation/start failures and sole-owner access | Native boundary | Cleanup/retry before activation; no unauthorized ADC calls |
+| S3-U27 | Bad channel/request, malformed/full MBFs and clock error | Native boundary | Explicit errors without blocking or unsafe reads |
+| S3-U28 | ADC tracking/status/raw data, override and failed-ADC resume | Actual subsystem service with native boundaries | Fresh tracking only; override/terminal fault cannot revive steering |
+| S3-U29 | Sampler runs while a fake legacy read remains blocked | Deterministic interleaving | Deadline fault event delivered before worker returns; no client device call |
+| S3-U30 | Unavailable/corrupt/short acquisition faults and raw snapshot | Actual subsystem service | Correct acquisition ER, one fault, zero invalid raw values |
+| S3-B03 | Real Cortex-M0+ compilation of all Buddy 3 sources, SMP=0/1 | ARM compiler object check | Real ARM objects; separately labelled from full firmware link |
+| S3-I01 | Existing Buddy 2 host tests, all six modes | Unchanged S2 source/fixtures | Existing tests pass without S2 edits |
+| S3-I02 | Existing shared-source dependency failures | Host syntax-only diagnostic probe | Expose missing board pins and S2/S4 stale declarations; never called an ARM build |
+
+| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
+|---|---|---|---|---|---|---|
+| 2026-10-15 | All 28 native groups | e0a4448 | Codex/GCC 15.2.0 | PASS | [native](logs/2026-10-15_phase2_native.txt) | 529 algorithm + 15,261 adapter + 1,012 ADC assertions = 16,802; zero failures/warnings; all three binaries execute |
+| 2026-10-15 | All 28 groups, SMP=0 boundary build | e0a4448 | Codex/native GCC | PASS | [SMP=0](logs/2026-10-15_phase2_native_smp0.txt) | 529 + 15,253 + 973 assertions; no errors/warnings; affinity-specific fake invariants omitted only because this is the real single-core preprocessor profile |
+| 2026-10-15 | GCC static analysis and full native suite | e0a4448 | Codex/-fanalyzer | PASS | [analysis](logs/2026-10-15_phase2_static_analysis.txt) | Strict -Werror/-Wshadow/-Wconversion; zero diagnostics; all 28 groups execute |
+| 2026-10-15 | S3-B01 | e0a4448 | Codex/real kernel header parsing | PASS | [headers](logs/2026-10-15_phase2_headers.txt) | SMP=0/1 and TEST=1, including the new ADC worker; host parsing only |
+| 2026-10-15 | S3-CI01 | e0a4448 | Codex/actual test target | PASS | [verification](logs/2026-10-15_phase2_failure_propagation.txt), [direct negative](logs/2026-10-15_phase2_negative_probe.txt) | False assertion makes binary exit 1 and Make exit 2; verification target correctly recognizes failure |
+| 2026-10-15 | S3-I01 | e0a4448 | Codex/existing S2 tests | PASS | [six modes](logs/2026-10-15_phase2_buddy2_regression.txt) | run.ps1 was execution-policy blocked; compiled/ran its unchanged fixtures and six exact flag sets directly with GCC; all six pass, zero compiler diagnostics |
+| 2026-10-15 | S3-I02 | e0a4448 | Codex/host dependency probe | BLOCKED (expected diagnostic) | [probe](logs/2026-10-15_phase2_integration_probe.txt) | Missing production board_pins.h; removed SAMPLE_MSG/sem_slots/mpf_samples/S2_PERIOD_MS; not an ARM firmware result |
+| 2026-10-15 | Toolchain provisioning | e0a4448 | Codex/environment | BLOCKED | [provisioning](logs/2026-10-15_phase2_provisioning.txt) | ARM GCC/binutils/SDK absent; official download networking blocked; WSL enumeration denied; no installer completed |
+| 2026-10-15 | S3-B03 | e0a4448 | Codex/actual arm-check command | BLOCKED | [ARM objects](logs/2026-10-15_phase2_arm_objects.txt) | Compiler executable absent; Make exit 2, no ARM object produced |
+| 2026-10-15 | S3-B02 default firmware | e0a4448 | Codex/project Makefile | BLOCKED | [default](logs/2026-10-15_phase2_firmware_default.txt) | Actual exit 2 at missing Arm GCC guard; no successful compile/link/UF2 |
+| 2026-10-15 | S3-B02 UART/no-radio firmware | e0a4448 | Codex/project Makefile | BLOCKED | [UART](logs/2026-10-15_phase2_firmware_uart.txt) | Actual exit 2 at same prerequisite; not a substituted SDK/stub build |
+| 2026-10-15 | Ownership and whitespace | Phase 2 tree | Codex/Git | PASS | [scope](logs/2026-10-15_phase2_ownership.txt) | Other buddies, kernel/device/config/lib and shared app code unchanged; only empty ADC ownership row claimed in TEAM.md |
+| 2026-10-15 | GitHub upload, PR, CI, merge | Phase 2 local commits | GitHub API | BLOCKED / NOT RUN | [publication](logs/2026-10-15_phase2_publication.txt) | Git tree and PR creation HTTP 403 despite account Write/Admin; no successful refresh action exposed; remote branch still e292334, no PR exists |
+| 2026-10-15 | S3-M01..M11 and on-target smoke | Phase 2 | No hardware | NOT RUN | [bench protocol](HARDWARE_VALIDATION.md) | No physical measurements, flashing or vehicle movement |
+
+Exact root-relative commands:
+
+~~~sh
+make -B -C testing/subsystem3 test CPPFLAGS="-I../../app_program/subsystem3 -DTK_SUPPORT_SMP=0"
+make -C testing/subsystem3 analyze
+make -B -C testing/subsystem3 test
+make -C testing/subsystem3 check-headers
+make -C testing/subsystem3 verify-failure
+make -C testing/subsystem3 test TEST_ARGS=--force-failure  # expected Make exit 2
+make -C testing/subsystem3 arm-check
+make -C build_make -j2
+make -C build_make CONSOLE=uart WIFI=none -j2
+git diff --exit-code e292334 -- app_program/subsystem1 app_program/subsystem2 app_program/subsystem4 app_program/subsystem5 app_program/app.h app_program/app_main.c device kernel config lib
+git diff --check e292334
+~~~
+
+The S2 log contains exact GCC argument arrays for its six existing modes. No
+host board fixture was copied into production app_program/board_pins.h. Native
+assertion totals include repeated fake-kernel invariants, not independent cases.
+The CI firmware job installs real Arm GCC/newlib and SDK dependencies, compiles
+Buddy 3 ARM objects and attempts the complete standard Make build; it does not
+hide missing dependencies or ignore failures. It has not executed remotely yet.
+Main remains unchanged. Firmware success, required CI, controller/board integration
+and team approvals remain merge gates. There is no merge commit or main CI result.
