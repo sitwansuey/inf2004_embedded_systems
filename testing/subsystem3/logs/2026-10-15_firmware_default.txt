@@ -1,0 +1,11 @@
+Tested commit: 93f71ae0effb76f3a535e948e8c1e098934c7ee8
+Command: C:/msys64/usr/bin/bash.exe -c export PATH=/ucrt64/bin:/usr/bin:$PATH; make -C build_make -j2
+Exit code: 2
+Expected exit code: 2
+
+STDOUT
+make: Entering directory '/c/Users/godga/IdeaProjects/ES/inf2004_embedded_systems/build_make'
+make: Leaving directory '/c/Users/godga/IdeaProjects/ES/inf2004_embedded_systems/build_make'
+
+STDERR
+pico_rp2040.mk:130: *** arm-none-eabi-gcc not found. Add your Arm GNU Toolchain 'bin' folder to PATH, e.g. export PATH="/path/to/arm-gnu-toolchain/bin:$PATH".  Stop.
