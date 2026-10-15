@@ -26,11 +26,16 @@ static UINT create_error_at;
 static UINT delete_count;
 static UINT send_error;
 static UINT renewal_writes;
+static s2_move_command_t renewal_command;
 static INT expected_left;
 static INT expected_right;
 static INT lock_count;
 static jmp_buf task_exit;
 static void (*p_receive_hook)(void);
+#if S2_ENCODER_ENABLED
+static void (*p_gpio_read_hook)(void);
+static UINT gpio_input_reads;
+#endif
 
 static void assert_off(void)
 {
@@ -80,12 +85,20 @@ static void reset_fixture(void)
     send_error = 0;
     lock_count = 0;
     p_receive_hook = NULL;
-#if APP_S2_ONLY && S2_ENCODER_ENABLED
-    encoder_ready = FALSE;
+    renewal_command = S2_MOVE_FORWARD;
+#if S2_ENCODER_ENABLED
+    p_gpio_read_hook = NULL;
+    gpio_input_reads = 0;
+    __atomic_store_n(&encoder_ready, 0U, __ATOMIC_RELEASE);
+    encoder_sequence = 0;
     encoder_positive = 0;
     encoder_negative = 0;
     encoder_a_edges = 0;
     encoder_b_edges = 0;
+    encoder1_positive = 0;
+    encoder1_negative = 0;
+    encoder1_a_edges = 0;
+    encoder1_b_edges = 0;
 #endif
 }
 
@@ -287,6 +300,19 @@ UW in_w(UW address)
     {
         ++encoder_accesses;
     }
+#if S2_ENCODER_ENABLED
+    if (address == GPIO_IN)
+    {
+        ++gpio_input_reads;
+        if (p_gpio_read_hook != NULL)
+        {
+            void (*hook)(void) = p_gpio_read_hook;
+
+            p_gpio_read_hook = NULL;
+            hook();
+        }
+    }
+#endif
     return registers[address / 4U];
 }
 
@@ -363,19 +389,19 @@ static void renewal_hook(void)
     {
         assert_status(S2_MOTION_MOVING, E_OK);
         renewal_writes = pwm_writes;
-        now_ms = 500;
-        assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+        now_ms = S2_COMMAND_TIMEOUT_MS / 2U;
+        assert(s2_movement_send(renewal_command, 30) == E_OK);
     }
     if (receive_count == 3U)
     {
         assert(pwm_writes == renewal_writes);
-        now_ms = 1250;
-        assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+        now_ms = S2_COMMAND_TIMEOUT_MS + S2_COMMAND_TIMEOUT_MS / 4U;
+        assert(s2_movement_send(renewal_command, 30) == E_OK);
     }
     if (receive_count == 4U)
     {
         assert(pwm_writes == renewal_writes);
-        now_ms = 1300;
+        now_ms = S2_COMMAND_TIMEOUT_MS + S2_COMMAND_TIMEOUT_MS / 3U;
         assert(s2_movement_send(S2_MOVE_STOP, 0) == E_OK);
     }
     if (receive_count == 5U)
@@ -475,11 +501,21 @@ static void test_stale_and_invalid_messages(void)
     assert(nonzero_writes == 0U);
 
     setup();
-    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    assert(s2_movement_send(S2_MOVE_RIGHT, 30) == E_OK);
     now_ms = S2_COMMAND_TIMEOUT_MS - 1U;
+    /* Fresh at dequeue, expired during the one-millisecond reversal deadtime. */
     run_task();
     assert_status(S2_MOTION_FAULT, E_TMOUT);
     assert(nonzero_writes == 0U);
+    assert(now_ms == S2_COMMAND_TIMEOUT_MS);
+
+    setup();
+    assert(s2_movement_send(S2_MOVE_RIGHT, 30) == E_OK);
+    now_ms = S2_COMMAND_TIMEOUT_MS - 2U;
+    run_task();
+    assert_status(S2_MOTION_FAULT, E_TMOUT);
+    assert(nonzero_writes == 2U);
+    assert(now_ms == S2_COMMAND_TIMEOUT_MS);
 
     setup();
     assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
@@ -491,12 +527,28 @@ static void test_stale_and_invalid_messages(void)
 
 static void test_renewal_and_recovery(void)
 {
-    setup();
-    p_receive_hook = renewal_hook;
-    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
-    run_task();
-    assert_status(S2_MOTION_STOPPED, E_OK);
-    assert(now_ms == 1300U);
+    const s2_move_command_t commands[] =
+    {
+        S2_MOVE_FORWARD, S2_MOVE_LEFT, S2_MOVE_RIGHT
+    };
+
+    for (UINT i = 0; i < sizeof(commands) / sizeof(commands[0]); ++i)
+    {
+        setup();
+        renewal_command = commands[i];
+        p_receive_hook = renewal_hook;
+        assert(s2_movement_send(renewal_command, 30) == E_OK);
+        run_task();
+        assert_status(S2_MOTION_STOPPED, E_OK);
+        assert(now_ms == S2_COMMAND_TIMEOUT_MS + S2_COMMAND_TIMEOUT_MS / 3U);
+
+        setup();
+        assert(s2_movement_send(commands[i], 30) == E_OK);
+        run_task();
+        assert_status(S2_MOTION_FAULT, E_TMOUT);
+        assert(now_ms == S2_COMMAND_TIMEOUT_MS);
+        assert(nonzero_writes == 2U);
+    }
 
     setup();
     p_receive_hook = recovery_hook;
@@ -569,35 +621,113 @@ static void test_clock_errors_and_zero_power(void)
     assert(nonzero_writes == 0U);
 }
 
+#if S2_ENCODER_ENABLED
+static void queue_forward_encoder_edges(void)
+{
+    registers[S2_ENCODER1_A_INTR / 4U] |= S2_ENCODER1_A_RISING;
+    registers[S2_ENCODER1_B_INTR / 4U] |= S2_ENCODER1_B_EDGES;
+    registers[S2_ENCODER_A_INTR / 4U] |= S2_ENCODER_A_RISING;
+    registers[S2_ENCODER_B_INTR / 4U] |= S2_ENCODER_B_EDGES;
+    registers[GPIO_IN / 4U] = 1U << BOARD_MOTOR2_ENCODER_B_GPIO;
+    encoder_interrupt(S2_ENCODER_IRQ);
+}
+#endif
+
+static void assert_encoder_zero(const s2_encoder_status_t *p_status)
+{
+    const s2_encoder_status_t zero = {0};
+
+    assert(memcmp(p_status, &zero, sizeof(zero)) == 0);
+}
+
 static void test_encoder_mode(void)
 {
     s2_encoder_status_t status;
 
     setup();
-    run_task();
-#if APP_S2_ONLY && S2_ENCODER_ENABLED
+    memset(&status, 0xff, sizeof(status));
+#if S2_ENCODER_ENABLED
     assert(s2_encoder_get_status(&status) == E_OK);
+#else
+    assert(s2_encoder_get_status(&status) == E_NOSPT);
+#endif
+    assert_encoder_zero(&status);
+    run_task();
+#if S2_ENCODER_ENABLED
+    assert(s2_encoder_get_status(&status) == E_OK);
+    assert(status.valid == 1U);
+    assert(status.motor1_forward_counts == 0 && status.motor2_forward_counts == 0);
     assert(registers[S2_ENCODER_A_INTE / 4U] & S2_ENCODER_A_EDGES);
     assert(registers[S2_ENCODER_B_INTE / 4U] & S2_ENCODER_B_EDGES);
-    registers[S2_ENCODER_A_INTR / 4U] |= S2_ENCODER_A_RISING;
-    registers[S2_ENCODER_B_INTR / 4U] |= S2_ENCODER_B_EDGES;
-    registers[GPIO_IN / 4U] = 1U << BOARD_MOTOR2_ENCODER_B_GPIO;
-    encoder_interrupt(S2_ENCODER_IRQ);
+    assert(registers[S2_ENCODER1_A_INTE / 4U] & S2_ENCODER1_A_EDGES);
+    assert(registers[S2_ENCODER1_B_INTE / 4U] & S2_ENCODER1_B_EDGES);
+
+    /* Leave an unrelated interrupt pending: the handler owns only encoder edges. */
+    registers[S2_ENCODER_A_INTR / 4U] |= 1U;
+    queue_forward_encoder_edges();
     assert(s2_encoder_get_status(&status) == E_OK);
     assert(status.positive_pulses == 1U && status.negative_pulses == 0U);
     assert(status.a_edges == 1U && status.b_edges == 1U);
+    assert(status.motor1_positive_pulses == 0U && status.motor1_negative_pulses == 1U);
+    assert(status.motor1_a_edges == 1U && status.motor1_b_edges == 1U);
+    assert(status.motor1_forward_counts == 1 && status.motor2_forward_counts == 1);
+    assert(status.a_level == 0U && status.b_level == 1U);
+    assert(status.motor1_a_level == 0U && status.motor1_b_level == 0U);
+    assert(registers[S2_ENCODER_A_INTR / 4U] & 1U);
+    assert((registers[S2_ENCODER_A_INTR / 4U] & S2_ENCODER_A_EDGES) == 0U);
+    assert((registers[S2_ENCODER_B_INTR / 4U] & S2_ENCODER_B_EDGES) == 0U);
+    assert((registers[S2_ENCODER1_A_INTR / 4U] & S2_ENCODER1_A_EDGES) == 0U);
+    assert((registers[S2_ENCODER1_B_INTR / 4U] & S2_ENCODER1_B_EDGES) == 0U);
+
+    /* Reverse both wheels; one A rising edge must cancel each forward count. */
+    registers[S2_ENCODER1_A_INTR / 4U] |= S2_ENCODER1_A_RISING;
     registers[S2_ENCODER_A_INTR / 4U] |= S2_ENCODER_A_RISING;
-    registers[GPIO_IN / 4U] = 0;
+    registers[GPIO_IN / 4U] = (1U << BOARD_MOTOR1_ENCODER_B_GPIO) |
+                             (1U << BOARD_MOTOR1_ENCODER_A_GPIO) |
+                             (1U << BOARD_MOTOR2_ENCODER_A_GPIO);
     encoder_interrupt(S2_ENCODER_IRQ);
     assert(s2_encoder_get_status(&status) == E_OK);
     assert(status.positive_pulses == 1U && status.negative_pulses == 1U);
     assert(status.a_edges == 2U && status.b_edges == 1U);
+    assert(status.motor1_positive_pulses == 1U && status.motor1_negative_pulses == 1U);
+    assert(status.motor1_a_edges == 2U && status.motor1_b_edges == 1U);
+    assert(status.motor1_forward_counts == 0 && status.motor2_forward_counts == 0);
+    assert(status.a_level == 1U && status.b_level == 0U);
+    assert(status.motor1_a_level == 1U && status.motor1_b_level == 1U);
+
+    /* Falling A edges count as diagnostics, never as x1 position pulses. */
+    registers[S2_ENCODER1_A_INTR / 4U] |= S2_ENCODER1_A_EDGES & ~S2_ENCODER1_A_RISING;
+    registers[S2_ENCODER_A_INTR / 4U] |= S2_ENCODER_A_EDGES & ~S2_ENCODER_A_RISING;
+    encoder_interrupt(S2_ENCODER_IRQ);
+    assert(s2_encoder_get_status(&status) == E_OK);
+    assert(status.a_edges == 3U && status.motor1_a_edges == 3U);
+    assert(status.positive_pulses == 1U && status.negative_pulses == 1U);
+    assert(status.motor1_positive_pulses == 1U && status.motor1_negative_pulses == 1U);
+
+    /* Interrupt the snapshot between wheel copies: retry must include both updates. */
+    UINT reads_before = gpio_input_reads;
+
+    p_gpio_read_hook = queue_forward_encoder_edges;
+    assert(s2_encoder_get_status(&status) == E_OK);
+    assert(gpio_input_reads >= reads_before + 2U);
+    assert(p_gpio_read_hook == NULL);
+    assert(status.positive_pulses == 2U && status.negative_pulses == 1U);
+    assert(status.motor1_positive_pulses == 1U && status.motor1_negative_pulses == 2U);
+    assert(status.motor1_forward_counts == 1 && status.motor2_forward_counts == 1);
+    assert(status.a_edges == 4U && status.motor1_a_edges == 4U);
+    assert(status.b_edges == 2U && status.motor1_b_edges == 2U);
+
+    /* Unsigned pulse subtraction preserves signed position across counter rollover. */
+    encoder_positive = 0U;
+    encoder_negative = UINT32_MAX;
+    encoder1_positive = UINT32_MAX;
+    encoder1_negative = 0U;
+    assert(s2_encoder_get_status(&status) == E_OK);
+    assert(status.motor1_forward_counts == 1 && status.motor2_forward_counts == 1);
 #else
     memset(&status, 0xff, sizeof(status));
     assert(s2_encoder_get_status(&status) == E_NOSPT);
-    assert(status.positive_pulses == 0U && status.negative_pulses == 0U);
-    assert(status.a_edges == 0U && status.b_edges == 0U);
-    assert(status.a_level == 0U && status.b_level == 0U);
+    assert_encoder_zero(&status);
     assert(encoder_accesses == 0U);
 #endif
 }

@@ -4,6 +4,10 @@
 
 # app_program/*.c plus one level of subfolders (one per subsystem)
 TEMP_SRCS = $(wildcard ../app_program/*.c) $(wildcard ../app_program/*/*.c)
+ifeq ($(S2_ONLY),1)
+TEMP_SRCS = ../app_program/app_main.c ../app_program/subsystem2/subsystem2.c \
+            ../app_program/subsystem2/subsystem2_test.c
+endif
 TEMP_OBJS = $(TEMP_SRCS:.c=.o)
 TEMP_DEPS = $(TEMP_SRCS:.c=.d)
 

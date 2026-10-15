@@ -20,7 +20,7 @@
 #error "S2_COMMAND_TIMEOUT_MS must fit a positive TMO value"
 #endif
 
-/* Leave disabled until the encoder is mounted and wired. */
+/* Enable after confirming the encoder wiring in board_pins.h. */
 #ifndef S2_ENCODER_ENABLED
 #define S2_ENCODER_ENABLED 0
 #endif
@@ -34,8 +34,8 @@ typedef enum
     S2_MOVE_STOP,
     S2_MOVE_FORWARD,
     S2_MOVE_REVERSE,
-    S2_MOVE_LEFT,
-    S2_MOVE_RIGHT,
+    S2_MOVE_LEFT,        /* Rotate counterclockwise: left reverse, right forward. */
+    S2_MOVE_RIGHT,       /* Rotate clockwise: left forward, right reverse. */
     S2_MOVE_PIVOT_RIGHT, /* Left wheel forward, right wheel stopped. */
     S2_MOVE_PIVOT_LEFT   /* Left wheel stopped, right wheel forward. */
 } s2_move_command_t;
@@ -66,12 +66,22 @@ typedef struct
 
 typedef struct
 {
+    /* Legacy field names refer to motor 2 (right wheel). */
     UW positive_pulses;
     UW negative_pulses;
     UW a_edges;
     UW b_edges;
     UINT a_level;
     UINT b_level;
+    UW motor1_positive_pulses;
+    UW motor1_negative_pulses;
+    UW motor1_a_edges;
+    UW motor1_b_edges;
+    UINT motor1_a_level;
+    UINT motor1_b_level;
+    INT motor1_forward_counts;
+    INT motor2_forward_counts;
+    UINT valid; /* Zero until encoder initialization completes. */
 } s2_encoder_status_t;
 
 IMPORT ER subsystem2_init(void);
@@ -87,8 +97,11 @@ IMPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent);
 /* Reports commanded output, not measured wheel motion. Task context only. */
 IMPORT ER s2_motion_get_status(s2_motion_status_t *p_status);
 /* E_NOSPT and zeroed output when encoder diagnostics are disabled.
- * Diagnostics require APP_S2_ONLY=1 and S2_ENCODER_ENABLED=1.
- * Counts one pulse per rising edge of A; sign depends on wiring.
+ * Enable with S2_ENCODER_ENABLED=1, in standalone or integrated builds.
+ * Task context on either core. E_OK with valid=0 during startup.
+ * Both wheels share a consistent cumulative x1 count snapshot (modulo 32 bits).
+ * Forward signs follow the downloaded wiring: motor 1 negative, motor 2 positive.
+ * GPIO levels are live samples; these counts do not provide PID or angle control.
  */
 IMPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status);
 
