@@ -17,6 +17,7 @@
 #define FALSE 0
 #define TRUE 1
 #define TMO_POL 0
+#define TMO_FEVR (-1)
 #define TA_TFIFO 0U
 #define TA_MFIFO 0U
 #define TA_INHERIT 2U
@@ -70,6 +71,7 @@ ID tk_cre_mbx(const T_CMBX *p_config);
 ID tk_cre_mtx(const T_CMTX *p_config);
 ID tk_cre_mbf(const T_CMBF *p_config);
 ID tk_cre_tsk(const T_CTSK *p_config);
+ER tk_del_mbf(ID object);
 ER tk_del_mbx(ID object);
 ER tk_del_mtx(ID object);
 ER tk_del_tsk(ID object);
@@ -82,6 +84,8 @@ ID tk_get_tid(void);
 ER tk_get_tim(SYSTIM *p_time);
 ER tk_snd_mbf(ID object, const void *p_data, INT length, TMO timeout);
 INT tk_rcv_mbf(ID object, void *p_data, TMO timeout);
+ID tk_opn_dev(const UB *p_name, UINT mode);
+ER tk_srea_dev(ID descriptor, W channel, void *p_buffer, SZ size, SZ *p_actual);
 ER gpio_set_pin(UINT pin, UINT mode);
 UINT gpio_get_val(UINT pin);
 #endif

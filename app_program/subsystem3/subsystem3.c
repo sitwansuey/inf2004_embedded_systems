@@ -1,4 +1,5 @@
 #include "subsystem3.h"
+#include "drv_ir_adc.h"
 
 
 EXPORT ID mbx_samples;
@@ -10,6 +11,7 @@ static ID h_controller;
 static ID h_task;
 static bool started;
 static bool acquisition_attempted;
+static ER acquisition_open_error;
 static uint32_t applied_generation;
 static s3_adapter_config_t configuration;
 static s3_status_t status;
@@ -106,7 +108,7 @@ EXPORT ER s3_configure(const s3_adapter_config_t *p_config)
     {
         return E_PAR;
     }
-    if (p_config->ir.mode == S3_IR_ADC)
+    if ((p_config->ir.mode == S3_IR_ADC) && !s3_adc_available())
     {
         return E_NOSPT;
     }
@@ -347,7 +349,7 @@ EXPORT ER s3_service_once(void)
     s3_mode_t mode;
     bool marker_clear;
     bool active;
-    s3_sample_t sample;
+    s3_sample_t sample = {0};
     s3_output_t output = {0};
     ER acquisition;
     ER er;
@@ -396,14 +398,12 @@ EXPORT ER s3_service_once(void)
     if (!acquisition_attempted)
     {
         acquisition_attempted = true;
-        acquisition = s3_ir_open(&ir, &configuration.ir);
-        if ((acquisition < E_OK) && (acquisition != E_NOSPT))
-        {
-            s3_core_fault(&core, S3_ERROR_SENSOR);
-        }
+        acquisition_open_error = s3_ir_open(&ir, &configuration.ir);
     }
-    acquisition = s3_ir_poll(&ir, (uint32_t)now.lo, &sample);
-    if (acquisition != E_TMOUT)
+    sample.time_ms = (uint32_t)now.lo;
+    acquisition = (acquisition_open_error < E_OK) ? acquisition_open_error :
+                  s3_ir_poll(&ir, (uint32_t)now.lo, &sample);
+    if ((acquisition != E_TMOUT) || !s3_ir_waiting(&ir))
     {
         s3_core_step(&core, &sample, &output);
     }

@@ -9,17 +9,21 @@ CORE_SOURCES = ../../app_program/subsystem3/buddy3_line.c \
                ../../app_program/subsystem3/buddy3_core.c
 CORE_HEADERS = $(wildcard ../../app_program/subsystem3/buddy3_*.h)
 ADAPTER_SOURCES = test_adapter.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES)
-ADAPTER_DEPS = host_support.h ../../app_program/subsystem3/subsystem3.c \
+ADAPTER_DEPS = host_support.h adapter_fixture.h \
+               ../../app_program/subsystem3/drv_ir_adc.c \
+               ../../app_program/subsystem3/drv_ir_adc.h ../../app_program/subsystem3/subsystem3.c \
                ../../app_program/subsystem3/subsystem3.h \
                ../../app_program/subsystem3/task_consumer.c \
                ../../app_program/subsystem3/drv_ir.h $(CORE_HEADERS)
 BINARY = .build/test_buddy3$(EXEEXT)
 ADAPTER = .build/test_adapter$(EXEEXT)
+ADC_TEST = .build/test_adc$(EXEEXT)
 
 .PHONY: test verify-failure check-headers clean
-test: $(BINARY) $(ADAPTER)
+test: $(BINARY) $(ADAPTER) $(ADC_TEST)
 	./$(BINARY) $(TEST_ARGS)
 	./$(ADAPTER)
+	./$(ADC_TEST)
 
 $(BINARY): test_buddy3.c $(CORE_SOURCES) $(CORE_HEADERS)
 	mkdir -p .build
@@ -29,13 +33,17 @@ $(ADAPTER): $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -include host_support.h $(ADAPTER_SOURCES) $(LDFLAGS) -o $@
 
-verify-failure: $(BINARY) $(ADAPTER)
+$(ADC_TEST): test_adc.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+
+verify-failure: $(BINARY) $(ADAPTER) $(ADC_TEST)
 	@if $(MAKE) --no-print-directory test TEST_ARGS=--force-failure; then \
 	    echo "ERROR: failing assertion was swallowed"; exit 1; \
 	else echo "PASS: test target propagated a real failed assertion"; fi
 
 clean:
-	rm -f $(BINARY) $(ADAPTER)
+	rm -f $(BINARY) $(ADAPTER) $(ADC_TEST)
 
 # Host parsing only: kernel MMIO casts are 32-bit, host pointers may be 64-bit.
 # -ffreestanding also selects GCC's standard integer definitions, as firmware does.
@@ -47,7 +55,36 @@ check-headers:
 	      -DCNF_SMP=$$smp -DAPP_TEST=1 -DTM_CONSOLE_UART=0 \
 	      -I../../include -I../../config -I../../kernel/knlinc \
 	      ../../app_program/subsystem3/drv_ir.c \
+	      ../../app_program/subsystem3/drv_ir_adc.c \
 	      ../../app_program/subsystem3/subsystem3.c \
 	      ../../app_program/subsystem3/task_consumer.c \
 	      ../../app_program/subsystem3/subsystem3_test.c || exit $$?; \
+	done
+
+
+.PHONY: analyze arm-check
+analyze:
+	$(MAKE) --no-print-directory -B test CFLAGS="$(CFLAGS) -fanalyzer -O1"
+
+# Real Cortex-M0+ object compilation, separately labelled from a firmware link.
+# No host stubs, SDK substitutions, or replacement subsystem implementations.
+ARM_CC ?= arm-none-eabi-gcc
+ARM_SOURCES = $(CORE_SOURCES) ../../app_program/subsystem3/drv_ir.c \
+              ../../app_program/subsystem3/drv_ir_adc.c \
+              ../../app_program/subsystem3/subsystem3.c \
+              ../../app_program/subsystem3/task_consumer.c \
+              ../../app_program/subsystem3/subsystem3_test.c
+arm-check:
+	$(ARM_CC) --version
+	@for smp in 0 1; do \
+	    mkdir -p .build/arm-smp$$smp; \
+	    for source in $(ARM_SOURCES); do \
+	        name=$$(basename "$$source" .c); \
+	        $(ARM_CC) -mcpu=cortex-m0plus -mthumb -mfloat-abi=soft \
+	          -std=gnu11 -ffreestanding -O2 -Wall -Wextra -Werror \
+	          -D_PICO_RP2040_ -DCNF_SMP=$$smp -DAPP_TEST=1 -DTM_CONSOLE_UART=0 \
+	          -I../../include -I../../config -I../../kernel/knlinc \
+	          -c "$$source" -o ".build/arm-smp$$smp/$$name.o" || exit $$?; \
+	    done; \
+	    echo "PASS: Buddy 3 ARM object compilation SMP=$$smp"; \
 	done

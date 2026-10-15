@@ -4,10 +4,11 @@ Student ID: 2500383. This module produces tracking results and navigation
 requests for the Vehicle Controller. It never executes movement. Motor PWM,
 encoders, motion leases and actual turns remain Buddy 2/controller responsibilities.
 
-The native algorithms and digital GPIO adapter are implemented and tested.
-Hardware acquisition is disabled at boot. Analogue acquisition explicitly returns
-E_NOSPT: the existing kernel ADC driver cannot currently meet the sampling
-contract. A/Z navigation mappings remain NONE until the team supplies its map.
+The native algorithms, digital GPIO adapter and optional kernel ADC worker are
+implemented and host tested. Hardware acquisition remains disabled at boot. ADC
+activation requires the board/kernel owner to verify the wiring and configure
+all three analogue pads; the checked-in board flags still produce E_NOSPT.
+A/Z navigation mappings remain NONE until the team supplies its map.
 This is an integration candidate; no robot or sensor performance is claimed.
 
 ## Repository audit and ownership
@@ -24,7 +25,9 @@ Actions workflow or native Buddy 3 runner was present.
 app_main.c initializes all subsystems, then starts all of them. The application
 Make fragment picks up every .c directly in app_program and one subsystem level.
 All Buddy 3 production sources stay at that level; host tests live under testing.
-No shared configuration, other buddy subsystem, motor or kernel file is changed.
+No shared configuration, other buddy subsystem, motor or kernel code is changed.
+Phase 2 claims the previously empty ADC peripheral ownership row in TEAM.md;
+that claim does not establish sensor wiring or change pad configuration.
 
 TEAM.md still documents the sample application. Its 16-17 priority band is used:
 consumer_task is now the Buddy 3 sampling task, priority 16, core 0 under SMP.
@@ -52,7 +55,8 @@ checkout of the original signed commit and tree. See testing/subsystem3/AUDIT.md
 | buddy3_line.c/h | Labelled calibration, polarity, reflectance normalization, hysteresis, weighted error, loss and junction indications |
 | buddy3_barcode.c/h | Bounded transition capture, observed A/Z profile validation, reverse decoding and marker hold/rearm |
 | buddy3_core.c/h | Sample/time validation, mode control, navigation mapping and bounded recovery requests |
-| drv_ir.c/h | Sole-task digital GPIO sampling; explicit disabled/unsupported ADC states |
+| drv_ir.c/h | Digital GPIO sampling and bounded ADC client, explicit disabled/error states |
+| drv_ir_adc.c/h | Priority-17 worker owns exclusive kernel ADC descriptor; one-entry copied request/reply buffers |
 | subsystem3.c/h | Lifecycle, controller binding/lease, copied event message buffer and status snapshots |
 | task_consumer.c | Periodic kernel task; no motor calls, busy waits or blocking mutex waits |
 | subsystem3_test.c | Two pure algorithm smoke checks for TEST=1 images; not physical verification |
@@ -84,33 +88,47 @@ storage/persistence and the operator procedure are team integration work. Digita
 modules need their comparator adjusted physically; software cannot recover the
 analogue reflectance discarded by a digital comparator.
 
-## Sensor activation and ADC blocker
+## Sensor activation and bounded ADC acquisition
 
-No GP26/27/28 assignment is silently selected. The supplied write-up proposes
-those pins but labels the signals DO/SIG and analogue inconsistently; TEAM.md
-contains no IR pin or ADC ownership claim. Verify voltage, output type and
-placement, then claim pins before configuring. Reserved radio pins and the
-existing GP19 LED are rejected. GP0/1 are rejected when UART console is enabled.
-The remaining proposed assignments in the write-up also need team reconciliation.
+No pin assignment is selected at boot. Verify sensor supply/output voltage,
+AO versus DO, sensor-to-pin permutation, polarity and physical placement before
+claiming pins. Digital mode uses the repository BSP without changing ADC/PWM.
+Configure raw_max=1 for measured digital comparator levels.
 
-Digital acquisition uses gpio_set_pin(..., GPIO_MODE_IN) and gpio_get_val from
-the repository BSP. It does not choose pulls, enable outputs or touch ADC/PWM.
-Set raw_max=1 and measured white/black levels (0/1, either polarity).
+ADC mode uses the existing kernel device "adca" through s3_adc_worker, priority
+17 on core 0 (priority 16 sampling task). The worker is the sole application
+ADC owner and uses TD_READ | TD_EXCL. The kernel retains register/IRQ ownership.
+No SDK ADC initialization, register writes, DMA or motor calls are introduced.
+The previously empty ADC row in TEAM.md records this optional ownership.
 
-Analogue calibration and processing accept 12-bit values, but S3_IR_ADC is
-rejected by both s3_configure and s3_ir_open with E_NOSPT, without pin access.
-This is deliberate, not a skipped test or a successful analogue hardware read:
+The kernel does not honour TMO_POL at read submission. It calls the driver
+synchronously under FastLock; a conversion can wait 1000 ms and READY loops
+are unbounded. Therefore the sampling task never calls a device function. It
+exchanges copied, fixed-size messages with a worker through two one-entry
+micro T-Kernel message buffers. Every client send/receive uses TMO_POL. The
+worker may block in the legacy driver; it holds no Buddy 3 status mutex.
 
-- config/config_device.h enables the kernel ADC; all ADC pad init flags are FALSE.
-- device/common/drvif/msdrvif.c: msdi_execfn calls the read function synchronously
-  under its lock and does not use its timeout argument.
-- device/adc/sysdepend/rp2040/adc_rp2040.c: adc_convert waits up to 1000 ms and
-  contains READY busy waits. tk_rea_dev(..., TMO_POL) therefore is not a bounded
-  asynchronous solution in this repository.
-- The kernel/ADC owner must supply bounded, timestamped acquisition and configure
-  the verified analogue pads. Do not add SDK adc_init/adc_read beside this driver.
-  Connect the resulting samples to s3_core_step or replace the explicit ADC stub
-  in drv_ir after that contract is tested. Do not enable the radio's ADC3/GP29.
+A request expires after 20 ms. The client checks this before accepting even a
+buffered response. Results carry a sequence and the oldest channel timestamp;
+partial/out-of-range, wrong-sequence, future and stale results are rejected.
+Successful receipt pipelines the next scan. While waiting, steering is revoked.
+A timeout is observed on the next sampling iteration (nominally every 10 ms,
+plus scheduler jitter); it is not a measured hardware WCET guarantee. A terminal
+failure reports the acquisition error, latches a sensor fault and prevents
+further requests on that boot. Controller resume cannot restart a failed ADC.
+The worker is never forcibly cancelled while the kernel uses its local buffer.
+
+ADC activation requires DEVCNF_USE_ADC and DEVCONF_ADC_PIN_INIT_0/1/2 enabled
+by the board/kernel owner after verified AO wiring and pin claims. They remain
+unchanged and FALSE for the pads, so checked-in firmware fails safely with
+E_NOSPT. Channel selection follows explicit pin[] order; only ADC0..2/GP26..28
+are accepted. ADC3/GP29 is reserved for the Pico W radio.
+
+Worker isolation does not repair the kernel's unbounded READY loop during
+boot or the loss of hardware conversion-error information in its ISR. Those
+remain shared-driver review and hardware readiness blockers. See
+[Phase 2 analysis and integration contracts](../../testing/subsystem3/FIRMWARE_READINESS.md)
+and [hardware procedure](../../testing/subsystem3/HARDWARE_VALIDATION.md).
 
 ## Barcode evidence and limitations
 
