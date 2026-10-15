@@ -203,6 +203,7 @@ static void test_integration_success_and_hold(void)
     caller = 7;
     CHECK(s3_status_get(&snapshot) == E_OK && snapshot.sample_time_ms == 10U);
     CHECK(snapshot.output.line.error == 0 && snapshot.acquisition_error == E_OK);
+    CHECK(snapshot.sample.valid_mask == S3_SENSOR_MASK && snapshot.sample.raw[1] == 4095U);
     CHECK(s3_controller_control(S3_MODE_OVERRIDE, false, 0U) == E_OK);
     CHECK(s3_status_get(&snapshot) == E_OK && !snapshot.output.steering_allowed);
     CHECK(worker_tick() == E_OK);
@@ -244,6 +245,30 @@ static void test_worker_stall_isolation(void)
     CHECK(adc_reads == 1U && !status.output.steering_allowed);
 }
 
+static void test_integration_device_errors(void)
+{
+    unsigned int scenario;
+    for (scenario = 0U; scenario < 3U; ++scenario)
+    {
+        s3_event_record_t record;
+        ER expected = (scenario == 0U) ? E_NOSPT : E_IO;
+        integration_setup();
+        if (scenario == 0U) { adc_open_result = E_NOSPT; }
+        if (scenario == 1U) { adc_values[0] = 4096U; }
+        if (scenario == 2U) { adc_read_size = 0; }
+        CHECK(worker_tick() == expected);
+        fake_now = 20U;
+        CHECK(s3_service_once() == expected);
+        CHECK(status.acquisition_error == expected && status.output.error == S3_ERROR_SENSOR);
+        CHECK(!status.output.steering_allowed && status.sample.valid_mask == 0U);
+        CHECK(status.sample.raw[0] == 0U && status.sample.raw[1] == 0U && status.sample.raw[2] == 0U);
+        caller = 7;
+        CHECK(s3_event_receive(&record) == E_OK && record.event.kind == S3_EVENT_FAULT);
+        caller = 42; fake_now = 30U;
+        CHECK(s3_service_once() == expected && queue_count == 0U);
+    }
+}
+
 int main(void)
 {
     RUN("S3-U22 ADC pipeline/timestamp/rollover", test_pipeline);
@@ -254,6 +279,7 @@ int main(void)
     RUN("S3-U27 ADC transport/request validation", test_transport_and_request_validation);
     RUN("S3-U28 ADC controller integration", test_integration_success_and_hold);
     RUN("S3-U29 blocked worker isolation/fault", test_worker_stall_isolation);
+    RUN("S3-U30 acquisition errors/raw snapshot", test_integration_device_errors);
     (void)printf("Buddy 3 ADC: %u groups, %u checks, %u failures\n", groups, checks, failures);
     return (failures == 0U) ? 0 : 1;
 }

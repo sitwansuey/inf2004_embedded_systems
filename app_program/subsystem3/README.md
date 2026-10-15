@@ -111,6 +111,8 @@ worker may block in the legacy driver; it holds no Buddy 3 status mutex.
 A request expires after 20 ms. The client checks this before accepting even a
 buffered response. Results carry a sequence and the oldest channel timestamp;
 partial/out-of-range, wrong-sequence, future and stale results are rejected.
+s3_status_get exposes the complete raw scan for low-priority bench logging;
+pending/error snapshots clear the raw values and validity mask.
 Successful receipt pipelines the next scan. While waiting, steering is revoked.
 A timeout is observed on the next sampling iteration (nominally every 10 ms,
 plus scheduler jitter); it is not a measured hardware WCET guarantee. A terminal

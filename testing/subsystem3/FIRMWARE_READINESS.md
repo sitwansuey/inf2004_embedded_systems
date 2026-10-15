@@ -44,6 +44,8 @@ sequence, contain all three 12-bit readings and a plausible oldest-channel
 acquisition timestamp. Receipt starts the next request without reusing its
 sample. Pending scans revoke steering. Deadline expiry, unavailable device,
 short/invalid reading or malformed transport data invalidates the whole scan.
+s3_status_get also returns the latest complete raw scan for a bounded external
+logger/calibration observer; pending/error snapshots clear raw values and mask.
 The original acquisition ER is reported; the algorithm publishes a sensor fault
 and holds steering. A terminal ADC failure cannot be cleared by TRACK/resume.
 No more requests are sent on that boot and the worker exits after a returned
@@ -115,8 +117,8 @@ make -C build_make -j2
 make -C build_make CONSOLE=uart WIFI=none -j2
 ~~~
 
-Native baseline: all original 19 groups retained. Added eight ADC groups U22..U29.
-Current native total: 27 groups, 529 algorithm + 15261 legacy adapter + 803 ADC
+Native baseline: all original 19 groups retained. Added nine ADC groups U22..U30.
+Current native total: 28 groups, 529 algorithm + 15261 legacy adapter + 1012 ADC
 checks, zero failures/warnings. GCC -fanalyzer and SMP=0/1 real-header parsing pass.
 The forced false assertion returns nonzero through the actual test target.
 These are deterministic software tests, not sensor/robot measurements.
@@ -130,8 +132,10 @@ The GitHub workflow now retains native tests/static analysis and adds a genuine
 firmware-build job: install Ubuntu's gcc-arm-none-eabi/newlib, obtain Pico SDK
 2.2.0 plus TinyUSB/cyw43 submodules, compile Buddy 3 objects for SMP=0/1 and run
 make -k -C build_make -j2. No missing source or test is skipped and no subsystem
-is replaced with a stub. Remote execution results will be recorded after the PR
-run completes. A successful Buddy 3 object check alone is not a firmware link.
+is replaced with a stub. The integration rejected Git data tree upload and draft-PR creation with HTTP
+403 Resource not accessible by integration, despite account metadata showing
+Admin/Write. No reconnect action is exposed in this session. Remote execution
+results can be recorded after successful publication and PR creation. A successful Buddy 3 object check alone is not a firmware link.
 
 See TEST_LOG.md, logs/ and HARDWARE_VALIDATION.md for evidence and bench steps.
 Do not merge while the complete firmware build, critical integration or required

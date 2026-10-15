@@ -36,6 +36,7 @@ typedef struct
 typedef struct
 {
     s3_output_t output;
+    s3_sample_t sample; /* Latest complete raw scan, valid only on E_OK acquisition. */
     uint32_t sample_time_ms;
     uint32_t generation;
     ER acquisition_error;

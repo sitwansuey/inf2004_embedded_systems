@@ -445,6 +445,8 @@ EXPORT ER s3_service_once(void)
     }
     status.output = output;
     status.output.event = (s3_event_t){0}; /* Events are consumed only via MBF. */
+    status.sample = (acquisition == E_OK) ? sample : (s3_sample_t){0};
+    status.sample.time_ms = sample.time_ms;
     status.sample_time_ms = sample.time_ms;
     status.generation = generation;
     status.acquisition_error = acquisition;
