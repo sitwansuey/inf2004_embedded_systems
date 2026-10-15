@@ -18,7 +18,7 @@ subsystem, ask its owner or open a pull request for them to review.
 | # | Subsystem (what it does) | Student ID | GitHub username | Code | Tests |
 |---|---|---|---|---|---|
 | 1 | *example:* LED heartbeat on GP19 | | | `app_program/subsystem1/` | `testing/subsystem1/` |
-| 2 | *example:* Producer: makes a sample every 300 ms | | | `app_program/subsystem2/` | `testing/subsystem2/` |
+| 2 | PWM motion control and dual-wheel encoder diagnostics | 2500613 | | `app_program/subsystem2/` | `app_program/subsystem2/tests/host/` |
 | 3 | *example:* Consumer: collects samples into statistics | | | `app_program/subsystem3/` | `testing/subsystem3/` |
 | 4 | *example:* Monitor: prints reports, pauses the LED | | | `app_program/subsystem4/` | `testing/subsystem4/` |
 | 5 | | | | `app_program/subsystem5/` | `testing/subsystem5/` |
@@ -52,20 +52,20 @@ fixed.
 | GP1 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
 | GP2 | | |
 | GP3 | | |
-| GP4 | | |
-| GP5 | | |
+| GP4 | S2 | right wheel (motor 2) encoder A |
+| GP5 | S2 | right wheel (motor 2) encoder B |
 | GP6 | | |
 | GP7 | | |
-| GP8 | | |
-| GP9 | | |
-| GP10 | | |
-| GP11 | | |
+| GP8 | S2 | left wheel motor PWM A |
+| GP9 | S2 | left wheel motor PWM B |
+| GP10 | S2 | right wheel motor PWM A |
+| GP11 | S2 | right wheel motor PWM B |
 | GP12 | | |
 | GP13 | | |
 | GP14 | | |
 | GP15 | | |
-| GP16 | | |
-| GP17 | | |
+| GP16 | S2 | left wheel (motor 1) encoder A |
+| GP17 | S2 | left wheel (motor 1) encoder B |
 | GP18 | | |
 | GP19 | *example:* S1 | external LED (LED + 330 Ω to GND) |
 | GP20 | | |
@@ -111,7 +111,8 @@ the drivers have no locking to stop it.
 | SPI0 | | | |
 | SPI1 | | | |
 | ADC | | | GP26–GP28 |
-| PWM slices (list) | | | |
+| PWM slices 4/5 | S2 | motor task | GP8-GP11 |
+| IO_BANK0 IRQ 13, core 0 | S2 (when encoders enabled) | encoder interrupt handler | GP4/5, GP16/17 |
 | WiFi radio, TCP/IP, MQTT | *kernel* | `cyw43_utk_task` (built in) | GP23–25, GP29 |
 
 ### WiFi and MQTT are special
@@ -147,7 +148,7 @@ change it only by team agreement. Write down every task you create.
 | Subsystem | Priority band | Tasks (name – priority – core) |
 |---|---|---|
 | 1 | 12–13 | *example:* led_task – 12 – any |
-| 2 | 14–15 | *example:* producer_task – 14 – core 1 |
+| 2 | 14–15 | motor_task – 14 – core 0 |
 | 3 | 16–17 | *example:* consumer_task – 16 – core 0 |
 | 4 | 18–19 | *example:* monitor_task – 18 – any |
 | 5 | 20–21 | |

@@ -91,6 +91,27 @@ ifeq ($(TEST),1)
 TEST_SUFFIX := _test
 endif
 
+# S2_ONLY=1 boots only the motor subsystem, without the old sample pipeline.
+# TEST=1 then runs the motor/rotation/watchdog checks at startup.
+S2_ONLY ?= 0
+S2_ENCODER_ENABLED ?= 0
+S2_COMMAND_TIMEOUT_MS ?= 1000
+ifneq ($(filter $(S2_ONLY),0 1),$(S2_ONLY))
+$(error Unknown S2_ONLY '$(S2_ONLY)'; use 0 or 1)
+endif
+ifneq ($(filter $(S2_ENCODER_ENABLED),0 1),$(S2_ENCODER_ENABLED))
+$(error Unknown S2_ENCODER_ENABLED '$(S2_ENCODER_ENABLED)'; use 0 or 1)
+endif
+ifeq ($(S2_ONLY),1)
+S2_SUFFIX := _s2
+endif
+ifeq ($(S2_ENCODER_ENABLED),1)
+S2_SUFFIX := $(S2_SUFFIX)_enc
+endif
+ifneq ($(S2_COMMAND_TIMEOUT_MS),1000)
+S2_SUFFIX := $(S2_SUFFIX)_tmo$(S2_COMMAND_TIMEOUT_MS)
+endif
+
 # CRASH_REPORT=1 also copies every console line to UART0 on GP0 (TX) /
 # GP1 (RX), 115200 8N1.  UART output is sent immediately, so it still shows
 # the last messages and the kernel's crash report after a crash, when the
@@ -116,7 +137,7 @@ endif
 # a live hazard: an SMP=1 build was once flashed in place of an SMP=0 one and
 # only the banner in the log revealed it.
 #
-EXE_FILE := mtk3pico_smp$(SMP)_$(CONSOLE)$(WIFI_SUFFIX)$(NET_SUFFIX)$(MQTT_SUFFIX)$(CRASH_SUFFIX)$(TEST_SUFFIX)
+EXE_FILE := mtk3pico_smp$(SMP)_$(CONSOLE)$(WIFI_SUFFIX)$(NET_SUFFIX)$(MQTT_SUFFIX)$(CRASH_SUFFIX)$(S2_SUFFIX)$(TEST_SUFFIX)
 
 GCC := arm-none-eabi-gcc
 AS := arm-none-eabi-gcc
@@ -177,6 +198,8 @@ CFLAGS  += -DCNF_SMP=1
 ASFLAGS += -DCNF_SMP=1
 endif
 CFLAGS  += -DAPP_TEST=$(TEST)
+CFLAGS  += -DAPP_S2_ONLY=$(S2_ONLY) -DS2_ENCODER_ENABLED=$(S2_ENCODER_ENABLED)
+CFLAGS  += -DS2_COMMAND_TIMEOUT_MS=$(S2_COMMAND_TIMEOUT_MS)
 CFLAGS  += -DTM_CONSOLE_UART=$(CRASH_REPORT)
 ifeq ($(CRASH_REPORT),0)
 CFLAGS  += -DBOARD_UART0_FREE=1
@@ -209,7 +232,7 @@ endif
 # before any recipe executes.
 ################################################################################
 
-PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)
+PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)-s2$(S2_ONLY)-enc$(S2_ENCODER_ENABLED)-tmo$(S2_COMMAND_TIMEOUT_MS)
 PROFILE_FILE := .build_profile
 
 ifneq ($(strip $(shell cat $(PROFILE_FILE) 2>/dev/null)),$(PROFILE_ID))

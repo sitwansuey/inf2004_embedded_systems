@@ -28,73 +28,143 @@ EXPORT void s2_controller_bind(void)
     h_controller_task = tk_get_tid();
 }
 
-#if APP_S2_ONLY && S2_ENCODER_ENABLED
+#if S2_ENCODER_ENABLED
 /* RP2040 GPIO interrupt registers have eight pins per 32-bit bank. */
 #define S2_ENCODER_IRQ 13U
-#define S2_ENCODER_A_SHIFT ((BOARD_MOTOR2_ENCODER_A_GPIO % 8U) * 4U)
-#define S2_ENCODER_B_SHIFT ((BOARD_MOTOR2_ENCODER_B_GPIO % 8U) * 4U)
-#define S2_ENCODER_A_BANK ((BOARD_MOTOR2_ENCODER_A_GPIO / 8U) * 4U)
-#define S2_ENCODER_B_BANK ((BOARD_MOTOR2_ENCODER_B_GPIO / 8U) * 4U)
-#define S2_ENCODER_A_INTR (IO_BANK0_BASE + 0xf0U + S2_ENCODER_A_BANK)
-#define S2_ENCODER_B_INTR (IO_BANK0_BASE + 0xf0U + S2_ENCODER_B_BANK)
-#define S2_ENCODER_A_INTE (IO_BANK0_BASE + 0x100U + S2_ENCODER_A_BANK)
-#define S2_ENCODER_B_INTE (IO_BANK0_BASE + 0x100U + S2_ENCODER_B_BANK)
-#define S2_ENCODER_A_RISING (8U << S2_ENCODER_A_SHIFT)
-#define S2_ENCODER_A_EDGES (12U << S2_ENCODER_A_SHIFT)
-#define S2_ENCODER_B_EDGES (12U << S2_ENCODER_B_SHIFT)
+#define S2_ENCODER_INTR(pin) (IO_BANK0_BASE + 0xf0U + ((pin) / 8U) * 4U)
+#define S2_ENCODER_INTE(pin) (IO_BANK0_BASE + 0x100U + ((pin) / 8U) * 4U)
+#define S2_ENCODER_RISING(pin) (8U << (((pin) % 8U) * 4U))
+#define S2_ENCODER_EDGES(pin) (12U << (((pin) % 8U) * 4U))
+#define S2_ENCODER_A_INTR S2_ENCODER_INTR(BOARD_MOTOR2_ENCODER_A_GPIO)
+#define S2_ENCODER_B_INTR S2_ENCODER_INTR(BOARD_MOTOR2_ENCODER_B_GPIO)
+#define S2_ENCODER_A_INTE S2_ENCODER_INTE(BOARD_MOTOR2_ENCODER_A_GPIO)
+#define S2_ENCODER_B_INTE S2_ENCODER_INTE(BOARD_MOTOR2_ENCODER_B_GPIO)
+#define S2_ENCODER_A_RISING S2_ENCODER_RISING(BOARD_MOTOR2_ENCODER_A_GPIO)
+#define S2_ENCODER_A_EDGES S2_ENCODER_EDGES(BOARD_MOTOR2_ENCODER_A_GPIO)
+#define S2_ENCODER_B_EDGES S2_ENCODER_EDGES(BOARD_MOTOR2_ENCODER_B_GPIO)
+#define S2_ENCODER1_A_INTR S2_ENCODER_INTR(BOARD_MOTOR1_ENCODER_A_GPIO)
+#define S2_ENCODER1_B_INTR S2_ENCODER_INTR(BOARD_MOTOR1_ENCODER_B_GPIO)
+#define S2_ENCODER1_A_INTE S2_ENCODER_INTE(BOARD_MOTOR1_ENCODER_A_GPIO)
+#define S2_ENCODER1_B_INTE S2_ENCODER_INTE(BOARD_MOTOR1_ENCODER_B_GPIO)
+#define S2_ENCODER1_A_RISING S2_ENCODER_RISING(BOARD_MOTOR1_ENCODER_A_GPIO)
+#define S2_ENCODER1_A_EDGES S2_ENCODER_EDGES(BOARD_MOTOR1_ENCODER_A_GPIO)
+#define S2_ENCODER1_B_EDGES S2_ENCODER_EDGES(BOARD_MOTOR1_ENCODER_B_GPIO)
 
+static volatile UW encoder_sequence;
 static volatile UW encoder_positive;
 static volatile UW encoder_negative;
 static volatile UW encoder_a_edges;
 static volatile UW encoder_b_edges;
-static BOOL encoder_ready;
+static volatile UW encoder1_positive;
+static volatile UW encoder1_negative;
+static volatile UW encoder1_a_edges;
+static volatile UW encoder1_b_edges;
+static UW encoder_ready;
 
-static void encoder_interrupt(UINT intno)
+/* Only the core-0 GPIO IRQ writes counters. Loads/stores remain atomic for
+ * readers on either core without requiring Cortex-M0+ atomic RMW helpers.
+ */
+static void encoder_increment(volatile UW *p_count)
 {
-    UW a_pending = in_w(S2_ENCODER_A_INTR) & S2_ENCODER_A_EDGES;
-    UW b_pending = in_w(S2_ENCODER_B_INTR) & S2_ENCODER_B_EDGES;
+    UW count = __atomic_load_n(p_count, __ATOMIC_RELAXED);
 
-    (void)intno;
-    /* No printing or kernel calls in this interrupt handler. */
+    __atomic_store_n(p_count, count + 1U, __ATOMIC_RELAXED);
+}
+
+static void encoder_read_edges(UINT a_pin, UINT b_pin,
+                               volatile UW *p_positive,
+                               volatile UW *p_negative,
+                               volatile UW *p_a_edges,
+                               volatile UW *p_b_edges)
+{
+    UW a_pending = in_w(S2_ENCODER_INTR(a_pin)) & S2_ENCODER_EDGES(a_pin);
+    UW b_pending = in_w(S2_ENCODER_INTR(b_pin)) & S2_ENCODER_EDGES(b_pin);
+
+    /* Clear only this channel's pending bits, including shared banks. */
     if (a_pending != 0U)
     {
-        out_w(S2_ENCODER_A_INTR, a_pending);
-        ++encoder_a_edges;
-        if ((a_pending & S2_ENCODER_A_RISING) != 0U)
+        out_w(S2_ENCODER_INTR(a_pin), a_pending);
+        encoder_increment(p_a_edges);
+        if ((a_pending & S2_ENCODER_RISING(a_pin)) != 0U)
         {
-            if (gpio_get_val(BOARD_MOTOR2_ENCODER_B_GPIO) != 0)
+            if (gpio_get_val(b_pin) != 0U)
             {
-                ++encoder_positive;
+                encoder_increment(p_positive);
             }
             else
             {
-                ++encoder_negative;
+                encoder_increment(p_negative);
             }
         }
     }
     if (b_pending != 0U)
     {
-        out_w(S2_ENCODER_B_INTR, b_pending);
-        ++encoder_b_edges;
+        out_w(S2_ENCODER_INTR(b_pin), b_pending);
+        encoder_increment(p_b_edges);
     }
+}
+
+static void encoder_interrupt(UINT intno)
+{
+    UW sequence = __atomic_load_n(&encoder_sequence, __ATOMIC_RELAXED);
+
+    (void)intno;
+    /* Mark the snapshot busy before any counter changes. No kernel calls. */
+    __atomic_store_n(&encoder_sequence, sequence + 1U, __ATOMIC_RELAXED);
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    encoder_read_edges(BOARD_MOTOR1_ENCODER_A_GPIO,
+                       BOARD_MOTOR1_ENCODER_B_GPIO,
+                       &encoder1_positive, &encoder1_negative,
+                       &encoder1_a_edges, &encoder1_b_edges);
+    encoder_read_edges(BOARD_MOTOR2_ENCODER_A_GPIO,
+                       BOARD_MOTOR2_ENCODER_B_GPIO,
+                       &encoder_positive, &encoder_negative,
+                       &encoder_a_edges, &encoder_b_edges);
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    __atomic_store_n(&encoder_sequence, sequence + 2U, __ATOMIC_RELEASE);
 }
 
 static ER encoder_init(void)
 {
-    T_DINT config = {0};
-    ER er = gpio_set_pin(BOARD_MOTOR2_ENCODER_A_GPIO, GPIO_MODE_IN);
-
-    if (er >= E_OK)
+    const UINT pins[] =
     {
-        er = gpio_set_pin(BOARD_MOTOR2_ENCODER_B_GPIO, GPIO_MODE_IN);
+        BOARD_MOTOR1_ENCODER_A_GPIO, BOARD_MOTOR1_ENCODER_B_GPIO,
+        BOARD_MOTOR2_ENCODER_A_GPIO, BOARD_MOTOR2_ENCODER_B_GPIO
+    };
+    T_DINT config = {0};
+    ER er = E_OK;
+
+    /* Reject invalid/overlapping pins before touching encoder registers. */
+    for (UINT i = 0; i < 4U; ++i)
+    {
+        if ((pins[i] >= 30U) || (pins[i] == BOARD_MOTOR1_A_GPIO) ||
+            (pins[i] == BOARD_MOTOR1_B_GPIO) ||
+            (pins[i] == BOARD_MOTOR2_A_GPIO) ||
+            (pins[i] == BOARD_MOTOR2_B_GPIO))
+        {
+            return E_PAR;
+        }
+        for (UINT j = 0; j < i; ++j)
+        {
+            if (pins[i] == pins[j])
+            {
+                return E_PAR;
+            }
+        }
+    }
+    for (UINT i = 0; (i < 4U) && (er >= E_OK); ++i)
+    {
+        er = gpio_set_pin(pins[i], GPIO_MODE_IN);
+        if (er < E_OK)
+        {
+            break;
+        }
+        /* Pull up open-collector outputs; input voltage must be 3.3 V. */
+        set_w(GPIO(pins[i]), GPIO_PUE | GPIO_SHEMITT);
+        clr_w(GPIO(pins[i]), GPIO_PDE);
     }
     if (er >= E_OK)
     {
-        /* Pull up open-collector outputs; input voltage must be 3.3 V. */
-        set_w(GPIO(BOARD_MOTOR2_ENCODER_A_GPIO), GPIO_PUE | GPIO_SHEMITT);
-        clr_w(GPIO(BOARD_MOTOR2_ENCODER_A_GPIO), GPIO_PDE);
-        set_w(GPIO(BOARD_MOTOR2_ENCODER_B_GPIO), GPIO_PUE | GPIO_SHEMITT);
-        clr_w(GPIO(BOARD_MOTOR2_ENCODER_B_GPIO), GPIO_PDE);
         config.intatr = TA_HLNG;
         /* T-Kernel uses a generic function pointer for interrupt handlers. */
         config.inthdr = (FP)encoder_interrupt;
@@ -102,15 +172,18 @@ static ER encoder_init(void)
     }
     if (er >= E_OK)
     {
-        out_w(S2_ENCODER_A_INTR, S2_ENCODER_A_EDGES);
-        out_w(S2_ENCODER_B_INTR, S2_ENCODER_B_EDGES);
-        set_w(S2_ENCODER_A_INTE, S2_ENCODER_A_EDGES);
-        set_w(S2_ENCODER_B_INTE, S2_ENCODER_B_EDGES);
+        for (UINT i = 0; i < 4U; ++i)
+        {
+            out_w(S2_ENCODER_INTR(pins[i]), S2_ENCODER_EDGES(pins[i]));
+            set_w(S2_ENCODER_INTE(pins[i]), S2_ENCODER_EDGES(pins[i]));
+        }
         ClearInt(S2_ENCODER_IRQ);
         EnableInt(S2_ENCODER_IRQ, 3);
-        encoder_ready = TRUE;
+        __atomic_store_n(&encoder_ready, 1U, __ATOMIC_RELEASE);
         /* tm_printf takes an unsigned-byte format string. */
-        tm_printf((UB *)"[S2] motor 2 encoder A=GP%u B=GP%u ready\n",
+        tm_printf((UB *)"[S2] encoders motor 1 A=GP%u B=GP%u; "
+                  "motor 2 A=GP%u B=GP%u ready (x1 counts)\n",
+                  BOARD_MOTOR1_ENCODER_A_GPIO, BOARD_MOTOR1_ENCODER_B_GPIO,
                   BOARD_MOTOR2_ENCODER_A_GPIO, BOARD_MOTOR2_ENCODER_B_GPIO);
     }
     return er;
@@ -124,25 +197,59 @@ EXPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status)
     if (p_status != NULL)
     {
         *p_status = (s2_encoder_status_t){0};
-#if APP_S2_ONLY && S2_ENCODER_ENABLED
-        if (encoder_ready)
+#if S2_ENCODER_ENABLED
+        er = E_OK;
+        if (__atomic_load_n(&encoder_ready, __ATOMIC_ACQUIRE) != 0U)
         {
-            UW pins = in_w(GPIO_IN);
+            UW sequence;
+            UW pins;
 
-            /* Individual aligned reads are atomic, not a joint snapshot. */
-            p_status->positive_pulses = encoder_positive;
-            p_status->negative_pulses = encoder_negative;
-            p_status->a_edges = encoder_a_edges;
-            p_status->b_edges = encoder_b_edges;
+            /* Retry if the IRQ updates either wheel during the copy. */
+            for (;;)
+            {
+                sequence = __atomic_load_n(&encoder_sequence, __ATOMIC_ACQUIRE);
+                if ((sequence & 1U) != 0U)
+                {
+                    continue;
+                }
+                p_status->positive_pulses =
+                    __atomic_load_n(&encoder_positive, __ATOMIC_RELAXED);
+                p_status->negative_pulses =
+                    __atomic_load_n(&encoder_negative, __ATOMIC_RELAXED);
+                p_status->a_edges =
+                    __atomic_load_n(&encoder_a_edges, __ATOMIC_RELAXED);
+                p_status->b_edges =
+                    __atomic_load_n(&encoder_b_edges, __ATOMIC_RELAXED);
+                p_status->motor1_positive_pulses =
+                    __atomic_load_n(&encoder1_positive, __ATOMIC_RELAXED);
+                p_status->motor1_negative_pulses =
+                    __atomic_load_n(&encoder1_negative, __ATOMIC_RELAXED);
+                p_status->motor1_a_edges =
+                    __atomic_load_n(&encoder1_a_edges, __ATOMIC_RELAXED);
+                p_status->motor1_b_edges =
+                    __atomic_load_n(&encoder1_b_edges, __ATOMIC_RELAXED);
+                pins = in_w(GPIO_IN);
+                __atomic_thread_fence(__ATOMIC_SEQ_CST);
+                if (sequence == __atomic_load_n(&encoder_sequence,
+                                                __ATOMIC_ACQUIRE))
+                {
+                    break;
+                }
+            }
             p_status->a_level =
                 (pins >> BOARD_MOTOR2_ENCODER_A_GPIO) & 1U;
             p_status->b_level =
                 (pins >> BOARD_MOTOR2_ENCODER_B_GPIO) & 1U;
-            er = E_OK;
-        }
-        else
-        {
-            er = E_OBJ;
+            p_status->motor1_a_level =
+                (pins >> BOARD_MOTOR1_ENCODER_A_GPIO) & 1U;
+            p_status->motor1_b_level =
+                (pins >> BOARD_MOTOR1_ENCODER_B_GPIO) & 1U;
+            p_status->motor1_forward_counts =
+                (INT)(p_status->motor1_negative_pulses -
+                      p_status->motor1_positive_pulses);
+            p_status->motor2_forward_counts =
+                (INT)(p_status->positive_pulses - p_status->negative_pulses);
+            p_status->valid = 1U;
         }
 #else
         er = E_NOSPT;
@@ -269,8 +376,8 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
 
 static BOOL movement_valid(s2_move_command_t command, UINT power_percent)
 {
-    return (command >= S2_MOVE_STOP) &&
-           (command <= S2_MOVE_PIVOT_LEFT) && (power_percent <= 100U);
+    return ((UINT)command <= (UINT)S2_MOVE_PIVOT_LEFT) &&
+           (power_percent <= 100U);
 }
 
 static ER motion_publish(const s2_motion_status_t *p_status)
@@ -326,7 +433,7 @@ static void motor_task(INT stacd, void *p_exinf)
 
     (void)stacd;
     (void)p_exinf;
-#if APP_S2_ONLY && S2_ENCODER_ENABLED
+#if S2_ENCODER_ENABLED
     if (er >= E_OK)
     {
         er = encoder_init();
