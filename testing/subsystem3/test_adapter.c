@@ -182,6 +182,11 @@ static void test_sensor_configuration(void)
     s3_sample_t sample;
     reset();
     CHECK(s3_ir_config_valid(&cfg));
+    cfg.mode = (s3_ir_mode_t)-1;
+    CHECK(!s3_ir_config_valid(&cfg));
+    cfg.mode = (s3_ir_mode_t)99;
+    CHECK(!s3_ir_config_valid(&cfg));
+    cfg.mode = S3_IR_DIGITAL;
     cfg.pin[0] = 29U; CHECK(!s3_ir_config_valid(&cfg));
     cfg.pin[0] = 23U; CHECK(!s3_ir_config_valid(&cfg));
     cfg.pin[0] = 19U; CHECK(!s3_ir_config_valid(&cfg));

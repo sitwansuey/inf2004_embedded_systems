@@ -7,8 +7,10 @@ bool s3_ir_config_valid(const s3_ir_config_t *p_config)
     uint8_t i;
     uint8_t j;
 
-    if ((p_config == NULL) || (p_config->mode < S3_IR_DISABLED) ||
-        (p_config->mode > S3_IR_ADC))
+    /* Cast before range checking so a negative/invalid enum is rejected
+     * even when the target compiler chooses an unsigned enum type. */
+    if ((p_config == NULL) ||
+        ((unsigned int)p_config->mode > (unsigned int)S3_IR_ADC))
     {
         return false;
     }
