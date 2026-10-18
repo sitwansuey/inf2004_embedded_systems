@@ -20,7 +20,7 @@ subsystem, ask its owner or open a pull request for them to review.
 | 1 | *example:* LED heartbeat on GP19 | | | `app_program/subsystem1/` | `testing/subsystem1/` |
 | 2 | PWM motion control and dual-wheel encoder diagnostics | 2500613 | | `app_program/subsystem2/` | `app_program/subsystem2/tests/host/` |
 | 3 | *example:* Consumer: collects samples into statistics | | | `app_program/subsystem3/` | `testing/subsystem3/` |
-| 4 | *example:* Monitor: prints reports, pauses the LED | | | `app_program/subsystem4/` | `testing/subsystem4/` |
+| 4 | Buddy 4: GY-511 / LSM303DLHC acquisition and sensor snapshots | | | `app_program/subsystem4/` | `testing/subsystem4/` |
 | 5 | | | | `app_program/subsystem5/` | `testing/subsystem5/` |
 
 Shared files (`app_program/app_main.c`, `app_program/app.h`, this file)
@@ -50,8 +50,8 @@ fixed.
 | GP23, GP24, GP25, GP29 | *reserved* | Pico W radio |
 | GP0 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
 | GP1 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
-| GP2 | | |
-| GP3 | | |
+| GP2 | S4 | GY-511 I2C1 SDA, 3.3 V logic |
+| GP3 | S4 | GY-511 I2C1 SCL, 3.3 V logic |
 | GP4 | S2 | right wheel (motor 2) encoder A |
 | GP5 | S2 | right wheel (motor 2) encoder B |
 | GP6 | | |
@@ -107,7 +107,7 @@ the drivers have no locking to stop it.
 |---|---|---|---|
 | UART1 | | | |
 | I2C0 | | | |
-| I2C1 | | | |
+| I2C1 | S4 | `s4_sensor_task` | GP2 SDA, GP3 SCL |
 | SPI0 | | | |
 | SPI1 | | | |
 | ADC | | | GP26–GP28 |
@@ -150,7 +150,7 @@ change it only by team agreement. Write down every task you create.
 | 1 | 12–13 | *example:* led_task – 12 – any |
 | 2 | 14–15 | motor_task – 14 – core 0 |
 | 3 | 16–17 | *example:* consumer_task – 16 – core 0 |
-| 4 | 18–19 | *example:* monitor_task – 18 – any |
+| 4 | 18–19 | `s4_sensor_task` – 18 – core 1; `monitor_task` – 19 – any |
 | 5 | 20–21 | |
 
 Core: `TP_PRC1` = core 0, `TP_PRC2` = core 1, or "any".
@@ -166,9 +166,10 @@ sends to it or waits on it. Agree on the data format before coding.
 | IF-01 | S2 → S3 | mailbox (owned by S3) | `mbx_samples` | `SAMPLE_MSG` in `subsystem2.h` | *example* |
 | IF-02 | S3 → S2 | semaphore + fixed memory pool (owned by S2) | `sem_slots`, `mpf_samples` | receiver returns the block, then 1 slot | *example* |
 | IF-03 | S3 → S4 | message buffer + event flag (owned by S4) | `mbf_summary`, `flg_events` | text line ≤ `S4_SUMMARY_MAX` bytes, then `FLG_BATCH` | *example* |
-| IF-04 | S4 → S3 | shared data under a mutex (owned by S3) | `app_stats`, `mtx_stats` | `APP_STATS`, read only while locked | *example* |
-| IF-05 | S4 → S1 | task control | `tid_led` | `tk_sus_tsk` / `tk_rsm_tsk` / `tk_chg_pri` | *example* |
-| IF-06 | | | | | |
+| IF-04 | S4 → S3 | retired example | `app_stats`, `mtx_stats` | S4 no longer reads S3 demo statistics | retired in S4 adaptation |
+| IF-05 | S4 → S1 | retired example | `tid_led` | S4 no longer suspends/resumes S1 | retired in S4 adaptation |
+| IF-06 | S4 → telemetry / vehicle controller | snapshot getter, internal mutex owned by S4 | `s4_sensor_get_status()` | `s4_sensor_status_t`: raw/scaled values, kernel timestamps, per-channel usability and diagnostics | proposed consumer integration; review API before wiring callers |
+| IF-07 | S2 → S4 | pending | pending | Timestamped measured encoder distance/speed for later fusion; current S2 diagnostics are insufficient | pending agreement with S2 owner |
 
 Each interface is tested by at least one integration test
 (`testing/integration/TEST_LOG.md`).
@@ -180,15 +181,15 @@ limit there. The numbers below are the example's usage.
 
 | Object | Limit | S1 | S2 | S3 | S4 | S5 |
 |---|---|---|---|---|---|---|
-| Task | 32 | 1 | 1 | 1 | 1 | |
+| Task | 32 | 1 | 1 | 1 | 2 | |
 | Semaphore | 16 | | 1 | | | |
 | Event flag | 16 | | | | 1 | |
 | Mailbox | 12 | | | 1 | | |
-| Mutex | 12 | | | 1 | | |
+| Mutex | 12 | | | 1 | 1 | |
 | Message buffer | 12 | | | | 1 | |
 | Fixed memory pool | 12 | | 1 | | | |
 | Variable memory pool | 12 | | | | | |
 | Cyclic handler | 12 | 1 | | | | |
-| Alarm handler | 12 | | | | 1 | |
+| Alarm handler | 12 | | | | | |
 
 (The kernel's USB and WiFi service tasks also use a few of these.)

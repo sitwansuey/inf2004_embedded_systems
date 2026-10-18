@@ -112,6 +112,21 @@ ifneq ($(S2_COMMAND_TIMEOUT_MS),1000)
 S2_SUFFIX := $(S2_SUFFIX)_tmo$(S2_COMMAND_TIMEOUT_MS)
 endif
 
+# S4_ONLY=1 selects Buddy 4 via the shared lifecycle, without other modules.
+S4_ONLY ?= 0
+ifneq ($(S4_ONLY),0)
+ifneq ($(S4_ONLY),1)
+$(error S4_ONLY must be 0 or 1)
+endif
+endif
+ifeq ($(S4_ONLY),1)
+S4_SUFFIX := _s4
+endif
+
+ifeq ($(S2_ONLY)$(S4_ONLY),11)
+$(error S2_ONLY=1 and S4_ONLY=1 are mutually exclusive)
+endif
+
 # CRASH_REPORT=1 also copies every console line to UART0 on GP0 (TX) /
 # GP1 (RX), 115200 8N1.  UART output is sent immediately, so it still shows
 # the last messages and the kernel's crash report after a crash, when the
@@ -137,7 +152,7 @@ endif
 # a live hazard: an SMP=1 build was once flashed in place of an SMP=0 one and
 # only the banner in the log revealed it.
 #
-EXE_FILE := mtk3pico_smp$(SMP)_$(CONSOLE)$(WIFI_SUFFIX)$(NET_SUFFIX)$(MQTT_SUFFIX)$(CRASH_SUFFIX)$(S2_SUFFIX)$(TEST_SUFFIX)
+EXE_FILE := mtk3pico_smp$(SMP)_$(CONSOLE)$(WIFI_SUFFIX)$(NET_SUFFIX)$(MQTT_SUFFIX)$(CRASH_SUFFIX)$(S2_SUFFIX)$(S4_SUFFIX)$(TEST_SUFFIX)
 
 GCC := arm-none-eabi-gcc
 AS := arm-none-eabi-gcc
@@ -200,6 +215,7 @@ endif
 CFLAGS  += -DAPP_TEST=$(TEST)
 CFLAGS  += -DAPP_S2_ONLY=$(S2_ONLY) -DS2_ENCODER_ENABLED=$(S2_ENCODER_ENABLED)
 CFLAGS  += -DS2_COMMAND_TIMEOUT_MS=$(S2_COMMAND_TIMEOUT_MS)
+CFLAGS  += -DAPP_S4_ONLY=$(S4_ONLY)
 CFLAGS  += -DTM_CONSOLE_UART=$(CRASH_REPORT)
 ifeq ($(CRASH_REPORT),0)
 CFLAGS  += -DBOARD_UART0_FREE=1
@@ -232,7 +248,7 @@ endif
 # before any recipe executes.
 ################################################################################
 
-PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)-s2$(S2_ONLY)-enc$(S2_ENCODER_ENABLED)-tmo$(S2_COMMAND_TIMEOUT_MS)
+PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)-s2$(S2_ONLY)-enc$(S2_ENCODER_ENABLED)-tmo$(S2_COMMAND_TIMEOUT_MS)-s4$(S4_ONLY)
 PROFILE_FILE := .build_profile
 
 ifneq ($(strip $(shell cat $(PROFILE_FILE) 2>/dev/null)),$(PROFILE_ID))

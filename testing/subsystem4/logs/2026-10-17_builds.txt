@@ -1,0 +1,23 @@
+Buddy 4 build verification
+Tested local revision: 9b6de29ae2967ed493d5bb5516ab25650ab9b9ac
+SDK 2.2.0; Arm GNU GCC 13.2.1. Builds contain no compiler warnings.
+Hardware tests: NOT RUN. UF2 format/family verified.
+
+mtk3pico_smp1_usb_cdc_s4_test.uf2: PASS
+SHA-256: d04b5469a99fbc24abdc5044554f679f9876213bc35569d7aab190af21b3d294
+
+mtk3pico_smp1_usb_cdc_wifi_s4_test.uf2: PASS
+SHA-256: 606836a273d3f301356ca0af1ea048bc5cb05e0ec5329d46c8f678722d6200ef
+
+mtk3pico_smp0_usb_cdc_s4_test.uf2: PASS
+SHA-256: ce4bbe46a6513ea5d84aa938d86aea3dd9968fd321dd950c81892d0394c0898b
+
+UNMODIFIED UPLOAD: full application build FAILS before Buddy 4 changes.
+../app_program/subsystem2/subsystem2.c:7:10: fatal error: ../board_pins.h: No such file or directory
+../app_program/subsystem2/task_producer.c:25:9: error: unknown type name 'SAMPLE_MSG'
+../app_program/subsystem2/task_producer.c:35:33: error: 'sem_slots' undeclared (first use in this function)
+../app_program/subsystem2/task_producer.c:40:33: error: 'mpf_samples' undeclared (first use in this function); did you mean 'mbx_samples'?
+../app_program/subsystem2/task_producer.c:44:36: error: 'S2_PERIOD_MS' undeclared (first use in this function)
+../app_program/subsystem2/task_producer.c:51:20: error: request for member 'seq' in something not a structure or union
+
+S4_ONLY=0 still requires the same existing S2/S3 repairs. No hardware PASS is inferred.
