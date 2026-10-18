@@ -160,3 +160,45 @@ Buddy 3 ARM objects and attempts the complete standard Make build; it does not
 hide missing dependencies or ignore failures. It has not executed remotely yet.
 Main remains unchanged. Firmware success, required CI, controller/board integration
 and team approvals remain merge gates. There is no merge commit or main CI result.
+
+## 2026-10-18: ARM controller enum portability correction
+
+Baseline: f1fbb024de5d6b62a0f6d3b444e04255e09b860f; PR #4 on
+feat/buddy3-line-barcode-ci. Working tree was clean, fetch found no remote
+changes, and origin/main (774a24c3c31fbc65a2bd3e7bac784dd379f13bb7) is an
+ancestor of this branch. No other buddy's source or shared configuration changed.
+
+Root cause: ARM GCC selects an unsigned representation for s3_mode_t, so
+s3_controller_control's mode < S3_MODE_PAUSED (zero) is always false and fails
+-Werror=type-limits. Reproduced locally with the real Cortex-M0+ target before
+repair. Use the same unsigned upper-bound comparison already present in
+buddy3_core.c and drv_ir.c; preserve all lease, marker-clear and caller checks.
+Audited subsystem3 sources, tests and buddy3-ci.yml for related enum/signedness
+issues; no other confirmed portability correction or workflow change was needed.
+No warnings were suppressed and -Werror remains enabled.
+
+New S3-U31 checks reject -1, the first value above the maximum, and 99 in both
+navigation mappings and core control; invalid control leaves the core unchanged.
+S3-U32 checks the same controller mode boundaries with zero/nonzero leases,
+preserves published status/control state on rejection, checks validation before
+clock access, and retains successful PAUSED/TRACK/OVERRIDE transitions.
+Existing S3-U20 retains negative and oversized IR-mode regression coverage.
+
+Executed through Windows PowerShell using the already installed Ubuntu WSL2
+GCC 15.2.0 and arm-none-eabi-gcc 14.2.1. No tools were installed.
+
+| Command (repository root) | Actual result |
+|---|---|
+| make -B -C testing/subsystem3 test | PASS: 30 groups, 16,887 checks, zero failures (551 algorithm + 15,324 adapter + 1,012 ADC) |
+| make -B -C testing/subsystem3 analyze | PASS: same tests under GCC -fanalyzer, zero diagnostics |
+| make -B -C testing/subsystem3 check-headers | PASS: actual kernel headers, SMP=0 and SMP=1 |
+| make -B -C testing/subsystem3 verify-failure | PASS: deliberate false assertion fails the nested test target and is correctly detected |
+| make -B -C testing/subsystem3 arm-check | PASS: all Buddy 3 ARM objects, SMP=0 and SMP=1; this is not a complete firmware link |
+| make -k -C build_make -j2 | BLOCKED, exit 2: pico_rp2040.mk:175, PICO_SDK_PATH is not set |
+| make -k -C build_make CONSOLE=uart WIFI=none -j2 | BLOCKED, exit 2: subsystem4/sdk.mk:5 also requires Pico SDK 2.2.0 |
+| git diff --check | PASS |
+
+CI after publication must independently establish the full firmware result
+using its provisioned SDK. Existing ADC hardware, board-pin, Vehicle Controller
+and affected-owner review gates remain subject to verification; no sensor/robot
+hardware test or successful firmware link is claimed by these local results.

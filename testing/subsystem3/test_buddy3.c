@@ -521,6 +521,42 @@ static void test_core_loss_and_time(void)
     CHECK(output.error == S3_ERROR_CONFIG);
 }
 
+static void test_enum_boundaries(void)
+{
+    const int invalid_navigation[] = {-1, S3_NAV_UTURN + 1, 99};
+    const int invalid_modes[] = {-1, S3_MODE_OVERRIDE + 1, 99};
+    s3_config_t cfg = config();
+    s3_core_t core;
+    unsigned char before[sizeof(core)];
+    size_t i;
+
+    for (i = 0U; i < sizeof(invalid_navigation) / sizeof(invalid_navigation[0]); ++i)
+    {
+        cfg = config();
+        cfg.map_a = (s3_navigation_t)invalid_navigation[i];
+        CHECK(!s3_config_valid(&cfg));
+        CHECK(!s3_core_init(&core, &cfg));
+        cfg = config();
+        cfg.map_z = (s3_navigation_t)invalid_navigation[i];
+        CHECK(!s3_config_valid(&cfg));
+        CHECK(!s3_core_init(&core, &cfg));
+    }
+    cfg = config();
+    cfg.map_a = S3_NAV_NONE;
+    cfg.map_z = S3_NAV_UTURN;
+    CHECK(s3_core_init(&core, &cfg));
+    CHECK(s3_core_control(&core, S3_MODE_TRACK, false));
+    s3_core_fault(&core, S3_ERROR_SENSOR);
+    (void)memcpy(before, &core, sizeof(core));
+    for (i = 0U; i < sizeof(invalid_modes) / sizeof(invalid_modes[0]); ++i)
+    {
+        CHECK(!s3_core_control(&core, (s3_mode_t)invalid_modes[i], true));
+        CHECK(memcmp(before, &core, sizeof(core)) == 0);
+    }
+    CHECK(s3_core_control(&core, S3_MODE_PAUSED, false));
+    CHECK(s3_core_control(&core, S3_MODE_OVERRIDE, false));
+}
+
 int main(int argc, char **argv)
 {
     RUN("S3-U02 normalization", test_normalization);
@@ -535,6 +571,7 @@ int main(int argc, char **argv)
     RUN("S3-U12 navigation/override", test_navigation_handoff_override);
     RUN("S3-U13 unmapped/corrupted/fault", test_unmapped_corrupt_and_fault);
     RUN("S3-U14 recovery and time", test_core_loss_and_time);
+    RUN("S3-U31 enum bounds", test_enum_boundaries);
     if ((argc == 2) && (strcmp(argv[1], "--force-failure") == 0))
     {
         CHECK(2 + 2 == 5);

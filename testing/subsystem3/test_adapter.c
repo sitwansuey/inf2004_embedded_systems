@@ -121,6 +121,33 @@ static void test_controller_leases_and_safety(void)
     CHECK(s3_service_once() == E_SYS);
 }
 
+static void test_controller_enum_boundaries(void)
+{
+    const int invalid_modes[] = {-1, S3_MODE_OVERRIDE + 1, 99};
+    unsigned char before_control[sizeof(control)];
+    unsigned char before_status[sizeof(status)];
+    size_t i;
+
+    setup();
+    CHECK(tick(false) == E_OK);
+    CHECK(status.output.steering_allowed);
+    (void)memcpy(before_control, &control, sizeof(control));
+    (void)memcpy(before_status, &status, sizeof(status));
+    for (i = 0U; i < sizeof(invalid_modes) / sizeof(invalid_modes[0]); ++i)
+    {
+        CHECK(s3_controller_control((s3_mode_t)invalid_modes[i], false, 0U) == E_PAR);
+        CHECK(s3_controller_control((s3_mode_t)invalid_modes[i], false, 1000U) == E_PAR);
+        CHECK(memcmp(before_control, &control, sizeof(control)) == 0);
+        CHECK(memcmp(before_status, &status, sizeof(status)) == 0);
+    }
+    fail_time = true;
+    CHECK(s3_controller_control((s3_mode_t)-1, false, 0U) == E_PAR);
+    fail_time = false;
+    CHECK(s3_controller_control(S3_MODE_PAUSED, false, 0U) == E_OK);
+    CHECK(s3_controller_control(S3_MODE_TRACK, false, 1000U) == E_OK);
+    CHECK(s3_controller_control(S3_MODE_OVERRIDE, false, 0U) == E_OK);
+}
+
 static void test_override_publication_race(void)
 {
     s3_status_t snapshot;
@@ -224,6 +251,7 @@ int main(void)
 {
     RUN("S3-U15 lifecycle/disabled", test_disabled_and_lifecycle);
     RUN("S3-U16 controller leases", test_controller_leases_and_safety);
+    RUN("S3-U32 controller enum bounds", test_controller_enum_boundaries);
     RUN("S3-U17 safety publication race", test_override_publication_race);
     RUN("S3-U18 event handoff/staleness", test_event_handoff_and_staleness);
     RUN("S3-U19 event queue full", test_transport_overflow);

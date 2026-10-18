@@ -191,7 +191,7 @@ EXPORT ER s3_controller_control(s3_mode_t mode, bool marker_clear, UW lease_ms)
 {
     SYSTIM now;
     ER er;
-    if ((mode < S3_MODE_PAUSED) || (mode > S3_MODE_OVERRIDE) ||
+    if (((unsigned int)mode > (unsigned int)S3_MODE_OVERRIDE) ||
         ((mode == S3_MODE_TRACK) &&
          ((lease_ms == 0U) || (lease_ms > S3_CONTROLLER_MAX_LEASE_MS))) ||
         ((mode != S3_MODE_TRACK) && ((lease_ms != 0U) || marker_clear)))
