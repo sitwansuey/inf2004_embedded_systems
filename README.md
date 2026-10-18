@@ -3,6 +3,12 @@
 A starting point for your project: micro T-Kernel 3.0 running on **both cores**
 of the Pico W's RP2040, with a USB serial console and the WiFi driver built in.
 
+For this branch's motor/dual-encoder firmware, see
+[Subsystem 2](app_program/subsystem2/README.md). Build it from `build_make/` with
+`make S2_ONLY=1 TEST=1 S2_ENCODER_ENABLED=1 -j8` after completing the setup below.
+Raise the wheels before flashing the test image. The full application still
+contains sample interfaces that must be reconciled with the team's controller.
+
 You need a **Raspberry Pi Pico W**, a USB cable, and a computer running
 macOS, Linux, or Windows with **WSL (Ubuntu)**. On Windows, run every
 command below inside the WSL Ubuntu terminal.

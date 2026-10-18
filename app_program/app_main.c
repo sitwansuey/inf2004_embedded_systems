@@ -90,7 +90,7 @@ EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
 	er = tk_sta_tsk(tid, 0);
 	CHECK(er, name);
 	if (er < E_OK) {
-		tk_del_tsk(tid);		/* still dormant; release its stack */
+		CHECK(tk_del_tsk(tid), "task start cleanup");
 		return er;
 	}
 	return tid;
@@ -111,6 +111,21 @@ EXPORT INT usermain(void)
 	tm_printf((UB*)"single-core build\n");
 #endif
 
+#if APP_S2_ONLY
+	/* Standalone motor build: do not start the sample consumer/monitor. */
+	ER er = subsystem2_init();
+	CHECK(er, "subsystem2_init");
+	if (er >= E_OK) {
+		er = subsystem2_start();
+		CHECK(er, "subsystem2_start");
+	}
+	if (er < E_OK) {
+		tm_printf((UB*)"motor startup failed; tests skipped\n");
+		for (;;) {
+			tk_slp_tsk(TMO_FEVR);
+		}
+	}
+#else
 	/* Phase 1: every subsystem creates its kernel objects */
 #if !APP_S4_ONLY
 	CHECK(subsystem1_init(), "subsystem1_init");
@@ -132,27 +147,31 @@ EXPORT INT usermain(void)
 #if !APP_S4_ONLY
 	CHECK(subsystem5_start(), "subsystem5_start");
 #endif
+#endif /* APP_S2_ONLY */
 
-	tm_printf((UB*)"all subsystems started\n\n");
+	tm_printf((UB*)"all selected subsystems started\n\n");
 
 #if APP_TEST
 	/* Test build (make TEST=1): run every subsystem's tests in turn,
 	   here in the initial task, while the system is running.  Tests may
 	   call tk_dly_tsk() to let the other tasks work for a while. */
 	tm_printf((UB*)"[TEST] === test run start ===\n");
-#if !APP_S4_ONLY
+#if APP_S2_ONLY
+	subsystem2_test();
+#elif APP_S4_ONLY
+	subsystem4_test();
+#else
 	subsystem1_test();
 	subsystem2_test();
 	subsystem3_test();
-#endif
 	subsystem4_test();
-#if !APP_S4_ONLY
 	subsystem5_test();
 #endif
 	tm_printf((UB*)"[TEST] === test run end ===\n");
 #endif
 
 	/* Sleep forever.  Returning from usermain() would shut down. */
-	tk_slp_tsk(TMO_FEVR);
-	return 0;
+	for (;;) {
+		tk_slp_tsk(TMO_FEVR);
+	}
 }
