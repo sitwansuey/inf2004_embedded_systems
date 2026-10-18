@@ -31,7 +31,7 @@ void s3_config_defaults(s3_config_t *p_config)
 
 static bool navigation_valid(s3_navigation_t command)
 {
-    return (command >= S3_NAV_NONE) && (command <= S3_NAV_UTURN);
+    return (unsigned int)command <= (unsigned int)S3_NAV_UTURN;
 }
 
 bool s3_config_valid(const s3_config_t *p_config)
@@ -70,8 +70,8 @@ bool s3_core_init(s3_core_t *p_core, const s3_config_t *p_config)
 
 bool s3_core_control(s3_core_t *p_core, s3_mode_t mode, bool marker_clear)
 {
-    if ((p_core == NULL) || !p_core->initialized || (mode < S3_MODE_PAUSED) ||
-        (mode > S3_MODE_OVERRIDE))
+    if ((p_core == NULL) || !p_core->initialized ||
+        ((unsigned int)mode > (unsigned int)S3_MODE_OVERRIDE))
     {
         return false;
     }

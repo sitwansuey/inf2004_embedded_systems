@@ -1,36 +1,68 @@
-/*
- *	subsystem4_test.c
- *	On-target tests for subsystem 4.  Built only with: make TEST=1
- *	Record unit results in testing/subsystem4/TEST_LOG.md and the
- *	INT- result in testing/integration/TEST_LOG.md.
- */
-
+/* SPDX-License-Identifier: Apache-2.0 */
+/* On-target tests. Build with S4_ONLY=1 TEST=1 for sensor bench testing. */
 #include "subsystem4.h"
 #include "../test_report.h"
 
 #if APP_TEST
-
-EXPORT void subsystem4_test(void)
+void subsystem4_test(void)
 {
-	T_RMBF	rmbf;
-	UW	before;
+    T_RMBF buffer;
+    T_RTSK sensor_task;
+    T_RTSK report_task;
+    s4_sensor_status_t before;
+    s4_sensor_status_t after;
+    ER result;
 
-	TEST_INIT();
+    TEST_INIT();
+    TEST_CHECK("S4-U01",
+               tk_ref_mbf(mbf_summary, &buffer) == E_OK &&
+               buffer.maxmsz == S4_SUMMARY_MAX,
+               "legacy IF-03 buffer retains its documented message size");
+    TEST_CHECK("S4-U03", s4_sensor_get_status(NULL) == E_PAR,
+               "sensor snapshot rejects NULL");
+    TEST_CHECK("S4-U04",
+               tk_ref_tsk(tid_s4_sensor, &sensor_task) == E_OK &&
+               tk_ref_tsk(tid_s4_monitor, &report_task) == E_OK &&
+               sensor_task.tskstat != TTS_DMT &&
+               report_task.tskstat != TTS_DMT &&
+               sensor_task.tskpri == S4_PRI_SENSOR &&
+               report_task.tskpri == S4_PRI_MONITOR,
+               "both S4 tasks exist and use the assigned priority band");
 
-	/* S4-U01: the message buffer accepts the documented line length */
-	TEST_CHECK("S4-U01",
-		   tk_ref_mbf(mbf_summary, &rmbf) == E_OK &&
-		   rmbf.maxmsz == S4_SUMMARY_MAX,
-		   "message buffer max line = S4_SUMMARY_MAX");
+    result = s4_sensor_get_status(&before);
+    (void)tk_dly_tsk(500);
+    TEST_CHECK("S4-U05",
+               result == E_OK && s4_sensor_get_status(&after) == E_OK &&
+               after.task_heartbeat > before.task_heartbeat,
+               "acquisition task continues, including with an absent sensor");
 
-	/* INT-02 (integration, IF-03): summary lines from subsystem 3 reach
-	   the monitor.  One line per 5 samples = one per 1.5 s. */
-	before = s4_lines_received;
-	tk_dly_tsk(3500);
-	TEST_CHECK("INT-02", s4_lines_received >= before + 2,
-		   "summary lines flow from subsystem 3 to subsystem 4");
+    result = s4_sensor_get_status(&before);
+    if ((result == E_OK) && before.configured)
+    {
+        (void)tk_dly_tsk(500);
+        TEST_CHECK("S4-U06",
+                   s4_sensor_get_status(&after) == E_OK &&
+                   after.accel_samples > before.accel_samples &&
+                   after.mag_samples > before.mag_samples &&
+                   after.accel_usable && after.mag_usable,
+                   "connected sensor delivers fresh, unclipped channel data");
+    }
+    else
+    {
+        tm_printf((UB *)"[TEST] S4-U06 SKIP  sensor not configured; "
+                         "physical communication remains unverified\n");
+    }
 
-	TEST_SUMMARY("subsystem4");
+#if !APP_S4_ONLY
+    result = s4_sensor_get_status(&before);
+    (void)tk_dly_tsk(3500);
+    TEST_CHECK("INT-02",
+               result == E_OK && s4_sensor_get_status(&after) == E_OK &&
+               after.legacy_lines_received >= before.legacy_lines_received + 2u,
+               "S3 legacy summary lines reach S4");
+#else
+    tm_printf((UB *)"[TEST] INT-02 SKIP  S4_ONLY excludes the S3 sender\n");
+#endif
+    TEST_SUMMARY("subsystem4");
 }
-
-#endif /* APP_TEST */
+#endif

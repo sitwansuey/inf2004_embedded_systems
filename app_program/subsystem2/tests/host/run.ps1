@@ -23,19 +23,30 @@ try {
 
     $modes = @(
         @{ Name = 'standalone-no-encoder'; Flags = @('-DAPP_S2_ONLY=1') },
-        @{ Name = 'standalone-encoder-16-17'; Flags = @(
+        @{ Name = 'standalone-dual-encoder'; Flags = @(
             '-DAPP_S2_ONLY=1', '-DS2_ENCODER_ENABLED=1') },
-        @{ Name = 'standalone-encoder-4-5'; Flags = @(
+        @{ Name = 'standalone-dual-encoder-swapped'; Flags = @(
             '-DAPP_S2_ONLY=1', '-DS2_ENCODER_ENABLED=1',
-            '-DBOARD_MOTOR2_ENCODER_A_GPIO=4U',
-            '-DBOARD_MOTOR2_ENCODER_B_GPIO=5U') },
-        @{ Name = 'standalone-encoder-cross-bank'; Flags = @(
+            '-DBOARD_MOTOR1_ENCODER_A_GPIO=4U',
+            '-DBOARD_MOTOR1_ENCODER_B_GPIO=5U',
+            '-DBOARD_MOTOR2_ENCODER_A_GPIO=16U',
+            '-DBOARD_MOTOR2_ENCODER_B_GPIO=17U') },
+        @{ Name = 'standalone-dual-encoder-shared-bank'; Flags = @(
             '-DAPP_S2_ONLY=1', '-DS2_ENCODER_ENABLED=1',
+            '-DBOARD_MOTOR1_ENCODER_A_GPIO=2U',
+            '-DBOARD_MOTOR1_ENCODER_B_GPIO=3U') },
+        @{ Name = 'standalone-dual-encoder-cross-bank'; Flags = @(
+            '-DAPP_S2_ONLY=1', '-DS2_ENCODER_ENABLED=1',
+            '-DBOARD_MOTOR1_ENCODER_A_GPIO=7U',
+            '-DBOARD_MOTOR1_ENCODER_B_GPIO=12U',
             '-DBOARD_MOTOR2_ENCODER_A_GPIO=14U',
             '-DBOARD_MOTOR2_ENCODER_B_GPIO=16U') },
         @{ Name = 'integrated-no-encoder'; Flags = @('-DAPP_S2_ONLY=0') },
-        @{ Name = 'integrated-encoder-flag'; Flags = @(
-            '-DAPP_S2_ONLY=0', '-DS2_ENCODER_ENABLED=1') }
+        @{ Name = 'integrated-dual-encoder'; Flags = @(
+            '-DAPP_S2_ONLY=0', '-DS2_ENCODER_ENABLED=1') },
+        @{ Name = 'integrated-custom-timeout'; Flags = @(
+            '-DAPP_S2_ONLY=0', '-DS2_ENCODER_ENABLED=1',
+            '-DS2_COMMAND_TIMEOUT_MS=750U') }
     )
     foreach ($mode in $modes) {
         $binaryPath = Join-Path $testRoot ($mode.Name + '.exe')

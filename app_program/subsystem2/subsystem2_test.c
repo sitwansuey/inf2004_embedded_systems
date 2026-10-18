@@ -36,17 +36,18 @@ EXPORT void subsystem2_test(void)
     const s2_move_command_t commands[] =
     {
         S2_MOVE_FORWARD, S2_MOVE_PIVOT_RIGHT, S2_MOVE_PIVOT_LEFT,
-        S2_MOVE_RIGHT, S2_MOVE_REVERSE
+        S2_MOVE_RIGHT, S2_MOVE_LEFT, S2_MOVE_REVERSE
     };
     const char *p_names[] =
     {
         "straight", "right pivot", "left pivot",
-        "rotate clockwise", "reverse"
+        "rotate clockwise", "rotate counterclockwise", "reverse"
     };
     ER er = E_OK;
 
     tk_dly_tsk(2000);
-    for (UINT i = 0; (i < 5U) && (er >= E_OK); ++i)
+    for (UINT i = 0;
+         (i < sizeof(commands) / sizeof(commands[0])) && (er >= E_OK); ++i)
     {
         s2_encoder_status_t start = {0};
         s2_encoder_status_t last = {0};
@@ -55,9 +56,14 @@ EXPORT void subsystem2_test(void)
         BOOL have_encoder;
 
         er = s2_encoder_get_status(&start);
-        have_encoder = (er == E_OK);
+        have_encoder = (er == E_OK) && (start.valid != 0U);
         if ((er < E_OK) && (er != E_NOSPT))
         {
+            break;
+        }
+        if ((er == E_OK) && !have_encoder)
+        {
+            er = E_OBJ;
             break;
         }
         last = start;
@@ -83,9 +89,12 @@ EXPORT void subsystem2_test(void)
             }
             UW remaining = S2_TEST_DURATION_MS - (now.lo - begin.lo);
 
-            tk_dly_tsk((remaining < S2_TEST_REFRESH_MS) ?
-                       remaining : S2_TEST_REFRESH_MS);
-            er = tk_get_tim(&now);
+            er = tk_dly_tsk((remaining < S2_TEST_REFRESH_MS) ?
+                            remaining : S2_TEST_REFRESH_MS);
+            if (er >= E_OK)
+            {
+                er = tk_get_tim(&now);
+            }
             if (er < E_OK)
             {
                 break;
@@ -110,13 +119,25 @@ EXPORT void subsystem2_test(void)
                 }
                 UW positive = current.positive_pulses - last.positive_pulses;
                 UW negative = current.negative_pulses - last.negative_pulses;
+                UW motor1_positive = current.motor1_positive_pulses -
+                                     last.motor1_positive_pulses;
+                UW motor1_negative = current.motor1_negative_pulses -
+                                     last.motor1_negative_pulses;
                 UW interval = now.lo - previous_time.lo;
 
                 /* tm_printf takes an unsigned-byte format string. */
                 tm_printf((UB *)"[S2 ENCODER] %s elapsed=%u ms "
-                          "positive=%u negative=%u rate=%u pulses/s "
-                          "A=%u B=%u A_edges=%u B_edges=%u\n",
-                          p_names[i], now.lo - begin.lo, positive, negative,
+                          "motor1 positive=%u negative=%u forward_delta=%d "
+                          "A=%u B=%u A_edges=%u B_edges=%u; "
+                          "motor2 positive=%u negative=%u forward_delta=%d "
+                          "rate=%u pulses/s A=%u B=%u A_edges=%u B_edges=%u\n",
+                          p_names[i], now.lo - begin.lo,
+                          motor1_positive, motor1_negative,
+                          (INT)(motor1_negative - motor1_positive),
+                          current.motor1_a_level, current.motor1_b_level,
+                          current.motor1_a_edges - last.motor1_a_edges,
+                          current.motor1_b_edges - last.motor1_b_edges,
+                          positive, negative, (INT)(positive - negative),
                           interval != 0U ?
                           (positive + negative) * 1000U / interval : 0U,
                           current.a_level, current.b_level,
@@ -143,7 +164,17 @@ EXPORT void subsystem2_test(void)
                 UW pulses = last.positive_pulses - start.positive_pulses +
                             last.negative_pulses - start.negative_pulses;
 
-                if ((i != 1U) && (pulses == 0U))
+                UW motor1_pulses =
+                    last.motor1_positive_pulses - start.motor1_positive_pulses +
+                    last.motor1_negative_pulses - start.motor1_negative_pulses;
+
+                if ((commands[i] != S2_MOVE_PIVOT_LEFT) &&
+                    (motor1_pulses == 0U))
+                {
+                    tm_printf((UB *)"[S2 TEST] no motor 1 pulses; "
+                              "check mounting and board_pins.h wiring\n");
+                }
+                if ((commands[i] != S2_MOVE_PIVOT_RIGHT) && (pulses == 0U))
                 {
                     /* tm_printf takes an unsigned-byte format string. */
                     tm_printf((UB *)"[S2 TEST] no motor 2 pulses; "

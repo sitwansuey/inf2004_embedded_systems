@@ -1,119 +1,62 @@
-/*
- *	task_monitor.c
- *	Subsystem 4 -- the monitor task and its alarm handler.
- *
- *	APIs shown: tk_sta_alm, tk_stp_alm, alarm handler, tk_wai_flg,
- *	            tk_rcv_mbf, tk_loc_mtx/tk_unl_mtx, tk_ref_sem, tk_ref_mpf,
- *	            tk_ref_tsk, tk_sus_tsk, tk_rsm_tsk, tk_chg_pri,
- *	            tk_get_tid, tk_get_tim
- */
-
+/* SPDX-License-Identifier: Apache-2.0 */
 #include "subsystem4.h"
-#include "../subsystem1/subsystem1.h"	/* IF-05: tid_led */
-#include "../subsystem2/subsystem2.h"	/* sem_slots, mpf_samples (read only) */
-#include "../subsystem3/subsystem3.h"	/* IF-04: app_stats, mtx_stats */
 
-EXPORT UW	s4_lines_received;
-
-/*
- * Alarm handler: one-shot, interrupt context (same rules as a cyclic
- * handler: keep it short, never wait).
- */
-EXPORT void monitor_alarm_handler(void *exinf)
+static INT display_age(uint32_t age)
 {
-	(void)exinf;
-	tk_set_flg(flg_events, FLG_ALARM);
+    return (age == S4_NO_SAMPLE_AGE) ? -1 :
+           (age > INT32_MAX) ? INT32_MAX : (INT)age;
 }
 
-LOCAL const char *state_name(UINT tskstat)
+void monitor_task(INT start_code, void *p_exinf)
 {
-	switch (tskstat) {
-	case TTS_RUN:	return "RUN";
-	case TTS_RDY:	return "READY";
-	case TTS_WAI:	return "WAIT";
-	case TTS_SUS:	return "SUSPEND";
-	case TTS_WAS:	return "WAIT+SUSPEND";
-	case TTS_DMT:	return "DORMANT";
-	default:	return "?";
-	}
-}
+    UB text[S4_SUMMARY_MAX + 1];
+    UINT events;
+    INT length;
+    UW reports = 0;
 
-EXPORT void monitor_task(INT stacd, void *exinf)
-{
-	UINT		flgptn;
-	UB		text[S4_SUMMARY_MAX + 1];
-	INT		len;
-	APP_STATS	snap;
-	T_RSEM		rsem;
-	T_RMPF		rmpf;
-	T_RTSK		rtsk;
-	SYSTIM		now;
-	UW		reports = 0;
-	BOOL		led_paused = FALSE;
-	ER		er;
+    (void)start_code;
+    (void)p_exinf;
+    for (;;)
+    {
+        /* Keep IF-03 without controlling S1 or reading S2/S3 internals. */
+        (void)tk_wai_flg(flg_events, FLG_BATCH, TWF_ORW | TWF_CLR,
+                          &events, TMO_POL);
+        while ((length = tk_rcv_mbf(mbf_summary, text, TMO_POL)) > 0)
+        {
+            text[length] = '\0';
+            (void)s4_note_legacy_line();
+            tm_printf((UB *)"[S4 legacy] %s\n", text);
+        }
+        /* Repeat the heading for terminals opened after boot. */
+        if ((reports++ % 25u) == 0u)
+        {
+            tm_printf((UB *)"[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,"
+                              "mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,"
+                              "a_seen,m_seen,a_errors,m_errors,heartbeat\n");
+        }
+        {
+            s4_sensor_status_t status;
 
-	(void)stacd; (void)exinf;
-
-	tm_printf((UB*)"monitor: I am task %d\n", tk_get_tid());
-
-	while (1) {
-		/* 1. Arm the one-shot alarm, then wait for EITHER bit.
-		      TWF_ORW = wake on any of the bits, TWF_CLR = clear them
-		      on wake-up.  The extra timeout is just a safety net. */
-		tk_sta_alm(alm_monitor, S4_ALARM_MS);
-		er = tk_wai_flg(flg_events, FLG_ALARM | FLG_BATCH,
-				TWF_ORW | TWF_CLR, &flgptn, S4_ALARM_MS * 2);
-		tk_stp_alm(alm_monitor);	/* cancel it if a batch came first */
-
-		if (er == E_TMOUT) {
-			tm_printf((UB*)"monitor: nothing at all happened?\n");
-			continue;
-		}
-		if (flgptn & FLG_ALARM) {
-			tm_printf((UB*)"monitor: alarm -- no batch for %d ms\n",
-				  S4_ALARM_MS);
-		}
-
-		/* 2. Drain the message buffer without waiting (TMO_POL).
-		      tk_rcv_mbf returns the message length, or an error. */
-		while ((len = tk_rcv_mbf(mbf_summary, text, TMO_POL)) > 0) {
-			text[len] = '\0';
-			s4_lines_received++;
-			tm_printf((UB*)"monitor: batch  %s\n", text);
-		}
-
-		/* 3. Copy the stats under subsystem 3's mutex, print outside
-		      it: hold a mutex for as short a time as possible. */
-		tk_loc_mtx(mtx_stats, TMO_FEVR);
-		snap = app_stats;
-		tk_unl_mtx(mtx_stats);
-
-		tk_get_tim(&now);
-		tk_ref_sem(sem_slots, &rsem);
-		tk_ref_mpf(mpf_samples, &rmpf);
-		tm_printf((UB*)"monitor: t=%u ms  samples=%u  min=%d max=%d avg=%d"
-			  "  free slots=%d  free blocks=%d\n",
-			  now.lo, snap.received, snap.min, snap.max,
-			  snap.received ? (INT)(snap.sum / (W)snap.received) : 0,
-			  rsem.semcnt, (INT)rmpf.frbcnt);
-
-		/* 4. Every few reports, pause or resume subsystem 1's LED task
-		      (IF-05) and look at it with tk_ref_tsk. */
-		if (++reports % S4_LED_TOGGLE_REPORTS == 0) {
-			if (led_paused) {
-				tk_rsm_tsk(tid_led);
-				tk_chg_pri(tid_led, S1_PRI_LED);	/* back to normal */
-			} else {
-				tk_sus_tsk(tid_led);
-				/* Changing the priority of a task: */
-				tk_chg_pri(tid_led, S1_PRI_LED + 1);
-			}
-			led_paused = !led_paused;
-
-			tk_ref_tsk(tid_led, &rtsk);
-			tm_printf((UB*)"monitor: LED task %s, state=%s, pri=%d\n",
-				  led_paused ? "paused" : "resumed",
-				  state_name(rtsk.tskstat), rtsk.tskpri);
-		}
-	}
+            if (s4_sensor_get_status(&status) >= E_OK)
+            {
+                tm_printf((UB *)"[S4] %u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,"
+                                  "%u,%u,%u,%u,%u\n",
+                          (UW)(status.observed_time_us / 1000u),
+                          (INT)status.init_result,
+                          (INT)status.accel_usable, (INT)status.mag_usable,
+                          (INT)status.latest.accel.milli_units[0],
+                          (INT)status.latest.accel.milli_units[1],
+                          (INT)status.latest.accel.milli_units[2],
+                          (INT)status.latest.mag.milli_units[0],
+                          (INT)status.latest.mag.milli_units[1],
+                          (INT)status.latest.mag.milli_units[2],
+                          display_age(status.accel_age_ms),
+                          display_age(status.mag_age_ms),
+                          (UW)status.accel_samples, (UW)status.mag_samples,
+                          (UW)status.accel_io_errors, (UW)status.mag_io_errors,
+                          (UW)status.task_heartbeat);
+            }
+        }
+        (void)tk_dly_tsk(S4_REPORT_MS);
+    }
 }
