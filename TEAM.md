@@ -19,7 +19,7 @@ subsystem, ask its owner or open a pull request for them to review.
 |---|---|---|---|---|---|
 | 1 | *example:* LED heartbeat on GP19 | | | `app_program/subsystem1/` | `testing/subsystem1/` |
 | 2 | PWM motion control and dual-wheel encoder diagnostics | 2500613 | | `app_program/subsystem2/` | `app_program/subsystem2/tests/host/` |
-| 3 | *example:* Consumer: collects samples into statistics | | | `app_program/subsystem3/` | `testing/subsystem3/` |
+| 3 | IR line following, barcode decoding, navigation events | 2500383 | | `app_program/subsystem3/` | `testing/subsystem3/` |
 | 4 | Buddy 4: GY-511 / LSM303DLHC acquisition and sensor snapshots | | | `app_program/subsystem4/` | `testing/subsystem4/` |
 | 5 | | | | `app_program/subsystem5/` | `testing/subsystem5/` |
 
@@ -110,7 +110,7 @@ the drivers have no locking to stop it.
 | I2C1 | S4 | `s4_sensor_task` | GP2 SDA, GP3 SCL |
 | SPI0 | | | |
 | SPI1 | | | |
-| ADC | | | GP26–GP28 |
+| ADC | S3 (optional; disabled pending verified analogue wiring) | `s3_adc_worker` (priority 17, core 0) | GP26-GP28 capability only; no pin claim; GP29 reserved for radio |
 | PWM slices 4/5 | S2 | motor task | GP8-GP11 |
 | IO_BANK0 IRQ 13, core 0 | S2 (when encoders enabled) | encoder interrupt handler | GP4/5, GP16/17 |
 | WiFi radio, TCP/IP, MQTT | *kernel* | `cyw43_utk_task` (built in) | GP23–25, GP29 |
@@ -149,7 +149,7 @@ change it only by team agreement. Write down every task you create.
 |---|---|---|
 | 1 | 12–13 | *example:* led_task – 12 – any |
 | 2 | 14–15 | motor_task – 14 – core 0 |
-| 3 | 16–17 | *example:* consumer_task – 16 – core 0 |
+| 3 | 16–17 | `consumer_task` (S3 sampler) – 16 – core 0; `s3_adc_worker` – 17 – core 0 (optional) |
 | 4 | 18–19 | `s4_sensor_task` – 18 – core 1; `monitor_task` – 19 – any |
 | 5 | 20–21 | |
 

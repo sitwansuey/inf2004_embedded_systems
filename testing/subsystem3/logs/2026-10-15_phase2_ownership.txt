@@ -1,0 +1,9 @@
+Phase 2 protected-code comparison against e292334:
+git diff --exit-code e292334 -- app_program/subsystem1 app_program/subsystem2 app_program/subsystem4 app_program/subsystem5 app_program/app.h app_program/app_main.c device kernel config lib
+Exit: 0
+
+Whitespace:
+git diff --check e292334
+Exit: 0
+
+No code under other subsystems, app.h/app_main.c, kernel/, device/, config/ or lib/ changed. TEAM.md changes only the previously empty ADC peripheral ownership row.
