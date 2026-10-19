@@ -9,9 +9,9 @@
 #ifndef APP_H
 #define APP_H
 
-#include <tk/tkernel.h>		/* micro T-Kernel API (tk_xxx_yyy) */
-#include <tm/tmonitor.h>	/* T-Monitor API: tm_printf() console output */
-#include <bsp/libbsp.h>		/* Board helpers: gpio_set_pin/val, pwm_... */
+#include <tk/tkernel.h>	 /* micro T-Kernel API (tk_xxx_yyy) */
+#include <tm/tmonitor.h> /* T-Monitor API: tm_printf() console output */
+#include <bsp/libbsp.h>	 /* Board helpers: gpio_set_pin/val, pwm_... */
 
 /* ---------------------------------------------------------------------
  *  Pins: free for projects are GP0..GP22 and GP26..GP28.  GP0/GP1 are
@@ -20,17 +20,35 @@
  *  Claim every pin in TEAM.md section 2 before using it.
  * --------------------------------------------------------------------- */
 
+/* Shared Robo Pico GPIO signal assignments. */
+/* Onboard motor driver inputs. */
+#define BOARD_MOTOR1_A_GPIO          8U
+#define BOARD_MOTOR1_B_GPIO          9U
+#define BOARD_MOTOR2_A_GPIO          10U
+#define BOARD_MOTOR2_B_GPIO          11U
+
+/* Quadrature encoder inputs: existing motor 2 on GP4/5, motor 1 on GP16/17. */
+#define BOARD_MOTOR1_ENCODER_A_GPIO  16U
+#define BOARD_MOTOR1_ENCODER_B_GPIO  17U
+#define BOARD_MOTOR2_ENCODER_A_GPIO  4U
+#define BOARD_MOTOR2_ENCODER_B_GPIO  5U
+
+/* Ultrasonic sensor signals. */
+#define BOARD_ULTRASONIC_ECHO_GPIO   0U
+#define BOARD_ULTRASONIC_TRIG_GPIO   1U
+
+/* Servo signal. */
+#define BOARD_SERVO_GPIO            12U
+
+/* Robo Pico onboard piezo buzzer, used by the acquisition-left test. */
+#define BOARD_BUZZER_GPIO           22U
+
 /* ---------------------------------------------------------------------
  *  Task priorities: 1 is the highest; the kernel's USB console (3) and
  *  WiFi (4) tasks sit above every application task.  Each subsystem
  *  has its own band (TEAM.md section 4), defined in its own header.
  * --------------------------------------------------------------------- */
-#define TASK_STACK_SIZE		2048	/* bytes; tm_printf needs ~1 KB */
-
-/* Optional bench build: shared startup initializes/starts only S4. */
-#ifndef APP_S4_ONLY
-#define APP_S4_ONLY 0
-#endif
+#define TASK_STACK_SIZE 2048 /* bytes; tm_printf needs ~1 KB */
 
 /* Create and start a task.  prc = TP_PRC1 (core 0), TP_PRC2 (core 1), or
    0 for "any core".  Defined in app_main.c. */
@@ -65,12 +83,14 @@ IMPORT void subsystem5_test(void);
 #endif
 
 /* Print a readable message if a kernel call failed (negative error code) */
-#define CHECK(er, what)							\
-	do {								\
-		INT check_er_ = (INT)(er);	/* evaluate once */	\
-		if (check_er_ < E_OK) {					\
-			tm_printf((UB*)"ERROR %s: %d\n", (what), check_er_); \
-		}							\
+#define CHECK(er, what)                                           \
+	do                                                            \
+	{                                                             \
+		INT check_er_ = (INT)(er); /* evaluate once */            \
+		if (check_er_ < E_OK)                                     \
+		{                                                         \
+			tm_printf((UB *)"ERROR %s: %d\n", (what), check_er_); \
+		}                                                         \
 	} while (0)
 
 #endif /* APP_H */
