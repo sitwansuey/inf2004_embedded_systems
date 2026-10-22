@@ -1,0 +1,13 @@
+﻿{
+    "started":  "2026-10-22T04:45:55.1148440+08:00",
+    "drive":  "D:\\",
+    "motor_lock":  true,
+    "flashed":  true,
+    "board_info":  "Model: Raspberry Pi RP2; Board-ID: RPI-RP2",
+    "ultrasonic_wiring":  "TRIG=GP1 ECHO=GP0; restored from Buddy 5 app.h",
+    "s5_status_copy_fix":  true,
+    "firmware_sha256":  "C0A4A67A31CF1227D7A35A3CC68FA9450F74F03748D55F2F82A1762F863DE49D",
+    "previous_sha256":  "15644919870CD0CC8B775F6E24AA6C4A74D371E7FEF8A6DEAE318806401FD00B",
+    "bytes":  653824,
+    "copy_completed":  "2026-10-22T04:46:13.9470766+08:00"
+}

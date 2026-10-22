@@ -1,0 +1,34 @@
+﻿{
+    "started":  "2026-10-22T04:05:23.3290398+08:00",
+    "seconds":  60,
+    "procedure":  "Wiring",
+    "commands_sent":  0,
+    "port":  "COM5",
+    "status":  "CAPTURED",
+    "identity_check":  "MTK3PICO serial identity + matching USB ContainerID + live COM port",
+    "warmup_seconds":  2,
+    "discarded_warmup_characters":  3997,
+    "phase_cues":  [
+                       {
+                           "elapsed_seconds":  15.09,
+                           "phase":  "LEFT_WHEEL: manually rotate only the left wheel; keep chassis still."
+                       },
+                       {
+                           "elapsed_seconds":  30.02,
+                           "phase":  "RIGHT_WHEEL: stop the left wheel; manually rotate only the right wheel."
+                       },
+                       {
+                           "elapsed_seconds":  45.03,
+                           "phase":  "ULTRASONIC_TARGET: stop both wheels; move a flat target between about 10 and 30 cm."
+                       }
+                   ],
+    "controller_lines":  60,
+    "incomplete_controller_records":  0,
+    "controller_fault_records":  0,
+    "unexpected_motor_status_lines":  0,
+    "motor_lock_banner_seen":  false,
+    "imu_rows":  286,
+    "accel_usable_seen":  true,
+    "encoder_diagnostic_records":  60,
+    "ultrasonic_diagnostic_records":  60
+}

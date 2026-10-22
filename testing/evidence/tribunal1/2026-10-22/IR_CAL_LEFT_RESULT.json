@@ -1,0 +1,408 @@
+﻿{
+    "started":  "2026-10-22T06:46:14.5402123+08:00",
+    "seconds":  8,
+    "procedure":  "IRCalibrated",
+    "commands_sent":  0,
+    "port":  "COM5",
+    "status":  "CAPTURED",
+    "identity_check":  "MTK3PICO serial identity + matching USB ContainerID + live COM port",
+    "warmup_seconds":  2,
+    "discarded_warmup_characters":  7404,
+    "warmup_log":  "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_CAL_LEFT_WARMUP.log",
+    "phase_cues":  [
+
+                   ],
+    "controller_lines":  8,
+    "incomplete_controller_records":  0,
+    "controller_fault_records":  0,
+    "unexpected_motor_status_lines":  0,
+    "motor_lock_banner_seen":  false,
+    "imu_rows":  39,
+    "accel_usable_seen":  true,
+    "encoder_diagnostic_records":  8,
+    "ultrasonic_diagnostic_records":  8,
+    "sonar_status_copies":  8,
+    "sonar_snapshot_unavailable":  0,
+    "sonar_copy_error_codes":  {
+                                   "0":  8
+                               },
+    "sonar_no_rise_records":  0,
+    "sonar_valid_records":  8,
+    "sonar_mm_min":  807,
+    "sonar_mm_max":  829,
+    "ir_diagnostic_records":  0,
+    "ir_complete_scans":  0,
+    "ir_unique_complete_scans":  0,
+    "ir_unexpected_authority":  0,
+    "ir_calibrated_acquired_rows":  40,
+    "ir_calibrated_algorithm_errors":  {
+                                           "0":  40
+                                       },
+    "ir_calibrated_rows":  40,
+    "ir_calibrated_incomplete_records":  0,
+    "ir_calibrated_valid_rows":  40,
+    "ir_calibrated_unique_scans":  40,
+    "ir_unexpected_steering":  0,
+    "ir_calibrated_observations":  [
+                                       {
+                                           "t":  81980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  46,
+                                           "right_darkness":  396,
+                                           "left_darkness":  897
+                                       },
+                                       {
+                                           "t":  82180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  45,
+                                           "right_darkness":  397,
+                                           "left_darkness":  896
+                                       },
+                                       {
+                                           "t":  82380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  44,
+                                           "right_darkness":  397,
+                                           "left_darkness":  888
+                                       },
+                                       {
+                                           "t":  82580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  53,
+                                           "right_darkness":  396,
+                                           "left_darkness":  890
+                                       },
+                                       {
+                                           "t":  82780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  53,
+                                           "right_darkness":  397,
+                                           "left_darkness":  896
+                                       },
+                                       {
+                                           "t":  82980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  46,
+                                           "right_darkness":  395,
+                                           "left_darkness":  888
+                                       },
+                                       {
+                                           "t":  83180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  45,
+                                           "right_darkness":  391,
+                                           "left_darkness":  886
+                                       },
+                                       {
+                                           "t":  83380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  52,
+                                           "right_darkness":  395,
+                                           "left_darkness":  890
+                                       },
+                                       {
+                                           "t":  83580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  47,
+                                           "right_darkness":  397,
+                                           "left_darkness":  892
+                                       },
+                                       {
+                                           "t":  83780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  49,
+                                           "right_darkness":  397,
+                                           "left_darkness":  896
+                                       },
+                                       {
+                                           "t":  83980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  50,
+                                           "right_darkness":  396,
+                                           "left_darkness":  898
+                                       },
+                                       {
+                                           "t":  84180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  53,
+                                           "right_darkness":  398,
+                                           "left_darkness":  892
+                                       },
+                                       {
+                                           "t":  84380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  52,
+                                           "right_darkness":  396,
+                                           "left_darkness":  895
+                                       },
+                                       {
+                                           "t":  84580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  46,
+                                           "right_darkness":  395,
+                                           "left_darkness":  896
+                                       },
+                                       {
+                                           "t":  84780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  44,
+                                           "right_darkness":  396,
+                                           "left_darkness":  895
+                                       },
+                                       {
+                                           "t":  84980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  46,
+                                           "right_darkness":  395,
+                                           "left_darkness":  895
+                                       },
+                                       {
+                                           "t":  85180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  52,
+                                           "right_darkness":  398,
+                                           "left_darkness":  898
+                                       },
+                                       {
+                                           "t":  85380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  44,
+                                           "right_darkness":  396,
+                                           "left_darkness":  898
+                                       },
+                                       {
+                                           "t":  85580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  44,
+                                           "right_darkness":  396,
+                                           "left_darkness":  892
+                                       },
+                                       {
+                                           "t":  85780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  47,
+                                           "right_darkness":  398,
+                                           "left_darkness":  887
+                                       },
+                                       {
+                                           "t":  85980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  49,
+                                           "right_darkness":  396,
+                                           "left_darkness":  889
+                                       },
+                                       {
+                                           "t":  86180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  50,
+                                           "right_darkness":  396,
+                                           "left_darkness":  894
+                                       },
+                                       {
+                                           "t":  86380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  43,
+                                           "right_darkness":  397,
+                                           "left_darkness":  892
+                                       },
+                                       {
+                                           "t":  86580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  54,
+                                           "right_darkness":  395,
+                                           "left_darkness":  887
+                                       },
+                                       {
+                                           "t":  86780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  44,
+                                           "right_darkness":  395,
+                                           "left_darkness":  897
+                                       },
+                                       {
+                                           "t":  86980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  47,
+                                           "right_darkness":  396,
+                                           "left_darkness":  887
+                                       },
+                                       {
+                                           "t":  87180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  51,
+                                           "right_darkness":  395,
+                                           "left_darkness":  896
+                                       },
+                                       {
+                                           "t":  87380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  45,
+                                           "right_darkness":  396,
+                                           "left_darkness":  896
+                                       },
+                                       {
+                                           "t":  87580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  52,
+                                           "right_darkness":  395,
+                                           "left_darkness":  891
+                                       },
+                                       {
+                                           "t":  87780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  54,
+                                           "right_darkness":  396,
+                                           "left_darkness":  897
+                                       },
+                                       {
+                                           "t":  87980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  54,
+                                           "right_darkness":  391,
+                                           "left_darkness":  899
+                                       },
+                                       {
+                                           "t":  88180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  47,
+                                           "right_darkness":  397,
+                                           "left_darkness":  887
+                                       },
+                                       {
+                                           "t":  88380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  52,
+                                           "right_darkness":  395,
+                                           "left_darkness":  891
+                                       },
+                                       {
+                                           "t":  88580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  43,
+                                           "right_darkness":  395,
+                                           "left_darkness":  892
+                                       },
+                                       {
+                                           "t":  88780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  44,
+                                           "right_darkness":  396,
+                                           "left_darkness":  893
+                                       },
+                                       {
+                                           "t":  88980,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  45,
+                                           "right_darkness":  396,
+                                           "left_darkness":  886
+                                       },
+                                       {
+                                           "t":  89180,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  46,
+                                           "right_darkness":  393,
+                                           "left_darkness":  891
+                                       },
+                                       {
+                                           "t":  89380,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  48,
+                                           "right_darkness":  394,
+                                           "left_darkness":  894
+                                       },
+                                       {
+                                           "t":  89580,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  51,
+                                           "right_darkness":  395,
+                                           "left_darkness":  899
+                                       },
+                                       {
+                                           "t":  89780,
+                                           "line":  1,
+                                           "blackmask":  2,
+                                           "lineerror":  -1000,
+                                           "barcode_darkness":  49,
+                                           "right_darkness":  391,
+                                           "left_darkness":  887
+                                       }
+                                   ]
+}

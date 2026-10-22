@@ -1,0 +1,45 @@
+﻿{
+    "started":  "2026-10-22T06:45:04.0273827+08:00",
+    "status":  "PASS_STATIONARY_CLASSIFICATION",
+    "commands_sent":  0,
+    "steps":  [
+                  {
+                      "name":  "WHITE",
+                      "started":  "2026-10-22T06:45:13.2208465+08:00",
+                      "valid_scans":  41,
+                      "expected_mask":  0,
+                      "expected_direction":  0,
+                      "expected_barcode_black":  false,
+                      "mismatches":  0
+                  },
+                  {
+                      "name":  "RIGHT",
+                      "started":  "2026-10-22T06:45:47.9113526+08:00",
+                      "valid_scans":  40,
+                      "expected_mask":  1,
+                      "expected_direction":  1000,
+                      "expected_barcode_black":  false,
+                      "mismatches":  0
+                  },
+                  {
+                      "name":  "LEFT",
+                      "started":  "2026-10-22T06:46:14.5402123+08:00",
+                      "valid_scans":  40,
+                      "expected_mask":  2,
+                      "expected_direction":  -1000,
+                      "expected_barcode_black":  false,
+                      "mismatches":  0
+                  },
+                  {
+                      "name":  "BARCODE",
+                      "started":  "2026-10-22T06:46:39.3596003+08:00",
+                      "valid_scans":  40,
+                      "expected_mask":  0,
+                      "expected_direction":  0,
+                      "expected_barcode_black":  true,
+                      "mismatches":  0
+                  }
+              ],
+    "physical_line_following_validated":  false,
+    "physical_barcode_decoding_validated":  false
+}

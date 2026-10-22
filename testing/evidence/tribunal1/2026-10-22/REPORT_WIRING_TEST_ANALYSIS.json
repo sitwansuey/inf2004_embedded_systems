@@ -1,0 +1,145 @@
+{
+  "started": "2026-10-22T04:05:23.3290398+08:00",
+  "flash_copy_completed": "2026-10-22T04:05:18.1628800+08:00",
+  "firmware_sha256": "b9922457b5dfae6101fbe91137cbd5a8c0d003b95b8ebe9bb268d2b3849a43cd",
+  "firmware_bytes": 653312,
+  "controller_records": 60,
+  "commanded_motion_records": 0,
+  "controller_fault_records": 0,
+  "commands_sent": 0,
+  "encoder_records": 60,
+  "all_encoder_snapshots_valid": true,
+  "encoder_ranges": {
+    "m1": [
+      -1,
+      291
+    ],
+    "m2": [
+      0,
+      57
+    ]
+  },
+  "encoder_final_counts": {
+    "m1": 252,
+    "m2": 56
+  },
+  "prompt_phase_approximation": "Firmware 7..21 s still; 22..36 s left; 37..51 s right; 52..66 s target. Recorded host phase cues were 15.09, 30.02 and 45.03 s.",
+  "encoder_phase_observations": {
+    "initial_still": {
+      "first": {
+        "time_ms": 7000,
+        "valid": 1,
+        "m1": 0,
+        "m2": 0,
+        "m1ab": "01",
+        "m2ab": "01"
+      },
+      "last": {
+        "time_ms": 21000,
+        "valid": 1,
+        "m1": 243,
+        "m2": 57,
+        "m1ab": "10",
+        "m2ab": "00"
+      },
+      "m1_range": [
+        -1,
+        272
+      ],
+      "m2_range": [
+        0,
+        57
+      ]
+    },
+    "left_prompt": {
+      "first": {
+        "time_ms": 22000,
+        "valid": 1,
+        "m1": 243,
+        "m2": 56,
+        "m1ab": "10",
+        "m2ab": "10"
+      },
+      "last": {
+        "time_ms": 36000,
+        "valid": 1,
+        "m1": 252,
+        "m2": 56,
+        "m1ab": "00",
+        "m2ab": "11"
+      },
+      "m1_range": [
+        243,
+        291
+      ],
+      "m2_range": [
+        56,
+        56
+      ]
+    },
+    "right_prompt": {
+      "first": {
+        "time_ms": 37000,
+        "valid": 1,
+        "m1": 252,
+        "m2": 56,
+        "m1ab": "00",
+        "m2ab": "11"
+      },
+      "last": {
+        "time_ms": 51000,
+        "valid": 1,
+        "m1": 252,
+        "m2": 56,
+        "m1ab": "00",
+        "m2ab": "11"
+      },
+      "m1_range": [
+        252,
+        252
+      ],
+      "m2_range": [
+        56,
+        56
+      ]
+    },
+    "target_prompt": {
+      "first": {
+        "time_ms": 52000,
+        "valid": 1,
+        "m1": 252,
+        "m2": 56,
+        "m1ab": "00",
+        "m2ab": "11"
+      },
+      "last": {
+        "time_ms": 66000,
+        "valid": 1,
+        "m1": 252,
+        "m2": 56,
+        "m1ab": "00",
+        "m2ab": "11"
+      },
+      "m1_range": [
+        252,
+        252
+      ],
+      "m2_range": [
+        56,
+        56
+      ]
+    }
+  },
+  "mapping_confirmed": false,
+  "mapping_reason": "Both inputs changed before the left cue; no count changes in the right prompted interval. Separate wheel-labelled captures are required; no pin reassignment justified.",
+  "sonar_records": 60,
+  "sonar_copies_ok": 25,
+  "sonar_snapshot_unavailable": 35,
+  "copied_echo_codes": {
+    "2": 25
+  },
+  "valid_sonar_samples": 0,
+  "sonar_finding": "All copied snapshots fresh, state S5_FAULT (8), echo S5_ECHO_NO_RISE (2). Missing copies cannot be interpreted as echo OK or zero distance.",
+  "electrical_motor_shutdown_measured": false,
+  "sensor_power_connection_confirmed": false
+}
