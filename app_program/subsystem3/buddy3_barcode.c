@@ -8,20 +8,18 @@
 #define S3_A_PATTERN 0x109U
 #define S3_Z_PATTERN 0x0D0U
 
-static bool within(uint32_t width, uint32_t unit, uint32_t low, uint32_t high)
-{
-    return (((uint64_t)width * 100U) >= ((uint64_t)unit * low)) &&
-           (((uint64_t)width * 100U) <= ((uint64_t)unit * high));
-}
-
+/* A reflective threshold can shorten black pulses and lengthen white gaps.
+ * First require three clearly separated wide elements, then intersect the
+ * original 1:3 +/-25% bands with one bounded black/white edge offset. No
+ * symbol is used to choose widths. An offset above half a narrow unit fails.
+ * Percent-scaled signed 64-bit arithmetic preserves fractional bounds and
+ * remains bounded for every uint32_t input. No allocation or persistent state. */
 static bool character(const uint32_t *p_runs, uint16_t *p_pattern,
-                       uint32_t *p_unit)
+                       uint32_t *p_unit, int64_t *p_bias100)
 {
     uint32_t sorted[9];
     uint16_t pattern = 0U;
-    unsigned int wide_count = 0U;
     size_t i;
-
     (void)memcpy(sorted, p_runs, sizeof(sorted));
     for (i = 1U; i < 9U; ++i)
     {
@@ -35,25 +33,30 @@ static bool character(const uint32_t *p_runs, uint16_t *p_pattern,
         sorted[j] = value;
     }
     *p_unit = (uint32_t)(((uint64_t)sorted[2] + sorted[3]) / 2U);
-    if (*p_unit == 0U)
+    if ((sorted[0] == 0U) || (*p_unit == 0U) ||
+        ((uint64_t)sorted[6] * 2U < (uint64_t)sorted[5] * 3U))
     {
         return false;
     }
+    int64_t lower = -(int64_t)*p_unit * 50;
+    int64_t upper = (int64_t)*p_unit * 50;
     for (i = 0U; i < 9U; ++i)
     {
-        pattern = (uint16_t)(pattern << 1U);
-        if (within(p_runs[i], *p_unit, 225U, 375U))
-        {
-            pattern |= 1U;
-            ++wide_count;
-        }
-        else if (!within(p_runs[i], *p_unit, 75U, 125U))
-        {
-            return false;
-        }
+        bool wide = p_runs[i] >= sorted[6];
+        int64_t low = (int64_t)*p_unit * (wide ? 225 : 75);
+        int64_t high = (int64_t)*p_unit * (wide ? 375 : 125);
+        int64_t value = (int64_t)p_runs[i] * 100;
+        int64_t a = ((i & 1U) == 0U) ? low - value : value - high;
+        int64_t b = ((i & 1U) == 0U) ? high - value : value - low;
+        if (a > lower) lower = a;
+        if (b < upper) upper = b;
+        if (lower > upper) return false;
+        pattern = (uint16_t)((unsigned int)pattern << 1U);
+        if (wide) pattern |= 1U;
     }
     *p_pattern = pattern;
-    return wide_count == 3U;
+    *p_bias100 = (lower <= 0 && upper >= 0) ? 0 : (lower + upper) / 2;
+    return true;
 }
 
 static s3_barcode_status_t decode_forward(const uint32_t *p_runs,
@@ -61,11 +64,12 @@ static s3_barcode_status_t decode_forward(const uint32_t *p_runs,
 {
     uint16_t pattern[3] = {0};
     uint32_t unit[3] = {0};
+    int64_t bias100[3] = {0};
     size_t i;
 
     for (i = 0U; i < 3U; ++i)
     {
-        if (!character(&p_runs[i * 10U], &pattern[i], &unit[i]))
+        if (!character(&p_runs[i * 10U], &pattern[i], &unit[i], &bias100[i]))
         {
             return S3_BARCODE_BAD_PATTERN;
         }
@@ -77,11 +81,15 @@ static s3_barcode_status_t decode_forward(const uint32_t *p_runs,
     for (i = 0U; i < 2U; ++i)
     {
         uint32_t adjacent = (uint32_t)(((uint64_t)unit[i] + unit[i + 1U]) / 2U);
-        /* Separators are narrow. Local character widths permit gradual speed
+        int64_t separator100 = (int64_t)p_runs[9U + (i * 10U)] * 100 -
+                               (bias100[i] + bias100[i + 1U]) / 2;
+        /* Separators are white and use the adjacent fitted edge offset.
+         * Local character widths permit gradual speed
          * changes; reject more than 2:1 change between adjacent characters. */
         if (((uint64_t)unit[i] > ((uint64_t)unit[i + 1U] * 2U)) ||
             ((uint64_t)unit[i + 1U] > ((uint64_t)unit[i] * 2U)) ||
-            !within(p_runs[9U + (i * 10U)], adjacent, 75U, 125U))
+            (separator100 < (int64_t)adjacent * 75) ||
+            (separator100 > (int64_t)adjacent * 125))
         {
             return S3_BARCODE_BAD_PATTERN;
         }

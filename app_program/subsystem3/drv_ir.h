@@ -2,6 +2,7 @@
 #define DRV_IR_H
 
 #include "../app.h"
+#include "buddy3_board.h"
 #include "buddy3_core.h"
 
 typedef enum
@@ -34,5 +35,9 @@ ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config);
  * from a latched timeout by s3_ir_waiting(). Failed ADC stays held until reboot. */
 bool s3_ir_waiting(const s3_ir_t *p_ir);
 ER s3_ir_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample);
+/* Sampler path: submit a current scan and wait on its copied reply, with a
+ * bounded kernel timeout. No device call or caller buffer runs in this task.
+ * Unlike the legacy polling pipeline, it does not queue the next scan early. */
+ER s3_ir_acquire(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample);
 
 #endif

@@ -1,3 +1,50 @@
+# Buddy 3 validation scope — 25 October 2026
+
+## Sensor evidence
+
+GP27 is LEFT, GP26 RIGHT, GP28 the dedicated barcode input. The user confirmed
+GP28 A0 wiring and disconnected its D0 during analogue tests. Three separate
+modules use 3V3. Sensor model/optical gap are not established. Endpoints are
+robot-specific and must be measured again after mounting/module changes.
+
+Independent stationary line checks passed 2,418 samples: 798 RIGHT BLACK /
+LEFT WHITE, 808 LEFT BLACK / RIGHT WHITE, and 812 both WHITE. No acquisition
+gaps or classification mismatches. GP26/27 endpoints remained unchanged.
+GP28 replacement separates wide printed BLACK and WHITE in stationary checks;
+thin-bar and complete independent A/Z decode reliability remain unresolved.
+
+## User-operated line response test
+
+On 25 October, external integrated IRContinuous firmware v6 ran 30% PWM for
+20,000 ms and acknowledged final STOP. The user reports successful turning
+and straight travel through the cross. The recorded masks include 0/1/2/3,
+and commanded directions include forward, left pivot and right pivot.
+The user planned to move/reposition the robot during this test.
+
+This passes the reported user-operated turn/cross response check. It does
+not certify unassisted full-course tracking, junction classification,
+stopping distance or lateral error in millimetres. The external controller
+and motor/USB integration are not part of this Buddy 3-only push.
+
+Integration test firmware SHA256:
+2deddabc20183951ddb8036240d8d1b50f5fdfe903ef4bf13a240956f018bf69
+Recorded run log SHA256:
+703d6d7380a30da02fa382e0be03220b82878ae0d41e7b4596c9d790494344a6
+
+## Remaining team integration
+
+Controller owner selects line/junction behaviour, motion limits, STOP policy
+and navigation maps. Buddy 2 owns PWM, encoder and motion feedback. Kernel
+owner enables ADC pads/device. This branch changes none of those components.
+Buddy 3 continues publishing junction/validity indications without inventing
+an autonomous route, physical scale, unsupported sensor or hardware accuracy.
+
+Native and ARM-object validation of the isolated branch are recorded separately.
+
+---
+
+## Historical validation plan (retained)
+
 # Buddy 3 bench and robot validation protocol
 
 Status: NOT RUN. Native tests exercise C algorithms and fake RTOS/GPIO boundaries;

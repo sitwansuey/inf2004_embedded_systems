@@ -1,3 +1,42 @@
+# Buddy 3: IR acquisition, line processing and barcode decoding
+
+This branch contains only Buddy 3-owned production sources, native tests,
+IR layout/calibration helpers and documentation. It does not include the
+local Vehicle Controller, motor/encoder, USB/MQTT, IMU, ultrasonic, kernel
+ADC or global build-profile changes used for robot integration testing.
+
+Current sensor roles: GP27 LEFT line, GP26 RIGHT line, GP28 barcode. The
+sampler owns acquisition at a nominal 10 ms and publishes copied status;
+only the existing ADC worker accesses ADC. Configure kernel ADC pad ownership
+separately with its owner. Defaults leave IR disabled and never start motion.
+
+Recent changes: cyclic sampling without catch-up bursts; bounded ADC reply
+wait followed by STOP/generation/lease/freshness checks; copied raw/capture
+status; paused-mode timing; compact 13-byte events; barcode edge-bias model
+and native regressions. Physical barcode decoding remains unfinished.
+
+Buddy 3 board/layout/calibration helpers are private to this directory, so
+native tests do not depend on unpublished shared controller configuration.
+Without a coordinator-declared drive lock, raw bring-up refuses E_OACV;
+its native positive tests explicitly declare a test-only lock.
+If a team robot_config.h exists, its settings remain authoritative. Measured
+endpoints are opt-in and robot-specific. The optional motor-scan API only
+feeds a diagnostic decoder in the IR sampler; it never commands a motor.
+
+Validation: see testing/subsystem3/PUBLISH_VALIDATION.md, HARDWARE_VALIDATION.md
+and TEST_LOG.md. Native/analyzer and real ARM checks pass. The whole branch
+still has an unchanged Buddy 2 producer build failure; its owners must fix it.
+The user-operated 30%/20-second line-response test turned successfully and
+went straight at a cross, then acknowledged STOP. Its external motor/test
+controller is intentionally excluded here. This does not establish autonomous
+full-course tracking, calibrated distance/error accuracy or A/Z hardware reliability.
+
+Run native checks with make -C testing/subsystem3 test verify-failure check-headers.
+Historical design and API documentation follows; dated claims of installed
+firmware below describe earlier integration experiments, not this branch's image.
+
+---
+
 # Buddy 3 IR line following and barcode processing
 
 Student ID: 2500383. This module produces tracking results and navigation

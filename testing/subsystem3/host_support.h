@@ -3,6 +3,11 @@
 #define S3_HOST_SUPPORT_H
 #include <stdint.h>
 #include <stddef.h>
+/* Native fixture only: raw positive tests simulate an owner-declared lock.
+ * Explicit BOARD_MOTORS_DISABLED=0 keeps the refusal tests unlocked. */
+#ifndef BOARD_MOTORS_DISABLED
+#define BOARD_MOTORS_DISABLED 1
+#endif
 #define APP_H
 #define IMPORT extern
 #define EXPORT
@@ -24,6 +29,8 @@
 #define TA_HLNG 1U
 #define TA_RNG3 0x300U
 #define TA_ASSPRC 0x800U
+#define TA_STA 2U
+#define TSK_SELF 0
 #define TP_PRC1 1U
 #ifndef TK_SUPPORT_SMP
 #define TK_SUPPORT_SMP 1
@@ -66,6 +73,7 @@ typedef struct
     UW tskatr;
     UW assprc;
 } T_CTSK;
+typedef struct { void *exinf; UW cycatr; FP cychdr; UW cyctim; UW cycphs; UW assprc; } T_CCYC;
 
 ID tk_cre_mbx(const T_CMBX *p_config);
 ID tk_cre_mtx(const T_CMTX *p_config);
@@ -79,9 +87,14 @@ ER tk_loc_mtx(ID object, TMO timeout);
 ER tk_unl_mtx(ID object);
 ER tk_sta_tsk(ID task, INT start);
 ER tk_dly_tsk(UW time_ms);
+ID tk_cre_cyc(const T_CCYC *p_config);
+ER tk_del_cyc(ID object);
+ER tk_wup_tsk(ID task);
+INT tk_can_wup(ID task);
+ER tk_slp_tsk(TMO timeout);
 void tk_ext_tsk(void);
 ID tk_get_tid(void);
-ER tk_get_tim(SYSTIM *p_time);
+ER tk_get_otm(SYSTIM *p_time);
 ER tk_snd_mbf(ID object, const void *p_data, INT length, TMO timeout);
 INT tk_rcv_mbf(ID object, void *p_data, TMO timeout);
 ID tk_opn_dev(const UB *p_name, UINT mode);

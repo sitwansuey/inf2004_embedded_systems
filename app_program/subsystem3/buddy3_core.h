@@ -44,8 +44,8 @@ typedef enum
 
 typedef struct
 {
-    s3_event_kind_t kind;
-    s3_navigation_t command;
+    uint8_t kind : 3;
+    uint8_t command : 3;
     char symbol;
     uint32_t sequence;
     uint32_t time_ms;
@@ -71,12 +71,12 @@ typedef struct
 typedef struct
 {
     s3_line_result_t line;
-    s3_barcode_status_t barcode_status;
-    s3_symbol_t decoded;
     s3_event_t event;
-    s3_error_t error;
-    bool steering_allowed;
-    bool awaiting_controller;
+    s3_symbol_t decoded;
+    uint8_t barcode_status : 3;
+    uint8_t error : 3;
+    uint8_t steering_allowed : 1;
+    uint8_t awaiting_controller : 1;
 } s3_output_t;
 
 typedef struct
@@ -104,6 +104,8 @@ bool s3_core_init(s3_core_t *p_core, const s3_config_t *p_config);
  * Call only for a new controller directive, not every sampling cycle. */
 bool s3_core_control(s3_core_t *p_core, s3_mode_t mode, bool marker_clear);
 void s3_core_fault(s3_core_t *p_core, s3_error_t error);
+/* Forward observation gaps while paused/overridden reset temporal history.
+ * TRACK gaps, duplicate/backwards time and existing faults remain fail-safe. */
 void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
                    s3_output_t *p_output);
 
