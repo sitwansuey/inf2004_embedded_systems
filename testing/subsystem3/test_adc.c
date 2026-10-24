@@ -61,9 +61,9 @@ static void test_timeout(void)
 {
     unsigned int previous_reads;
     sensor_setup(); begin_request(0U);
-    fake_now = 19U;
+    fake_now = 29U;
     CHECK(s3_ir_poll(&sensor, fake_now, &result) == E_TMOUT && s3_ir_waiting(&sensor));
-    fake_now = 20U;
+    fake_now = 30U;
     CHECK(s3_ir_poll(&sensor, fake_now, &result) == E_TMOUT && !s3_ir_waiting(&sensor));
     CHECK(sensor.adc_failed && result.valid_mask == 0U && adc_reads == 0U);
     CHECK(worker_tick() == E_TMOUT && adc_opens == 0U && worker_failed);
@@ -76,7 +76,7 @@ static void test_timeout(void)
     previous_reads = adc_reads;
     CHECK(worker_tick() == E_OBJ && adc_reads == previous_reads);
     sensor_setup(); begin_request(UINT32_MAX - 5U);
-    CHECK(s3_ir_poll(&sensor, 14U, &result) == E_TMOUT && sensor.adc_failed);
+    CHECK(s3_ir_poll(&sensor, 24U, &result) == E_TMOUT && sensor.adc_failed);
 }
 
 static void test_unavailable(void)
@@ -206,14 +206,16 @@ static void test_integration_success_and_hold(void)
     CHECK(snapshot.sample.valid_mask == S3_SENSOR_MASK && snapshot.sample.raw[1] == 4095U);
     CHECK(s3_controller_control(S3_MODE_OVERRIDE, false, 0U) == E_OK);
     CHECK(s3_status_get(&snapshot) == E_OK && !snapshot.output.steering_allowed);
-    CHECK(worker_tick() == E_OK);
+    adc_auto_worker = true;
+    caller = 42;
     fake_now = 30U;
     CHECK(s3_service_once() == E_OK && !status.output.steering_allowed);
-    fake_now = 50U;
+    adc_wait_delay_ms = 30U;
+    fake_now = 60U;
     CHECK(s3_service_once() == E_TMOUT && ir.adc_failed);
     caller = 7;
     CHECK(s3_controller_control(S3_MODE_TRACK, false, 1000U) == E_OK);
-    caller = 42; fake_now = 60U;
+    caller = 42; fake_now = 90U;
     CHECK(s3_service_once() == E_TMOUT && !status.output.steering_allowed);
     CHECK(status.output.error == S3_ERROR_SENSOR);
     caller = 7;

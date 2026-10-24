@@ -149,8 +149,19 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
     if (p_core->have_sample &&
         ((elapsed == 0U) || (elapsed > p_core->config.max_sample_gap_ms)))
     {
-        fault(p_core, p_output, S3_ERROR_STALE, p_sample->time_ms);
-        return;
+        if ((p_core->mode == S3_MODE_TRACK) || (elapsed == 0U) ||
+            (elapsed > INT32_MAX))
+        {
+            fault(p_core, p_output, S3_ERROR_STALE, p_sample->time_ms);
+            return;
+        }
+        /* PAUSED/OVERRIDE make no timing-based navigation decisions. A
+         * forward gap starts a new observation instead of permanently
+         * latching a startup scheduling gap as an active-tracking fault.
+         * Existing latched faults are deliberately NOT cleared here. */
+        s3_line_reset(&p_core->line);
+        s3_barcode_abort(&p_core->barcode);
+        p_core->barcode_black = false;
     }
     p_core->have_sample = true;
     used = p_core->config.line.line_mask;

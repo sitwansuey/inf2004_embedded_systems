@@ -34,7 +34,7 @@ typedef enum
 
 typedef struct
 {
-    s3_line_state_t state;
+    uint8_t state : 3;
     uint16_t darkness[S3_SENSOR_COUNT];
     int16_t error; /* Same units as position; negative means line to the left. */
     uint8_t black_mask;
