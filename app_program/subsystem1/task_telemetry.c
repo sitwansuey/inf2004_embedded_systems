@@ -1,6 +1,7 @@
 #include "subsystem1.h"
 #include "control.h"
 #include "../app_state.h"
+#include "../app_logging.h"
 #include "../subsystem2/subsystem2.h"
 #include "../subsystem3/subsystem3.h"
 #include "../subsystem4/subsystem4.h"
@@ -21,7 +22,9 @@ void telemetry_task(INT code,void *context) {
             if(tk_get_otm(&now)<E_OK) {tk_dly_tsk(10);continue;}
             if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&a);
             li=li && l.configured && l.acquisition_error==E_OK && now.lo-l.sample_time_ms<30U;
-            BOOL us=so && o.valid && now.lo-o.time_ms<500U;
+            BOOL us=so && o.valid && o.distance_mm>0 && o.distance_mm<=5000U && now.lo-o.time_ms<500U;
+            BOOL width_valid=so && o.object_width_valid && o.object_width_mm<=500U;
+            app_log_state(&s);
             s4_result_t terrain={0};
             BOOL terrain_copy=st && s4_result_decode(s.s4_result,sizeof(s.s4_result),&terrain);
             BOOL terrain_fresh=terrain_copy && now.lo-terrain.calculated_ms<=60U && im && a.accel_usable;
@@ -45,9 +48,9 @@ void telemetry_task(INT code,void *context) {
             v[TEL_MZ_RAW]=im&&a.mag_usable?a.latest.mag.raw[2]:0;
             v[TEL_PITCH_CDEG]=terrain.pitch_cdeg;v[TEL_ROLL_CDEG]=terrain.roll_cdeg;v[TEL_TERRAIN]=terrain.terrain;
             v[TEL_HEIGHT_MM]=terrain.height_mm;v[TEL_HIGHEST_MM]=terrain.maximum_mm;
-            v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=o.object_width_valid?o.object_width_mm:0;
+            v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=width_valid?o.object_width_mm:0;
             v[TEL_SERVO_DEG]=o.angle_deg;v[TEL_SCAN_STATE]=o.state;
-            v[TEL_QUALITY]=(o.object_width_valid?1:0)|((terrain.flags&S4_RESULT_SHOCK)?2:0)|(s.vehicle.armed?4:0)|
+            v[TEL_QUALITY]=(width_valid?1:0)|((terrain.flags&S4_RESULT_SHOCK)?2:0)|(s.vehicle.armed?4:0)|
                 (BOARD_BYPASS_VALIDATED?8:0)|(s.odometry_valid?16:0);
             v[TEL_DROPPED]=s1_drop_count();
             if(telemetry_encode(out,v)) {

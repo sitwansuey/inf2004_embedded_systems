@@ -1,9 +1,9 @@
 #ifndef SUBSYSTEM5_H
 #define SUBSYSTEM5_H
 #include "../app.h"
-#include "../board_pins.h"
+#include "../robot_config.h"
 #define S5_PRI_MAIN 20
-#define S5_LOCK_WAIT_MS 5 /* Requested timeout; kernel tick resolution is 10 ms. */
+#define S5_LOCK_WAIT_MS 5
 #define S5_OBSTACLE_MM 200U /* acquisition at 20 cm, inclusive */
 #define S5_ACQUISITION_SAMPLES 2U
 #define S5_SCAN_ECHO_FAILURES 3U /* retry at the same angle before resetting */
@@ -75,34 +75,41 @@ typedef enum
     S5_ECHO_NO_FALL,
     S5_ECHO_TOO_SHORT
 } s5_echo_result_t;
-/* Timestamp/counter arithmetic stays 32-bit. Bounded quantities use
- * narrow storage and flags share one byte. This is not a wire layout. */
+/* Decoded API view. Shared storage and EDR use s5_data.h's explicit packed
+ * bytes; never transmit this native structure or depend on its padding. */
 typedef struct
 {
-    UW scan_id, time_ms;
+    s5_state_t state;
+    INT angle_deg;
+    INT sample_angle_deg; /* actual angle associated with distance_mm */
+    INT avoidance_deg;    /* selected heading: positive left, negative right */
+    UW scan_id;
+    BOOL acquisition_clear;   /* confirmed no-echo opening, not a valid distance */
+    BOOL approach_plan_valid; /* acquisition finished and verified */
+    INT planned_rotate_deg;
+    UW planned_rotate_ms, planned_approach_mm, planned_return_mm;
+    UW obstacle_distance_mm; /* forward distance when this scan began */
+    UW distance_mm;
+    UW echo_us; /* raw high-pulse duration; partial on no-fall timeout */
+    UW time_ms;
+    /* Wheel position at echo start/end; forward is positive on both wheels.
+     * Unsigned subtraction followed by INT cast gives a wrap-safe count delta. */
     INT motor1_counts_start, motor2_counts_start;
     INT motor1_counts_end, motor2_counts_end;
     UW encoder_start_ms, encoder_end_ms;
-    uint16_t planned_rotate_ms, planned_approach_mm, planned_return_mm;
-    uint16_t obstacle_distance_mm, distance_mm, echo_us;
-    uint16_t left_bound_distance_mm, right_bound_distance_mm;
-    uint16_t object_width_mm, object_width_min_mm, object_width_max_mm;
-    int8_t angle_deg, sample_angle_deg, avoidance_deg, planned_rotate_deg;
-    int8_t left_bound_deg, right_bound_deg;
-    uint8_t state : 4;
-    uint8_t echo_result : 3;
-    uint8_t acquisition_clear : 1;
-    uint8_t approach_plan_valid : 1;
-    uint8_t encoder_valid : 1;
-    uint8_t valid : 1;
-    uint8_t left_bound_valid : 1;
-    uint8_t right_bound_valid : 1;
-    uint8_t object_width_valid : 1;
+    BOOL encoder_valid;
+    BOOL valid;
+    s5_echo_result_t echo_result;
+    INT left_bound_deg;  /* first object-hit angle, positive left */
+    INT right_bound_deg; /* first object-hit angle, negative right */
+    BOOL left_bound_valid, right_bound_valid;
+    UW left_bound_distance_mm, right_bound_distance_mm; /* mean of 3 fresh samples */
+    BOOL object_width_valid;
+    UW object_width_mm;
+    UW object_width_min_mm;
+    UW object_width_max_mm;
 } s5_status_t;
 IMPORT ER s5_controller_bind(void);
-/* Task context only. A bounded inheritance wait lets a preempted publisher
- * finish. E_OK copies a coherent snapshot; check time/valid/echo separately.
- * On lock failure the caller's output is unchanged; no stale-cache fallback. */
 IMPORT ER s5_get_status(s5_status_t *status);
 /* Legacy single-rotation handshake. S5 centres the sensor and
  * monitors forward distance until completion or abort. */
@@ -120,7 +127,7 @@ IMPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg);
 #define S5_ROTATE_MS_PER_DEG 5U
 #define S5_SENSOR_OFFSET_MM 90U
 #define S5_CLEARANCE_RADIUS_MM 75U
-#define S5_CRUISE_MM_PER_SECOND 245U /* legacy branch assumption; unused by encoder-based controller */
+#define S5_CRUISE_MM_PER_SECOND 245U /* measured 1.20 rev/s with 65 mm wheels at 30% power */
 #define S5_OVERCOME_CLEARANCE_MM 200U
 #define S5_OBJECT_RANGE_MM 50U
 #define S5_NAVIGATION_TIMEOUT_MS 30000U
@@ -158,6 +165,11 @@ IMPORT void aqcuisition_test(void);
 #endif
 #if APP_ACQUISITION_LEFT_TEST
 IMPORT void acquisition_left_test(void);
+#endif
+#if APP_TEST && APP_S5_DIAGNOSTICS
+IMPORT void s5_servo_sweep_test(void);
+/* Test-only API: command an angle, wait 1 s, optionally measure once. */
+IMPORT ER s5_test_position(INT angle, BOOL take_sample, s5_status_t *copy);
 #endif
 IMPORT s5_path_t s5_assess_path(const s5_status_t *sensor, BOOL available, UW now_ms);
 #endif

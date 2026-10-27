@@ -30,4 +30,8 @@
 #define BOARD_MOTOR2_ENCODER_B_GPIO 5U
 #endif
 
+#ifndef BOARD_BUZZER_GPIO
+#define BOARD_BUZZER_GPIO 22U /* S5 explicit left-acquisition diagnostic only. */
+#endif
+
 #endif /* BOARD_PINS_H */

@@ -2,6 +2,7 @@
 #ifndef S5_HARDWARE_HOST_H
 #define S5_HARDWARE_HOST_H
 #include "host.h"
+INT tm_printf(UB *format, ...);
 typedef struct { void *next; } T_MSG;
 #define GPIO_MODE_OUT 1U
 #define TIMER_TIMERAWL 0x40054028U

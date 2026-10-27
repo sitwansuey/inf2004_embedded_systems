@@ -51,7 +51,7 @@ static INT scan_left(s5_status_t *next, s5_scan_context_t *scan, BOOL object)
 
 /* The detection reading fixes the angle; collect three new valid readings
  * at that angle before publishing the bound and moving the servo again. */
-static BOOL bound_average(s5_status_t *next, s5_scan_context_t *scan, uint16_t *mean)
+static BOOL bound_average(s5_status_t *next, s5_scan_context_t *scan, UW *mean)
 {
     if (!scan->averaging_bound) {
         scan->averaging_bound = TRUE;

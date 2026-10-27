@@ -6,10 +6,11 @@ contract and matching decoder are required at each boundary; a universal
 same-size format is not required. This table documents implemented Buddy 4
 fields. Other owners' application storage is outside this audit.
 
-Checkpoint 373ad6d is published in draft PR #8. The subsequent Buddy 4 changes
-and evidence described here are local until explicitly published. The old
-checkpoint field review is recoverable from that commit; it is not the current
-persistent layout. Main's newer Buddy 5 integration remains unreconciled.
+Checkpoint 373ad6d and CR1 continuation 8f14916 are reconciled with main
+f8107be in PR #8. Current integration and publication evidence is recorded in
+MAIN_RECONCILIATION_20261027.md and testing/subsystem4/merge-verification.json.
+Older CR1 type/build measurements below remain before/after evidence for the
+storage change rather than measurements of every subsequent shared change.
 
 ## Persistent sensor cache and cross-task acquisition record
 

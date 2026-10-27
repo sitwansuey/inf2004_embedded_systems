@@ -1,0 +1,54 @@
+make: Entering directory '/c/Users/JT/Downloads/inf2004_embedded_systems/testing/integration'
+mkdir -p .build
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic buddy4_vehicle_test.c ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/shared/edr.c ../../app_program/subsystem4/encoder_input.c  -lm -o .build/buddy4_vehicle
+./.build/buddy4_vehicle
+INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c  -o .build/continuous_line
+./.build/continuous_line
+Continuous30pct/20s all-pattern policy: 6661 checks, 0 failures
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_course_test.c ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c  -o .build/line_course
+./.build/line_course
+Line course turns/cross: 706 checks, 0 failures
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_only_test.c ../../app_program/ir_line_progress.c ../../app_program/ir_motor_scan.c  -o .build/line_only
+./.build/line_only
+Line-only50pct/20s/progress policy: 73458 checks, 0 failures
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 line_trace_test.c ../../app_program/ir_line_trace.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c  -o .build/line_trace
+./.build/line_trace
+Line trace policy: 355 checks, 0 failures
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic policy_test.c ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/shared/edr.c  -lm -o .build/policy
+./.build/policy
+INT-CR1-01 controller: priority, expiry, stale data, complete bounded bypass, STOP handoffs PASS
+INT-CR1-02 odometry: wrap, scale, speed, yaw, gaps and discontinuities PASS
+INT-CR1-03 terrain: calibration gate, ordered hump, maximum, impact and invalid samples PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion ir_motor_scan_test.c ../../app_program/ir_motor_scan.c  -o .build/ir_motor_scan
+./.build/ir_motor_scan
+IR motor scan policy: 339 checks, 0 failures
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic ir_scan_usb_test.c ../../app_program/ir_motor_scan.c  -o .build/ir_scan_usb
+./.build/ir_scan_usb
+IR scan USB: actual framing, old ARM rejection, partial-frame STOP, bad power and queue-failure STOP PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DBOARD_IR_MOTOR_SCAN_BENCH=1 ir_scan_queue_test.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem1/telemetry_codec.c  -o .build/ir_scan_queue
+./.build/ir_scan_queue
+INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 13-byte events PASS
+IR scan actual inbox: USB-only discriminator, copies/timestamps, saturation and urgent STOP epoch PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -include host.h scan_test.c ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_width.c  -o .build/scan
+./.build/scan
+INT-CR1-04 scan: wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c  -o .build/sonar
+./.build/sonar
+INT-CR1-08: GP1 trigger/GP0 echo, valid pulse, faults, timer wrap/start failure, narrow sample PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_status_test.c ../../app_program/subsystem5/s5_data.c  -o .build/sonar_status
+./.build/sonar_status
+INT-CR1-09: preempted publisher handoff, ownership, timeout, unchanged failed output, unlock/lifecycle errors PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c ../../app_program/subsystem1/telemetry_codec.c  -o .build/snapshot_time
+./.build/snapshot_time
+INT-CR1-10: post-snapshot clock, fresh/new and stale data, failed copies/clock, actual binary codec PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c  -o .build/protocol
+python3 protocol_test.py
+INT-CR1-05 protocol: 302 C/Python vectors, 74 bound rejections, malformed length/version/padding PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c  -o .build/queue
+./.build/queue
+INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 13-byte events PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -Imocks mqtt_test.c  -o .build/mqtt
+./.build/mqtt
+INT-CR1-07 actual MQTT port: binary length/NULs, fragments, malformed input, backpressure, reconnect STOP and retry guard PASS
+make: Leaving directory '/c/Users/JT/Downloads/inf2004_embedded_systems/testing/integration'

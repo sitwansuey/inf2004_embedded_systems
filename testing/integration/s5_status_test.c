@@ -49,7 +49,8 @@ int main(void)
     REQUIRE(s5_get_status(NULL)==E_PAR);
     REQUIRE(s5_get_status(&copy)==E_OBJ && subsystem5_start()==E_OBJ);
     REQUIRE(subsystem5_init()==E_OK && subsystem5_init()==E_OBJ);
-    status=(s5_status_t){.state=S5_MONITOR,.scan_id=7,.time_ms=100,.valid=1,.distance_mm=400};
+    s5_status_t status={.state=S5_MONITOR,.scan_id=7,.time_ms=100,.valid=1,.distance_mm=400};
+    status_store(&status);
     owner_preempted=TRUE;
     REQUIRE(s5_get_status(&copy)==E_OK && copy.distance_mm==400 && handoffs==1);
     owner_preempted=TRUE;
@@ -63,13 +64,15 @@ int main(void)
     REQUIRE(s5_navigation_set(7,S5_APPROACH,91)==E_PAR);
     owner_preempted=TRUE;
     REQUIRE(s5_navigation_set(7,S5_APPROACH,20)==E_OK && handoffs==3);
+    status_load(&status);
     REQUIRE(navigation_requested && navigation_look==20 && !status.valid);
-    status.state=S5_READY;status.valid=1;owner_preempted=TRUE;
+    status.state=S5_READY;status.valid=1;status_store(&status);owner_preempted=TRUE;
     REQUIRE(s5_avoidance_begin(7)==E_OK && handoffs==4 && turn_requested);
+    status_load(&status);
     REQUIRE(status.state==S5_ROTATING && !status.valid);
     owner_preempted=TRUE;
     REQUIRE(s5_avoidance_complete()==E_OK && handoffs==5 && recenter);
-    status.state=S5_MONITOR;
+    status.state=S5_MONITOR;status_store(&status);
     REQUIRE(s5_avoidance_complete()==E_OBJ);
     memset(&copy,0x5a,sizeof(copy));memcpy(&sentinel,&copy,sizeof(copy));
     forced_lock=E_TMOUT;

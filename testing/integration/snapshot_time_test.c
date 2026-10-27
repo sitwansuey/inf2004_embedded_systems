@@ -14,6 +14,7 @@ static UW clock_ms, read_delay, sample_age, line_stamp;
 static unsigned clock_reads, packets;
 static BOOL copy_failure, clock_failure;
 static BOOL bad_s4_record;
+static BOOL bad_s5_fields;
 static int64_t decoded[TEL_FIELD_COUNT];
 
 ER tk_get_otm(SYSTIM *time)
@@ -51,6 +52,7 @@ ER s5_get_status(s5_status_t *state)
     if(copy_failure)return E_TMOUT;
     clock_ms+=read_delay;
     *state=(s5_status_t){.state=S5_MONITOR,.time_ms=clock_ms-sample_age,.valid=1,.distance_mm=400};
+    if(bad_s5_fields){state->distance_mm=UINT32_MAX;state->object_width_valid=1;state->object_width_mm=UINT32_MAX;}
     return E_OK;
 }
 uint16_t s1_drop_count(void) { return 0; }
@@ -71,6 +73,9 @@ int main(void)
     REQUIRE((decoded[TEL_AVAILABLE]&16)!=0 && decoded[TEL_DISTANCE_MM]==400);
     REQUIRE((decoded[TEL_AVAILABLE]&96)==96 && decoded[TEL_PITCH_CDEG]==1234 &&
         decoded[TEL_ROLL_CDEG]==-5678 && decoded[TEL_HEIGHT_MM]==123 && decoded[TEL_HIGHEST_MM]==456);
+    bad_s5_fields=TRUE;capture();
+    REQUIRE(packets==1 && (decoded[TEL_AVAILABLE]&16)==0 && (decoded[TEL_QUALITY]&1)==0);
+    bad_s5_fields=FALSE;
     bad_s4_record=TRUE;capture();REQUIRE((decoded[TEL_AVAILABLE]&96)==0);
     bad_s4_record=FALSE;read_delay=61;capture();
     REQUIRE((decoded[TEL_AVAILABLE]&96)==0 && decoded[TEL_HIGHEST_MM]==456);

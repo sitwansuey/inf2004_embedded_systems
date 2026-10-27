@@ -4,6 +4,23 @@
 #if __has_include("robot_config.local.h")
 #include "robot_config.local.h"
 #endif
+/* S5 hardware diagnostics are explicit builds, separate from passive TEST=1. */
+#ifndef APP_S5_MASTER_TEST
+#define APP_S5_MASTER_TEST 0
+#endif
+#ifndef APP_ACQUISITION_TEST
+#define APP_ACQUISITION_TEST 0
+#endif
+#ifndef APP_ACQUISITION_LEFT_TEST
+#define APP_ACQUISITION_LEFT_TEST 0
+#endif
+#ifndef APP_S5_SERVO_TEST
+#define APP_S5_SERVO_TEST 0
+#endif
+#define APP_S5_DIAGNOSTICS (APP_S5_MASTER_TEST || APP_ACQUISITION_TEST || APP_ACQUISITION_LEFT_TEST || APP_S5_SERVO_TEST)
+#if APP_S5_DIAGNOSTICS && !APP_TEST
+#error S5 diagnostics require APP_TEST=1
+#endif
 #ifndef BOARD_MOTORS_DISABLED
 #define BOARD_MOTORS_DISABLED 1 /* USB bench lock; requires a deliberate rebuild to enable drive. */
 #endif

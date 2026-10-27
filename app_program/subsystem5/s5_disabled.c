@@ -1,5 +1,7 @@
 #include "subsystem5.h"
+#include "s5_data.h"
 #if !APP_S5_ENABLED
+ER s5_status_encode(uint8_t *p,size_t size) {if(!p || size<S5_DATA_SIZE)return E_PAR;return E_NOSPT;}
 ER s5_controller_bind(void) {return E_NOSPT;}
 ER subsystem5_init(void) { return E_OK; }
 ER subsystem5_start(void) { return E_OK; }

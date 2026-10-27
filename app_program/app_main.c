@@ -1,4 +1,5 @@
 #include "app.h"
+#include "subsystem2/subsystem2.h"
 
 /*
  * Create and start one task (declared in app.h for every subsystem).
@@ -151,7 +152,11 @@ EXPORT INT usermain(void) {
     if(er>=0)er=subsystem4_start();
     if(er>=0)er=subsystem5_start();
     if(er>=0)er=subsystem1_start();
+#if !APP_S5_DIAGNOSTICS
     if(er>=0)er=vehicle_start();
+#else
+    if(er>=0)tm_printf((UB *)"Explicit S5 diagnostic owns the hardware; integrated controller not started.\n");
+#endif
 #if APP_TEST
     if(er>=0) {subsystem5_test();tm_printf((UB *)"[TEST] passive integrated checks completed; no motor test requested\n");}
 #endif

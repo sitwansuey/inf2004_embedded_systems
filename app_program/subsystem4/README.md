@@ -1,3 +1,10 @@
+Current integrated baseline (27 October 2026): Buddy 4 has protected 63-byte
+acquisition records, checked B2 encoder input, terrain processing and a checked
+12-byte result for the controller/B1. See ../../docs/MAIN_RECONCILIATION_20261027.md
+and ../../docs/BUDDY4_CR1_STORAGE.md for current build/test evidence and widths.
+Historical build blockers and pending-feature statements below describe earlier
+stages; physical calibration and validation remain open.
+
 # Buddy 4: GY-511 in the team micro T-Kernel architecture
 
 This replaces subsystem 4's example monitor with the sensor-acquisition part

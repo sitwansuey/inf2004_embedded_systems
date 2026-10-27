@@ -1,4 +1,7 @@
-# Buddy 4 integration checkpoint
+# Historical Buddy 4 integration checkpoint
+
+Current reconciliation: MAIN_RECONCILIATION_20261027.md. Statements below
+describe checkpoint 373ad6d before the later CR1 and main reconciliation work.
 
 This checkpoint preserves the tested local integration based on published main
 0269a02, the supplied integrated handoff and the initial Buddy 4 encoder/terrain

@@ -53,6 +53,10 @@ static void vehicle_task(INT code,void *context) {
         if(!result_ok) {vc_stop(&state.vehicle,VC_SENSOR);s2_emergency_stop();}
         state.speed_mm_s=odom->speed_mm_s;
         state.odometry_valid=odom->valid;
+        /* S5 preserves full-width diagnostics. Validate before narrowing. */
+        BOOL plan_usable=scan.planned_rotate_deg>=-80 && scan.planned_rotate_deg<=80 &&
+            scan.planned_rotate_deg!=0 && scan.planned_approach_mm>0 &&
+            scan.planned_approach_mm<=1000U && scan.planned_return_mm<=1000U;
         /* At most four copied command records per tick; STOP bypasses that queue. */
         for(unsigned n=0;n<4;++n) {
             control_message_t c;ER er=s1_command_take(&c);if(er<0)break;
@@ -79,7 +83,9 @@ static void vehicle_task(INT code,void *context) {
         vc_input_t input={.now_ms=now.lo,.scan_id=scan.scan_id,
             .distance_um=odom->distance_um,.yaw_mdeg=odom->turn_mdeg,
             .line_error=line.output.line.error,.line_state=(uint8_t)line.output.line.state,
-            .turn_deg=scan.planned_rotate_deg,.approach_mm=scan.planned_approach_mm,.return_mm=scan.planned_return_mm,
+            .turn_deg=plan_usable?(int16_t)scan.planned_rotate_deg:0,
+            .approach_mm=plan_usable?(uint16_t)scan.planned_approach_mm:0,
+            .return_mm=plan_usable?(uint16_t)scan.planned_return_mm:0,
             .sensor_state=scan.state,.odom_valid=result_ok && (result.flags&S4_RESULT_ODOMETRY),.motor_ok=mo && motor.state!=S2_MOTION_FAULT,
             .terrain_valid=result_ok && (result.flags&S4_RESULT_TILT),.shock=(result.flags&S4_RESULT_SHOCK)!=0U,
             .slope=result.terrain==TERRAIN_ASCENT || result.terrain==TERRAIN_DESCENT,
@@ -87,12 +93,13 @@ static void vehicle_task(INT code,void *context) {
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
         input.steering=input.line_fresh && line.output.steering_allowed;
         input.sensor_fresh=so && scan.state!=S5_FAULT &&
+            (!scan.valid || (scan.distance_mm>0 && scan.distance_mm<=5000U)) &&
             now.lo-scan.time_ms<(scan.valid?S5_STALE_MS:1500U);
         input.front_clear=input.sensor_fresh && scan.valid && scan.angle_deg==0 && scan.sample_angle_deg==0 &&
             scan.distance_mm>(state.vehicle.phase==VC_TRACK?S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM);
         input.obstacle=input.sensor_fresh && ((scan.valid && scan.angle_deg==0 && scan.distance_mm<=S5_OBSTACLE_MM) ||
             s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION);
-        input.scan_ready=input.sensor_fresh && scan.state==S5_READY && scan.approach_plan_valid && scan.object_width_valid;
+        input.scan_ready=input.sensor_fresh && scan.state==S5_READY && plan_usable && scan.approach_plan_valid && scan.object_width_valid;
         int side_angle=state.vehicle.side?90:-90;
         input.side_ready=input.sensor_fresh && scan.valid && scan.sample_angle_deg==side_angle &&
             scan.angle_deg==side_angle;

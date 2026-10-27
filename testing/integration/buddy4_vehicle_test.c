@@ -8,6 +8,7 @@
 #define BOARD_TRACK_WIDTH_MM 100
 #define BOARD_TERRAIN_CALIBRATED 1
 #define BOARD_MOTORS_DISABLED 0
+#define BOARD_BYPASS_VALIDATED 1 /* synthetic policy fixture only */
 ID app_start_task(FP task, PRI priority, UW core, const char *name);
 #include "../../app_program/vehicle.c"
 static jmp_buf done;
@@ -42,8 +43,23 @@ ER s2_encoder_encode(uint8_t *p,size_t capacity)
     /* A failed provider deliberately leaves old-looking data behind. */
     return failure_mode==2U && iteration>=8U?E_SYS:E_OK;
 }
-ER s3_status_get(s3_status_t *s) { *s=(s3_status_t){0};return E_OK; }
-ER s5_get_status(s5_status_t *s) { *s=(s5_status_t){0};return E_OK; }
+ER s3_status_get(s3_status_t *s) {
+    *s=(s3_status_t){0};
+    if(failure_mode>=7U) {s->configured=1;s->sample_time_ms=clock_ms;s->output.steering_allowed=1;}
+    return E_OK;
+}
+ER s5_get_status(s5_status_t *s) {
+    *s=(s5_status_t){0};
+    if(failure_mode>=7U) {
+        s->state=S5_MONITOR;s->valid=1;s->distance_mm=400;s->time_ms=clock_ms;
+        if(iteration>=8U && failure_mode==7U)s->distance_mm=UINT32_MAX;
+        if(iteration>=8U && failure_mode==8U) {
+            s->state=S5_READY;s->distance_mm=100;s->approach_plan_valid=1;s->object_width_valid=1;
+            s->planned_rotate_deg=65537;s->planned_approach_mm=65537;s->planned_return_mm=65537;
+        }
+    }
+    return E_OK;
+}
 ER s4_sensor_get_record(s4_sensor_cache_t *s)
 {
     s4_data_reset(s);s4_data_init_result(s,LSM303_OK);
@@ -61,6 +77,11 @@ ER s1_command_take(control_message_t *c)
         *c=(control_message_t){.time_ms=clock_ms};c->wire[1]=2;
         reset_offered=true;return E_OK;
     }
+    if(failure_mode>=7U && iteration==7U && !reset_offered) {
+        *c=(control_message_t){.time_ms=clock_ms};
+        c->wire[1]=1;c->wire[2]=30;c->wire[3]=0xe8;c->wire[4]=3;
+        reset_offered=true;return E_OK;
+    }
     return E_TMOUT;
 }
 ER s1_command_offer(const uint8_t *wire,UINT length)
@@ -76,7 +97,7 @@ ID app_start_task(FP task,PRI priority,UW core,const char *name)
 { (void)task;(void)priority;(void)core;(void)name;return 1; }
 int main(void)
 {
-    for(failure_mode=0;failure_mode<7;++failure_mode) {
+    for(failure_mode=0;failure_mode<10;++failure_mode) {
         iteration=stops=positive_requests=0;clock_ms=100;reset_offered=false;
         if(setjmp(done)==0)vehicle_task(0,NULL);
         s4_result_t result={0};assert(s4_result_decode(saved.s4_result,sizeof(saved.s4_result),&result));
@@ -90,7 +111,10 @@ int main(void)
         if(failure_mode==5)assert(!(result.flags&S4_RESULT_TILT) && saved.odometry_valid);
         if(failure_mode==6)assert((result.flags&S4_RESULT_SHOCK) &&
                                   (result.faults&EDR_FAULT_IMU) && !(result.flags&S4_RESULT_TILT));
-        assert(stops && !positive_requests);
+        assert(stops);
+        if(failure_mode==9U)assert(positive_requests>0);
+        else assert(!positive_requests);
+        if(failure_mode==7U)assert(saved.vehicle.phase==VC_FAULT && saved.vehicle.fault==VC_SENSOR);
     }
     puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");
     return 0;

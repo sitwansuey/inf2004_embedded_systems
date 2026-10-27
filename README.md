@@ -1,7 +1,7 @@
 # INF2004 CSC02 local robot integration
 
 This branch integrates the five subsystems on micro T-Kernel 3 and implements
-Change Requirement 1. Firmware boots DISARMED. It needs measured board
+compact representations for Change Requirement 1. Firmware boots DISARMED. It needs measured board
 configuration before motion; software tests do not establish robot accuracy.
 Drive is also locked at build time by `BOARD_MOTORS_DISABLED=1`. Motor inputs
 stay GPIO-low, motor PWM is not enabled and movement/ARM commands are rejected.
@@ -18,6 +18,9 @@ Those records distinguish current checks from the historical evidence below.
 The Windows helper also supports `-Backend Native` using the compiler and SDK
 already installed by the Pico VS Code extension; see the physical testing guide
 for this machine's exact command. WSL support remains available.
+
+Current main reconciliation and remaining physical work: [merge report](docs/MAIN_RECONCILIATION_20261027.md).
+Buddy 1: [retrospective interface review](docs/BUDDY1_RETROSPECTIVE_REVIEW.md).
 
 ## Windows build
 
