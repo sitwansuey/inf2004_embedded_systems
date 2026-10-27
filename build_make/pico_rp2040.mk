@@ -220,6 +220,9 @@ CFLAGS  += -DTM_CONSOLE_UART=$(CRASH_REPORT)
 ifeq ($(CRASH_REPORT),0)
 CFLAGS  += -DBOARD_UART0_FREE=1
 endif
+# Buddy 3 IR sensors on ADC0..2 (GP26..28); the kernel header defaults them off.
+CFLAGS  += -DDEVCONF_ADC_PIN_INIT_0=1 -DDEVCONF_ADC_PIN_INIT_1=1 \
+           -DDEVCONF_ADC_PIN_INIT_2=1
 
 ################################################################################
 # Console selection

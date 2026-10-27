@@ -39,10 +39,18 @@
  *	  channel 0 = GP26, channel 1 = GP27, channel 2 = GP28
  *	  channel 3 = GP29 is the Pico W RADIO CLOCK: never set _3 to TRUE.
  *	GP26/27/28 carry the Buddy 3 IR sensors (right line, left line, barcode).
+ *	They stay off by default, which Buddy 3's host tests check; the
+ *	firmware build turns them on in build_make/pico_rp2040.mk.
  */
-#define	DEVCONF_ADC_PIN_INIT_0	TRUE
-#define	DEVCONF_ADC_PIN_INIT_1	TRUE
-#define	DEVCONF_ADC_PIN_INIT_2	TRUE
+#ifndef DEVCONF_ADC_PIN_INIT_0
+#define	DEVCONF_ADC_PIN_INIT_0	FALSE
+#endif
+#ifndef DEVCONF_ADC_PIN_INIT_1
+#define	DEVCONF_ADC_PIN_INIT_1	FALSE
+#endif
+#ifndef DEVCONF_ADC_PIN_INIT_2
+#define	DEVCONF_ADC_PIN_INIT_2	FALSE
+#endif
 #define	DEVCONF_ADC_PIN_INIT_3	FALSE
 
 /* Interrupt t priority */
