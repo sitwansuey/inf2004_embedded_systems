@@ -1,0 +1,39 @@
+name: Data representation contract
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: EDR contract (${{ matrix.compiler }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Run hardware-free pre-integration gate
+        run: >-
+          python -B testing/data_representation/run.py
+          --compiler ${{ matrix.compiler }}
+          --report edr-check-report-${{ matrix.compiler }}.json
+      - name: Print evidence report
+        if: always()
+        run: |
+          if [ -f "edr-check-report-${{ matrix.compiler }}.json" ]; then
+            cat "edr-check-report-${{ matrix.compiler }}.json"
+          fi

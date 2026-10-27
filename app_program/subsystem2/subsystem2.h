@@ -7,6 +7,7 @@
 #define SUBSYSTEM2_H
 
 #include "../app.h"
+#include <stdint.h>
 
 #define S2_PRI_MOTOR 14
 #define S2_COMMAND_COUNT 8
@@ -43,8 +44,7 @@ typedef enum
 typedef struct
 {
     T_MSG hdr; /* Kernel mailbox header must be first. */
-    s2_move_command_t command;
-    UINT power_percent; /* 0-100. */
+    uint16_t motor; /* EDR motor word; no native enum layout in queued data. */
     UW issued_at_ms;
 } s2_movement_msg_t;
 
@@ -82,6 +82,7 @@ typedef struct
     INT motor1_forward_counts;
     INT motor2_forward_counts;
     UINT valid; /* Zero until encoder initialization completes. */
+    uint32_t sampled_ms; /* Boot milliseconds captured with this count copy. */
 } s2_encoder_status_t;
 
 IMPORT ER subsystem2_init(void);
@@ -102,6 +103,8 @@ IMPORT ER s2_motion_get_status(s2_motion_status_t *p_status);
  * Both wheels share a consistent cumulative x1 count snapshot (modulo 32 bits).
  * Forward signs follow the downloaded wiring: motor 1 negative, motor 2 positive.
  * GPIO levels are live samples; these counts do not provide PID or angle control.
+ * sampled_ms is tk_get_tim().lo within the successful sequence-checked copy.
+ * Clock errors return the error with a zeroed snapshot.
  */
 IMPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status);
 

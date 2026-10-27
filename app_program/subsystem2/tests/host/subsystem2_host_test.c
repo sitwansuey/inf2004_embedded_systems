@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "subsystem2/subsystem2.c"
+#include "subsystem2/s2_data.h"
 
 static UW now_ms;
 static ID caller_id;
@@ -46,10 +47,16 @@ static void assert_off(void)
 static void assert_status(s2_motion_state_t state, ER error)
 {
     s2_motion_status_t status;
+    uint16_t expected;
 
     assert(s2_motion_get_status(&status) == E_OK);
     assert(status.state == state);
     assert(status.last_error == error);
+    assert(edr_motor_pack((uint8_t)status.command,
+                           (uint8_t)status.power_percent,
+                           (uint8_t)state, &expected));
+    assert(motion_status.motor == expected);
+    assert(sizeof(motion_status.motor) == 2U);
     if (state != S2_MOTION_MOVING)
     {
         assert(status.command == S2_MOVE_STOP);
@@ -65,7 +72,7 @@ static void reset_fixture(void)
     h_movement_pool = 0;
     h_status_lock = 0;
     motor_started = FALSE;
-    motion_status = (s2_motion_status_t){0};
+    motion_status = (s2_packed_status_t){0};
     now_ms = 0;
     caller_id = 7;
     memset(duties, 0, sizeof(duties));
@@ -519,7 +526,15 @@ static void test_stale_and_invalid_messages(void)
 
     setup();
     assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
-    blocks[0].command = (s2_move_command_t)99;
+    blocks[0].motor = UINT16_C(0x8000); /* Reserved bit rejects malformed data. */
+    run_task();
+    assert_status(S2_MOTION_FAULT, E_PAR);
+    assert(nonzero_writes == 0U);
+
+    setup();
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    /* Queue words represent requests and must not claim an active state. */
+    blocks[0].motor |= UINT16_C(0x0400);
     run_task();
     assert_status(S2_MOTION_FAULT, E_PAR);
     assert(nonzero_writes == 0U);
@@ -732,6 +747,104 @@ static void test_encoder_mode(void)
 #endif
 }
 
+static void assert_payload_fill(const uint8_t *p_payload, size_t length,
+                                uint8_t value)
+{
+    for (size_t index = 0U; index < length; ++index)
+    {
+        assert(p_payload[index] == value);
+    }
+}
+
+static void test_data_adapters(void)
+{
+    uint8_t payload[EDR_ENCODER_SIZE + 1U];
+    const uint8_t timeout_payload[EDR_MOTION_SIZE] =
+    {
+        0x00U, 0x08U, EDR_FAULT_TIMEOUT, 0x78U, 0x56U, 0x34U, 0x12U
+    };
+    s2_packed_status_t status;
+
+    reset_fixture();
+    memset(payload, 0xa5, sizeof(payload));
+    assert(s2_motion_encode(payload, sizeof(payload)) == E_OBJ);
+    assert_payload_fill(payload, sizeof(payload), 0xa5U);
+    setup();
+    assert(s2_motion_encode(NULL, sizeof(payload)) == E_PAR);
+    assert(s2_motion_encode(payload, EDR_MOTION_SIZE - 1U) == E_PAR);
+    assert(s2_encoder_encode(NULL, sizeof(payload)) == E_PAR);
+    assert(s2_encoder_encode(payload, EDR_ENCODER_SIZE - 1U) == E_PAR);
+    assert_payload_fill(payload, sizeof(payload), 0xa5U);
+
+    /* Startup has no measured count sample, even when encoders are enabled. */
+#if S2_ENCODER_ENABLED
+    assert(s2_encoder_encode(payload, sizeof(payload)) == E_OK);
+    assert_payload_fill(payload, EDR_ENCODER_SIZE, 0U);
+    assert(payload[EDR_ENCODER_SIZE] == 0xa5U);
+#else
+    assert(s2_encoder_encode(payload, sizeof(payload)) == E_NOSPT);
+    assert_payload_fill(payload, sizeof(payload), 0xa5U);
+#endif
+
+    now_ms = UINT32_C(0x12345678);
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30U) == E_OK);
+    assert(blocks[0].motor == UINT16_C(0x00f1));
+    assert(sizeof(blocks[0].motor) == 2U);
+    run_task();
+    assert_status(S2_MOTION_FAULT, E_TMOUT);
+    memset(payload, 0xa5, sizeof(payload));
+    assert(s2_motion_encode(payload, sizeof(payload)) == E_OK);
+    assert(memcmp(payload, timeout_payload, EDR_MOTION_SIZE) == 0);
+    assert_payload_fill(payload + EDR_MOTION_SIZE,
+                         sizeof(payload) - EDR_MOTION_SIZE, 0xa5U);
+
+    status = motion_status;
+    status.last_error = E_SYS;
+    assert(motion_publish(&status) == E_OK);
+    assert(s2_motion_encode(payload, sizeof(payload)) == E_OK);
+    assert(payload[2] == EDR_FAULT_MOTOR);
+
+    /* A corrupt stored word cannot become a partial external payload. */
+    motion_status.motor |= UINT16_C(0x8000);
+    memset(payload, 0xa5, sizeof(payload));
+    assert(s2_motion_encode(payload, sizeof(payload)) == E_SYS);
+    assert_payload_fill(payload, sizeof(payload), 0xa5U);
+    motion_status = status;
+
+#if S2_ENCODER_ENABLED
+    {
+        const uint8_t encoder_payload[EDR_ENCODER_SIZE] =
+        {
+            1U, 0U, 0U, 0U, 1U, 0U, 0U, 0U,
+            0x12U, 0x34U, 0x56U, 0x78U, 0x11U
+        };
+        s2_encoder_status_t encoder;
+
+        now_ms = UINT32_C(0x78563412);
+        queue_forward_encoder_edges();
+        memset(payload, 0xa5, sizeof(payload));
+        assert(s2_encoder_encode(payload, sizeof(payload)) == E_OK);
+        assert(memcmp(payload, encoder_payload, EDR_ENCODER_SIZE) == 0);
+        assert(payload[EDR_ENCODER_SIZE] == 0xa5U);
+        assert(s2_encoder_get_status(&encoder) == E_OK);
+        assert(encoder.sampled_ms == now_ms);
+
+        /* The adapter propagates clock failure without exposing partial bytes. */
+        time_error_at = time_call_count + 1U;
+        memset(payload, 0xa5, sizeof(payload));
+        assert(s2_encoder_encode(payload, sizeof(payload)) == E_SYS);
+        assert_payload_fill(payload, sizeof(payload), 0xa5U);
+        memset(&encoder, 0xff, sizeof(encoder));
+        assert(s2_encoder_get_status(&encoder) == E_SYS);
+        assert_encoder_zero(&encoder);
+    }
+#else
+    memset(payload, 0xa5, sizeof(payload));
+    assert(s2_encoder_encode(payload, sizeof(payload)) == E_NOSPT);
+    assert_payload_fill(payload, sizeof(payload), 0xa5U);
+#endif
+}
+
 int main(void)
 {
     test_lifecycle_and_validation();
@@ -743,6 +856,7 @@ int main(void)
     test_pool_and_transport_errors();
     test_clock_errors_and_zero_power();
     test_encoder_mode();
+    test_data_adapters();
     puts("Motor-control host checks passed");
     return 0;
 }
