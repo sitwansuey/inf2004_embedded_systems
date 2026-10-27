@@ -1,0 +1,41 @@
+{
+  "started": "2026-10-22T04:33:36.3953153+08:00",
+  "copy_completed": "2026-10-22T04:33:31.2243816+08:00",
+  "firmware_sha256": "15644919870cd0cc8b775f6e24aa6c4a74d371e7fef8a6deae318806401fd00b",
+  "firmware_bytes": 653312,
+  "arm_text": 326140,
+  "arm_data": 456,
+  "arm_bss": 25552,
+  "static_ram": 26008,
+  "delta_from_reversed_pin_build": {
+    "text_bytes": 48,
+    "static_ram_bytes": 0,
+    "uf2_bytes": 0,
+    "telemetry_bytes": 0
+  },
+  "telemetry_bytes": 50,
+  "commands_sent": 0,
+  "controller_records": 30,
+  "controller_fault_records": 0,
+  "commanded_motion_records": 0,
+  "imu_records": 143,
+  "imu_all_accel_usable": true,
+  "imu_all_mag_usable": true,
+  "imu_max_accel_errors": 0,
+  "imu_max_mag_errors": 0,
+  "sonar_records": 30,
+  "sonar_successful_copies": 14,
+  "sonar_unavailable_copies": 16,
+  "sonar_valid_records": 12,
+  "copied_echo_codes": {
+    "0": 12,
+    "3": 2
+  },
+  "valid_mm_range": [
+    138,
+    856
+  ],
+  "range_accuracy_validated": false,
+  "electrical_motor_shutdown_measured": false,
+  "finding": "Restoring Buddy 5 pin roles restored real echo acquisition. Two no-fall snapshots and frequent failed copies remain; target distance accuracy and motion are not validated."
+}

@@ -1,0 +1,12 @@
+Commit: e0a44481e0d9034adcd53233cbfda0be215f7cae
+Shell: MSYS2 Bash, PATH=/ucrt64/bin:/usr/bin:$PATH
+Command: make -C testing/subsystem3 check-headers
+Exit: 0
+
+STDOUT
+make: Entering directory '/c/Users/godga/IdeaProjects/ES/inf2004_embedded_systems/testing/subsystem3'
+Checking real kernel headers, SMP=0
+Checking real kernel headers, SMP=1
+make: Leaving directory '/c/Users/godga/IdeaProjects/ES/inf2004_embedded_systems/testing/subsystem3'
+
+STDERR

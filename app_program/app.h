@@ -9,6 +9,13 @@
 #ifndef APP_H
 #define APP_H
 
+/* Use the standard size_t for shared byte-buffer APIs. tk/syslib.h offers
+ * this guard to suppress its incompatible legacy typedef on ARM GCC. */
+#include <stddef.h>
+#ifndef PROHIBIT_DEF_SIZE_T
+#define PROHIBIT_DEF_SIZE_T
+#endif
+
 #include <tk/tkernel.h>		/* micro T-Kernel API (tk_xxx_yyy) */
 #include <tm/tmonitor.h>	/* T-Monitor API: tm_printf() console output */
 #include <bsp/libbsp.h>		/* Board helpers: gpio_set_pin/val, pwm_... */
@@ -26,6 +33,11 @@
  *  has its own band (TEAM.md section 4), defined in its own header.
  * --------------------------------------------------------------------- */
 #define TASK_STACK_SIZE		2048	/* bytes; tm_printf needs ~1 KB */
+
+/* Optional bench build: shared startup initializes/starts only S4. */
+#ifndef APP_S4_ONLY
+#define APP_S4_ONLY 0
+#endif
 
 /* Create and start a task.  prc = TP_PRC1 (core 0), TP_PRC2 (core 1), or
    0 for "any core".  Defined in app_main.c. */

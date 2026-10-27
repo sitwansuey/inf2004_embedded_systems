@@ -1,0 +1,35 @@
+﻿{
+    "started":  "2026-10-22T04:33:36.3953153+08:00",
+    "seconds":  30,
+    "procedure":  "Ultrasonic",
+    "commands_sent":  0,
+    "port":  "COM5",
+    "status":  "CAPTURED",
+    "identity_check":  "MTK3PICO serial identity + matching USB ContainerID + live COM port",
+    "warmup_seconds":  2,
+    "discarded_warmup_characters":  4081,
+    "phase_cues":  [
+                       {
+                           "elapsed_seconds":  10,
+                           "phase":  "TARGET_60_CM: move the flat target to about 60 cm straight ahead; keep robot still."
+                       },
+                       {
+                           "elapsed_seconds":  20.13,
+                           "phase":  "TARGET_40_CM: return the flat target to about 40 cm straight ahead; keep robot still."
+                       }
+                   ],
+    "controller_lines":  30,
+    "incomplete_controller_records":  0,
+    "controller_fault_records":  0,
+    "unexpected_motor_status_lines":  0,
+    "motor_lock_banner_seen":  false,
+    "imu_rows":  143,
+    "accel_usable_seen":  true,
+    "encoder_diagnostic_records":  30,
+    "ultrasonic_diagnostic_records":  30,
+    "sonar_status_copies":  14,
+    "sonar_no_rise_records":  0,
+    "sonar_valid_records":  12,
+    "sonar_mm_min":  138,
+    "sonar_mm_max":  856
+}

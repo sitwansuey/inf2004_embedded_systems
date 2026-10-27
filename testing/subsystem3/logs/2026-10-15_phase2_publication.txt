@@ -1,0 +1,14 @@
+GitHub connection rechecked 2026-10-15.
+Repository account metadata: admin=true, maintain=true, pull=true, push=true.
+Git tree upload (create-a-tree): HTTP 403 Resource not accessible by integration.
+Draft PR creation (create-a-pull-request): HTTP 403 Resource not accessible by integration.
+User requested a connection refresh; inspected installed plugin and installation,
+then retried tree upload: same HTTP 403. No reconnect/OAuth-refresh capability
+is exposed to this session. No credential refresh was claimed or performed.
+GitHub plugin installed/enabled; organization installation ID 171644342.
+Local Git outbound networking is blocked; official ARM download also blocked.
+Last remote feature branch SHA: e29233439cddfae05df2c563f8bc614dc41e2e5b.
+Direct PR collection query for this branch returned []. No PR was created.
+No Phase 2 GitHub Actions run, required-review approval, merge commit, or
+post-merge main CI verification is claimed. Branch upload and PR creation are
+still necessary before those checks can run.

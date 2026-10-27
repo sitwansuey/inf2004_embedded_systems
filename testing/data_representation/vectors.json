@@ -1,0 +1,61 @@
+{
+  "description": "EDR v1 known bytes. Both C and Python encode/decode against these fields and packet bytes.",
+  "valid_packets": [
+    {"name":"motion_zero","hex":"420700000000000000","source":2,"kind":0,"motion":{"motor_word":0,"command":0,"power_percent":0,"state":0,"faults":0,"command_ms":0}},
+    {"name":"motion_maximum","hex":"4207260b7fffffffff","source":2,"kind":0,"motion":{"motor_word":2854,"command":6,"power_percent":100,"state":2,"faults":127,"command_ms":4294967295}},
+    {"name":"motion_byte_order","hex":"4207e1050578563412","source":2,"kind":0,"motion":{"motor_word":1505,"command":1,"power_percent":60,"state":1,"faults":5,"command_ms":305419896}},
+    {"name":"motion_after_clock_wrap","hex":"420701000002000000","source":2,"kind":0,"motion":{"motor_word":1,"command":1,"power_percent":0,"state":0,"faults":0,"command_ms":2}},
+    {"name":"encoder_unavailable","hex":"4a0d00000000000000000000000000","source":2,"kind":1,"encoder":{"left_counts":0,"right_counts":0,"sampled_ms":0,"flags":0}},
+    {"name":"encoder_valid_zero","hex":"4a0d00000000000000000000000001","source":2,"kind":1,"encoder":{"left_counts":0,"right_counts":0,"sampled_ms":0,"flags":1}},
+    {"name":"encoder_maximum","hex":"4a0dffffffffffffffffffffffff1f","source":2,"kind":1,"encoder":{"left_counts":4294967295,"right_counts":4294967295,"sampled_ms":4294967295,"flags":31}},
+    {"name":"encoder_reverse_modulo","hex":"4a0dfeffffff030000000200000015","source":2,"kind":1,"encoder":{"left_counts":4294967294,"right_counts":3,"sampled_ms":2,"flags":21}},
+    {"name":"encoder_byte_order","hex":"4a0d78563412efcdab90ffffffff0b","source":2,"kind":1,"encoder":{"left_counts":305419896,"right_counts":2427178479,"sampled_ms":4294967295,"flags":11}},
+    {"name":"buddy1_opaque","hex":"41040001feff","source":1,"kind":0},
+    {"name":"buddy3_opaque","hex":"7b03aabbcc","source":3,"kind":7},
+    {"name":"buddy4_empty","hex":"4400","source":4,"kind":0},
+    {"name":"buddy5_opaque","hex":"7d0100","source":5,"kind":7},
+    {"name":"buddy2_future_kind","hex":"7a02beef","source":2,"kind":7}
+  ],
+  "invalid_packets": [
+    {"name":"empty","hex":""},
+    {"name":"short_header","hex":"42"},
+    {"name":"old_version","hex":"0200"},
+    {"name":"future_version","hex":"8200"},
+    {"name":"source_zero","hex":"4000"},
+    {"name":"source_six","hex":"4600"},
+    {"name":"source_seven","hex":"4700"},
+    {"name":"truncated_packet","hex":"4102aa"},
+    {"name":"trailing_byte","hex":"4101aabb"},
+    {"name":"motion_wrong_schema_size","hex":"4200"},
+    {"name":"encoder_wrong_schema_size","hex":"4a00"},
+    {"name":"reserved_motor_bit","hex":"420700100000000000"},
+    {"name":"command_seven","hex":"420707000000000000"},
+    {"name":"power_101","hex":"420728030000000000"},
+    {"name":"state_three","hex":"4207000c0000000000"},
+    {"name":"fault_bit_seven","hex":"420700008000000000"},
+    {"name":"reserved_encoder_bit","hex":"4a0d00000000000000000000000021"},
+    {"name":"unavailable_encoder_has_counts","hex":"4a0d01000000000000000000000000"},
+    {"name":"unavailable_encoder_has_time","hex":"4a0d00000000000000000100000000"},
+    {"name":"unavailable_encoder_has_channel","hex":"4a0d00000000000000000000000002"}
+  ],
+  "count_deltas": [
+    {"current":0,"previous":0,"delta":0},
+    {"current":0,"previous":4294967295,"delta":1},
+    {"current":4294967295,"previous":0,"delta":-1},
+    {"current":4294967294,"previous":3,"delta":-5},
+    {"current":3,"previous":4294967294,"delta":5},
+    {"current":2147483647,"previous":0,"delta":2147483647},
+    {"current":2147483649,"previous":0,"delta":-2147483647},
+    {"current":2147483648,"previous":0,"delta":null},
+    {"current":0,"previous":2147483648,"delta":null}
+  ],
+  "freshness": [
+    {"now_ms":0,"sampled_ms":0,"maximum_ms":0,"fresh":true},
+    {"now_ms":2,"sampled_ms":4294967294,"maximum_ms":4,"fresh":true},
+    {"now_ms":2,"sampled_ms":4294967294,"maximum_ms":3,"fresh":false},
+    {"now_ms":99,"sampled_ms":100,"maximum_ms":1000,"fresh":false},
+    {"now_ms":2147483647,"sampled_ms":0,"maximum_ms":2147483647,"fresh":true},
+    {"now_ms":0,"sampled_ms":0,"maximum_ms":2147483648,"fresh":false},
+    {"now_ms":0,"sampled_ms":0,"maximum_ms":4294967295,"fresh":false}
+  ]
+}

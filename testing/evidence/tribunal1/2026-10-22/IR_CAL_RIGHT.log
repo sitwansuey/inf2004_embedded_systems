@@ -1,0 +1,105 @@
+﻿[S4] 55230,0,1,1,-53,-219,929,302,138,29,30,30,1840,1735,0,0,1841
+[S3IR] copied=1 error=0 t=55380 acquisition=0 mask=7 raw=2958,517,222 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=2 algorithm_error=0 line_darkness=915,109
+[S4] 55440,0,1,1,-45,-213,926,302,138,31,30,30,1847,1741,0,0,1848
+[S3IR] copied=1 error=0 t=55580 acquisition=0 mask=7 raw=2953,514,228 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=4 algorithm_error=0 line_darkness=913,108
+[S4] 55650,0,1,1,-47,-214,927,304,136,31,30,30,1854,1747,0,0,1855
+[S3IR] copied=1 error=0 t=55780 acquisition=0 mask=7 raw=2956,525,212 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=0 algorithm_error=0 line_darkness=914,112
+[S4] 55860,0,1,1,-42,-210,968,303,134,29,30,30,1861,1754,0,0,1862
+[CSC02] t=56000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=55960 state=0 fresh=1 valid=1 mm=598 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=55980 acquisition=0 mask=7 raw=2968,525,229 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=5 algorithm_error=0 line_darkness=918,112
+[S4] 56070,0,1,1,-51,-215,925,305,137,29,30,30,1868,1761,0,0,1869
+[S3IR] copied=1 error=0 t=56180 acquisition=0 mask=7 raw=2956,511,222 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=2 algorithm_error=0 line_darkness=914,107
+[S4] 56280,0,1,1,-44,-213,929,303,137,30,30,30,1875,1767,0,0,1876
+[S3IR] copied=1 error=0 t=56380 acquisition=0 mask=7 raw=2969,511,221 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=2 algorithm_error=0 line_darkness=919,107
+[S4] 56490,0,1,1,-54,-231,933,304,137,29,30,30,1882,1773,0,0,1883
+[S3IR] copied=1 error=0 t=56580 acquisition=0 mask=7 raw=2956,525,230 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=5 algorithm_error=0 line_darkness=914,112
+[S4] 56700,0,1,1,-48,-214,921,304,136,31,30,30,1889,1780,0,0,1890
+[S3IR] copied=1 error=0 t=56780 acquisition=0 mask=7 raw=2936,499,210 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=0 algorithm_error=0 line_darkness=908,103
+[S4] 56910,0,1,1,-51,-217,930,302,136,33,30,60,1896,1786,0,0,1897
+[CSC02] t=57000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=56920 state=0 fresh=1 valid=1 mm=585 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=56980 acquisition=0 mask=7 raw=2958,496,232 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=6 algorithm_error=0 line_darkness=915,102
+[S4] 57120,0,1,1,-45,-214,931,305,137,31,30,30,1903,1793,0,0,1904
+[S3IR] copied=1 error=0 t=57180 acquisition=0 mask=7 raw=2956,521,220 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=2 algorithm_error=0 line_darkness=914,111
+[S4] 57330,0,1,1,-48,-219,925,305,140,32,30,30,1910,1800,0,0,1911
+[S3IR] copied=1 error=0 t=57380 acquisition=0 mask=7 raw=2958,517,239 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=8 algorithm_error=0 line_darkness=915,109
+[S4] 57540,0,1,1,-49,-213,925,303,140,30,30,30,1917,1807,0,0,1918
+[S3IR] copied=1 error=0 t=57580 acquisition=0 mask=7 raw=2953,512,226 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=4 algorithm_error=0 line_darkness=913,108
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 57750,0,1,1,-49,-211,931,306,137,27,30,30,1924,1814,0,0,1925
+[S3IR] copied=1 error=0 t=57780 acquisition=0 mask=7 raw=2954,511,209 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=0 algorithm_error=0 line_darkness=914,107
+[S4] 57960,0,1,1,-57,-218,919,302,138,31,30,30,1931,1820,0,0,1932
+[CSC02] t=58000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=57960 state=0 fresh=1 valid=1 mm=599 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=57980 acquisition=0 mask=7 raw=2955,514,240 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=8 algorithm_error=0 line_darkness=914,108
+[S4] 58170,0,1,1,-47,-213,924,302,140,28,30,30,1938,1827,0,0,1939
+[S3IR] copied=1 error=0 t=58180 acquisition=0 mask=7 raw=2952,529,216 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=0 algorithm_error=0 line_darkness=913,113
+[S4] 58380,0,1,1,-42,-213,919,302,138,29,30,30,1945,1833,0,0,1946
+[S3IR] copied=1 error=0 t=58380 acquisition=0 mask=7 raw=2956,513,241 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=8 algorithm_error=0 line_darkness=914,108
+[S4] 58590,0,1,1,-54,-214,923,303,140,30,30,30,1952,1840,0,0,1953
+[S3IR] copied=1 error=0 t=58580 acquisition=0 mask=7 raw=2955,538,235 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=7 algorithm_error=0 line_darkness=914,116
+[S3IR] copied=1 error=0 t=58780 acquisition=0 mask=7 raw=2956,540,242 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=914,117
+[S4] 58800,0,1,1,-49,-206,920,301,140,31,30,30,1959,1846,0,0,1960
+[CSC02] t=59000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=58920 state=0 fresh=1 valid=1 mm=586 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=58980 acquisition=0 mask=7 raw=2955,518,224 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=3 algorithm_error=0 line_darkness=914,110
+[S4] 59010,0,1,1,-48,-215,922,305,138,30,30,30,1966,1853,0,0,1967
+[S3IR] copied=1 error=0 t=59180 acquisition=0 mask=7 raw=2954,550,243 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=914,120
+[S4] 59220,0,1,1,-47,-214,923,302,136,31,0,0,1974,1860,0,0,1975
+[S3IR] copied=1 error=0 t=59380 acquisition=0 mask=7 raw=2958,558,241 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=8 algorithm_error=0 line_darkness=915,123
+[S4] 59430,0,1,1,-56,-210,931,302,137,29,30,30,1980,1866,0,0,1981
+[S3IR] copied=1 error=0 t=59580 acquisition=0 mask=7 raw=2960,531,244 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=916,114
+[S4] 59640,0,1,1,-52,-217,926,303,138,29,30,30,1987,1873,0,0,1988
+[S3IR] copied=1 error=0 t=59780 acquisition=0 mask=7 raw=2955,532,226 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=4 algorithm_error=0 line_darkness=914,114
+[S4] 59850,0,1,1,-42,-250,915,303,141,28,30,30,1994,1879,0,0,1995
+[CSC02] t=60000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=59960 state=0 fresh=1 valid=1 mm=611 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=59980 acquisition=0 mask=7 raw=2949,549,239 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=8 algorithm_error=0 line_darkness=912,120
+[S4] 60060,0,1,1,-45,-215,924,307,135,26,30,60,2001,1885,0,0,2002
+[S3IR] copied=1 error=0 t=60180 acquisition=0 mask=7 raw=2952,529,232 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=6 algorithm_error=0 line_darkness=913,113
+[S4] 60270,0,1,1,-48,-214,917,304,140,28,30,30,2008,1892,0,0,2009
+[S3IR] copied=1 error=0 t=60380 acquisition=0 mask=7 raw=2952,550,219 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=1 algorithm_error=0 line_darkness=913,120
+[S4] 60480,0,1,1,-48,-211,919,303,137,32,30,30,2015,1899,0,0,2016
+[S3IR] copied=1 error=0 t=60580 acquisition=0 mask=7 raw=2957,550,211 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=0 algorithm_error=0 line_darkness=915,120
+[S4] 60690,0,1,1,-49,-216,926,301,138,31,30,30,2022,1905,0,0,2023
+[S3IR] copied=1 error=0 t=60780 acquisition=0 mask=7 raw=2952,565,245 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=10 algorithm_error=0 line_darkness=913,125
+[S4] 60900,0,1,1,-43,-215,925,303,139,30,30,30,2029,1912,0,0,2030
+[CSC02] t=61000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=60920 state=0 fresh=1 valid=1 mm=585 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=60980 acquisition=0 mask=7 raw=2955,561,244 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=914,124
+[S4] 61110,0,1,1,-53,-217,922,303,137,28,30,30,2036,1919,0,0,2037
+[S3IR] copied=1 error=0 t=61180 acquisition=0 mask=7 raw=2957,553,243 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=915,121
+[S4] 61320,0,1,1,-62,-234,941,305,138,30,30,30,2043,1926,0,0,2044
+[S3IR] copied=1 error=0 t=61380 acquisition=0 mask=7 raw=2955,573,242 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=914,128
+[S4] 61530,0,1,1,-50,-220,922,305,138,28,30,30,2050,1932,0,0,2051
+[S3IR] copied=1 error=0 t=61580 acquisition=0 mask=7 raw=2949,588,242 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=912,133
+[S4] 61740,0,1,1,-54,-223,932,300,138,29,30,30,2057,1939,0,0,2058
+[S3IR] copied=1 error=0 t=61780 acquisition=0 mask=7 raw=2958,576,219 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=1 algorithm_error=0 line_darkness=915,129
+[S4] 61950,0,1,1,-50,-215,920,301,139,30,30,30,2064,1946,0,0,2065
+[CSC02] t=62000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=61960 state=0 fresh=1 valid=1 mm=585 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=61980 acquisition=0 mask=7 raw=2952,588,233 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=6 algorithm_error=0 line_darkness=913,133
+[S4] 62160,0,1,1,-45,-212,930,306,138,31,30,30,2071,1953,0,0,2072
+[S3IR] copied=1 error=0 t=62180 acquisition=0 mask=7 raw=2955,592,223 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=3 algorithm_error=0 line_darkness=914,134
+[S4] 62370,0,1,1,-50,-213,919,302,140,30,30,30,2078,1959,0,0,2079
+[S3IR] copied=1 error=0 t=62380 acquisition=0 mask=7 raw=2952,557,232 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=6 algorithm_error=0 line_darkness=913,123
+[S4] 62580,0,1,1,-51,-217,925,302,139,27,30,30,2085,1966,0,0,2086
+[S3IR] copied=1 error=0 t=62580 acquisition=0 mask=7 raw=2956,578,237 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=7 algorithm_error=0 line_darkness=914,130
+[S4] 62790,0,1,1,-50,-213,925,305,137,30,30,30,2092,1973,0,0,2093
+[S3IR] copied=1 error=0 t=62780 acquisition=0 mask=7 raw=2949,577,244 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=9 algorithm_error=0 line_darkness=912,129
+[CSC02] t=63000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=-1 m2=1 m1ab=01 m2ab=00
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S5RAW] copied=1 t=62920 state=0 fresh=1 valid=1 mm=585 angle=0 sampled=0 echo=0 error=0
+[S4] 63000,0,1,1,-47,-217,923,303,137,30,30,30,2099,1979,0,0,2100
+[S3IR] copied=1 error=0 t=62980 acquisition=0 mask=7 raw=2953,595,210 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=0 algorithm_error=0 line_darkness=913,135
+[S3IR] copied=1 error=0 t=63180 acquisition=0 mask=7 raw=2950,610,220 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=2 algorithm_error=0 line_darkness=912,140
+[S4] 63210,0,1,1,-48,-213,925,303,139,29,30,30,2106,1985,0,0,2107

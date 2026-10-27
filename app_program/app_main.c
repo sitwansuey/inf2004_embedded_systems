@@ -21,7 +21,7 @@
  *	  subsystem1/  LED       blinks GP19, paced by a cyclic handler
  *	  subsystem2/  Producer  makes a "sample" every 300 ms     (core 1)
  *	  subsystem3/  Consumer  collects samples into statistics  (core 0)
- *	  subsystem4/  Monitor   prints reports, pauses/resumes the LED
+ *	  subsystem4/  Buddy 4   GY-511 sampling and protected sensor snapshots
  *	  subsystem5/  (empty template for the fifth student)
  *
  *	How they talk to each other (the interfaces, see TEAM.md section 5):
@@ -30,8 +30,8 @@
  *	                   (owned by S2: S3 hands slots and blocks back)
  *	  IF-03  S3 -> S4  message buffer mbf_summary + event flag flg_events
  *	                   (owned by S4)
- *	  IF-04  S4 -> S3  reads app_stats under mutex mtx_stats (owned by S3)
- *	  IF-05  S4 -> S1  suspends/resumes the LED task tid_led (owned by S1)
+ *	  IF-04/IF-05: retired for S4; see TEAM.md's sensor snapshot interface
+ *	  S4 owns I2C1 and its snapshot mutex; it does not control S1's LED
  *	The subsystem that RECEIVES or OWNS the data creates the object and
  *	publishes its ID in its header; the other side just uses it.
  *
@@ -89,6 +89,10 @@ EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
 	/* tk_sta_tsk: DORMANT -> READY.  The int is passed as stacd. */
 	er = tk_sta_tsk(tid, 0);
 	CHECK(er, name);
+	if (er < E_OK) {
+		CHECK(tk_del_tsk(tid), "task start cleanup");
+		return er;
+	}
 	return tid;
 }
 
@@ -107,36 +111,67 @@ EXPORT INT usermain(void)
 	tm_printf((UB*)"single-core build\n");
 #endif
 
+#if APP_S2_ONLY
+	/* Standalone motor build: do not start the sample consumer/monitor. */
+	ER er = subsystem2_init();
+	CHECK(er, "subsystem2_init");
+	if (er >= E_OK) {
+		er = subsystem2_start();
+		CHECK(er, "subsystem2_start");
+	}
+	if (er < E_OK) {
+		tm_printf((UB*)"motor startup failed; tests skipped\n");
+		for (;;) {
+			tk_slp_tsk(TMO_FEVR);
+		}
+	}
+#else
 	/* Phase 1: every subsystem creates its kernel objects */
+#if !APP_S4_ONLY
 	CHECK(subsystem1_init(), "subsystem1_init");
 	CHECK(subsystem2_init(), "subsystem2_init");
 	CHECK(subsystem3_init(), "subsystem3_init");
+#endif
 	CHECK(subsystem4_init(), "subsystem4_init");
+#if !APP_S4_ONLY
 	CHECK(subsystem5_init(), "subsystem5_init");
+#endif
 
 	/* Phase 2: every subsystem starts its tasks */
+#if !APP_S4_ONLY
 	CHECK(subsystem1_start(), "subsystem1_start");
 	CHECK(subsystem2_start(), "subsystem2_start");
 	CHECK(subsystem3_start(), "subsystem3_start");
+#endif
 	CHECK(subsystem4_start(), "subsystem4_start");
+#if !APP_S4_ONLY
 	CHECK(subsystem5_start(), "subsystem5_start");
+#endif
+#endif /* APP_S2_ONLY */
 
-	tm_printf((UB*)"all subsystems started\n\n");
+	tm_printf((UB*)"all selected subsystems started\n\n");
 
 #if APP_TEST
 	/* Test build (make TEST=1): run every subsystem's tests in turn,
 	   here in the initial task, while the system is running.  Tests may
 	   call tk_dly_tsk() to let the other tasks work for a while. */
 	tm_printf((UB*)"[TEST] === test run start ===\n");
+#if APP_S2_ONLY
+	subsystem2_test();
+#elif APP_S4_ONLY
+	subsystem4_test();
+#else
 	subsystem1_test();
 	subsystem2_test();
 	subsystem3_test();
 	subsystem4_test();
 	subsystem5_test();
+#endif
 	tm_printf((UB*)"[TEST] === test run end ===\n");
 #endif
 
 	/* Sleep forever.  Returning from usermain() would shut down. */
-	tk_slp_tsk(TMO_FEVR);
-	return 0;
+	for (;;) {
+		tk_slp_tsk(TMO_FEVR);
+	}
 }

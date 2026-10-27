@@ -1,0 +1,55 @@
+name: Buddy 3 CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buddy3-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    name: Buddy 3 native C tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Build and run tests
+        run: make -C testing/subsystem3 test
+      - name: GCC static analysis and regression tests
+        run: make -C testing/subsystem3 analyze
+      - name: Check actual kernel headers
+        run: make -C testing/subsystem3 check-headers
+      - name: Verify test failures propagate
+        run: make -C testing/subsystem3 verify-failure
+
+
+  firmware-build:
+    name: Pico W ARM firmware build
+    needs: host-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y gcc-arm-none-eabi libnewlib-arm-none-eabi make g++
+          arm-none-eabi-gcc --version
+      - name: Fetch Pico SDK 2.2.0 and required drivers
+        run: |
+          git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git "$RUNNER_TEMP/pico-sdk"
+          git -C "$RUNNER_TEMP/pico-sdk" submodule update --init --depth 1 lib/tinyusb lib/cyw43-driver
+          echo "PICO_SDK_PATH=$RUNNER_TEMP/pico-sdk" >> "$GITHUB_ENV"
+      - name: Compile Buddy 3 with real ARM ABI and kernel headers
+        run: make -C testing/subsystem3 arm-check
+      - name: Build complete standard firmware
+        run: make -k -C build_make -j2

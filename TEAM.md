@@ -17,10 +17,17 @@ subsystem, ask its owner or open a pull request for them to review.
 
 | # | Subsystem (what it does) | Student ID | GitHub username | Code | Tests |
 |---|---|---|---|---|---|
+<<<<<<< HEAD
 | 1 | Buddy 1: MQTT telemetry inbox / topic mapping; retained GP19 LED example | 2500238 | | `app_program/subsystem1/` | `testing/subsystem1/` |
 | 2 | *example:* Producer: makes a sample every 300 ms | | | `app_program/subsystem2/` | `testing/subsystem2/` |
 | 3 | *example:* Consumer: collects samples into statistics | | | `app_program/subsystem3/` | `testing/subsystem3/` |
 | 4 | *example:* Monitor: prints reports, pauses the LED | | | `app_program/subsystem4/` | `testing/subsystem4/` |
+=======
+| 1 | *example:* LED heartbeat on GP19 | | | `app_program/subsystem1/` | `testing/subsystem1/` |
+| 2 | PWM motion control and dual-wheel encoder diagnostics | 2500613 | | `app_program/subsystem2/` | `app_program/subsystem2/tests/host/` |
+| 3 | IR line following, barcode decoding, navigation events | 2500383 | | `app_program/subsystem3/` | `testing/subsystem3/` |
+| 4 | Buddy 4: GY-511 / LSM303DLHC acquisition and sensor snapshots | | | `app_program/subsystem4/` | `testing/subsystem4/` |
+>>>>>>> 0269a02da74cdf7cd9ebd0a6bb46597dcfbc3677
 | 5 | | | | `app_program/subsystem5/` | `testing/subsystem5/` |
 
 Shared files (`app_program/app_main.c`, `app_program/app.h`, this file)
@@ -50,22 +57,22 @@ fixed.
 | GP23, GP24, GP25, GP29 | *reserved* | Pico W radio |
 | GP0 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
 | GP1 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
-| GP2 | | |
-| GP3 | | |
-| GP4 | | |
-| GP5 | | |
+| GP2 | S4 | GY-511 I2C1 SDA, 3.3 V logic |
+| GP3 | S4 | GY-511 I2C1 SCL, 3.3 V logic |
+| GP4 | S2 | right wheel (motor 2) encoder A |
+| GP5 | S2 | right wheel (motor 2) encoder B |
 | GP6 | | |
 | GP7 | | |
-| GP8 | | |
-| GP9 | | |
-| GP10 | | |
-| GP11 | | |
+| GP8 | S2 | left wheel motor PWM A |
+| GP9 | S2 | left wheel motor PWM B |
+| GP10 | S2 | right wheel motor PWM A |
+| GP11 | S2 | right wheel motor PWM B |
 | GP12 | | |
 | GP13 | | |
 | GP14 | | |
 | GP15 | | |
-| GP16 | | |
-| GP17 | | |
+| GP16 | S2 | left wheel (motor 1) encoder A |
+| GP17 | S2 | left wheel (motor 1) encoder B |
 | GP18 | | |
 | GP19 | *example:* S1 | external LED (LED + 330 Ω to GND) |
 | GP20 | | |
@@ -107,11 +114,12 @@ the drivers have no locking to stop it.
 |---|---|---|---|
 | UART1 | | | |
 | I2C0 | | | |
-| I2C1 | | | |
+| I2C1 | S4 | `s4_sensor_task` | GP2 SDA, GP3 SCL |
 | SPI0 | | | |
 | SPI1 | | | |
-| ADC | | | GP26–GP28 |
-| PWM slices (list) | | | |
+| ADC | S3 (optional; disabled pending verified analogue wiring) | `s3_adc_worker` (priority 17, core 0) | GP26-GP28 capability only; no pin claim; GP29 reserved for radio |
+| PWM slices 4/5 | S2 | motor task | GP8-GP11 |
+| IO_BANK0 IRQ 13, core 0 | S2 (when encoders enabled) | encoder interrupt handler | GP4/5, GP16/17 |
 | WiFi radio, TCP/IP, MQTT | *kernel* | `cyw43_utk_task` (built in) | GP23–25, GP29 |
 
 ### WiFi and MQTT are special
@@ -147,9 +155,9 @@ change it only by team agreement. Write down every task you create.
 | Subsystem | Priority band | Tasks (name – priority – core) |
 |---|---|---|
 | 1 | 12–13 | *example:* led_task – 12 – any |
-| 2 | 14–15 | *example:* producer_task – 14 – core 1 |
-| 3 | 16–17 | *example:* consumer_task – 16 – core 0 |
-| 4 | 18–19 | *example:* monitor_task – 18 – any |
+| 2 | 14–15 | motor_task – 14 – core 0 |
+| 3 | 16–17 | `consumer_task` (S3 sampler) – 16 – core 0; `s3_adc_worker` – 17 – core 0 (optional) |
+| 4 | 18–19 | `s4_sensor_task` – 18 – core 1; `monitor_task` – 19 – any |
 | 5 | 20–21 | |
 
 Core: `TP_PRC1` = core 0, `TP_PRC2` = core 1, or "any".
@@ -165,9 +173,17 @@ sends to it or waits on it. Agree on the data format before coding.
 | IF-01 | S2 → S3 | mailbox (owned by S3) | `mbx_samples` | `SAMPLE_MSG` in `subsystem2.h` | *example* |
 | IF-02 | S3 → S2 | semaphore + fixed memory pool (owned by S2) | `sem_slots`, `mpf_samples` | receiver returns the block, then 1 slot | *example* |
 | IF-03 | S3 → S4 | message buffer + event flag (owned by S4) | `mbf_summary`, `flg_events` | text line ≤ `S4_SUMMARY_MAX` bytes, then `FLG_BATCH` | *example* |
+<<<<<<< HEAD
 | IF-04 | S4 → S3 | shared data under a mutex (owned by S3) | `app_stats`, `mtx_stats` | `APP_STATS`, read only while locked | *example* |
 | IF-05 | S4 → S1 | task control | `tid_led` | `tk_sus_tsk` / `tk_rsm_tsk` / `tk_chg_pri` | *example* |
 | IF-06 | S2–S5 / controller → S1 → network service | copied message buffer, nonblocking service polling | private `telemetry_mbf`; public `s1_telemetry_*` API | reading ID + enqueue timestamp + scalar/event payload; `telemetry_topics.h` | Buddy 1 implementation; producer integration pending |
+=======
+| IF-04 | S4 → S3 | retired example | `app_stats`, `mtx_stats` | S4 no longer reads S3 demo statistics | retired in S4 adaptation |
+| IF-05 | S4 → S1 | retired example | `tid_led` | S4 no longer suspends/resumes S1 | retired in S4 adaptation |
+| IF-06 | S4 → telemetry / vehicle controller | snapshot getter, internal mutex owned by S4 | `s4_sensor_get_status()` | `s4_sensor_status_t`: raw/scaled values, kernel timestamps, per-channel usability and diagnostics | proposed consumer integration; review API before wiring callers |
+| IF-07 | S2 → S4 | task-context snapshot byte getter | `s2_encoder_encode()` | EDR source 2/kind 1: timestamped two-wheel x1 counts, GPIO levels and validity; calibrated distance/speed still pending | codec implemented; fusion calibration and consumer validation pending |
+| IF-08 | All buddies → B1; S2 → S4/controller readers | Caller-owned copied byte records; transport handoff still pending | `shared/edr.h`, `subsystem2/s2_data.h` | EDR v1 envelope, 7-byte motor and 13-byte timestamped x1-count payloads; see `docs/DATA_REPRESENTATION.md` | implemented codec; other-branch adoption and physical integration pending |
+>>>>>>> 0269a02da74cdf7cd9ebd0a6bb46597dcfbc3677
 
 Each interface is tested by at least one integration test
 (`testing/integration/TEST_LOG.md`).
@@ -179,15 +195,20 @@ limit there. The numbers below are the example's usage.
 
 | Object | Limit | S1 | S2 | S3 | S4 | S5 |
 |---|---|---|---|---|---|---|
-| Task | 32 | 1 | 1 | 1 | 1 | |
+| Task | 32 | 1 | 1 | 1 | 2 | |
 | Semaphore | 16 | | 1 | | | |
 | Event flag | 16 | | | | 1 | |
 | Mailbox | 12 | | | 1 | | |
+<<<<<<< HEAD
 | Mutex | 12 | | | 1 | | |
 | Message buffer | 12 | 1 | | | 1 | |
+=======
+| Mutex | 12 | | | 1 | 1 | |
+| Message buffer | 12 | | | | 1 | |
+>>>>>>> 0269a02da74cdf7cd9ebd0a6bb46597dcfbc3677
 | Fixed memory pool | 12 | | 1 | | | |
 | Variable memory pool | 12 | | | | | |
 | Cyclic handler | 12 | 1 | | | | |
-| Alarm handler | 12 | | | | 1 | |
+| Alarm handler | 12 | | | | | |
 
 (The kernel's USB and WiFi service tasks also use a few of these.)

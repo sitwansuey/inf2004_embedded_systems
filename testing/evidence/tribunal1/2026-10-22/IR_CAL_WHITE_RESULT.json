@@ -1,0 +1,417 @@
+﻿{
+    "started":  "2026-10-22T06:45:13.2208465+08:00",
+    "seconds":  8,
+    "procedure":  "IRCalibrated",
+    "commands_sent":  0,
+    "port":  "COM5",
+    "status":  "CAPTURED",
+    "identity_check":  "MTK3PICO serial identity + matching USB ContainerID + live COM port",
+    "warmup_seconds":  2,
+    "discarded_warmup_characters":  7287,
+    "warmup_log":  "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_CAL_WHITE_WARMUP.log",
+    "phase_cues":  [
+
+                   ],
+    "controller_lines":  8,
+    "incomplete_controller_records":  0,
+    "controller_fault_records":  0,
+    "unexpected_motor_status_lines":  0,
+    "motor_lock_banner_seen":  false,
+    "imu_rows":  39,
+    "accel_usable_seen":  true,
+    "encoder_diagnostic_records":  8,
+    "ultrasonic_diagnostic_records":  8,
+    "sonar_status_copies":  8,
+    "sonar_snapshot_unavailable":  0,
+    "sonar_copy_error_codes":  {
+                                   "0":  8
+                               },
+    "sonar_no_rise_records":  0,
+    "sonar_valid_records":  8,
+    "sonar_mm_min":  603,
+    "sonar_mm_max":  629,
+    "ir_diagnostic_records":  0,
+    "ir_complete_scans":  0,
+    "ir_unique_complete_scans":  0,
+    "ir_unexpected_authority":  0,
+    "ir_calibrated_acquired_rows":  41,
+    "ir_calibrated_algorithm_errors":  {
+                                           "0":  41
+                                       },
+    "ir_calibrated_rows":  41,
+    "ir_calibrated_incomplete_records":  0,
+    "ir_calibrated_valid_rows":  41,
+    "ir_calibrated_unique_scans":  41,
+    "ir_unexpected_steering":  0,
+    "ir_calibrated_observations":  [
+                                       {
+                                           "t":  20580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  2,
+                                           "right_darkness":  2,
+                                           "left_darkness":  7
+                                       },
+                                       {
+                                           "t":  20780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  9,
+                                           "right_darkness":  2,
+                                           "left_darkness":  8
+                                       },
+                                       {
+                                           "t":  20980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  10,
+                                           "right_darkness":  4,
+                                           "left_darkness":  1
+                                       },
+                                       {
+                                           "t":  21180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  0,
+                                           "right_darkness":  4,
+                                           "left_darkness":  6
+                                       },
+                                       {
+                                           "t":  21380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  2,
+                                           "right_darkness":  2,
+                                           "left_darkness":  5
+                                       },
+                                       {
+                                           "t":  21580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  4,
+                                           "right_darkness":  4,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  21780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  2,
+                                           "right_darkness":  1,
+                                           "left_darkness":  9
+                                       },
+                                       {
+                                           "t":  21980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  8,
+                                           "right_darkness":  1,
+                                           "left_darkness":  3
+                                       },
+                                       {
+                                           "t":  22180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  1,
+                                           "right_darkness":  3,
+                                           "left_darkness":  6
+                                       },
+                                       {
+                                           "t":  22380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  0,
+                                           "right_darkness":  4,
+                                           "left_darkness":  8
+                                       },
+                                       {
+                                           "t":  22580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  1,
+                                           "right_darkness":  5,
+                                           "left_darkness":  7
+                                       },
+                                       {
+                                           "t":  22780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  4,
+                                           "left_darkness":  3
+                                       },
+                                       {
+                                           "t":  22980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  9,
+                                           "right_darkness":  4,
+                                           "left_darkness":  5
+                                       },
+                                       {
+                                           "t":  23180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  4,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  23380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  7,
+                                           "right_darkness":  2,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  23580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  1,
+                                           "right_darkness":  4,
+                                           "left_darkness":  2
+                                       },
+                                       {
+                                           "t":  23780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  4,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  23980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  2,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  24180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  6,
+                                           "right_darkness":  2,
+                                           "left_darkness":  2
+                                       },
+                                       {
+                                           "t":  24380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  0,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  24580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  12,
+                                           "right_darkness":  2,
+                                           "left_darkness":  1
+                                       },
+                                       {
+                                           "t":  24780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  10,
+                                           "right_darkness":  4,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  24980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  5,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  25180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  4,
+                                           "right_darkness":  3,
+                                           "left_darkness":  4
+                                       },
+                                       {
+                                           "t":  25380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  9,
+                                           "right_darkness":  1,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  25580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  2,
+                                           "right_darkness":  4,
+                                           "left_darkness":  8
+                                       },
+                                       {
+                                           "t":  25780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  4,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  25980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  3,
+                                           "left_darkness":  5
+                                       },
+                                       {
+                                           "t":  26180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  1,
+                                           "right_darkness":  4,
+                                           "left_darkness":  9
+                                       },
+                                       {
+                                           "t":  26380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  6,
+                                           "right_darkness":  4,
+                                           "left_darkness":  3
+                                       },
+                                       {
+                                           "t":  26580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  7,
+                                           "right_darkness":  7,
+                                           "left_darkness":  6
+                                       },
+                                       {
+                                           "t":  26780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  1,
+                                           "right_darkness":  2,
+                                           "left_darkness":  4
+                                       },
+                                       {
+                                           "t":  26980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  12,
+                                           "right_darkness":  4,
+                                           "left_darkness":  1
+                                       },
+                                       {
+                                           "t":  27180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  12,
+                                           "right_darkness":  3,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  27380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  12,
+                                           "right_darkness":  4,
+                                           "left_darkness":  9
+                                       },
+                                       {
+                                           "t":  27580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  4,
+                                           "right_darkness":  4,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  27780,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  1,
+                                           "right_darkness":  4,
+                                           "left_darkness":  8
+                                       },
+                                       {
+                                           "t":  27980,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  4,
+                                           "right_darkness":  2,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  28180,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  1,
+                                           "right_darkness":  3,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  28380,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  6,
+                                           "right_darkness":  3,
+                                           "left_darkness":  0
+                                       },
+                                       {
+                                           "t":  28580,
+                                           "line":  3,
+                                           "blackmask":  0,
+                                           "lineerror":  0,
+                                           "barcode_darkness":  11,
+                                           "right_darkness":  5,
+                                           "left_darkness":  5
+                                       }
+                                   ]
+}
