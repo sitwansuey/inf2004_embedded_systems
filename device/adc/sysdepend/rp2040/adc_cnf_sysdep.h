@@ -38,16 +38,17 @@
  *	in TEAM.md.
  *	  channel 0 = GP26, channel 1 = GP27, channel 2 = GP28
  *	  channel 3 = GP29 is the Pico W RADIO CLOCK: never set _3 to TRUE.
+ *	GP26/27/28 carry the Buddy 3 IR sensors (right line, left line, barcode).
  */
-#define	DEVCONF_ADC_PIN_INIT_0	FALSE
-#define	DEVCONF_ADC_PIN_INIT_1	FALSE
-#define	DEVCONF_ADC_PIN_INIT_2	FALSE
+#define	DEVCONF_ADC_PIN_INIT_0	TRUE
+#define	DEVCONF_ADC_PIN_INIT_1	TRUE
+#define	DEVCONF_ADC_PIN_INIT_2	TRUE
 #define	DEVCONF_ADC_PIN_INIT_3	FALSE
 
 /* Interrupt t priority */
 #define	DEVCNF_ADC_INTPRI	2
 
-/* A/D conversion timeout time */
-#define	DEVCNF_ADC_TMOSCAN	1000
+/* A/D conversion timeout time (ms); Buddy 3 discards scans after 20 ms */
+#define	DEVCNF_ADC_TMOSCAN	5
 
 #endif		/* __DEV_ADC_CNF_RP2040_H__ */

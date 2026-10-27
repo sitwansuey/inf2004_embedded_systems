@@ -82,7 +82,10 @@ LOCAL UW adc_convert( INT ch, INT size, UW *buf )
 	if(ch<0 || ch>(ADC_CH_NUM-1)) return E_PAR;
 	if(size != 1) return E_PAR;
 
-	while((in_w(ADC_CS)&ADC_CS_READY)==0);
+	UW ready_spins = 100000U;
+	while((in_w(ADC_CS)&ADC_CS_READY)==0) {
+		if(--ready_spins==0U)return E_TMOUT;
+	}
 
 	ADC_LOCK(intsts);
 	(void)tk_clr_flg(ll_devcb.done_flgid, 0);
@@ -212,7 +215,14 @@ EXPORT ER dev_adc_llinit( T_ADC_DCB *p_dcb)
 
 	/* Enable A/DC */
 	set_w(ADC_CS, ADC_CS_EN);
-	while(!(in_w(ADC_CS)&ADC_CS_READY));
+	UW ready_spins = 100000U;
+	while(!(in_w(ADC_CS)&ADC_CS_READY)) {
+		if(--ready_spins==0U) {
+			(void)tk_del_flg(ll_devcb.done_flgid);
+			ll_devcb.done_flgid=0;
+			return E_TMOUT;
+		}
+	}
 
 	err = tk_def_int( INTNO_ADC, &dint);
 	if(err == E_OK) {

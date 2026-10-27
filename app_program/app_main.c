@@ -1,9 +1,11 @@
 /* Main vehicle controller and application entry point. */
 #include "app.h"
 #include "subsystem2/subsystem2.h"
+#include "subsystem3/subsystem3.h"
 #include "subsystem5/subsystem5.h"
 #include "app_state.h"
 #include "app_logging.h"
+#include "vehicle_line.h"
 /*
  * Create and start one task (declared in app.h for every subsystem).
  *   prc = TP_PRC1 (core 0), TP_PRC2 (core 1), or 0 for "any core".
@@ -98,18 +100,32 @@ static BOOL vehicle_enter(vehicle_fsm_t *drive, UW now_ms,
     return TRUE;
 }
 
+/* cruise_command/cruise_power drive the car while the path ahead is clear:
+ * the line follower in line mode, otherwise straight ahead. */
 static void vehicle_fsm_step(vehicle_fsm_t *drive, UW now_ms,
     const s5_status_t *sensor, BOOL sensor_ok, BOOL external_request,
+    s2_move_command_t cruise_command, UINT cruise_power,
     s2_move_command_t *command, UINT *power)
 {
     *command = S2_MOVE_STOP;
     *power = 0;
+    BOOL cruising = drive->phase == VEHICLE_CRUISE ||
+        drive->phase == VEHICLE_ACQUISITION;
+    /* Ride through brief S5 lock contention on a recent copy while cruising. */
+    if (cruising && !sensor_ok && sensor->time_ms != 0U &&
+        now_ms - sensor->time_ms < VEHICLE_SONAR_HOLD_MS)
+        sensor_ok = TRUE;
     s5_path_t path = s5_assess_path(sensor, sensor_ok, now_ms);
+    /* S5 reports "no echo" (nothing within range) as a fault: ahead is clear. */
+    if (cruising && path.state == S5_PATH_FAULT &&
+        sensor->echo_result == S5_ECHO_NO_FALL &&
+        sensor->angle_deg == 0 && sensor->sample_angle_deg == 0)
+        path.state = S5_PATH_FORWARD;
     if (drive->phase == VEHICLE_CRUISE) {
         if (external_request || now_ms-drive->boot_ms < VEHICLE_START_DELAY_MS) return;
         if (path.state == S5_PATH_FORWARD) {
-            *command = S2_MOVE_FORWARD;
-            *power = VEHICLE_FORWARD_POWER;
+            *command = cruise_command;
+            *power = cruise_power;
             return;
         }
         if (path.state == S5_PATH_IDENTIFY || path.state == S5_PATH_READY) {
@@ -243,9 +259,19 @@ static void vehicle_task(INT stacd, void *exinf)
 	UINT previous_power = 0;
 	SYSTIM boot;
 	tk_get_tim(&boot);
+	UW last_sent = boot.lo;
 	vehicle_fsm_t drive = { .phase = VEHICLE_CRUISE, .boot_ms = boot.lo };
-	tm_printf((UB *)"[AUTO] forward at %u%% after %u ms; obstacle threshold %u mm\n",
-	          VEHICLE_FORWARD_POWER, VEHICLE_START_DELAY_MS, S5_OBSTACLE_MM);
+	if (VEHICLE_MODE == VEHICLE_MODE_STRAIGHT)
+		tm_printf((UB *)"[AUTO] straight at %u%% after %u ms; no sensors; "
+		          "runs until power-off\n", VEHICLE_FORWARD_POWER,
+		          VEHICLE_START_DELAY_MS);
+	else if (VEHICLE_MODE == VEHICLE_MODE_LINE)
+		tm_printf((UB *)"[AUTO] line follow at %u%% after %u ms; ultrasonic "
+		          "avoidance at %u mm; barcode reading on\n",
+		          VEHICLE_FORWARD_POWER, VEHICLE_START_DELAY_MS, S5_OBSTACLE_MM);
+	else
+		tm_printf((UB *)"[AUTO] forward at %u%% after %u ms; obstacle threshold %u mm\n",
+		          VEHICLE_FORWARD_POWER, VEHICLE_START_DELAY_MS, S5_OBSTACLE_MM);
 	/* Larger value wins; S5 safety overrides every ordinary request. */
 	const UINT importance[5] = {0, 10, 20, 30, 40};
 	app_shared_state_t next = {0};
@@ -267,27 +293,47 @@ static void vehicle_task(INT stacd, void *exinf)
 			tk_unl_mtx(vehicle_mutex);
 		}
         app_state_collect(&next);
-        s5_status_t sensor = next.s5;
-        BOOL sensor_ok = next.s5_available;
         now.lo = next.time_ms;
-		s2_move_command_t auto_command;
-		UINT auto_power;
-		vehicle_fsm_step(&drive, now.lo, &sensor, sensor_ok, best != 0,
-		                      &auto_command, &auto_power);
-		if (best == 0) {
-			command = auto_command;
-			power = auto_power;
-		} else if (now.lo - drive.boot_ms < VEHICLE_START_DELAY_MS ||
-                   drive.phase != VEHICLE_CRUISE ||
-                   s5_assess_path(&sensor, sensor_ok, now.lo).state != S5_PATH_FORWARD) {
-			command = S2_MOVE_STOP; power = 0;
+		if (VEHICLE_MODE == VEHICLE_MODE_STRAIGHT) {
+			/* No sensors: both wheels forward until the power is switched off. */
+			BOOL go = now.lo - drive.boot_ms >= VEHICLE_START_DELAY_MS;
+			command = go ? S2_MOVE_FORWARD : S2_MOVE_STOP;
+			power = go ? VEHICLE_FORWARD_POWER : 0;
+		} else {
+			/* Clear path: follow the line in line mode, else drive straight.
+			 * At an obstacle the S5 avoidance sequence takes over. */
+			s2_move_command_t cruise_command = S2_MOVE_FORWARD;
+			UINT cruise_power = VEHICLE_FORWARD_POWER;
+			if (VEHICLE_MODE == VEHICLE_MODE_LINE)
+				vehicle_line_step(&cruise_command, &cruise_power);
+			s5_status_t sensor = next.s5;
+			BOOL sensor_ok = next.s5_available;
+			s2_move_command_t auto_command;
+			UINT auto_power;
+			vehicle_fsm_step(&drive, now.lo, &sensor, sensor_ok, best != 0,
+			                 cruise_command, cruise_power,
+			                 &auto_command, &auto_power);
+			if (best == 0) {
+				command = auto_command;
+				power = auto_power;
+			} else if (now.lo - drive.boot_ms < VEHICLE_START_DELAY_MS ||
+			           drive.phase != VEHICLE_CRUISE ||
+			           s5_assess_path(&sensor, sensor_ok, now.lo).state != S5_PATH_FORWARD) {
+				command = S2_MOVE_STOP; power = 0;
+			}
 		}
 		if (command == S2_MOVE_STOP) power = 0;
-		if (command != previous || power != previous_power) {
+		BOOL changed = command != previous || power != previous_power;
+		/* S2 stops the motors if a moving command is not renewed in time. */
+		BOOL renew = command != S2_MOVE_STOP &&
+		             now.lo - last_sent >= VEHICLE_RENEW_MS;
+		if (changed || renew) {
 			ER er = s2_movement_send(command, power);
 			if (er >= E_OK) {
 				previous = command; previous_power = power;
-				tm_printf((UB *)"[AUTO] motor command %d, power %u%%\n", command, power);
+				last_sent = now.lo;
+				if (changed)
+					tm_printf((UB *)"[AUTO] motor command %d, power %u%%\n", command, power);
 			}
 			else CHECK(er, "vehicle movement");
 		}
@@ -342,14 +388,28 @@ EXPORT INT usermain(void)
 #else
 	ER er = subsystem2_init();
 	CHECK(er, "subsystem2_init");
+#if VEHICLE_MODE == VEHICLE_MODE_LINE
+	/* Line mode adds the IR line and barcode sensors to the ultrasonic. */
+	if (er >= E_OK) er = subsystem3_init();
+	CHECK(er, "subsystem3_init");
+	if (er >= E_OK) er = vehicle_line_init();
+	CHECK(er, "vehicle_line_init");
+#endif
+#if VEHICLE_MODE != VEHICLE_MODE_STRAIGHT
 	if (er >= E_OK) er = subsystem5_init();
 	CHECK(er, "subsystem5_init");
+#endif /* straight mode starts no sensor subsystem */
 	if (er >= E_OK) er = app_state_init();
 	CHECK(er, "app_state_init");
 	if (er >= E_OK) er = vehicle_init();
 	CHECK(er, "vehicle_init");
 	if (er >= E_OK) er = subsystem2_start();
+#if VEHICLE_MODE == VEHICLE_MODE_LINE
+	if (er >= E_OK) er = subsystem3_start();
+#endif
+#if VEHICLE_MODE != VEHICLE_MODE_STRAIGHT
 	if (er >= E_OK) er = subsystem5_start();
+#endif
     if (er >= E_OK) {
 #if APP_S5_MASTER_TEST
         tm_printf((UB *)"[S5 MASTER TEST] acquisition then approach\n");

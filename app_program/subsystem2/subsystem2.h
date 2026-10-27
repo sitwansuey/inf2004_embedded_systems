@@ -21,6 +21,23 @@
 #error "S2_COMMAND_TIMEOUT_MS must fit a positive TMO value"
 #endif
 
+/* Per-wheel duty scaling (percent) to balance mismatched motors.
+ * Lower the faster wheel's trim until FORWARD drives straight.
+ * Motor 1 is the left wheel, motor 2 the right wheel.
+ */
+#ifndef S2_MOTOR1_TRIM_PERCENT
+#define S2_MOTOR1_TRIM_PERCENT 97U
+#endif
+
+#ifndef S2_MOTOR2_TRIM_PERCENT
+#define S2_MOTOR2_TRIM_PERCENT 98U
+#endif
+
+#if (S2_MOTOR1_TRIM_PERCENT == 0) || (S2_MOTOR1_TRIM_PERCENT > 100U) || \
+    (S2_MOTOR2_TRIM_PERCENT == 0) || (S2_MOTOR2_TRIM_PERCENT > 100U)
+#error "S2_MOTORx_TRIM_PERCENT must be 1..100"
+#endif
+
 /* Enable after confirming the encoder wiring in board_pins.h. */
 #ifndef S2_ENCODER_ENABLED
 #define S2_ENCODER_ENABLED 0

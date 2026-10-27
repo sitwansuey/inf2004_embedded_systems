@@ -334,7 +334,9 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
 {
     INT left = 0;
     INT right = 0;
-    UW duty = ((MOTOR_PWM_WRAP + 1U) * power_percent) / 100U;
+    UW duty = (MOTOR_PWM_WRAP + 1U) * power_percent;
+    UW left_duty = (duty * S2_MOTOR1_TRIM_PERCENT) / 10000U;
+    UW right_duty = (duty * S2_MOTOR2_TRIM_PERCENT) / 10000U;
     ER er = E_OK;
 
     motor_stop();
@@ -384,9 +386,9 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
         if (er >= E_OK)
         {
             motor_set_pair(BOARD_MOTOR1_A_GPIO, BOARD_MOTOR1_B_GPIO,
-                           left * MOTOR1_FORWARD_SIGN, duty);
+                           left * MOTOR1_FORWARD_SIGN, left_duty);
             motor_set_pair(BOARD_MOTOR2_A_GPIO, BOARD_MOTOR2_B_GPIO,
-                           right * MOTOR2_FORWARD_SIGN, duty);
+                           right * MOTOR2_FORWARD_SIGN, right_duty);
         }
     }
     return er;

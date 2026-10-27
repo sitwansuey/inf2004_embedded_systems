@@ -8,6 +8,45 @@
 #define VEHICLE_FORWARD_POWER 30U
 #define VEHICLE_TURN_POWER 30U
 #define VEHICLE_START_DELAY_MS 2000U
+/* Resend moving commands well inside the S2 lease so motors keep running. */
+#define VEHICLE_RENEW_MS (S2_COMMAND_TIMEOUT_MS / 4U)
+
+#if VEHICLE_RENEW_MS < APP_STATE_PERIOD_MS
+#error "S2_COMMAND_TIMEOUT_MS too short for the vehicle loop period"
+#endif
+
+/* Vehicle behaviour, chosen at build time:
+ *   LINE:     follow the floor line with the IR sensors and read barcodes;
+ *             the ultrasonic avoidance sequence takes over at obstacles.
+ *   AVOID:    the same avoidance, cruising straight without line sensors.
+ *   STRAIGHT: both wheels forward until power-off; no sensors, no time limit.
+ * S5 bench builds always use AVOID. */
+#define VEHICLE_MODE_AVOID 0
+#define VEHICLE_MODE_LINE 1
+#define VEHICLE_MODE_STRAIGHT 2
+#define APP_S5_BENCH (APP_TEST || APP_S5_MASTER_TEST || APP_ACQUISITION_TEST || \
+                      APP_ACQUISITION_LEFT_TEST)
+#ifndef VEHICLE_MODE
+#if APP_S5_BENCH
+#define VEHICLE_MODE VEHICLE_MODE_AVOID
+#else
+#define VEHICLE_MODE VEHICLE_MODE_LINE
+#endif
+#endif
+
+#if VEHICLE_MODE < VEHICLE_MODE_AVOID || VEHICLE_MODE > VEHICLE_MODE_STRAIGHT
+#error "VEHICLE_MODE must be VEHICLE_MODE_AVOID, _LINE or _STRAIGHT"
+#endif
+#if APP_S5_BENCH && VEHICLE_MODE != VEHICLE_MODE_AVOID
+#error "S5 bench builds need VEHICLE_MODE_AVOID"
+#endif
+/* Line mode: stop after this much driving; 0 = no limit. */
+#define VEHICLE_LINE_MAX_MS 0U
+/* Keep the last steering decision through brief gaps in IR samples. */
+#define VEHICLE_LINE_HOLD_MS 100U
+/* While cruising, keep using a recent ultrasonic copy through brief S5 lock
+ * contention instead of stopping (a source of start-stop jerking). */
+#define VEHICLE_SONAR_HOLD_MS 150U
 
 typedef enum {
     VEHICLE_CRUISE, VEHICLE_ACQUISITION,
