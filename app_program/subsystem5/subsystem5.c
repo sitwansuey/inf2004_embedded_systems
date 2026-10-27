@@ -1,13 +1,39 @@
 #include "subsystem5.h"
 #include "s5_hardware.h"
 #include "s5_scan.h"
+#include "s5_data.h"
 
 #if !BOARD_UART0_FREE
 #error "S5 uses GP0/GP1: build with CONSOLE=usb_cdc CRASH_REPORT=0"
 #endif
 
 static ID status_mutex;
-static s5_status_t status = {.state = S5_CENTERING};
+static uint8_t status_data[S5_DATA_SIZE] = {
+    S5_CENTERING, 0, 90, 90, 90, 90, 90, 90
+};
+
+/* Caller holds status_mutex. Invalid internal data fails closed. */
+static void status_load(s5_status_t *value)
+{
+    if (!s5_data_decode(status_data, sizeof(status_data), value))
+        *value = (s5_status_t){.state = S5_FAULT};
+}
+static void status_store(const s5_status_t *value)
+{
+    if (!s5_data_encode(value, status_data, sizeof(status_data))) {
+        s5_status_t fault = {.state = S5_FAULT};
+        (void)s5_data_encode(&fault, status_data, sizeof(status_data));
+    }
+}
+
+EXPORT ER s5_status_encode(uint8_t *data, size_t capacity)
+{
+    if (!data || capacity < S5_DATA_SIZE) return E_PAR;
+    s5_status_t copy;
+    ER er = s5_get_status(&copy);
+    if (er < E_OK) return er;
+    return s5_data_encode(&copy, data, capacity) ? E_OK : E_PAR;
+}
 static BOOL recenter;
 static BOOL turn_requested;
 static BOOL navigation_requested;
@@ -16,12 +42,14 @@ static INT navigation_look;
 
 EXPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg)
 {
+    s5_status_t status;
     if ((state != S5_APPROACH && state != S5_OVERCOME &&
          state != S5_REORG && state != S5_ROTATING && state != S5_MONITOR) ||
         look_deg < -90 || look_deg > 90)
         return E_PAR;
     ER er = tk_loc_mtx(status_mutex, TMO_POL);
     if (er < E_OK) return er;
+    status_load(&status);
     if (status.scan_id != scan_id || (status.state == S5_FAULT && state != S5_MONITOR))
         er = E_OBJ;
     else {
@@ -32,17 +60,20 @@ EXPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg)
         status.state = state;
         status.valid = FALSE;
     }
+    status_store(&status);
     tk_unl_mtx(status_mutex);
     return er;
 }
 
 EXPORT ER s5_get_status(s5_status_t *copy)
 {
+    s5_status_t status;
     if (!copy)
         return E_PAR;
     ER er = tk_loc_mtx(status_mutex, TMO_POL);
     if (er < E_OK)
         return er;
+    status_load(&status);
     *copy = status;
     tk_unl_mtx(status_mutex);
     return E_OK;
@@ -50,9 +81,11 @@ EXPORT ER s5_get_status(s5_status_t *copy)
 
 EXPORT ER s5_avoidance_begin(UW scan_id)
 {
+    s5_status_t status;
     ER er = tk_loc_mtx(status_mutex, TMO_POL);
     if (er < E_OK)
         return er;
+    status_load(&status);
     if (status.state != S5_READY || !status.valid || status.scan_id != scan_id)
         er = E_OBJ;
     else
@@ -61,19 +94,23 @@ EXPORT ER s5_avoidance_begin(UW scan_id)
         status.state = S5_ROTATING;
         status.valid = FALSE;
     }
+    status_store(&status);
     tk_unl_mtx(status_mutex);
     return er;
 }
 
 EXPORT ER s5_avoidance_complete(void)
 {
+    s5_status_t status;
     ER er = tk_loc_mtx(status_mutex, TMO_POL);
     if (er < E_OK)
         return er;
+    status_load(&status);
     if (status.state != S5_READY && status.state != S5_ROTATING)
         er = E_OBJ;
     else
         recenter = TRUE;
+    status_store(&status);
     tk_unl_mtx(status_mutex);
     return er;
 }
@@ -99,7 +136,7 @@ EXPORT ER s5_test_position(INT angle, BOOL take_sample, s5_status_t *copy)
     ER er = tk_loc_mtx(status_mutex, TMO_FEVR);
     if (er < E_OK)
         return er;
-    status = *copy;
+    status_store(copy);
     tk_unl_mtx(status_mutex);
     return E_OK;
 }
@@ -179,7 +216,7 @@ static void scan_task(INT stacd, void *exinf)
             next.valid = FALSE;
             next.angle_deg = target;
         }
-        status = next;
+        status_store(&next);
         tk_unl_mtx(status_mutex);
         s5_hw_servo(target);
         UW settle_ms = (UW)travelled * S5_SERVO_MS_PER_DEG;

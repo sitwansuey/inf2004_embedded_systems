@@ -73,6 +73,8 @@ typedef enum
     S5_ECHO_NO_FALL,
     S5_ECHO_TOO_SHORT
 } s5_echo_result_t;
+/* Decoded API view. Shared storage and EDR use s5_data.h's explicit packed
+ * bytes; never transmit this native structure or depend on its padding. */
 typedef struct
 {
     s5_state_t state;

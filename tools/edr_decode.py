@@ -2,8 +2,8 @@
 """Decode version 1 EDR MQTT bytes for dashboard consumers (no dependencies).
 
 Example: python tools/edr_decode.py 4207260b7fffffffff
-The envelope is shared by all five buddies. Only Buddy 2 kinds 0 and 1
-currently have payload schemas here; other payloads remain lossless hex.
+The envelope is shared by all five buddies. Buddy 2 kinds 0 and 1 and
+Buddy 5 kind 0 have payload schemas here; other payloads remain lossless hex.
 """
 
 from __future__ import annotations
@@ -17,6 +17,33 @@ import sys
 
 VERSION = 1
 UINT32_MAX = 0xFFFFFFFF
+
+S5_ANGLES = "angle_deg sample_angle_deg avoidance_deg planned_rotate_deg left_bound_deg right_bound_deg".split()
+S5_FLAGS = "acquisition_clear approach_plan_valid encoder_valid valid left_bound_valid right_bound_valid object_width_valid".split()
+S5_WORDS = ("scan_id planned_rotate_ms planned_approach_mm planned_return_mm "
+            "obstacle_distance_mm distance_mm echo_us time_ms motor1_counts_start "
+            "motor2_counts_start motor1_counts_end motor2_counts_end encoder_start_ms "
+            "encoder_end_ms left_bound_distance_mm right_bound_distance_mm "
+            "object_width_mm object_width_min_mm object_width_max_mm").split()
+
+
+def decode_obstacle(data: bytes) -> dict:
+    """Decode the exact S5 snapshot; validity and freshness remain consumer checks."""
+    if len(data) != 84:
+        raise ValueError("obstacle payload must contain exactly 84 bytes")
+    state, echo = data[0] & 15, (data[0] >> 4) & 7
+    if data[0] & 128 or data[1] & 128 or state > 14 or echo > 4:
+        raise ValueError("invalid obstacle control bits")
+    if any(value > 180 for value in data[2:8]):
+        raise ValueError("invalid obstacle angle")
+    result = {"state": state, "echo_result": echo}
+    result.update((name, bool(data[1] & (1 << bit))) for bit, name in enumerate(S5_FLAGS))
+    result.update((name, value - 90) for name, value in zip(S5_ANGLES, data[2:8]))
+    for name, value in zip(S5_WORDS, struct.unpack("<19I", data[8:])):
+        if name.startswith("motor") and value >= 0x80000000:
+            value -= 0x100000000
+        result[name] = value
+    return result
 
 
 def _integer(name: str, value: int, minimum: int, maximum: int) -> int:
@@ -121,6 +148,8 @@ def decode_packet(packet: bytes) -> dict:
                    "sampled_ms": sampled_ms, "flags": flags,
                    "valid": bool(flags & 1)}
         result.update(supported=True, record_type="encoder", payload=payload)
+    elif source == 5 and kind == 0:
+        result.update(supported=True, record_type="obstacle", payload=decode_obstacle(payload_bytes))
     return result
 
 

@@ -74,7 +74,8 @@ class EdrTests(unittest.TestCase):
         for header in range(256):
             source, kind, version = header & 7, (header >> 3) & 7, header >> 6
             payload = bytes(7 if (source, kind) == (2, 0) else
-                            13 if (source, kind) == (2, 1) else 0)
+                            13 if (source, kind) == (2, 1) else
+                            84 if (source, kind) == (5, 0) else 0)
             packet = bytes([header, len(payload)]) + payload
             if version == 1 and 1 <= source <= 5:
                 self.assertEqual(EDR.decode_packet(packet)["source"], source)
@@ -120,7 +121,7 @@ class EdrTests(unittest.TestCase):
             for kind in range(8):
                 for size in range(256):
                     with self.subTest(source=source, kind=kind, size=size):
-                        known_size = {0: 7, 1: 13}.get(kind) if source == 2 else None
+                        known_size = {(2, 0): 7, (2, 1): 13, (5, 0): 84}.get((source, kind))
                         # Known schemas use their canonical zero payload;
                         # opaque schemas exercise embedded NULs and byte values.
                         payload = (bytes(size) if known_size is not None else
@@ -149,6 +150,11 @@ class EdrTests(unittest.TestCase):
                             self.assertEqual(decoded["payload"], {
                                 "left_counts": 0, "right_counts": 0,
                                 "sampled_ms": 0, "flags": 0, "valid": False})
+                        elif known_size == 84:
+                            self.assertTrue(decoded["supported"])
+                            self.assertEqual(decoded["payload"]["state"], 0)
+                            self.assertEqual(decoded["payload"]["angle_deg"], -90)
+                            self.assertFalse(decoded["payload"]["valid"])
                         else:
                             self.assertFalse(decoded["supported"])
                             self.assertEqual(decoded["payload"]["hex"], payload.hex())
