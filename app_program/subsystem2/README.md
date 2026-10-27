@@ -34,10 +34,12 @@ Use `TEST=0` to start the motor task and wait for commands without running tests
 options participate in the profile stamp so switching them rebuilds the objects.
 
 `S2_ONLY=1` builds and starts only this subsystem. The default `S2_ONLY=0` selects
-the full team application, which still contains sample producer/consumer code
-referencing removed `SAMPLE_MSG`, `sem_slots`, `mpf_samples` and `S2_PERIOD_MS`
-interfaces. That build needs the team's controller integration. The downloaded
-`task_motor.c` is another copy of the old sample producer and was not added.
+the full team application. The obsolete `task_producer.c` sample has been
+removed: it referenced the retired `SAMPLE_MSG`, `sem_slots`, `mpf_samples` and
+`S2_PERIOD_MS` interfaces. Full-team builds use the current Buddy 3 implementation
+from `main`; older branches with the original sample consumer need that update.
+The downloaded `task_motor.c` is another copy of the old sample producer and was
+not added. Vehicle-controller integration remains separate from build readiness.
 
 ## Wiring and encoders
 
