@@ -13,8 +13,6 @@ EXPORT ID	cyc_led;
 EXPORT ER subsystem1_init(void)
 {
 	T_CCYC	ccyc = {0};
-	ER er=s1_binary_init();
-	if(er<0)return er;
 
 	/* Cyclic handler: once started, the kernel calls led_cyclic_handler
 	   every S1_TICK_MS.  Without TA_STA it is created stopped; it is
@@ -29,11 +27,9 @@ EXPORT ER subsystem1_init(void)
 
 EXPORT ER subsystem1_start(void)
 {
-	tid_led = app_start_task((FP)led_task, S1_PRI_LED, 0, "led_task");
+	tid_led = app_start_task(led_task, S1_PRI_LED, 0, "led_task");
 	if (tid_led < E_OK) {
 		return tid_led;
 	}
-	ID telemetry=app_start_task((FP)telemetry_task,13,TP_PRC2,"telemetry");
-	if(telemetry<0)return telemetry;
 	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
 }

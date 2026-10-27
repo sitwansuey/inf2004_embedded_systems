@@ -15,7 +15,7 @@ ADAPTER_DEPS = host_support.h adapter_fixture.h \
                ../../app_program/subsystem3/drv_ir_adc.h ../../app_program/subsystem3/subsystem3.c \
                ../../app_program/subsystem3/subsystem3.h \
                ../../app_program/subsystem3/task_consumer.c \
-               ../../app_program/subsystem3/drv_ir.h ../../app_program/robot_config.h $(CORE_HEADERS)
+               ../../app_program/subsystem3/drv_ir.h ../../app_program/subsystem3/buddy3_board.h $(CORE_HEADERS)
 BINARY = .build/test_buddy3$(EXEEXT)
 ADAPTER = .build/test_adapter$(EXEEXT)
 ADC_TEST = .build/test_adc$(EXEEXT)
@@ -35,9 +35,9 @@ EDGE_BIAS = .build/test_barcode_edge_bias$(EXEEXT)
 .PHONY: test verify-failure check-headers clean barcode-replay
 barcode-replay: .build/replay_barcode_capture$(EXEEXT)
 
-.build/replay_barcode_capture$(EXEEXT): replay_barcode_capture.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h ../../app_program/robot_config.h
+.build/replay_barcode_capture$(EXEEXT): replay_barcode_capture.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_calibration.h ../../app_program/subsystem3/buddy3_board.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 replay_barcode_capture.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 replay_barcode_capture.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 test: $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(PAUSED_TIME) $(BARCODE_CAPTURE) $(SAMPLE_SCHEDULE) $(MOTOR_SCAN_SAMPLER)
 	./$(BINARY) $(TEST_ARGS)
 	./$(ADAPTER)
@@ -55,11 +55,11 @@ test: $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $
 	./$(MOTOR_SCAN_SAMPLER)
 	./$(EDGE_BIAS)
 
-$(EDGE_BIAS): test_barcode_edge_bias.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h ../../app_program/robot_config.h
+$(EDGE_BIAS): test_barcode_edge_bias.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_calibration.h ../../app_program/subsystem3/buddy3_board.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_barcode_edge_bias.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_barcode_edge_bias.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-$(MOTOR_SCAN_SAMPLER): test_motor_scan_sampler.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h
+$(MOTOR_SCAN_SAMPLER): test_motor_scan_sampler.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_calibration.h
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MOTOR_SCAN_BENCH=1 -DBOARD_MOTORS_DISABLED=0 -DBOARD_IR_MODE=2 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_UART0_FREE=1 -DS2_COMMAND_TIMEOUT_MS=150 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_motor_scan_sampler.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
@@ -67,29 +67,29 @@ $(SAMPLE_SCHEDULE): test_sample_schedule.c $(ADAPTER_DEPS) $(CORE_SOURCES)
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_sample_schedule.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-$(BARCODE_CAPTURE): test_barcode_capture.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h
+$(BARCODE_CAPTURE): test_barcode_capture.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_calibration.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_barcode_capture.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_barcode_capture.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-$(PAUSED_TIME): test_paused_time.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h ../../app_program/robot_ir_calibration.h
+$(PAUSED_TIME): test_paused_time.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_board.h ../../app_program/subsystem3/buddy3_calibration.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_paused_time.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_paused_time.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-$(ROBOT_CALIBRATION): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h ../../app_program/robot_ir_calibration.h
+$(ROBOT_CALIBRATION): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_board.h ../../app_program/subsystem3/buddy3_calibration.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_robot_ir_calibration.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_robot_ir_calibration.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-$(ROBOT_CAL_DEFAULT): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h
+$(ROBOT_CAL_DEFAULT): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_board.h
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) test_robot_ir_calibration.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-$(ROBOT_LAYOUT): test_robot_ir_layout.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h
+$(ROBOT_LAYOUT): test_robot_ir_layout.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_robot_ir.h ../../app_program/subsystem3/buddy3_board.h
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) test_robot_ir_layout.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(RAW_TEST): test_raw.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=1 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(RAW_UNLOCKED): test_raw.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build

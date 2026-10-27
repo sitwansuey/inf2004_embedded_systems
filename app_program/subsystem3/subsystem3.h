@@ -3,6 +3,7 @@
 #define SUBSYSTEM3_H
 
 #include "../app.h"
+#include "buddy3_board.h"
 #include "buddy3_core.h"
 #include "drv_ir.h"
 

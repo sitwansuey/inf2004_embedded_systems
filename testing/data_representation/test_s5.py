@@ -21,7 +21,6 @@ class Subsystem5Tests(unittest.TestCase):
             shutil.copytree(ROOT / "app_program/subsystem5", app / "subsystem5")
             shutil.copytree(ROOT / "app_program/shared", app / "shared")
             shutil.copyfile(ROOT / "testing/subsystem5/host_app.h", app / "app.h")
-            shutil.copyfile(ROOT / "app_program/robot_config.h", app / "robot_config.h")
             shutil.copyfile(ROOT / "testing/subsystem5/test_data.c", app / "subsystem5/test_data.c")
             folder = app / "subsystem5"
             exe = Path(temp) / "test.exe"
@@ -31,7 +30,7 @@ class Subsystem5Tests(unittest.TestCase):
                                 str(folder / "test_data.c"), str(folder / "s5_data.c"),
                                 str(folder / "s5_policy.c"), str(folder / "s5_scan.c"),
                                 str(folder / "s5_width.c"), str(app / "shared/edr.c"),
-                                "-o", str(exe)], check=True)
+                                "-o", str(exe)], check=True, capture_output=True, text=True)
                 result = subprocess.run([str(exe)], check=True, capture_output=True, text=True)
                 print(result.stdout.strip())
                 record = decode_packet(bytes.fromhex(result.stdout.splitlines()[0]))

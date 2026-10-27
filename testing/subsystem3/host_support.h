@@ -3,6 +3,11 @@
 #define S3_HOST_SUPPORT_H
 #include <stdint.h>
 #include <stddef.h>
+/* Native fixture only: raw positive tests simulate an owner-declared lock.
+ * Explicit BOARD_MOTORS_DISABLED=0 keeps the refusal tests unlocked. */
+#ifndef BOARD_MOTORS_DISABLED
+#define BOARD_MOTORS_DISABLED 1
+#endif
 #define APP_H
 #define IMPORT extern
 #define EXPORT

@@ -137,9 +137,6 @@ EXPORT INT tm_usb_diag_level(void)
 
 IMPORT volatile W	tm_usb_service_tskid;
 
-IMPORT int tm_tusb_read_char(void);
-__attribute__((weak)) void app_usb_rx_byte(unsigned char byte) { (void)byte; }
-
 LOCAL void usb_service_task(INT stacd, void *exinf)
 {
 	unsigned	available;
@@ -198,10 +195,7 @@ LOCAL void usb_service_task(INT stacd, void *exinf)
 			}
 			tm_tusb_write_flush();
 		}
-		/* Bounded input delivery, never a blocking console read. */
-		for(unsigned n=0;n<32;++n) {
-			int byte=tm_tusb_read_char();if(byte<0)break;app_usb_rx_byte((unsigned char)byte);
-		}
+		tm_tusb_discard_input();
 
 		/* Sleep until the controller interrupts, with a periodic
 		   fallback so the ring still drains when the link is idle. */

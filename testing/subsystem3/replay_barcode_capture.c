@@ -4,7 +4,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../../app_program/robot_ir_config.h"
+#include "../../app_program/subsystem3/buddy3_robot_ir.h"
 
 static int parse(const char *line,uint32_t value[6])
 {

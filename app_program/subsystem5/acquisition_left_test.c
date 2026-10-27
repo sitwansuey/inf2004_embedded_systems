@@ -5,7 +5,6 @@
 #include "../subsystem2/subsystem2.h"
 
 #if APP_TEST && APP_ACQUISITION_LEFT_TEST
-#include "../board_pins.h"
 static void left_test_beep(void)
 {
     if (pwm_set_pin(BOARD_BUZZER_GPIO) < E_OK) return;
@@ -31,10 +30,10 @@ EXPORT void acquisition_left_test(void)
     if (s2_movement_send(S2_MOVE_STOP, 0) < E_OK) return;
     s5_hw_servo(0);
     tk_dly_tsk(S5_STARTUP_CENTER_MS);
-    tk_get_otm(&start);
+    tk_get_tim(&start);
     tm_printf((UB *)"[LEFT TEST] forward to 15 cm, then scan left up to 50 deg\n");
     for (;;) {
-        tk_get_otm(&now);
+        tk_get_tim(&now);
         if (now.lo - start.lo >= 30000U) break;
         sample.distance_mm = 0;
         s5_hw_sample(&sample);

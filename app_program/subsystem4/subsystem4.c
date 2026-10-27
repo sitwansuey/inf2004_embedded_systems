@@ -7,21 +7,18 @@ EXPORT ID tid_s4_sensor;
 EXPORT ID tid_s4_monitor;
 
 static ID status_lock;
-static s4_sensor_cache_t published_status;
+static s4_sensor_status_t published_status;
 
 uint64_t s4_kernel_now_us(void *p_context)
 {
     SYSTIM now = { 0 };
 
     (void)p_context;
-    /* Operating time starts at zero. The unset TRON wall clock may be
-     * negative: casting it to uint64_t and multiplying would wrap. */
-    if (tk_get_otm(&now) < E_OK) return UINT64_MAX;
-    uint64_t ms = ((uint64_t)(UW)now.hi << 32) | (uint64_t)now.lo;
-    return ms > (UINT64_MAX-1U)/1000U ? UINT64_MAX : ms*1000U;
+    (void)tk_get_tim(&now);
+    return (((uint64_t)(UW)now.hi << 32) | (uint64_t)now.lo) * 1000u;
 }
 
-ER s4_status_publish(const s4_sensor_cache_t *p_status)
+ER s4_status_publish(const s4_sensor_status_t *p_status)
 {
     ER result;
 
@@ -36,11 +33,11 @@ ER s4_status_publish(const s4_sensor_cache_t *p_status)
     result = tk_loc_mtx(status_lock, S4_LOCK_WAIT_MS);
     if (result >= E_OK)
     {
-        uint32_t lines = s4_cache_count(&published_status,S4_COUNT_LEGACY);
+        uint32_t lines = published_status.legacy_lines_received;
 
         published_status = *p_status;
         /* This counter belongs to the monitor, under the same mutex. */
-        s4_cache_set_count(&published_status,S4_COUNT_LEGACY,lines);
+        published_status.legacy_lines_received = lines;
         result = tk_unl_mtx(status_lock);
     }
     return result;
@@ -53,32 +50,36 @@ ER s4_note_legacy_line(void)
 
     if (result >= E_OK)
     {
-        s4_cache_increment(&published_status,S4_COUNT_LEGACY);
+        published_status.legacy_lines_received++;
         result = tk_unl_mtx(status_lock);
     }
     return result;
 }
 
-ER s4_sensor_get_record(s4_sensor_cache_t *out)
+ER s4_sensor_get_status(s4_sensor_status_t *p_status)
 {
-    if(!out)return E_PAR;
-    if(status_lock<=E_OK)return E_OBJ;
-    ER result=tk_loc_mtx(status_lock,S4_LOCK_WAIT_MS);
-    if(result<E_OK)return result;
-    s4_sensor_cache_t copy=published_status;
-    result=tk_unl_mtx(status_lock);
-    if(result>=E_OK)*out=copy;
-    return result;
-}
-ER s4_sensor_get_status(s4_sensor_status_t *out)
-{
-    if(!out)return E_PAR;
-    s4_sensor_cache_t copy;
-    ER result=s4_sensor_get_record(&copy);
-    if(result<E_OK)return result;
-    uint64_t now=s4_kernel_now_us(NULL);
-    if(now==UINT64_MAX)return E_SYS;
-    s4_data_snapshot(&copy,now,out);
+    s4_sensor_status_t copy;
+    ER result;
+
+    if (p_status == NULL)
+    {
+        return E_PAR;
+    }
+    if (status_lock <= E_OK)
+    {
+        return E_OBJ;
+    }
+    result = tk_loc_mtx(status_lock, S4_LOCK_WAIT_MS);
+    if (result < E_OK)
+    {
+        return result;
+    }
+    copy = published_status;
+    result = tk_unl_mtx(status_lock);
+    if (result >= E_OK)
+    {
+        s4_data_snapshot(&copy, s4_kernel_now_us(NULL), p_status);
+    }
     return result;
 }
 

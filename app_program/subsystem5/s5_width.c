@@ -31,7 +31,7 @@ EXPORT BOOL s5_target_detected(const s5_status_t *sample)
         sample->distance_mm > 5000U || sample->obstacle_distance_mm == 0U)
         return FALSE;
     INT magnitude = sample->angle_deg < 0 ? -sample->angle_deg : sample->angle_deg;
-    if (magnitude > 80) return FALSE;
+    if (magnitude > S5_MAX_ANGLE) return FALSE;
     /* A closer foreground surface also obstructs this scan direction. */
     UW forward = sample->distance_mm * cosine_q[magnitude] / 10000U;
     return forward <= sample->obstacle_distance_mm + S5_TARGET_DEPTH_TOLERANCE_MM;

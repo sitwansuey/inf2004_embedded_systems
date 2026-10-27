@@ -1,7 +1,0 @@
-/mnt/c/Users/godga/Downloads/ES/inf2004_embedded_systems/app_program/subsystem3/buddy3_barcode.c:62:28:decode_forward	392	static
-/mnt/c/Users/godga/Downloads/ES/inf2004_embedded_systems/app_program/subsystem3/buddy3_barcode.c:112:21:s3_barcode_decode	136	static
-/mnt/c/Users/godga/Downloads/ES/inf2004_embedded_systems/app_program/subsystem3/buddy3_barcode.c:148:6:s3_barcode_config_valid	20	static
-/mnt/c/Users/godga/Downloads/ES/inf2004_embedded_systems/app_program/subsystem3/buddy3_barcode.c:158:6:s3_barcode_init	8	static
-/mnt/c/Users/godga/Downloads/ES/inf2004_embedded_systems/app_program/subsystem3/buddy3_barcode.c:167:6:s3_barcode_abort	16	static
-/mnt/c/Users/godga/Downloads/ES/inf2004_embedded_systems/app_program/subsystem3/buddy3_barcode.c:181:6:s3_barcode_rearm	0	static
-/mnt/c/Users/godga/Downloads/ES/inf2004_embedded_systems/app_program/subsystem3/buddy3_barcode.c:197:21:s3_barcode_feed	48	static

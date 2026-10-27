@@ -23,8 +23,6 @@ static INT scan_begin(s5_status_t *next, s5_scan_context_t *scan)
     ++next->scan_id;
     next->obstacle_distance_mm = next->distance_mm;
     *scan = (s5_scan_context_t){0};
-    scan->position_recorded=next->encoder_valid;
-    scan->origin_left=next->motor1_counts_end;scan->origin_right=next->motor2_counts_end;
     next->approach_plan_valid = FALSE;
     next->avoidance_deg = 0;
     next->left_bound_deg = next->right_bound_deg = 0;
@@ -67,7 +65,6 @@ static BOOL bound_average(s5_status_t *next, s5_scan_context_t *scan, UW *mean)
 
 static INT refine_left(s5_status_t *next, s5_scan_context_t *scan, BOOL object)
 {
-    if(scan->averaging_bound && !object)return scan_blocked(next);
     if (object || scan->averaging_bound)
     {
         next->left_bound_deg = next->angle_deg;
@@ -97,7 +94,6 @@ static INT scan_right(s5_status_t *next, s5_scan_context_t *scan, BOOL object)
 
 static INT refine_right(s5_status_t *next, s5_scan_context_t *scan, BOOL object)
 {
-    if(scan->averaging_bound && !object)return scan_blocked(next);
     if (object || scan->averaging_bound)
     {
         next->right_bound_deg = next->angle_deg;
@@ -120,13 +116,6 @@ static INT refine_right(s5_status_t *next, s5_scan_context_t *scan, BOOL object)
 EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
 {
     next->acquisition_clear = FALSE;
-    if (s5_stage_for_state((s5_state_t)next->state)==S5_STAGE_ACQUISITION && next->encoder_valid &&
-        (next->motor1_counts_start != next->motor1_counts_end ||
-         next->motor2_counts_start != next->motor2_counts_end ||
-         (scan->position_recorded && (scan->origin_left!=next->motor1_counts_start ||
-                                    scan->origin_right!=next->motor2_counts_start)))) {
-        next->valid = FALSE; next->state = S5_FAULT;
-    }
     BOOL acquiring = next->state == S5_SCAN_LEFT || next->state == S5_REFINE_LEFT ||
         next->state == S5_SCAN_RIGHT || next->state == S5_REFINE_RIGHT ||
         next->state == S5_VERIFY_CLEAR || next->state == S5_READY;
@@ -134,7 +123,8 @@ EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
     if (acquiring && !next->valid && next->echo_result != S5_ECHO_OK &&
         next->sample_angle_deg == next->angle_deg) {
         if (++scan->echo_failures < S5_SCAN_ECHO_FAILURES) return next->angle_deg;
-        opening = FALSE; /* Timeout is unknown space, never a measured opening. */
+        opening = !scan->averaging_bound &&
+            (next->echo_result == S5_ECHO_NO_RISE || next->echo_result == S5_ECHO_NO_FALL);
     }
     if (next->sample_angle_deg != next->angle_deg ||
         (!opening && (!next->valid || next->distance_mm == 0U || next->distance_mm > 5000U)))
@@ -171,14 +161,7 @@ EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
     case S5_VERIFY_CLEAR:
         if (object || (!opening && next->distance_mm <= S5_GUIDANCE_OBSTACLE_MM))
             return scan_blocked(next);
-        if (!scan->plan_pending) {
-            if (!s5_acquisition_plan(next) || next->planned_rotate_deg < -80 ||
-                next->planned_rotate_deg > 80) return scan_blocked(next);
-            if (next->angle_deg!=next->planned_rotate_deg) {
-                scan->plan_pending=1;
-                return next->planned_rotate_deg;
-            }
-        }
+        if (!s5_acquisition_plan(next)) return scan_blocked(next);
         next->state = S5_READY;
         return next->angle_deg;
     case S5_READY:

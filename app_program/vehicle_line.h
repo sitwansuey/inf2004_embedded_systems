@@ -1,10 +1,15 @@
-/* Stateless steering map for the confirmed GP26/27 straddling geometry.
- * No sensor access, task, barcode decoder or movement authorization. */
+/* IR line following and barcode reading for the vehicle task. */
 #ifndef VEHICLE_LINE_H
 #define VEHICLE_LINE_H
-#include <stdint.h>
-/* Mask bit 0 is RIGHT, bit 1 LEFT. Both white/black map forward only for
- * explicitly supervised continuous tests: white cannot prove line presence.
- * Returns S2 command codes (0 STOP, 1 FORWARD, 5 RIGHT, 6 LEFT). */
-uint8_t vehicle_line_command(uint8_t black_mask);
+#include "app.h"
+#include "subsystem2/subsystem2.h"
+
+/* Configure Buddy 3 for the calibrated ADC line and barcode sensors.
+ * Call after subsystem3_init() and before subsystem3_start(). */
+IMPORT ER vehicle_line_init(void);
+/* One vehicle period: newest IR scan -> line-following command; also feeds
+ * the barcode decoder. STOP until the start delay passes, without usable IR
+ * readings, or after VEHICLE_LINE_MAX_MS when that limit is set. */
+IMPORT void vehicle_line_step(s2_move_command_t *command, UINT *power);
+
 #endif

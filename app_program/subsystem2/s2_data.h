@@ -12,7 +12,7 @@
  * EDR_ENCODER_SIZE bytes on E_OK; leave output untouched on any error.
  * Encoders return E_NOSPT when disabled, and an all-zero invalid payload
  * before initialization. The encoder timestamp is the boot millisecond
- * operating clock tk_get_otm() sampled inside the sequence-checked count copy.
+ * clock sampled inside the successful sequence-checked count snapshot.
  * Encoder counts are signed positions represented modulo 2^32; derive
  * interval deltas with unsigned subtraction. No calibration is assumed.
  */

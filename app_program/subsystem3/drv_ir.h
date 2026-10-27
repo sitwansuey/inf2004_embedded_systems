@@ -2,6 +2,7 @@
 #define DRV_IR_H
 
 #include "../app.h"
+#include "buddy3_board.h"
 #include "buddy3_core.h"
 
 typedef enum

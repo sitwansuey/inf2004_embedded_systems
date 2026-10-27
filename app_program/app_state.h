@@ -1,23 +1,98 @@
-#ifndef CSC02_APP_STATE_H
-#define CSC02_APP_STATE_H
+#ifndef APP_STATE_H
+#define APP_STATE_H
 #include "app.h"
-#include "vehicle_policy.h"
-#include "subsystem4/result_data.h"
-#include "subsystem2/odometry.h"
+#include "subsystem2/subsystem2.h"
+#include "subsystem5/subsystem5.h"
+
+#define APP_STATE_PERIOD_MS 10U
+#define VEHICLE_FORWARD_POWER 30U
+#define VEHICLE_TURN_POWER 30U
+#define VEHICLE_START_DELAY_MS 2000U
+/* Resend moving commands well inside the S2 lease so motors keep running. */
+#define VEHICLE_RENEW_MS (S2_COMMAND_TIMEOUT_MS / 4U)
+
+#if VEHICLE_RENEW_MS < APP_STATE_PERIOD_MS
+#error "S2_COMMAND_TIMEOUT_MS too short for the vehicle loop period"
+#endif
+
+/* Vehicle behaviour, chosen at build time:
+ *   LINE:     follow the floor line with the IR sensors and read barcodes;
+ *             the ultrasonic avoidance sequence takes over at obstacles.
+ *   AVOID:    the same avoidance, cruising straight without line sensors.
+ *   STRAIGHT: both wheels forward until power-off; no sensors, no time limit.
+ * S5 bench builds always use AVOID. */
+#define VEHICLE_MODE_AVOID 0
+#define VEHICLE_MODE_LINE 1
+#define VEHICLE_MODE_STRAIGHT 2
+#define APP_S5_BENCH (APP_TEST || APP_S5_MASTER_TEST || APP_ACQUISITION_TEST || \
+                      APP_ACQUISITION_LEFT_TEST)
+#ifndef VEHICLE_MODE
+#if APP_S5_BENCH
+#define VEHICLE_MODE VEHICLE_MODE_AVOID
+#else
+#define VEHICLE_MODE VEHICLE_MODE_LINE
+#endif
+#endif
+
+#if VEHICLE_MODE < VEHICLE_MODE_AVOID || VEHICLE_MODE > VEHICLE_MODE_STRAIGHT
+#error "VEHICLE_MODE must be VEHICLE_MODE_AVOID, _LINE or _STRAIGHT"
+#endif
+#if APP_S5_BENCH && VEHICLE_MODE != VEHICLE_MODE_AVOID
+#error "S5 bench builds need VEHICLE_MODE_AVOID"
+#endif
+/* Line mode: stop after this much driving; 0 = no limit. */
+#define VEHICLE_LINE_MAX_MS 0U
+/* Keep the last steering decision through brief gaps in IR samples. */
+#define VEHICLE_LINE_HOLD_MS 100U
+/* While cruising, keep using a recent ultrasonic copy through brief S5 lock
+ * contention instead of stopping (a source of start-stop jerking). */
+#define VEHICLE_SONAR_HOLD_MS 150U
+
+typedef enum {
+    VEHICLE_CRUISE, VEHICLE_ACQUISITION,
+    VEHICLE_APPROACH_ROTATE, VEHICLE_APPROACH_CRUISE, VEHICLE_APPROACH_ROTATE_BACK,
+    VEHICLE_OVERCOME_CRUISE, VEHICLE_OVERCOME_CLEARANCE,
+    VEHICLE_REORG_ROTATE90, VEHICLE_REORG_CRUISE, VEHICLE_REORG_ROTATE_MINUS90,
+    VEHICLE_RESTORE, VEHICLE_ABORT
+} vehicle_phase_t;
 typedef struct {
-    vc_state_t vehicle;
-    uint8_t s4_result[S4_RESULT_SIZE];
-    uint32_t time_ms, sequence;
-    uint16_t speed_bits : 12; /* odometry's -2000..2000 mm/s, same low bits */
-    uint8_t navigation : 3;
-    uint8_t barcode : 2;
-    uint8_t odometry_valid : 1;
-} app_state_t;
-static inline int32_t app_speed_mm_s(const app_state_t *s) {
-    return odom_signed_value(s->speed_bits,12U);
+    vehicle_phase_t phase;
+    UW boot_ms, deadline_ms, turn_ms, scan_id;
+    UW approach_mm, return_mm, remaining_ms, last_ms;
+    INT side;
+    BOOL motion_started;
+} vehicle_fsm_t;
+typedef s5_stage_t app_avoidance_stage_t;
+static inline app_avoidance_stage_t vehicle_avoidance_stage(vehicle_phase_t phase)
+{
+    switch (phase) {
+    case VEHICLE_ACQUISITION: return S5_STAGE_ACQUISITION;
+    case VEHICLE_APPROACH_ROTATE: case VEHICLE_APPROACH_CRUISE:
+    case VEHICLE_APPROACH_ROTATE_BACK: return S5_STAGE_APPROACH;
+    case VEHICLE_OVERCOME_CRUISE: case VEHICLE_OVERCOME_CLEARANCE:
+        return S5_STAGE_OVERCOME;
+    case VEHICLE_REORG_ROTATE90: case VEHICLE_REORG_CRUISE:
+    case VEHICLE_REORG_ROTATE_MINUS90: case VEHICLE_RESTORE:
+        return S5_STAGE_REORG;
+    default: return S5_STAGE_NONE;
+    }
 }
-ER app_state_init(void);
-ER app_state_publish(const app_state_t *p);
-ER app_get_state(app_state_t *p);
-ER vehicle_start(void);
+/* S3/S4 payloads remain undefined until their sensors are implemented. */
+typedef struct { BOOL available; UW time_ms; } app_sensor_placeholder_t;
+typedef struct {
+    UW sequence, time_ms;
+    app_sensor_placeholder_t s3, s4;
+    s5_status_t s5;
+    BOOL s5_available;
+    vehicle_phase_t phase;
+    app_avoidance_stage_t avoidance_stage;
+    s2_move_command_t movement; /* last command successfully sent to S2 */
+    UINT power_percent;
+} app_shared_state_t;
+
+IMPORT ER app_state_init(void);
+/* Main alone collects/publishes each 10 ms tick. Readers receive copies. */
+IMPORT void app_state_collect(app_shared_state_t *next);
+IMPORT ER app_state_publish(const app_shared_state_t *next);
+IMPORT ER app_get_state(app_shared_state_t *copy);
 #endif

@@ -24,9 +24,6 @@ IMPORT ID flg_events;
 /* Task-context API; bounded mutex wait. E_OBJ before init, E_PAR for NULL,
  * or a kernel lock error. E_OK copies a coherent snapshot; it does not mean
  * the sensor is connected. Check configured and each *_usable flag. */
-/* Compact cross-task snapshot; decode after taking the consumer clock. */
-IMPORT ER s4_sensor_get_record(s4_sensor_cache_t *p_record);
-/* Compatibility/calculation view for local diagnostics. */
 IMPORT ER s4_sensor_get_status(s4_sensor_status_t *p_status);
 
 /* Internal task/lifecycle helpers. No other task may call the I2C driver. */
@@ -35,7 +32,7 @@ IMPORT ID tid_s4_monitor;
 IMPORT void s4_sensor_task(INT start_code, void *p_exinf);
 IMPORT void monitor_task(INT start_code, void *p_exinf);
 IMPORT uint64_t s4_kernel_now_us(void *p_context);
-IMPORT ER s4_status_publish(const s4_sensor_cache_t *p_status);
+IMPORT ER s4_status_publish(const s4_sensor_status_t *p_status);
 IMPORT ER s4_note_legacy_line(void);
 
 #endif

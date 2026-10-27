@@ -44,7 +44,7 @@ void test_check(ER error, const char *p_label);
 #define CHECK(error, label) test_check((error), (label))
 
 ID tk_get_tid(void);
-ER tk_get_otm(SYSTIM *p_time);
+ER tk_get_tim(SYSTIM *p_time);
 ER tk_dly_tsk(UW delay);
 ID tk_cre_mbx(const T_CMBX *p_config);
 ID tk_cre_mpf(const T_CMPF *p_config);

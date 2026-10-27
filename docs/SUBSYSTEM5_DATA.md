@@ -1,10 +1,3 @@
-Integration note (27 October 2026): the 84-byte payload / 86-byte EDR packet
-layout below is retained. Sample and encoder timestamps now use tk_get_otm()
-operating milliseconds consistently with B2/B4/controller. The integrated
-controller, bounded locking, controller ownership and passive test defaults
-are described in MAIN_RECONCILIATION_20261027.md. Original owner test/build
-measurements below remain historical evidence.
-
 # Subsystem 5 bit representation
 
 Subsystem 5 stores its authoritative shared status as 84 explicit bytes in

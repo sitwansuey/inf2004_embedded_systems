@@ -57,8 +57,6 @@ void tm_tusb_write_flush(void)
     (void)tud_cdc_write_flush();
 }
 
-int tm_tusb_read_char(void) { return tud_cdc_available() ? tud_cdc_read_char() : -1; }
-
 void tm_tusb_discard_input(void)
 {
     while (tud_cdc_available()) (void)tud_cdc_read_char();

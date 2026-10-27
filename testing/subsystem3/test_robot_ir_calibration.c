@@ -1,6 +1,6 @@
 /* Observed endpoints/limits plus paused interpretation through production core. */
 #include <stdio.h>
-#include "../../app_program/robot_ir_config.h"
+#include "../../app_program/subsystem3/buddy3_robot_ir.h"
 static unsigned checks,failures;
 #define CHECK(c) do { ++checks; if(!(c)) { ++failures; printf("FAIL line %d: %s\n",__LINE__,#c); } } while(0)
 int main(void) {
@@ -53,7 +53,7 @@ int main(void) {
 #else
     (void)core;(void)output;(void)sample;
     CHECK(!robot_ir_apply_adc_calibration(&cfg));
-    CHECK(BOARD_IR_MODE==0 && BOARD_MOTORS_DISABLED==1);
+    CHECK(BOARD_IR_MODE==0 && BOARD_MOTORS_DISABLED==0);
 #endif
     printf("S3-U43 measured calibration: %u checks, %u failures\n",checks,failures);
     return failures?1:0;
