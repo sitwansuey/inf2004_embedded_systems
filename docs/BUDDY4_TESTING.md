@@ -1,10 +1,26 @@
-# Josh's Buddy 4 physical validation guide
+# Buddy 4 physical validation guide
 
 The checkpoint and CR1 continuation have separate software/build evidence in
 testing/subsystem4/verification-20261027.json and cr1-verification.json.
 Physical tests below have NOT been run. Work through one stage at a time and
 save the evidence before enabling the next capability. The smallest next test
 is stage 2: the isolated sensor image, with motor power disconnected.
+
+## Updated final-ramp scope
+
+Professor's clarification supplied on 27 October 2026: the final ramp
+will be approximately the height of the smaller practice ramp, slightly lower
+or higher. The higher practice ramp may be disregarded for design and testing.
+The objective remains estimating the height reached by the robot through IMU
+sensing and processing, rather than solving the higher ramp's clearance issues.
+
+Use the smaller practice ramp as the primary physical reference and, where
+available, modest height variations around it. Measure its height, slopes and
+profile; no numerical final-height bound or accuracy tolerance was supplied.
+Do not hard-code the known ramp height as the estimate or narrow CR1 height
+fields on the basis of "approximately" alone. Current IMU-derived pitch plus
+encoder-travel processing remains an estimator to validate; the clarification
+does not explicitly address whether encoder assistance is permitted.
 
 ## 1 Hardware free checks
 
@@ -117,8 +133,11 @@ raw counts and the tape-measure distance; PWM is never a distance measurement.
 
 Keep motor power disconnected and the firmware motor lock enabled. This allows
 the actual IMU/encoder/controller path to be checked without autonomous motion.
-Use a rigid ramp/hump with measured height and slopes exceeding the current
-5-degree entry threshold. Roll slowly so motion remains gravity dominated.
+Use the smaller practice ramp with measured height and slopes. Check its
+profile against the current 5-degree slope-entry and 3-degree flat thresholds;
+if detection is unsuitable, review thresholds using measured noise and real
+ramp data rather than selecting a steeper ramp to satisfy existing settings.
+Roll slowly so motion remains gravity dominated.
 First establish at least five fresh flat samples, then traverse the whole hump
 forward, returning to the original base level. Avoid reversing either wheel.
 
@@ -130,6 +149,14 @@ residual within 20 mm and minimum hump 5 mm; these are initial configurable
 settings, not evidence of 20 mm accuracy. Serial diagnostics are about 1 Hz and
 can miss short intermediate states; use timestamped instrumentation/video for
 state timing claims.
+
+For the smaller ramp, explicitly assess the 20 mm return tolerance and 5 mm
+minimum hump against measured height, baseline noise and repeatability. They
+are provisional algorithm settings, not the professor's acceptance criteria.
+Define the measured reference consistently as rise above the initial flat
+baseline; record robot/IMU geometry when comparing with the ramp's surface
+height. Estimation should respond to changed heights, not recognize one
+pre-entered answer.
 
 Run several complete humps, including a smaller one after a larger one. Pass:
 the maximum increases only for a larger valid completed hump. Then stop halfway,

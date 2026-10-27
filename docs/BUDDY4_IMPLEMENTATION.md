@@ -97,7 +97,7 @@ from continuous motion without a producer boot/session identifier; local state
 must be reset whenever a producer session changes. Neither physical timing nor
 runtime stack/heap high-water usage has been measured in this session.
 
-## Which parts Josh owns as Buddy 4
+## Buddy 4 ownership
 
 | Area | Buddy 4 responsibility | Other owner or shared boundary |
 |---|---|---|

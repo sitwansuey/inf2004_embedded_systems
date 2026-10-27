@@ -1,25 +1,15 @@
 # Buddy implementation and CR1 review — 27 October 2026
 
 Reviewed candidate: `29fb124168e4b12df4cf6af53bc8ac02631b91bc`, branch
-`buddy4/cr1-integration` (renamed from `buddy4/integration-cr1-20261027`). It
-incorporates main `f8107be` through the reviewed reconciliation. PR #8 is open
-and unmerged. Integration/merge is on hold at the user's request.
-
-Desktop handover: the latest fetched main is now `58b89c2`, including
-`9c3bd3d` (line tracing, barcode and ultrasonic integration) and `58b89c2`
-(check fixes). Those updates have not been integrated or assessed by this
-review. Continue from the remote `buddy4/cr1-integration` branch, preserve its
-Buddy 4 work, and compare the new main before resolving overlapping changes.
-This review describes candidate `29fb124`; its findings need rechecking after
-that reconciliation. Calibration, physical testing and evidence collection
-remain separate work. This handover changes documentation only.
+`buddy4/cr1-integration`. It incorporates main `f8107be` through the reviewed
+reconciliation. This dated review describes that candidate; findings need
+rechecking after subsequent source changes. Calibration, physical testing and
+evidence collection remain separate work.
 
 This is a source/evidence review, not a new hardware acceptance run or a
 certificate that every application field has been exhaustively inventoried.
 The supplied post-Tribunal document supplies decisions and historical status;
-its old "not implemented" statements are checked against current code. The
-handover's embedded assignment is context, not a new instruction to publish,
-merge, flash or change other owners' implementations.
+its old "not implemented" statements are checked against current code.
 
 ## Overall assessment
 
