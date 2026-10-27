@@ -62,7 +62,7 @@ hardware or authorizes movement.
 | 2, motors | 2 | Kind 0 motion; kind 1 encoders | Produce records using `s2_data.h` |
 | 3, line/barcode | 3 | Payload definitions pending | Define actual sensor/state bounds and retain local freshness checks |
 | 4, IMU/terrain | 4 | Payload definitions pending | Consume kind 1 encoder samples; define sensor scale, validity and event formats |
-| 5, obstacles/controller | 5 | Payload definitions pending | Define actual controller/obstacle ranges; retain command arbitration |
+| 5, obstacles/controller | 5 | Kind 0: 84-byte obstacle snapshot | [Bit layout and checked codec](SUBSYSTEM5_DATA.md); retain command arbitration |
 
 The codec accepts other sources without imposing guessed sensor ranges. Each
 owner must add a field table, checked payload codec and shared vectors before
