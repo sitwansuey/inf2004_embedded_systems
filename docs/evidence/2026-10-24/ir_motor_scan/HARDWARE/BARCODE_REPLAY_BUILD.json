@@ -1,0 +1,32 @@
+{
+  "built": "2026-10-24T21:02:33.1962444+08:00",
+  "repository": "C:\\Users\\godga\\Downloads\\ES\\inf2004_embedded_systems",
+  "compiler": "C:\\msys64\\ucrt64\\bin\\gcc.exe",
+  "flags": [
+    "-std=c11",
+    "-O2",
+    "-static",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-Wshadow",
+    "-Wconversion",
+    "-pedantic",
+    "-DBOARD_IR_CALIBRATED_BENCH=1",
+    "-DBOARD_IR_MODE=2"
+  ],
+  "exe_sha256": "D9FA5011C3442478D6F83CFE362B157D46C04F575B74C5EE7959C3BC1053BC89",
+  "sources": {
+    "testing/subsystem3/replay_barcode_capture.c": "D598A16CB247E9F0301D227BDE2A206FF37385032AD619576A84E10E479DA5E8",
+    "app_program/robot_config.h": "6B9A34A5260D9DBDEE731BFEE427AC45971D9405A3F581640A63FFD46B38EC84",
+    "app_program/robot_ir_calibration.h": "D2693D910A58103E4C2FCBE9596276C3B28C8DC0341E02FA2D2BA7DD958AEFEC",
+    "app_program/robot_ir_config.h": "56707770AEF78E235D91B5AB6892E54C47C6BD3D9C9EF001E4807052D0159057",
+    "app_program/subsystem3/buddy3_line.c": "80F00A64C87BA319CBBC13D2C13F3BAB0CCD305C0E8E15B5D9B143CB6F812B54",
+    "app_program/subsystem3/buddy3_line.h": "A31EA3356A14393B3EC8DB48725AC448073BFD5A118E950231697CB0A0E341C8",
+    "app_program/subsystem3/buddy3_barcode.c": "637F46FF920110603888DB5CD1D24AFFC843C4540BCB11F523D1C6435AB876BD",
+    "app_program/subsystem3/buddy3_barcode.h": "8DAADD4C0F87003AFAFA1444E95B3367FF8EA4FCD220E2FE1C29617F2D636866",
+    "app_program/subsystem3/buddy3_core.c": "0EA653817D3C2DDF7D09EA1C921FB6834802691B95C846D9F619E22518D0B14D",
+    "app_program/subsystem3/buddy3_core.h": "7C7E0D938332585AC51D0A92AD701E0870E3B2236C3B83C32AB43D3A6B601322"
+  },
+  "scope": "Host production normalization/barcode replay only. No firmware build, serial command, calibration or physical pass."
+}

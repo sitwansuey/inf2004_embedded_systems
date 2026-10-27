@@ -2,15 +2,26 @@ CC ?= cc
 CPPFLAGS += -I../.. -I.build
 CFLAGS ?= -O1 -g
 CFLAGS += -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic
-BINARIES := .build/driver_test .build/data_test .build/api_test
+BINARIES := .build/driver_test .build/data_test .build/api_test .build/terrain_input_test
 SHIM_SOURCE := .build/shim/subsystem4/subsystem4.c
 SHIM_INPUTS := ../../subsystem4.c ../../subsystem4.h ../../sensor_data.h ../../drv_lsm303dlhc.h app.h
 
-.PHONY: test sanitize clean
+.PHONY: test sanitize clean sizes analyze
+analyze:
+	$(MAKE) -B test CFLAGS='$(CFLAGS) -fanalyzer'
+sizes:
+	@mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) size_probe.c -o .build/size_probe
+	./.build/size_probe
 test: $(BINARIES)
 	./.build/driver_test
 	./.build/data_test
 	./.build/api_test
+	./.build/terrain_input_test
+
+.build/terrain_input_test: terrain_input_test.c ../../encoder_input.c ../../encoder_input.h ../../terrain.c ../../terrain.h ../../../subsystem2/odometry.c ../../../shared/edr.c
+	@mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) terrain_input_test.c ../../encoder_input.c ../../terrain.c ../../../subsystem2/odometry.c ../../../shared/edr.c $(LDFLAGS) -lm -o "$@"
 
 .build/driver_test: driver_test.c ../../drv_lsm303dlhc.c ../../drv_lsm303dlhc.h
 	@mkdir -p .build

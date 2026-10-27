@@ -1,0 +1,70 @@
+{
+  "scope": "Single thin-bar alignment diagnostic; no full A/Z scan, no known measured movement/distance",
+  "log": "THIN_SWEEP_20261024_195721_792.log",
+  "sha256": "8884dc9badb54c6043c8d91f0b06c5cb9e13a8ccabe8567a6732df0e1781b4d9",
+  "samples": 1810,
+  "raw_min": 160,
+  "raw_max": 248,
+  "raw_mean": 183.1292817679558,
+  "normalized_range": [
+    0,
+    22
+  ],
+  "black_entry_samples": 0,
+  "white_exit_samples": 1810,
+  "hysteresis_runs": [
+    {
+      "black": false,
+      "start_s": 0.0,
+      "end_s": 18.1,
+      "duration_ms": 18100,
+      "raw_min": 160,
+      "raw_max": 248
+    }
+  ],
+  "recording_windows": {
+    "initial": {
+      "samples": 450,
+      "min": 162,
+      "max": 205,
+      "mean": 183.73777777777778
+    },
+    "cue_window": {
+      "samples": 650,
+      "min": 160,
+      "max": 248,
+      "mean": 185.0876923076923
+    },
+    "final": {
+      "samples": 510,
+      "min": 161,
+      "max": 202,
+      "mean": 180.5843137254902
+    }
+  },
+  "host_cues": [
+    {
+      "elapsed_seconds": 5.21,
+      "phase": "THIN_BAR_SCAN"
+    },
+    {
+      "elapsed_seconds": 11.24,
+      "phase": "THIN_BAR_FINISH"
+    }
+  ],
+  "sample_interval_ms": 10,
+  "drop_counter": 0,
+  "controller_records": 18,
+  "commands_sent": 0,
+  "firmware_changed": false,
+  "calibration_refitted": false,
+  "GP26_range": [
+    3755,
+    3786
+  ],
+  "GP27_range": [
+    32,
+    65
+  ],
+  "status": "NO_BLACK_THRESHOLD_CROSSING_DURING_DIAGNOSTIC"
+}

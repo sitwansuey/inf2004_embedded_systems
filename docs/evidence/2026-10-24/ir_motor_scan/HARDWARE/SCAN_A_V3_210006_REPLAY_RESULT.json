@@ -1,0 +1,9 @@
+{
+  "reason": "Operator reports drift and sticking ball caster; full path unverified.",
+  "commands_sent": 0,
+  "status": "NOT_DECODED",
+  "path_validated": false,
+  "native_exit": 2,
+  "onboard_decode_pass": false,
+  "expected": "A"
+}

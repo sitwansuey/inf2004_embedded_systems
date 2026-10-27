@@ -1,0 +1,27 @@
+{
+  "scope": "PC-only parameter experiment; original complete recording and timestamps retained. Only minimum pulse duration changed in the temporary process. No firmware edits, flash or USB commands. Existing hold/rearm behavior and all other pattern checks preserved.",
+  "csv_sha256": "faf93084c3ca7740342da630dbf7b953ec957f8be093b335f31f48844abb493f",
+  "exe_sha256": "9fbc2618fce68bf1ffa8706dd3d8fbfabf7ddfd8818ddf4979ae38f3f34495e6",
+  "results": [
+    {
+      "minimum_ms": 40,
+      "trace": "min_ms=40 rows=2510 decoded=0 rejected=1 status=3 count=0"
+    },
+    {
+      "minimum_ms": 30,
+      "trace": "min_ms=30 rows=2510 decoded=0 rejected=1 status=6 count=29"
+    },
+    {
+      "minimum_ms": 20,
+      "trace": "min_ms=20 rows=2510 decoded=0 rejected=1 status=6 count=29"
+    },
+    {
+      "minimum_ms": 10,
+      "trace": "min_ms=10 rows=2510 decoded=0 rejected=1 status=6 count=29"
+    },
+    {
+      "minimum_ms": 1,
+      "trace": "min_ms=1 rows=2510 decoded=0 rejected=1 status=6 count=29"
+    }
+  ]
+}

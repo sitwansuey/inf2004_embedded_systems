@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "subsystem4.h"
+#include "terrain.h"
 
 static INT display_age(uint32_t age)
 {
@@ -13,6 +14,7 @@ void monitor_task(INT start_code, void *p_exinf)
     UINT events;
     INT length;
     UW reports = 0;
+    terrain_t tilt = {0};
 
     (void)start_code;
     (void)p_exinf;
@@ -39,6 +41,11 @@ void monitor_task(INT start_code, void *p_exinf)
 
             if (s4_sensor_get_status(&status) >= E_OK)
             {
+                terrain_step(&tilt,
+                    (uint32_t)(status.latest.accel.read_time_us / 1000U),
+                    status.latest.accel.milli_units, status.accel_usable,
+                    0, false, BOARD_TERRAIN_CALIBRATED,
+                    BOARD_PITCH_ZERO_CDEG, BOARD_ROLL_ZERO_CDEG);
                 tm_printf((UB *)"[S4] %u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,"
                                   "%u,%u,%u,%u,%u\n",
                           (UW)(status.observed_time_us / 1000u),
@@ -55,6 +62,9 @@ void monitor_task(INT start_code, void *p_exinf)
                           (UW)status.accel_samples, (UW)status.mag_samples,
                           (UW)status.accel_io_errors, (UW)status.mag_io_errors,
                           (UW)status.task_heartbeat);
+                tm_printf((UB *)"[S4TILT] calibrated=%u valid=%u pitch_cdeg=%d roll_cdeg=%d\n",
+                    (unsigned)BOARD_TERRAIN_CALIBRATED, (unsigned)tilt.tilt_valid,
+                    (INT)tilt.pitch_cdeg, (INT)tilt.roll_cdeg);
             }
         }
         (void)tk_dly_tsk(S4_REPORT_MS);

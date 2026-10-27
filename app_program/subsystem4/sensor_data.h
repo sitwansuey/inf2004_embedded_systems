@@ -9,18 +9,18 @@
 
 /* Latest values, not a lossless stream. Other subsystems must use the
  * *_usable flags and ages, not simply the most recent numbers. Timestamps
- * use tk_get_tim() milliseconds scaled to us, matching the team's timebase;
+ * use tk_get_otm() milliseconds scaled to us, matching the team's timebase;
  * this does not provide microsecond timestamp resolution. In this cached
  * frame, fresh means a complete sample has been acquired at least once;
  * use sample counters/timestamps to detect updates, and *_usable for use. */
 typedef struct
 {
     lsm303_frame_t latest;
-    lsm303_result_t init_result;
-    lsm303_result_t poll_result;
-    bool configured;
-    bool accel_usable;
-    bool mag_usable;
+    uint8_t init_result : 3;
+    uint8_t poll_result : 3;
+    uint8_t configured : 1;
+    uint8_t accel_usable : 1;
+    uint8_t mag_usable : 1;
     uint32_t accel_age_ms;
     uint32_t mag_age_ms;
     uint32_t init_attempts;

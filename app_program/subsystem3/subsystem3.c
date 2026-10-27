@@ -1,5 +1,5 @@
 #include "subsystem3.h"
-#include "buddy3_board.h"
+#include "../robot_config.h"
 #include "drv_ir_adc.h"
 #include "event_codec.h"
 
@@ -171,7 +171,7 @@ EXPORT ER s3_configure_raw(const s3_ir_config_t *p_config)
 {
     ER er;
     if (!BOARD_MOTORS_DISABLED) return E_OACV;
-    if (p_config == NULL || !s3_ir_config_valid(p_config) || p_config->mode == S3_IR_DISABLED)
+    if (!s3_ir_config_valid(p_config) || p_config->mode == S3_IR_DISABLED)
         return E_PAR;
     if (p_config->mode == S3_IR_ADC && !s3_adc_available()) return E_NOSPT;
     er = lock();

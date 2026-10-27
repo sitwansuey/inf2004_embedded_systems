@@ -15,9 +15,21 @@ static unsigned int deleted_mutexes;
 static unsigned int deleted_flags;
 static unsigned int tasks_started;
 static uint64_t clock_ms;
+static int64_t wall_clock_ms = -INT64_C(473385600000);
+static unsigned int wall_clock_reads;
+static bool clock_failed;
 
 ER tk_get_tim(SYSTIM *p_time)
 {
+    ++wall_clock_reads;
+    p_time->hi = (int32_t)((uint64_t)wall_clock_ms >> 32);
+    p_time->lo = (UW)wall_clock_ms;
+    return E_OK;
+}
+
+ER tk_get_otm(SYSTIM *p_time)
+{
+    if (clock_failed) return E_SYS;
     p_time->hi = (int32_t)(clock_ms >> 32);
     p_time->lo = (UW)clock_ms;
     return E_OK;
@@ -110,6 +122,11 @@ int main(void)
     state.latest.accel.valid = true;
     state.latest.accel.read_time_us = 20000;
     clock_ms = 30;
+    REQUIRE(s4_kernel_now_us(NULL) == UINT64_C(30000));
+    wall_clock_ms = INT64_C(123456789000);
+    REQUIRE(s4_kernel_now_us(NULL) == UINT64_C(30000));
+    REQUIRE(wall_clock_reads == 0);
+    puts("[TEST] S4-U22 PASS  unset/changed wall clock cannot alter shared operating time");
     REQUIRE(s4_status_publish(&state) == E_OK);
     REQUIRE(s4_note_legacy_line() == E_OK);
     REQUIRE(s4_status_publish(&state) == E_OK);
@@ -127,6 +144,12 @@ int main(void)
     REQUIRE(s4_kernel_now_us(NULL) == clock_ms * 1000u);
     REQUIRE(s4_sensor_get_status(&output) == E_OK && !output.accel_usable);
     puts("[TEST] S4-U20 PASS  protected snapshot, timeout propagation and kernel-clock wrap");
+    clock_failed = true;
+    output.task_heartbeat = 99;
+    REQUIRE(s4_kernel_now_us(NULL) == UINT64_MAX);
+    REQUIRE(s4_sensor_get_status(&output) == E_SYS && output.task_heartbeat == 99);
+    clock_failed = false;
+    puts("[TEST] S4-U27 PASS  clock errors cannot publish a fresh sample or replace caller output");
 
     REQUIRE(subsystem4_start() == E_OK && tasks_started == 2);
     REQUIRE(subsystem4_start() == E_OBJ);

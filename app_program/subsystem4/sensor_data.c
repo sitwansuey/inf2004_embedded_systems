@@ -57,7 +57,8 @@ static uint32_t sample_age(const lsm303_sample_t *p_sample, uint64_t now_us)
 {
     uint64_t age_ms;
 
-    if (!p_sample->fresh || (now_us < p_sample->read_time_us))
+    if (!p_sample->fresh || now_us == UINT64_MAX ||
+        p_sample->read_time_us == UINT64_MAX || (now_us < p_sample->read_time_us))
     {
         return S4_NO_SAMPLE_AGE;
     }
@@ -68,7 +69,8 @@ static uint32_t sample_age(const lsm303_sample_t *p_sample, uint64_t now_us)
 
 static bool sample_usable(const lsm303_sample_t *p_sample, uint64_t now_us)
 {
-    return p_sample->fresh && p_sample->valid &&
+    return now_us != UINT64_MAX && p_sample->read_time_us != UINT64_MAX &&
+           p_sample->fresh && p_sample->valid &&
            (now_us >= p_sample->read_time_us) &&
            ((now_us - p_sample->read_time_us) <= S4_STALE_AFTER_US);
 }

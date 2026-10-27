@@ -1,0 +1,7 @@
+/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/outputs/IR_DECODER_FIX_20261024/BEFORE/app_program/subsystem3/buddy3_barcode.c:59:28:decode_forward	240	static
+/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/outputs/IR_DECODER_FIX_20261024/BEFORE/app_program/subsystem3/buddy3_barcode.c:104:21:s3_barcode_decode	136	static
+/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/outputs/IR_DECODER_FIX_20261024/BEFORE/app_program/subsystem3/buddy3_barcode.c:140:6:s3_barcode_config_valid	20	static
+/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/outputs/IR_DECODER_FIX_20261024/BEFORE/app_program/subsystem3/buddy3_barcode.c:150:6:s3_barcode_init	8	static
+/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/outputs/IR_DECODER_FIX_20261024/BEFORE/app_program/subsystem3/buddy3_barcode.c:159:6:s3_barcode_abort	16	static
+/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/outputs/IR_DECODER_FIX_20261024/BEFORE/app_program/subsystem3/buddy3_barcode.c:173:6:s3_barcode_rearm	0	static
+/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/outputs/IR_DECODER_FIX_20261024/BEFORE/app_program/subsystem3/buddy3_barcode.c:189:21:s3_barcode_feed	48	static

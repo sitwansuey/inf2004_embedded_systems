@@ -1,0 +1,27 @@
+**********************
+PowerShell transcript start
+Start time: 20261024203510
+Username: AKULA\godga
+RunAs User: AKULA\godga
+Configuration Name: 
+Machine: AKULA (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\Users\godga\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.dll -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
+& 'C:\Users\godga\Downloads\ES\inf2004_embedded_systems\tools\robot_bench\FLASH_ROBOT_LOCKED.ps1' -FirmwareProfile IRBarcodeCapture -BuildOnly -PicoSdkPath 'C:\Users\godga\IdeaProjects\Pi project\pqc-iot-repro\third_party\pico-sdk' -OutputDirectory 'C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\outputs\IR_MOTOR_SCAN_20261024\LOCKED_REGRESSION' *> 'outputs\IR_MOTOR_SCAN_20261024\locked_build.log'
+Get-Content -LiteralPath 'outputs\IR_MOTOR_SCAN_20261024\locked_build.log' -Tail 10
+Process ID: 36828
+PSVersion: 7.6.5
+PSEdition: Core
+GitCommitId: 7.6.5
+OS: Microsoft Windows 10.0.26200
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+Robot Pico W only. Keep motor power off. No movement commands will be sent.
+Build and UF2 checks passed. Nothing copied to USB; the robot is unchanged.
+**********************
+PowerShell transcript end
+End time: 20261024203541
+**********************

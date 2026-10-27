@@ -20,6 +20,7 @@ typedef struct { UW flgatr; UW iflgptn; } T_CFLG;
 typedef struct { UW mbfatr; INT bufsz; INT maxmsz; } T_CMBF;
 
 #define E_OK 0
+#define E_SYS (-5)
 #define E_PAR (-17)
 #define E_OBJ (-41)
 #define E_TMOUT (-50)
@@ -29,7 +30,8 @@ typedef struct { UW mbfatr; INT bufsz; INT maxmsz; } T_CMBF;
 #define TA_WMUL 8u
 #define TP_PRC2 2u
 
-ER tk_get_tim(SYSTIM *p_time);
+ER tk_get_otm(SYSTIM *p_time);
+ER tk_get_tim(SYSTIM *p_time); /* Poisoned wall-clock source for the regression test. */
 ID tk_cre_mtx(const T_CMTX *p_config);
 ID tk_cre_flg(const T_CFLG *p_config);
 ID tk_cre_mbf(const T_CMBF *p_config);

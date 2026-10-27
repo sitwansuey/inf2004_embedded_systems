@@ -67,7 +67,7 @@ EXPORT void subsystem2_test(void)
             break;
         }
         last = start;
-        er = tk_get_tim(&begin);
+        er = tk_get_otm(&begin);
         if (er < E_OK)
         {
             break;
@@ -81,7 +81,7 @@ EXPORT void subsystem2_test(void)
         {
             SYSTIM now;
 
-            er = tk_get_tim(&now);
+            er = tk_get_otm(&now);
             if ((er < E_OK) ||
                 ((now.lo - begin.lo) >= S2_TEST_DURATION_MS))
             {
@@ -93,7 +93,7 @@ EXPORT void subsystem2_test(void)
                             remaining : S2_TEST_REFRESH_MS);
             if (er >= E_OK)
             {
-                er = tk_get_tim(&now);
+                er = tk_get_otm(&now);
             }
             if (er < E_OK)
             {

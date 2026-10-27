@@ -1,4 +1,4 @@
-﻿/*
+/*
  *----------------------------------------------------------------------
  *    Device Driver for μT-Kernel 3.0
  *
@@ -39,15 +39,22 @@
  *	  channel 0 = GP26, channel 1 = GP27, channel 2 = GP28
  *	  channel 3 = GP29 is the Pico W RADIO CLOCK: never set _3 to TRUE.
  */
-#define	DEVCONF_ADC_PIN_INIT_0	FALSE
-#define	DEVCONF_ADC_PIN_INIT_1	FALSE
-#define	DEVCONF_ADC_PIN_INIT_2	FALSE
+#include "../../../../app_program/robot_config.h"
+#ifndef DEVCONF_ADC_PIN_INIT_0
+#define DEVCONF_ADC_PIN_INIT_0 (BOARD_IR_MODE == 2)
+#endif
+#ifndef DEVCONF_ADC_PIN_INIT_1
+#define DEVCONF_ADC_PIN_INIT_1 (BOARD_IR_MODE == 2)
+#endif
+#ifndef DEVCONF_ADC_PIN_INIT_2
+#define DEVCONF_ADC_PIN_INIT_2 (BOARD_IR_MODE == 2)
+#endif
 #define	DEVCONF_ADC_PIN_INIT_3	FALSE
 
 /* Interrupt t priority */
 #define	DEVCNF_ADC_INTPRI	2
 
 /* A/D conversion timeout time */
-#define	DEVCNF_ADC_TMOSCAN	1000
+#define	DEVCNF_ADC_TMOSCAN	5
 
 #endif		/* __DEV_ADC_CNF_RP2040_H__ */

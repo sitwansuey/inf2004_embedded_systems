@@ -21,6 +21,15 @@ void s4_sensor_task(INT start_code, void *p_exinf)
     for (;;)
     {
         uint64_t now = s4_kernel_now_us(NULL);
+        if (now == UINT64_MAX) {
+            state.configured = false;
+            device.initialized = false;
+            state.latest.accel.valid = false;
+            state.latest.mag.valid = false;
+            (void)s4_status_publish(&state);
+            (void)tk_dly_tsk(S4_POLL_MS);
+            continue;
+        }
 
         if (!device.initialized && (now >= next_retry))
         {

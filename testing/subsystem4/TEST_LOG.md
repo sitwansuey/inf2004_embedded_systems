@@ -68,3 +68,26 @@ commit; record the team's actual tested commit for later board tests.
 USB enumeration; actual identity/configuration; axis response; supply/pull-ups;
 bus timeout/recovery under fault; polling/stack headroom; SMP snapshot reads
 under the integrated workload. No physical result is recorded by a build.
+
+## Buddy 4 continuation on 27 October 2026
+
+Current local integration starts from published main `0269a02` and reconciles
+the supplied integrated handoff. See `verification-20261027.json` for exact
+commands, source/tool/artifact identities and all current outcomes.
+
+S4 host groups U10–U28 pass (19 groups), including checked encoder/terrain
+input, alignment, faults, repeats, wrap, interrupted humps, maximum retention,
+reset, clock failure and smaller/larger completions. GCC `-fanalyzer` passes.
+The actual vehicle task is exercised in `INT-S4-11`; B2's eight profiles include
+saturated-pool STOP, old-command invalidation and running-motor STOP polling.
+The full recovered integration and 302 C/Python aggregate vectors pass. B3's
+64,886 host checks, actual kernel headers and ARM objects for SMP=0/1 pass.
+The EDR gate passes nine Python methods and 268,307 C checks.
+
+Default integrated and isolated S4Bench ELF/UF2 builds pass using the installed
+Pico SDK 2.3.0 and Arm GNU 15.2.1. Neither was flashed. ASan/UBSan could not link
+because the installed native compiler lacks libasan/libubsan; see sanitizers.log.
+This does not replace physical validation, runtime memory or timing evidence.
+
+The staged physical guide and Buddy 4 ownership recap are in
+`docs/BUDDY4_TESTING.md` and `docs/BUDDY4_IMPLEMENTATION.md`.

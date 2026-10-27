@@ -1,0 +1,79 @@
+{
+  "log": "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_MOTOR_SCAN_20261024\\HARDWARE\\IR_MOTOR_SCAN_20261024_204440_300.log",
+  "sha256": "f5918d70d3feeabc996c1c4d4146c9afe7bf0c8b3465d106daacbee4b541c981",
+  "sample_count": 504,
+  "intervals_ms": [
+    10
+  ],
+  "invalid_masks": 0,
+  "drop_counts": [
+    0
+  ],
+  "gp28_range": [
+    171,
+    3144
+  ],
+  "edges": [
+    {
+      "time_ms": 241600,
+      "black": true,
+      "raw": 2518,
+      "darkness": 1000
+    },
+    {
+      "time_ms": 241610,
+      "black": false,
+      "raw": 964,
+      "darkness": 337
+    },
+    {
+      "time_ms": 241720,
+      "black": true,
+      "raw": 2392,
+      "darkness": 964
+    },
+    {
+      "time_ms": 241740,
+      "black": false,
+      "raw": 234,
+      "darkness": 16
+    },
+    {
+      "time_ms": 241780,
+      "black": true,
+      "raw": 2569,
+      "darkness": 1000
+    }
+  ],
+  "runs": [
+    {
+      "start_ms": 241600,
+      "black": true,
+      "duration_ms": 10
+    },
+    {
+      "start_ms": 241610,
+      "black": false,
+      "duration_ms": 110
+    },
+    {
+      "start_ms": 241720,
+      "black": true,
+      "duration_ms": 20
+    },
+    {
+      "start_ms": 241740,
+      "black": false,
+      "duration_ms": 40
+    }
+  ],
+  "onboard_status": 3,
+  "onboard_status_name": "S3_BARCODE_NOISE",
+  "scan_start_ms": 241340,
+  "controller_stop_ms": 241760,
+  "command_stop_snapshot_ms": 241860,
+  "reported_active_duration_ms": 420,
+  "physical_direction": "operator confirmed both wheels forward after raised pulse",
+  "physical_barcode_decoded": false,
+  "scope": "Actual raw log with original timestamps. Run width is measured in time; wheel speed, precise surface width, stopping distance and braking unmeasured. Raw queue and controller latest-copy views are different consumers; do not equate every recorded edge to onboard input."
+}

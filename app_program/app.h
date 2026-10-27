@@ -8,6 +8,8 @@
 
 #ifndef APP_H
 #define APP_H
+#include <stdint.h>
+#include "robot_config.h"
 
 /* Use the standard size_t for shared byte-buffer APIs. tk/syslib.h offers
  * this guard to suppress its incompatible legacy typedef on ARM GCC. */

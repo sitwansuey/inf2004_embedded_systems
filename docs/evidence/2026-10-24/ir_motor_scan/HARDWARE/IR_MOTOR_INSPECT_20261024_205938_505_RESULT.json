@@ -1,0 +1,18 @@
+{
+  "mode": "Inspect",
+  "status": "FIRMWARE_READY_STOPPED",
+  "motor_power_requested": 15,
+  "duration_ms": 0,
+  "commands_sent": 4,
+  "log": "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_MOTOR_SCAN_20261024\\HARDWARE\\IR_MOTOR_INSPECT_20261024_205938_505.log",
+  "flashed": false,
+  "physical_braking_validated": false,
+  "port": "COM5",
+  "firmware_handshake": true,
+  "motor_stop_acknowledged": true,
+  "motor_activity_recorded": false,
+  "terminal_reason_code": 8,
+  "terminal_reason": "REQUESTED_STOP",
+  "decodes": [],
+  "rejects": []
+}

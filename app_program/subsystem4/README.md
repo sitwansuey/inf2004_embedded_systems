@@ -59,7 +59,7 @@ when changing SDK paths/versions or flags not encoded in that profile.
 | Separate `buddy4/` folder and build profile | Drivers and tasks live in `app_program/subsystem4/` |
 | Single-core-only readout | One I2C-owning task at priority 18, pinned to core 1 for SMP; priority-19 reporting task |
 | Local print-loop cache | `s4_sensor_get_status()` copies a snapshot under an internal priority-inheritance mutex |
-| Hardware-timer sample timestamps | Kernel `tk_get_tim()` timestamps, with millisecond resolution, scaled to us for the driver API |
+| Hardware-timer sample timestamps | Kernel `tk_get_otm()` timestamps, with millisecond resolution, scaled to us for the driver API |
 | Independent SDK clock/time imports | Reuses the WiFi port's hooks when WiFi is built; imports fallback SDK modules only when needed |
 | Stand-alone test record | Host tests plus team-style `[TEST] S4-Uxx PASS/FAIL` on-target tests and `testing/subsystem4/TEST_LOG.md` |
 

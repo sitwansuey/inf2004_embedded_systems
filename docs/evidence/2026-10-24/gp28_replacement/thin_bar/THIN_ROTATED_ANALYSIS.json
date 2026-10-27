@@ -1,0 +1,52 @@
+{
+  "scope": "User-positioned 3mm printed BLACK bar at unchanged reported mount; stationary only, not a barcode decode or resolution guarantee",
+  "log": "THIN_ROTATED_BLACK_20261024_200017_896.log",
+  "sha256": "c95dd4938ca82fb80a310284055199a6ea3ebd98892fb2c9952816d97c9f5e0d",
+  "setup": {
+    "user_ready": "thin BLACK bar under GP28",
+    "bar_width_mm": 3,
+    "height_mm": null,
+    "paper_rotation_degrees": 90,
+    "screw": "instructed unchanged",
+    "motor_power": "instructed off",
+    "D0": "instructed disconnected",
+    "alignment": "centred per user readiness; not independently measured"
+  },
+  "samples": 802,
+  "raw_min": 189,
+  "raw_max": 229,
+  "raw_mean": 207.8229426433915,
+  "raw_median": 208.0,
+  "normalized_range": [
+    0,
+    14
+  ],
+  "reference": {
+    "white": 197,
+    "black": 2472,
+    "hysteresis_low": 400,
+    "hysteresis_high": 600,
+    "scope": "New local calibration; installed capture firmware still uses older endpoints"
+  },
+  "black_entry_samples": 0,
+  "white_exit_samples": 802,
+  "hysteresis_hold_samples": 0,
+  "interval_ms": 10,
+  "drop_counter": 0,
+  "controller_records": 8,
+  "commands_sent": 0,
+  "firmware_changed": false,
+  "calibration_refitted": false,
+  "status": "THIN_BAR_NOT_RELIABLY_BLACK_WITH_CURRENT_CALIBRATION",
+  "physical_full_barcode_decode": "NOT TESTED",
+  "other_channels": {
+    "GP26": {
+      "min": 235,
+      "max": 269
+    },
+    "GP27": {
+      "min": 20,
+      "max": 45
+    }
+  }
+}

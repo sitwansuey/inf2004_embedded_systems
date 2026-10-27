@@ -40,10 +40,12 @@ typedef enum
 
 typedef struct
 {
-    bool fresh;
-    bool valid;
-    bool overrun;                /* Accelerometer only. */
-    lsm303_data_status_t status;
+    /* Internal storage only; published as a coherent mutex-protected copy.
+     * Wire encoders must use masks/shifts, never this compiler layout. */
+    uint8_t fresh : 1;
+    uint8_t valid : 1;
+    uint8_t overrun : 1;         /* Accelerometer only. */
+    uint8_t status : 3;          /* LSM303_NO_DATA .. LSM303_LOCK_DRAINED. */
     int16_t raw[3];               /* X, Y, Z in sensor axes. */
     int32_t milli_units[3];       /* Acceleration: mg; magnetic field: mG. */
     uint64_t read_time_us;        /* Read completion, NOT conversion time. */

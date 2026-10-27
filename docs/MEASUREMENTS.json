@@ -1,0 +1,101 @@
+{
+  "arm_layout_before": {
+    "size_line_event": 12,
+    "size_line_event_record": 16,
+    "size_motor_message": 16,
+    "size_motor_status": 16,
+    "size_line_output": 32,
+    "size_line_status": 60,
+    "size_obstacle_status": 136
+  },
+  "arm_layout_after": {
+    "size_line_event": 12,
+    "size_motor_status": 12,
+    "size_line_event_record": 16,
+    "size_motor_message": 16,
+    "size_line_output": 28,
+    "size_line_status": 56,
+    "size_obstacle_status": 64
+  },
+  "firmware": {
+    "default": {
+      "text": 326748,
+      "data": 456,
+      "bss": 25552,
+      "static_ram": 26008,
+      "elf": "mtk3pico_smp1_usb_cdc_wifi_enc.elf"
+    },
+    "mqtt": {
+      "text": 381260,
+      "data": 464,
+      "bss": 83200,
+      "static_ram": 83664,
+      "elf": "mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc.elf"
+    },
+    "passive-test": {
+      "text": 327748,
+      "data": 456,
+      "bss": 25552,
+      "static_ram": 26008,
+      "elf": "mtk3pico_smp1_usb_cdc_wifi_enc_test.elf"
+    },
+    "s2-bench": {
+      "text": 281668,
+      "data": 88,
+      "bss": 24488,
+      "static_ram": 24576,
+      "elf": "mtk3pico_smp1_usb_cdc_wifi_s2_enc_test.elf"
+    },
+    "s4-bench": {
+      "text": 281184,
+      "data": 96,
+      "bss": 24564,
+      "static_ram": 24660,
+      "elf": "mtk3pico_smp1_usb_cdc_wifi_enc_s4.elf"
+    },
+    "single-core": {
+      "text": 319036,
+      "data": 444,
+      "bss": 21412,
+      "static_ram": 21856,
+      "elf": "mtk3pico_smp0_usb_cdc_wifi_enc.elf"
+    },
+    "uart": {
+      "text": 73580,
+      "data": 316,
+      "bss": 17072,
+      "static_ram": 17388,
+      "elf": "mtk3pico_smp1_uart_enc.elf"
+    }
+  },
+  "baseline_repaired_encoder_static_ram": 25172,
+  "event_wire_before": 16,
+  "event_wire_after": 13,
+  "binary_bits": 394,
+  "binary_bytes": 50,
+  "synthetic_equivalent_json_bytes": 469,
+  "buddy1_scalar_record_bytes": 136,
+  "buddy1_original_queue_capacity": 16,
+  "buddy1_original_queue_storage": 2240,
+  "new_snapshot_queue_capacity": 2,
+  "new_snapshot_queue_storage": 112,
+  "runtime_peak_ram_measured": false,
+  "final_checkout_default": {
+    "file": "CSC02_default_DISARMED.uf2",
+    "sha256": "38be0e24a4796e5bfc3ac90a52ef293395f199af4914cec0123dcdd32c93fe56",
+    "bytes": 654848,
+    "blocks": 1279,
+    "family_id": "0xe48bff56",
+    "flash_start": "0x10000000",
+    "flash_end_exclusive": "0x1004ff00",
+    "boot_disarmed": true,
+    "calibration_config_present": false,
+    "flashed": false,
+    "network_profile": "NET=none MQTT=0",
+    "text": 326748,
+    "data": 456,
+    "bss": 25552,
+    "static_ram": 26008
+  },
+  "default_static_ram_increase": 836
+}

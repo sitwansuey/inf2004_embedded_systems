@@ -1,0 +1,10 @@
+{
+  "scope": "Last three fresh stopped snapshots classify GP28 WHITE. STOP/query only.",
+  "inspection": "IR_MOTOR_INSPECT_20261024_211750_802_RESULT.json",
+  "passed": true,
+  "rows": [
+    "[IRSCAN] t=1079030 active=0 prepared=0 mode=2 reason=8 power=0 raw=267 darkness=30 adc=1 front=0 motor_state=0 command=0 motor_power=0 m1=-187 m2=-297",
+    "[IRSCAN] t=1079130 active=0 prepared=0 mode=2 reason=8 power=0 raw=253 darkness=24 adc=1 front=0 motor_state=0 command=0 motor_power=0 m1=-187 m2=-297",
+    "[IRSCAN] t=1079230 active=0 prepared=0 mode=2 reason=8 power=0 raw=253 darkness=24 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=-187 m2=-297"
+  ]
+}

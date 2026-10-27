@@ -109,6 +109,8 @@ static void test_clipping_and_time_boundaries(void)
     REQUIRE(!copy.mag_usable && copy.mag_age_ms == S4_NO_SAMPLE_AGE);
     s4_data_snapshot(&state, time_us + UINT64_C(5000000000000), &copy);
     REQUIRE(copy.mag_age_ms == S4_NO_SAMPLE_AGE - 1u && !copy.mag_usable);
+    s4_data_snapshot(&state, UINT64_MAX, &copy);
+    REQUIRE(!copy.mag_usable && copy.mag_age_ms == S4_NO_SAMPLE_AGE);
     puts("[TEST] S4-U18 PASS  clipping, future timestamps, 64-bit time and age saturation");
 }
 

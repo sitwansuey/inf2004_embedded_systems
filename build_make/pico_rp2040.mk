@@ -94,7 +94,7 @@ endif
 # S2_ONLY=1 boots only the motor subsystem, without the old sample pipeline.
 # TEST=1 then runs the motor/rotation/watchdog checks at startup.
 S2_ONLY ?= 0
-S2_ENCODER_ENABLED ?= 0
+S2_ENCODER_ENABLED ?= 1
 S2_COMMAND_TIMEOUT_MS ?= 1000
 ifneq ($(filter $(S2_ONLY),0 1),$(S2_ONLY))
 $(error Unknown S2_ONLY '$(S2_ONLY)'; use 0 or 1)
@@ -113,6 +113,79 @@ S2_SUFFIX := $(S2_SUFFIX)_tmo$(S2_COMMAND_TIMEOUT_MS)
 endif
 
 # S4_ONLY=1 selects Buddy 4 via the shared lifecycle, without other modules.
+IR_MOTOR_SCAN ?= 0
+ifneq ($(filter $(IR_MOTOR_SCAN),0 1),$(IR_MOTOR_SCAN))
+$(error IR_MOTOR_SCAN must be0 or1)
+endif
+IR_RAW_MODE ?= 0
+ifneq ($(filter $(IR_RAW_MODE),0 1 2),$(IR_RAW_MODE))
+$(error IR_RAW_MODE must be 0 disabled, 1 digital or 2 ADC)
+endif
+ifneq ($(IR_RAW_MODE),0)
+IR_SUFFIX := _irraw$(IR_RAW_MODE)
+endif
+# Measured, motor-locked interpretation test; never enables drive/ARM.
+IR_CALIBRATED_BENCH ?= 0
+ifneq ($(filter $(IR_CALIBRATED_BENCH),0 1),$(IR_CALIBRATED_BENCH))
+$(error IR_CALIBRATED_BENCH must be 0 or 1)
+endif
+ifeq ($(IR_CALIBRATED_BENCH),1)
+ifneq ($(IR_RAW_MODE),0)
+$(error Select either raw input or calibrated IR bench, not both)
+endif
+IR_SUFFIX := _ircal
+endif
+IR_BARCODE_CAPTURE ?= 0
+ifneq ($(filter $(IR_BARCODE_CAPTURE),0 1),$(IR_BARCODE_CAPTURE))
+$(error IR_BARCODE_CAPTURE must be 0 or 1)
+endif
+ifeq ($(IR_BARCODE_CAPTURE),1)
+ifneq ($(IR_CALIBRATED_BENCH),1)
+ifneq ($(IR_MOTOR_SCAN),1)
+$(error IR_BARCODE_CAPTURE requires a reviewed IR bench profile)
+endif
+endif
+IR_SUFFIX := _irbarcode
+endif
+ifeq ($(IR_MOTOR_SCAN),1)
+ifneq ($(IR_RAW_MODE)$(IR_CALIBRATED_BENCH)$(IR_BARCODE_CAPTURE)$(S2_COMMAND_TIMEOUT_MS),001150)
+$(error IR motor scan requires raw0 calibrated0 capture1 watchdog150)
+endif
+ifneq ($(CONSOLE)$(MQTT)$(TEST)$(S2_ONLY),usb_cdc000)
+$(error IR motor scan requires USB, MQTT0, TEST0, S2_ONLY0)
+endif
+IR_SUFFIX := _irmotorscan
+endif
+IR_LINE_TRACE ?= 0
+ifneq ($(filter $(IR_LINE_TRACE),0 1),$(IR_LINE_TRACE))
+$(error IR_LINE_TRACE must be 0 or 1)
+endif
+ifeq ($(IR_LINE_TRACE),1)
+ifneq ($(IR_MOTOR_SCAN),1)
+$(error IR line trace requires the bounded IR motor bench)
+endif
+IR_SUFFIX := _irlinetrace
+endif
+IR_LINE_ONLY ?= 0
+ifneq ($(filter $(IR_LINE_ONLY),0 1),$(IR_LINE_ONLY))
+$(error IR_LINE_ONLY must be0 or1)
+endif
+ifeq ($(IR_LINE_ONLY),1)
+ifneq ($(IR_LINE_TRACE)$(S2_ENCODER_ENABLED),11)
+$(error IR line-only requires line trace and encoders)
+endif
+IR_SUFFIX := _irlineonly50course
+endif
+IR_CONTINUOUS ?= 0
+ifneq ($(filter $(IR_CONTINUOUS),0 1),$(IR_CONTINUOUS))
+$(error IR_CONTINUOUS must be zero or one)
+endif
+ifeq ($(IR_CONTINUOUS),1)
+ifneq ($(IR_LINE_ONLY),1)
+$(error Continuous test requires line-only profile)
+endif
+IR_SUFFIX := _ircontinuous30
+endif
 S4_ONLY ?= 0
 ifneq ($(S4_ONLY),0)
 ifneq ($(S4_ONLY),1)
@@ -152,7 +225,7 @@ endif
 # a live hazard: an SMP=1 build was once flashed in place of an SMP=0 one and
 # only the banner in the log revealed it.
 #
-EXE_FILE := mtk3pico_smp$(SMP)_$(CONSOLE)$(WIFI_SUFFIX)$(NET_SUFFIX)$(MQTT_SUFFIX)$(CRASH_SUFFIX)$(S2_SUFFIX)$(S4_SUFFIX)$(TEST_SUFFIX)
+EXE_FILE := mtk3pico_smp$(SMP)_$(CONSOLE)$(WIFI_SUFFIX)$(NET_SUFFIX)$(MQTT_SUFFIX)$(CRASH_SUFFIX)$(S2_SUFFIX)$(S4_SUFFIX)$(IR_SUFFIX)$(TEST_SUFFIX)
 
 GCC := arm-none-eabi-gcc
 AS := arm-none-eabi-gcc
@@ -216,6 +289,29 @@ CFLAGS  += -DAPP_TEST=$(TEST)
 CFLAGS  += -DAPP_S2_ONLY=$(S2_ONLY) -DS2_ENCODER_ENABLED=$(S2_ENCODER_ENABLED)
 CFLAGS  += -DS2_COMMAND_TIMEOUT_MS=$(S2_COMMAND_TIMEOUT_MS)
 CFLAGS  += -DAPP_S4_ONLY=$(S4_ONLY)
+ifeq ($(IR_MOTOR_SCAN),1)
+CFLAGS += -DBOARD_IR_MOTOR_SCAN_BENCH=1 -DBOARD_MOTORS_DISABLED=0 -DBOARD_IR_MODE=2
+endif
+ifeq ($(IR_LINE_TRACE),1)
+CFLAGS += -DBOARD_IR_LINE_TRACE_BENCH=1
+endif
+ifeq ($(IR_LINE_ONLY),1)
+CFLAGS += -DBOARD_IR_LINE_ONLY_BENCH=1 -DAPP_S5_ENABLED=0 -DIR_SCAN_MAX_MS=20000
+ifeq ($(IR_CONTINUOUS),1)
+CFLAGS += -DBOARD_IR_CONTINUOUS_BENCH=1 -DIR_SCAN_MAX_POWER=30
+else
+CFLAGS += -DIR_SCAN_MAX_POWER=50
+endif
+endif
+ifeq ($(IR_CALIBRATED_BENCH),1)
+CFLAGS += -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2
+endif
+ifeq ($(IR_BARCODE_CAPTURE),1)
+CFLAGS += -DBOARD_IR_BARCODE_CAPTURE=1
+endif
+ifneq ($(IR_RAW_MODE),0)
+CFLAGS += -DBOARD_IR_RAW_BENCH=1 -DBOARD_IR_MODE=$(IR_RAW_MODE)
+endif
 CFLAGS  += -DTM_CONSOLE_UART=$(CRASH_REPORT)
 ifeq ($(CRASH_REPORT),0)
 CFLAGS  += -DBOARD_UART0_FREE=1
@@ -248,7 +344,7 @@ endif
 # before any recipe executes.
 ################################################################################
 
-PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)-s2$(S2_ONLY)-enc$(S2_ENCODER_ENABLED)-tmo$(S2_COMMAND_TIMEOUT_MS)-s4$(S4_ONLY)
+PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)-s2$(S2_ONLY)-enc$(S2_ENCODER_ENABLED)-tmo$(S2_COMMAND_TIMEOUT_MS)-s4$(S4_ONLY)-irraw$(IR_RAW_MODE)-ircal$(IR_CALIBRATED_BENCH)-irbarcode$(IR_BARCODE_CAPTURE)-irmotor$(IR_MOTOR_SCAN)-irline$(IR_LINE_TRACE)-ironly$(IR_LINE_ONLY)-ironlyrev5-cont$(IR_CONTINUOUS)
 PROFILE_FILE := .build_profile
 
 ifneq ($(strip $(shell cat $(PROFILE_FILE) 2>/dev/null)),$(PROFILE_ID))

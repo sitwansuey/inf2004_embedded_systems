@@ -73,6 +73,8 @@ static void reset_fixture(void)
     h_status_lock = 0;
     motor_started = FALSE;
     motion_status = (s2_packed_status_t){0};
+    stop_epoch = 0;
+    stopped_epoch = 0;
     now_ms = 0;
     caller_id = 7;
     memset(duties, 0, sizeof(duties));
@@ -138,7 +140,7 @@ void test_check(ER error, const char *p_label)
 
 ID tk_get_tid(void) { return caller_id; }
 
-ER tk_get_tim(SYSTIM *p_time)
+ER tk_get_otm(SYSTIM *p_time)
 {
     ++time_call_count;
     if ((time_error_at != 0U) && (time_call_count >= time_error_at))
@@ -258,7 +260,9 @@ ER tk_rcv_mbx(ID h_mailbox, T_MSG **pp_message, TMO wait)
         memmove(p_queue, p_queue + 1, queue_count * sizeof(p_queue[0]));
         return E_OK;
     }
-    if (wait == TMO_FEVR)
+    if (wait == TMO_FEVR ||
+        (stop_epoch == stopped_epoch &&
+         ((motion_status.motor >> 10U) & 3U) != S2_MOTION_MOVING))
     {
         longjmp(task_exit, 1);
     }
@@ -269,7 +273,7 @@ ER tk_rcv_mbx(ID h_mailbox, T_MSG **pp_message, TMO wait)
 
 ER tk_wai_sem(ID h_lock, INT count, TMO wait)
 {
-    assert(h_lock > 0 && count == 1 && wait == TMO_FEVR);
+    assert(h_lock > 0 && count == 1 && wait == 5);
     assert(lock_count == 1);
     --lock_count;
     return E_OK;
@@ -555,7 +559,9 @@ static void test_renewal_and_recovery(void)
         assert(s2_movement_send(renewal_command, 30) == E_OK);
         run_task();
         assert_status(S2_MOTION_STOPPED, E_OK);
-        assert(now_ms == S2_COMMAND_TIMEOUT_MS + S2_COMMAND_TIMEOUT_MS / 3U);
+        assert(now_ms >= S2_COMMAND_TIMEOUT_MS + S2_COMMAND_TIMEOUT_MS / 3U);
+        assert(now_ms <= S2_COMMAND_TIMEOUT_MS + S2_COMMAND_TIMEOUT_MS / 3U +
+                        (APP_S2_ONLY ? 0U : 10U));
 
         setup();
         assert(s2_movement_send(commands[i], 30) == E_OK);
@@ -845,6 +851,34 @@ static void test_data_adapters(void)
 #endif
 }
 
+static void epoch_stop_hook(void)
+{
+    if (receive_count == 2U) {
+        assert_status(S2_MOTION_MOVING, E_OK);
+        assert(s2_emergency_stop() == E_OK);
+    }
+}
+static void test_stop_epoch(void)
+{
+#if !APP_S2_ONLY
+    setup();
+    /* STOP bypasses exhausted pool capacity and invalidates old requests. */
+    for (UINT n=0;n<S2_COMMAND_COUNT;++n)
+        assert(s2_movement_send(S2_MOVE_FORWARD,30)==E_OK);
+    assert(s2_movement_send(S2_MOVE_FORWARD,30)==E_TMOUT);
+    assert(s2_emergency_stop()==E_OK);
+    assert(s2_movement_send(S2_MOVE_FORWARD,30)==E_OBJ);
+    run_task();assert_off();assert(nonzero_writes==0U);
+    setup();p_receive_hook=epoch_stop_hook;
+    assert(s2_movement_send(S2_MOVE_FORWARD,30)==E_OK);
+    run_task();assert_status(S2_MOTION_STOPPED,E_OK);
+    assert(now_ms<=11U); /* one ms deadtime + at most ten ms polling */
+    puts("Integrated STOP epoch: saturated pool, old commands, running motor and bounded poll PASS");
+#else
+    (void)epoch_stop_hook;
+#endif
+}
+
 int main(void)
 {
     test_lifecycle_and_validation();
@@ -857,6 +891,7 @@ int main(void)
     test_clock_errors_and_zero_power();
     test_encoder_mode();
     test_data_adapters();
+    test_stop_epoch();
     puts("Motor-control host checks passed");
     return 0;
 }

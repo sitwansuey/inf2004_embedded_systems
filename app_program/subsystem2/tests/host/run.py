@@ -74,6 +74,10 @@ def run_tests(compiler: str) -> None:
             shutil.copy2(SUBSYSTEM / filename, subsystem / filename)
         for filename in ("edr.c", "edr.h"):
             shutil.copy2(SHARED / filename, shared / filename)
+        # Exercise the integrated motor implementation with explicit test-only
+        # drive permission; real firmware retains its default motor lock.
+        (temporary / "robot_config.h").write_text(
+            "#define BOARD_MOTORS_DISABLED 0\n", encoding="utf-8")
 
         for name, flags in PROFILES:
             executable = temporary / (name + (".exe" if os.name == "nt" else ""))

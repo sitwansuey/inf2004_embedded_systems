@@ -6,6 +6,7 @@
 #include "subsystem2.h"
 #include "../board_pins.h"
 #include "../shared/edr.h"
+#include "../robot_config.h"
 #include <tk/syslib.h>
 
 /* Persistent state uses the same motor word as the external representation.
@@ -18,6 +19,8 @@ typedef struct
 } s2_packed_status_t;
 
 static ID h_controller_task;
+static UW stop_epoch;
+static UW stopped_epoch;
 static ID h_movement_mailbox;
 static ID h_movement_pool;
 static ID h_status_lock;
@@ -35,7 +38,7 @@ static s2_packed_status_t motion_status;
 
 EXPORT void s2_controller_bind(void)
 {
-    h_controller_task = tk_get_tid();
+    if (h_controller_task == 0) h_controller_task = tk_get_tid();
 }
 
 #if S2_ENCODER_ENABLED
@@ -216,8 +219,10 @@ EXPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status)
             SYSTIM sampled;
 
             /* Retry if the IRQ updates either wheel during the copy. */
+            UINT retries = 0;
             for (;;)
             {
+                if (++retries > 32U) { *p_status = (s2_encoder_status_t){0}; return E_TMOUT; }
                 sequence = __atomic_load_n(&encoder_sequence, __ATOMIC_ACQUIRE);
                 if ((sequence & 1U) != 0U)
                 {
@@ -240,7 +245,7 @@ EXPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status)
                 p_status->motor1_b_edges =
                     __atomic_load_n(&encoder1_b_edges, __ATOMIC_RELAXED);
                 pins = in_w(GPIO_IN);
-                er = tk_get_tim(&sampled);
+                er = tk_get_otm(&sampled);
                 if (er < E_OK)
                 {
                     *p_status = (s2_encoder_status_t){0};
@@ -276,6 +281,14 @@ EXPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status)
     return er;
 }
 
+EXPORT ER s2_emergency_stop(void)
+{
+    if (h_controller_task == 0 || tk_get_tid() != h_controller_task) return E_OACV;
+    UW epoch = __atomic_load_n(&stop_epoch, __ATOMIC_RELAXED);
+    __atomic_store_n(&stop_epoch, epoch + 1U, __ATOMIC_RELEASE);
+    return E_OK;
+}
+
 static void motor_stop(void)
 {
     pwm_set_cc(BOARD_MOTOR1_A_GPIO, 0);
@@ -305,7 +318,7 @@ static ER motor_init(void)
     pwm_set_wrap(BOARD_MOTOR1_A_GPIO, MOTOR_PWM_WRAP);
     pwm_set_wrap(BOARD_MOTOR2_A_GPIO, MOTOR_PWM_WRAP);
     motor_stop();
-    if (er >= E_OK)
+    if ((er >= E_OK) && !BOARD_MOTORS_DISABLED)
     {
         for (UINT i = 0; i < 4U; ++i)
         {
@@ -338,6 +351,11 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
     ER er = E_OK;
 
     motor_stop();
+    /* Enforce the bench lock even if a caller bypasses the command queue. */
+    if (BOARD_MOTORS_DISABLED)
+    {
+        return ((command == S2_MOVE_STOP) || (power_percent == 0U)) ? E_OK : E_OACV;
+    }
     switch (command)
     {
         case S2_MOVE_FORWARD:
@@ -374,13 +392,15 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
         er = tk_dly_tsk(1);
         if (er >= E_OK)
         {
-            er = tk_get_tim(&now);
+            er = tk_get_otm(&now);
         }
         if ((er >= E_OK) &&
             ((now.lo - issued_at_ms) >= S2_COMMAND_TIMEOUT_MS))
         {
             er = E_TMOUT;
         }
+        if (er >= E_OK && __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE) !=
+                              __atomic_load_n(&stopped_epoch, __ATOMIC_ACQUIRE)) er = E_OBJ;
         if (er >= E_OK)
         {
             motor_set_pair(BOARD_MOTOR1_A_GPIO, BOARD_MOTOR1_B_GPIO,
@@ -400,7 +420,7 @@ static BOOL movement_valid(s2_move_command_t command, UINT power_percent)
 
 static ER motion_publish(const s2_packed_status_t *p_status)
 {
-    ER er = tk_wai_sem(h_status_lock, 1, TMO_FEVR);
+    ER er = tk_wai_sem(h_status_lock, 1, 5);
 
     if (er >= E_OK)
     {
@@ -429,7 +449,7 @@ EXPORT ER s2_motion_get_status(s2_motion_status_t *p_status)
         return E_OBJ;
     }
 
-    er = tk_wai_sem(h_status_lock, 1, TMO_FEVR);
+    er = tk_wai_sem(h_status_lock, 1, 5);
     if (er < E_OK)
     {
         return er;
@@ -489,13 +509,13 @@ static ER s2_command_wait(const s2_packed_status_t * const p_status,
         return E_SYS;
     }
 
-    *p_wait = TMO_FEVR;
+    *p_wait = APP_S2_ONLY ? TMO_FEVR : 10;
     if (S2_MOTION_MOVING != state)
     {
         return E_OK;
     }
 
-    result = tk_get_tim(&now);
+    result = tk_get_otm(&now);
     if (result < E_OK)
     {
         return result;
@@ -509,6 +529,7 @@ static ER s2_command_wait(const s2_packed_status_t * const p_status,
 
     /* The configured lease fits a positive TMO value. */
     *p_wait = (TMO)(S2_COMMAND_TIMEOUT_MS - elapsed);
+    if (!APP_S2_ONLY && *p_wait > 10) *p_wait = 10;
 
     return E_OK;
 }
@@ -537,7 +558,16 @@ static void motor_task(INT stacd, void *p_exinf)
     while (er >= E_OK)
     {
         T_MSG *p_raw = NULL;
-        TMO wait = TMO_FEVR;
+        TMO wait = 10;
+        UW epoch = __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE);
+        if (epoch != __atomic_load_n(&stopped_epoch, __ATOMIC_RELAXED)) {
+            motor_stop();
+            current.motor = 0; /* STOP / zero power / STOPPED in EDR v1. */
+            current.last_error = E_OK;
+            __atomic_store_n(&stopped_epoch, epoch, __ATOMIC_RELEASE);
+            er = motion_publish(&current);
+            if (er < E_OK) break;
+        }
         SYSTIM now;
 
         er = s2_command_wait(&current, &wait);
@@ -548,6 +578,7 @@ static void motor_task(INT stacd, void *p_exinf)
         }
 
         er = tk_rcv_mbx(h_movement_mailbox, &p_raw, wait);
+        if (er == E_TMOUT) { er = E_OK; continue; }
         if (er < E_OK)
         {
             ER receive_error = er;
@@ -572,6 +603,7 @@ static void motor_task(INT stacd, void *p_exinf)
         uint8_t current_power;
         uint8_t current_state;
         UW issued_at = p_msg->issued_at_ms;
+        UW message_epoch = p_msg->stop_epoch;
 
         /* Copy all fields before returning the block to the pool. */
         er = tk_rel_mpf(h_movement_pool, p_msg);
@@ -580,6 +612,7 @@ static void motor_task(INT stacd, void *p_exinf)
             er = motion_fault(&current, er);
             continue;
         }
+        if (message_epoch != __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE)) continue;
         if (!edr_motor_unpack(motor, &packed_command, &packed_power,
                               &packed_state) ||
             (packed_state != S2_MOTION_STOPPED))
@@ -598,7 +631,7 @@ static void motor_task(INT stacd, void *p_exinf)
         }
         else
         {
-            er = tk_get_tim(&now);
+            er = tk_get_otm(&now);
             if ((er >= E_OK) &&
                 ((now.lo - issued_at) >= S2_COMMAND_TIMEOUT_MS))
             {
@@ -749,9 +782,19 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
         er = E_OACV;
     }
 #endif
+    if (er >= E_OK && movement_valid(command,power_percent) && (command == S2_MOVE_STOP || power_percent == 0U)) {
+#if !APP_S2_ONLY
+        return s2_emergency_stop();
+#endif
+    }
     if ((er >= E_OK) && !movement_valid(command, power_percent))
     {
         er = E_PAR;
+    }
+    if ((er >= E_OK) && BOARD_MOTORS_DISABLED &&
+        (command != S2_MOVE_STOP) && (power_percent != 0U))
+    {
+        er = E_OACV;
     }
     if ((er >= E_OK) && !motor_started)
     {
@@ -764,13 +807,16 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
             command = S2_MOVE_STOP;
             power_percent = 0;
             /* A STOP must still work if the clock service fails. */
-            (void)tk_get_tim(&now);
+            (void)tk_get_otm(&now);
         }
         else
         {
-            er = tk_get_tim(&now);
+            er = tk_get_otm(&now);
         }
     }
+    if (er >= E_OK && command != S2_MOVE_STOP &&
+        __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE) !=
+        __atomic_load_n(&stopped_epoch, __ATOMIC_ACQUIRE)) er = E_OBJ;
     if (er >= E_OK)
     {
         /* movement_valid() checked both fixed-width value ranges. */
@@ -792,6 +838,7 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
         p_msg->hdr.msgque[0] = NULL;
         p_msg->motor = motor;
         p_msg->issued_at_ms = now.lo;
+        p_msg->stop_epoch = __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE);
         /* The mailbox header is the first member of the message. */
         er = tk_snd_mbx(h_movement_mailbox, (T_MSG *)p_msg);
         if (er < E_OK)

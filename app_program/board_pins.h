@@ -1,6 +1,7 @@
 /* Motor wiring from the updated subsystem2 hardware implementation. */
 #ifndef BOARD_PINS_H
 #define BOARD_PINS_H
+#include "robot_config.h"
 
 #ifndef BOARD_MOTOR1_A_GPIO
 #define BOARD_MOTOR1_A_GPIO 8U

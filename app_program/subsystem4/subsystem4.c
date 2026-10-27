@@ -14,7 +14,9 @@ uint64_t s4_kernel_now_us(void *p_context)
     SYSTIM now = { 0 };
 
     (void)p_context;
-    (void)tk_get_tim(&now);
+    /* Operating time starts at zero. The unset TRON wall clock may be
+     * negative: casting it to uint64_t and multiplying would wrap. */
+    if (tk_get_otm(&now) < E_OK) return UINT64_MAX;
     return (((uint64_t)(UW)now.hi << 32) | (uint64_t)now.lo) * 1000u;
 }
 
@@ -78,7 +80,9 @@ ER s4_sensor_get_status(s4_sensor_status_t *p_status)
     result = tk_unl_mtx(status_lock);
     if (result >= E_OK)
     {
-        s4_data_snapshot(&copy, s4_kernel_now_us(NULL), p_status);
+        uint64_t now_us = s4_kernel_now_us(NULL);
+        if (now_us == UINT64_MAX) return E_SYS;
+        s4_data_snapshot(&copy, now_us, p_status);
     }
     return result;
 }

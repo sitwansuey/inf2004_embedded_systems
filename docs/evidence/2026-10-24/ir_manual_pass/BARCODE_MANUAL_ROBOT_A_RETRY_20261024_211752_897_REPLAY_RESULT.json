@@ -1,0 +1,16 @@
+{
+  "status": "NOT_DECODED",
+  "expected": "A",
+  "commands_sent": 0,
+  "onboard_decoding_validated": false,
+  "motion_validated": false,
+  "log_sha256": "A5008EEB7A89947273FEB7B8E35E2F91150A0DA12F2B9DFC5B9587E36946E998",
+  "rows": 2502,
+  "discontinuities": 0,
+  "rejected": 1,
+  "decoded": 0,
+  "expected_matches": 0,
+  "wrong_matches": 0,
+  "native_exit": 2,
+  "scope": "Physical ADC recording replayed by production GP28 normalization/hysteresis/barcode module on this PC."
+}

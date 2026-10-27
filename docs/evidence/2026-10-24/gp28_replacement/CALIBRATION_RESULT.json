@@ -1,0 +1,66 @@
+{
+  "status": "WIDE_BAR_CALIBRATION_BUILD_PASS_THIN_BAR_DETECTION_UNRESOLVED",
+  "repository": "C:\\Users\\godga\\Downloads\\ES\\inf2004_embedded_systems",
+  "branch": "local/csc02-cr1-continue-20261024",
+  "gp28_white": 197,
+  "gp28_black": 2472,
+  "training_samples": 1616,
+  "independent_validation_samples": 1620,
+  "production_classification_samples": 3236,
+  "motor_lock": true,
+  "native_buddy3": "PASS all executables, including68 measured-calibration checks",
+  "real_kernel_headers": "PASS SMP0/1",
+  "unsafe_profiles": "PASS rejected unlocked/raw/override",
+  "helper_groups_pass": 16,
+  "arm_build": "PASS fresh MAKEFLAGS=-B, IRBarcodeCapture",
+  "baseline": {
+    "text": 331884,
+    "data": 456,
+    "bss": 25584,
+    "static_ram": 26040,
+    "telemetry_bytes": 50,
+    "uf2_bytes": 665088
+  },
+  "after": {
+    "text": 331908,
+    "data": 456,
+    "bss": 25584,
+    "static_ram": 26040,
+    "telemetry_bytes": 50,
+    "uf2_bytes": 665088
+  },
+  "firmware_sha256": "62138085a10333222fded32fea180830b2d8ede3ddce6bad1fbcd810a716c681",
+  "elf_flash_bytes_compared": 332364,
+  "installed_firmware_sha256_last_verified": "346dc09e75f348f36719e24ff6f88015ae4901b50e14397bea07f483bba26d2e",
+  "firmware_flashed": false,
+  "commands_sent": 0,
+  "physical_gap_mm": null,
+  "physical_A_Z_decode": "PENDING",
+  "onboard_decode": "NOT VALIDATED",
+  "motion": "NOT VALIDATED",
+  "remote_operations": [],
+  "ready_for_full_barcode_use": false,
+  "thin_bar_diagnostic": {
+    "stationary_samples": 814,
+    "stationary_raw": [
+      197,
+      242
+    ],
+    "short_pass_samples": 1810,
+    "short_pass_raw": [
+      160,
+      248
+    ],
+    "black_entries": 0,
+    "production_C_stationary_BLACK_check_exit": 7,
+    "next": "If clearance allows: flat raised target1\u20132mm closer, height diagnostic only; compare thin BLACK and WHITE without refitting",
+    "rotated_90deg": {
+      "samples": 802,
+      "raw": [
+        189,
+        229
+      ],
+      "black_entries": 0
+    }
+  }
+}

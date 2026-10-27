@@ -1,0 +1,1473 @@
+{
+  "recording": "BARCODE_MANUAL_DRAG_A_REPEAT_20261024_215540_909",
+  "scope": "Offline explanation of observed threshold crossings only. No decoder parameters or waveform changed; no firmware/USB action. Expected-unit comparisons do not establish physical motion or sensor defect. Ranking diagnostic only labels the three largest observed intervals per character; it is not a validated alternative decoder or physical pass.",
+  "edges": [
+    {
+      "time_ms": 3355530,
+      "relative_ms": 6090,
+      "black": true,
+      "raw": 2496
+    },
+    {
+      "time_ms": 3355560,
+      "relative_ms": 6120,
+      "black": false,
+      "raw": 238
+    },
+    {
+      "time_ms": 3355700,
+      "relative_ms": 6260,
+      "black": true,
+      "raw": 2015
+    },
+    {
+      "time_ms": 3355740,
+      "relative_ms": 6300,
+      "black": false,
+      "raw": 284
+    },
+    {
+      "time_ms": 3355810,
+      "relative_ms": 6370,
+      "black": true,
+      "raw": 2725
+    },
+    {
+      "time_ms": 3355940,
+      "relative_ms": 6500,
+      "black": false,
+      "raw": 248
+    },
+    {
+      "time_ms": 3356000,
+      "relative_ms": 6560,
+      "black": true,
+      "raw": 2706
+    },
+    {
+      "time_ms": 3356140,
+      "relative_ms": 6700,
+      "black": false,
+      "raw": 259
+    },
+    {
+      "time_ms": 3356210,
+      "relative_ms": 6770,
+      "black": true,
+      "raw": 1693
+    },
+    {
+      "time_ms": 3356240,
+      "relative_ms": 6800,
+      "black": false,
+      "raw": 498
+    },
+    {
+      "time_ms": 3356310,
+      "relative_ms": 6870,
+      "black": true,
+      "raw": 2280
+    },
+    {
+      "time_ms": 3356430,
+      "relative_ms": 6990,
+      "black": false,
+      "raw": 471
+    },
+    {
+      "time_ms": 3356490,
+      "relative_ms": 7050,
+      "black": true,
+      "raw": 2540
+    },
+    {
+      "time_ms": 3356520,
+      "relative_ms": 7080,
+      "black": false,
+      "raw": 242
+    },
+    {
+      "time_ms": 3356580,
+      "relative_ms": 7140,
+      "black": true,
+      "raw": 1622
+    },
+    {
+      "time_ms": 3356620,
+      "relative_ms": 7180,
+      "black": false,
+      "raw": 251
+    },
+    {
+      "time_ms": 3356780,
+      "relative_ms": 7340,
+      "black": true,
+      "raw": 1700
+    },
+    {
+      "time_ms": 3356820,
+      "relative_ms": 7380,
+      "black": false,
+      "raw": 223
+    },
+    {
+      "time_ms": 3356880,
+      "relative_ms": 7440,
+      "black": true,
+      "raw": 2084
+    },
+    {
+      "time_ms": 3357020,
+      "relative_ms": 7580,
+      "black": false,
+      "raw": 238
+    },
+    {
+      "time_ms": 3357100,
+      "relative_ms": 7660,
+      "black": true,
+      "raw": 2404
+    },
+    {
+      "time_ms": 3357130,
+      "relative_ms": 7690,
+      "black": false,
+      "raw": 245
+    },
+    {
+      "time_ms": 3357320,
+      "relative_ms": 7880,
+      "black": true,
+      "raw": 2219
+    },
+    {
+      "time_ms": 3357350,
+      "relative_ms": 7910,
+      "black": false,
+      "raw": 966
+    },
+    {
+      "time_ms": 3357450,
+      "relative_ms": 8010,
+      "black": true,
+      "raw": 2166
+    },
+    {
+      "time_ms": 3357630,
+      "relative_ms": 8190,
+      "black": false,
+      "raw": 243
+    },
+    {
+      "time_ms": 3357740,
+      "relative_ms": 8300,
+      "black": true,
+      "raw": 2000
+    },
+    {
+      "time_ms": 3357960,
+      "relative_ms": 8520,
+      "black": false,
+      "raw": 1102
+    },
+    {
+      "time_ms": 3358060,
+      "relative_ms": 8620,
+      "black": true,
+      "raw": 2171
+    },
+    {
+      "time_ms": 3358100,
+      "relative_ms": 8660,
+      "black": false,
+      "raw": 253
+    }
+  ],
+  "runs": [
+    {
+      "start_ms": 3355530,
+      "relative_ms": 6090,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "start_ms": 3355560,
+      "relative_ms": 6120,
+      "black": false,
+      "duration_ms": 140
+    },
+    {
+      "start_ms": 3355700,
+      "relative_ms": 6260,
+      "black": true,
+      "duration_ms": 40
+    },
+    {
+      "start_ms": 3355740,
+      "relative_ms": 6300,
+      "black": false,
+      "duration_ms": 70
+    },
+    {
+      "start_ms": 3355810,
+      "relative_ms": 6370,
+      "black": true,
+      "duration_ms": 130
+    },
+    {
+      "start_ms": 3355940,
+      "relative_ms": 6500,
+      "black": false,
+      "duration_ms": 60
+    },
+    {
+      "start_ms": 3356000,
+      "relative_ms": 6560,
+      "black": true,
+      "duration_ms": 140
+    },
+    {
+      "start_ms": 3356140,
+      "relative_ms": 6700,
+      "black": false,
+      "duration_ms": 70
+    },
+    {
+      "start_ms": 3356210,
+      "relative_ms": 6770,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "start_ms": 3356240,
+      "relative_ms": 6800,
+      "black": false,
+      "duration_ms": 70
+    },
+    {
+      "start_ms": 3356310,
+      "relative_ms": 6870,
+      "black": true,
+      "duration_ms": 120
+    },
+    {
+      "start_ms": 3356430,
+      "relative_ms": 6990,
+      "black": false,
+      "duration_ms": 60
+    },
+    {
+      "start_ms": 3356490,
+      "relative_ms": 7050,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "start_ms": 3356520,
+      "relative_ms": 7080,
+      "black": false,
+      "duration_ms": 60
+    },
+    {
+      "start_ms": 3356580,
+      "relative_ms": 7140,
+      "black": true,
+      "duration_ms": 40
+    },
+    {
+      "start_ms": 3356620,
+      "relative_ms": 7180,
+      "black": false,
+      "duration_ms": 160
+    },
+    {
+      "start_ms": 3356780,
+      "relative_ms": 7340,
+      "black": true,
+      "duration_ms": 40
+    },
+    {
+      "start_ms": 3356820,
+      "relative_ms": 7380,
+      "black": false,
+      "duration_ms": 60
+    },
+    {
+      "start_ms": 3356880,
+      "relative_ms": 7440,
+      "black": true,
+      "duration_ms": 140
+    },
+    {
+      "start_ms": 3357020,
+      "relative_ms": 7580,
+      "black": false,
+      "duration_ms": 80
+    },
+    {
+      "start_ms": 3357100,
+      "relative_ms": 7660,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "start_ms": 3357130,
+      "relative_ms": 7690,
+      "black": false,
+      "duration_ms": 190
+    },
+    {
+      "start_ms": 3357320,
+      "relative_ms": 7880,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "start_ms": 3357350,
+      "relative_ms": 7910,
+      "black": false,
+      "duration_ms": 100
+    },
+    {
+      "start_ms": 3357450,
+      "relative_ms": 8010,
+      "black": true,
+      "duration_ms": 180
+    },
+    {
+      "start_ms": 3357630,
+      "relative_ms": 8190,
+      "black": false,
+      "duration_ms": 110
+    },
+    {
+      "start_ms": 3357740,
+      "relative_ms": 8300,
+      "black": true,
+      "duration_ms": 220
+    },
+    {
+      "start_ms": 3357960,
+      "relative_ms": 8520,
+      "black": false,
+      "duration_ms": 100
+    },
+    {
+      "start_ms": 3358060,
+      "relative_ms": 8620,
+      "black": true,
+      "duration_ms": 40
+    }
+  ],
+  "comparisons": [
+    {
+      "symbol": "A",
+      "reverse": false,
+      "characters": [
+        {
+          "start_index": 1,
+          "checks": [
+            {
+              "index": 1,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 2,
+              "black": false,
+              "observed_ms": 140,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 3,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 4,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 5,
+              "black": true,
+              "observed_ms": 130,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.6,
+              "within_expected_band": true
+            },
+            {
+              "index": 6,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 7,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 8,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 9,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            }
+          ]
+        },
+        {
+          "start_index": 11,
+          "checks": [
+            {
+              "index": 11,
+              "black": true,
+              "observed_ms": 120,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.4,
+              "within_expected_band": true
+            },
+            {
+              "index": 12,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 13,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 14,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 15,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 16,
+              "black": false,
+              "observed_ms": 160,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 3.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 17,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 18,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 19,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": true
+            }
+          ]
+        },
+        {
+          "start_index": 21,
+          "checks": [
+            {
+              "index": 21,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 22,
+              "black": false,
+              "observed_ms": 190,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 2.714,
+              "within_expected_band": true
+            },
+            {
+              "index": 23,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 24,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 25,
+              "black": true,
+              "observed_ms": 180,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 2.571,
+              "within_expected_band": true
+            },
+            {
+              "index": 26,
+              "black": false,
+              "observed_ms": 110,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.571,
+              "within_expected_band": false
+            },
+            {
+              "index": 27,
+              "black": true,
+              "observed_ms": 220,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 3.143,
+              "within_expected_band": true
+            },
+            {
+              "index": 28,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 29,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.571,
+              "within_expected_band": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "A",
+      "reverse": true,
+      "characters": [
+        {
+          "start_index": 1,
+          "checks": [
+            {
+              "index": 1,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 2,
+              "black": false,
+              "observed_ms": 140,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 3,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 4,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 5,
+              "black": true,
+              "observed_ms": 130,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.6,
+              "within_expected_band": true
+            },
+            {
+              "index": 6,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 7,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 8,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 9,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            }
+          ]
+        },
+        {
+          "start_index": 11,
+          "checks": [
+            {
+              "index": 11,
+              "black": true,
+              "observed_ms": 120,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.4,
+              "within_expected_band": true
+            },
+            {
+              "index": 12,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 13,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 14,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": false
+            },
+            {
+              "index": 15,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 16,
+              "black": false,
+              "observed_ms": 160,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 3.2,
+              "within_expected_band": false
+            },
+            {
+              "index": 17,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 18,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 19,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": true
+            }
+          ]
+        },
+        {
+          "start_index": 21,
+          "checks": [
+            {
+              "index": 21,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 22,
+              "black": false,
+              "observed_ms": 190,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 2.714,
+              "within_expected_band": false
+            },
+            {
+              "index": 23,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 24,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 25,
+              "black": true,
+              "observed_ms": 180,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 2.571,
+              "within_expected_band": true
+            },
+            {
+              "index": 26,
+              "black": false,
+              "observed_ms": 110,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.571,
+              "within_expected_band": false
+            },
+            {
+              "index": 27,
+              "black": true,
+              "observed_ms": 220,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 3.143,
+              "within_expected_band": false
+            },
+            {
+              "index": 28,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 29,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.571,
+              "within_expected_band": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Z",
+      "reverse": false,
+      "characters": [
+        {
+          "start_index": 1,
+          "checks": [
+            {
+              "index": 1,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 2,
+              "black": false,
+              "observed_ms": 140,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 3,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 4,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 5,
+              "black": true,
+              "observed_ms": 130,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.6,
+              "within_expected_band": true
+            },
+            {
+              "index": 6,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 7,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 8,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 9,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            }
+          ]
+        },
+        {
+          "start_index": 11,
+          "checks": [
+            {
+              "index": 11,
+              "black": true,
+              "observed_ms": 120,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 12,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": false
+            },
+            {
+              "index": 13,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 14,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 15,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 16,
+              "black": false,
+              "observed_ms": 160,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 3.2,
+              "within_expected_band": false
+            },
+            {
+              "index": 17,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": true
+            },
+            {
+              "index": 18,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 19,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": false
+            }
+          ]
+        },
+        {
+          "start_index": 21,
+          "checks": [
+            {
+              "index": 21,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 22,
+              "black": false,
+              "observed_ms": 190,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 2.714,
+              "within_expected_band": true
+            },
+            {
+              "index": 23,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 24,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 25,
+              "black": true,
+              "observed_ms": 180,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 2.571,
+              "within_expected_band": true
+            },
+            {
+              "index": 26,
+              "black": false,
+              "observed_ms": 110,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.571,
+              "within_expected_band": false
+            },
+            {
+              "index": 27,
+              "black": true,
+              "observed_ms": 220,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 3.143,
+              "within_expected_band": true
+            },
+            {
+              "index": 28,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 29,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.571,
+              "within_expected_band": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "Z",
+      "reverse": true,
+      "characters": [
+        {
+          "start_index": 1,
+          "checks": [
+            {
+              "index": 1,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 2,
+              "black": false,
+              "observed_ms": 140,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 3,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 4,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 5,
+              "black": true,
+              "observed_ms": 130,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 2.6,
+              "within_expected_band": true
+            },
+            {
+              "index": 6,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 7,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 8,
+              "black": false,
+              "observed_ms": 70,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 1.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 9,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            }
+          ]
+        },
+        {
+          "start_index": 11,
+          "checks": [
+            {
+              "index": 11,
+              "black": true,
+              "observed_ms": 120,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.4,
+              "within_expected_band": false
+            },
+            {
+              "index": 12,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 13,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 0.6,
+              "within_expected_band": false
+            },
+            {
+              "index": 14,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": true
+            },
+            {
+              "index": 15,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 16,
+              "black": false,
+              "observed_ms": 160,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 3.2,
+              "within_expected_band": false
+            },
+            {
+              "index": 17,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 0.8,
+              "within_expected_band": false
+            },
+            {
+              "index": 18,
+              "black": false,
+              "observed_ms": 60,
+              "expected_units": 3,
+              "local_unit_ms": 50,
+              "ratio": 1.2,
+              "within_expected_band": false
+            },
+            {
+              "index": 19,
+              "black": true,
+              "observed_ms": 140,
+              "expected_units": 1,
+              "local_unit_ms": 50,
+              "ratio": 2.8,
+              "within_expected_band": false
+            }
+          ]
+        },
+        {
+          "start_index": 21,
+          "checks": [
+            {
+              "index": 21,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 22,
+              "black": false,
+              "observed_ms": 190,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 2.714,
+              "within_expected_band": false
+            },
+            {
+              "index": 23,
+              "black": true,
+              "observed_ms": 30,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 0.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 24,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 25,
+              "black": true,
+              "observed_ms": 180,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 2.571,
+              "within_expected_band": true
+            },
+            {
+              "index": 26,
+              "black": false,
+              "observed_ms": 110,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 1.571,
+              "within_expected_band": false
+            },
+            {
+              "index": 27,
+              "black": true,
+              "observed_ms": 220,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 3.143,
+              "within_expected_band": false
+            },
+            {
+              "index": 28,
+              "black": false,
+              "observed_ms": 100,
+              "expected_units": 3,
+              "local_unit_ms": 70,
+              "ratio": 1.429,
+              "within_expected_band": false
+            },
+            {
+              "index": 29,
+              "black": true,
+              "observed_ms": 40,
+              "expected_units": 1,
+              "local_unit_ms": 70,
+              "ratio": 0.571,
+              "within_expected_band": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "rank_diagnostic": [
+    {
+      "start_index": 1,
+      "widths_ms": [
+        30,
+        140,
+        40,
+        70,
+        130,
+        60,
+        140,
+        70,
+        30
+      ],
+      "rank_pattern_hex": "0x94",
+      "largest_narrow_ms": 70,
+      "smallest_wide_ms": 130
+    },
+    {
+      "start_index": 11,
+      "widths_ms": [
+        120,
+        60,
+        30,
+        60,
+        40,
+        160,
+        40,
+        60,
+        140
+      ],
+      "rank_pattern_hex": "0x109",
+      "largest_narrow_ms": 60,
+      "smallest_wide_ms": 120
+    },
+    {
+      "start_index": 21,
+      "widths_ms": [
+        30,
+        190,
+        30,
+        100,
+        180,
+        110,
+        220,
+        100,
+        40
+      ],
+      "rank_pattern_hex": "0x94",
+      "largest_narrow_ms": 110,
+      "smallest_wide_ms": 180
+    }
+  ]
+}
