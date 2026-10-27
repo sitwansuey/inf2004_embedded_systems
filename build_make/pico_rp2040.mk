@@ -316,6 +316,8 @@ CFLAGS  += -DTM_CONSOLE_UART=$(CRASH_REPORT)
 ifeq ($(CRASH_REPORT),0)
 CFLAGS  += -DBOARD_UART0_FREE=1
 endif
+# ADC pad ownership follows BOARD_IR_MODE in adc_cnf_sysdep.h.
+# Do not enable analogue pads in digital/disabled or isolated IMU profiles.
 
 ################################################################################
 # Console selection

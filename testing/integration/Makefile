@@ -8,13 +8,13 @@ test:
 	mkdir -p .build
 	$(CC) $(CFLAGS) buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle
 	./.build/buddy4_vehicle
-	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/continuous_line
+	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/continuous_line
 	./.build/continuous_line
-	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_course_test.c ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/line_course
+	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_course_test.c ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/line_course
 	./.build/line_course
 	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_only_test.c ../../app_program/ir_line_progress.c ../../app_program/ir_motor_scan.c $(LDFLAGS) -o .build/line_only
 	./.build/line_only
-	$(CC) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 line_trace_test.c ../../app_program/ir_line_trace.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o .build/line_trace
+	$(CC) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 line_trace_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o .build/line_trace
 	./.build/line_trace
 	$(CC) $(CFLAGS) policy_test.c $(CORE) $(LDFLAGS) -lm -o .build/policy
 	./.build/policy

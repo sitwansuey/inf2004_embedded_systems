@@ -1,5 +1,41 @@
 # Main reconciliation on 27 October 2026
 
+## Second reconciliation: main 58b89c2
+
+Main added 9c3bd3d and 58b89c2 after the first reconciliation below. The
+Buddy 4 branch now incorporates those commits. Their changes add IR line and
+barcode processing, wheel duty trims (97/98 percent), movement renewal and
+global ADC pad enablement around the older timed controller.
+
+The wheel trims and updated motor assertions are retained. Startup retains
+the existing single explicit-ARM controller with live S3/S4 acquisition,
+encoder-based navigation, STOP epochs and monotonic operating time. The new
+main controller would replace S4 with a placeholder, automatically start
+motion after a delay, permit a sensor-free indefinite straight mode and treat
+NO_FALL as forward clearance. Those policies are not used by this integration.
+No-echo remains unknown space, with normal sensor-fault handling.
+
+Main's straddling-sensor steering map is extracted into stateless
+vehicle_line_command() and used by the existing explicitly supervised
+continuous-line test. Freshness, calibration and movement authorization stay
+with their existing owners. A second barcode decoder/logging pipeline is not
+started; Buddy 3 owns acquisition, capture and bounded events. Both-white
+forward behavior cannot establish line presence and is not enabled as the
+normal autonomous tracking policy. The existing dedicated test profiles remain
+available; full course/physical barcode acceptance remains open.
+
+ADC pad setup follows BOARD_IR_MODE==2 in the kernel configuration, preserving
+GP26/27/28 for configured analogue IR but leaving digital/disabled and isolated
+IMU profiles alone. Main's unconditional command-line enables are removed.
+The 5 ms ADC timeout and bounded READY implementation are preserved.
+
+The reconciled pre-packing Default ARM image and integration suite pass;
+ready-baseline.json and ready-baseline-build.log under testing/subsystem4
+record the baseline for the subsequent B4 odometry storage comparison. These
+are software checks; no flashing or hardware action was performed.
+
+## First reconciliation: main f8107be
+
 The user authorized reconciling current Buddy 4 work with latest main, pushing
 and merging PR #8, with Buddy 1 reviewing retrospectively. This is an integrated
 software baseline. Physical calibration, accuracy, motor-response timing and

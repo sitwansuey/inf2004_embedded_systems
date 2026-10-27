@@ -1,5 +1,6 @@
 /* Line-only bench decisions. No hardware, kernel calls or barcode authority. */
 #include "ir_line_trace.h"
+#include "vehicle_line.h"
 #include <stddef.h>
 #include <string.h>
 
@@ -43,8 +44,7 @@ unsigned ir_line_direction(const ir_line_trace_t *s) {
 }
 unsigned ir_line_continuous_direction(const ir_line_trace_t *s) {
     if(s==NULL || !s->usable || s->result.black_mask>3U) return IR_LINE_STOP;
-    return s->result.black_mask==2U?IR_LINE_LEFT:
-           s->result.black_mask==1U?IR_LINE_RIGHT:IR_LINE_FORWARD;
+    return vehicle_line_command(s->result.black_mask);
 }
 void ir_line_enforce(ir_scan_state_t *scan,const ir_line_trace_t *line) {
     if(scan!=NULL && scan->active && scan->scan &&

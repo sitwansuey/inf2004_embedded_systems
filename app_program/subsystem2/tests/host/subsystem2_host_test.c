@@ -425,12 +425,14 @@ static void direction_hook(void)
 {
     if (receive_count == 2U)
     {
-        UW duty = ((MOTOR_PWM_WRAP + 1U) * 30U) / 100U;
+        UW duty = (MOTOR_PWM_WRAP + 1U) * 30U;
+        UW left = (duty * S2_MOTOR1_TRIM_PERCENT) / 10000U;
+        UW right = (duty * S2_MOTOR2_TRIM_PERCENT) / 10000U;
 
-        assert(duties[8] == (expected_left > 0 ? duty : 0U));
-        assert(duties[9] == (expected_left < 0 ? duty : 0U));
-        assert(duties[10] == (expected_right > 0 ? duty : 0U));
-        assert(duties[11] == (expected_right < 0 ? duty : 0U));
+        assert(duties[8] == (expected_left > 0 ? left : 0U));
+        assert(duties[9] == (expected_left < 0 ? left : 0U));
+        assert(duties[10] == (expected_right > 0 ? right : 0U));
+        assert(duties[11] == (expected_right < 0 ? right : 0U));
     }
 }
 
