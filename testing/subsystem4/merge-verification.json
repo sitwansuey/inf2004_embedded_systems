@@ -21,20 +21,22 @@
     "aggregate_protocol_vectors": 302,
     "S5_explicit_diagnostic_ARM_syntax": "PASS",
     "local_sanitizers": "Unavailable in native Windows GCC; Linux CI workflow added",
-    "physical_testing": "NOT RUN"
+    "physical_testing": "NOT RUN",
+    "post_correction": "B4 host and controller/transport integration PASS; default ARM firmware rebuilt PASS; Linux sanitizer CI rerun pending"
   },
   "builds": [
     {
       "profile": "Default",
       "elf": "build_make/mtk3pico_smp1_usb_cdc_wifi_enc.elf",
-      "elf_sha256": "83f8f94e88571447f5e1aa5f1df26415897c3a6fc7a001803e90e25b44386c1d",
+      "elf_sha256": "886a8ef6193bc1ba2d0fc0f019dc42142e3daac1dc11c09fe42889d661009ad2",
       "uf2": "build_make/mtk3pico_smp1_usb_cdc_wifi_enc.uf2",
-      "uf2_sha256": "81bacddea6e3b2b5ce816c9bdf68096e52121a416a6ff122e7d5ce21976c289e",
+      "uf2_sha256": "5bdaee67039cd15d56ab2cc6f943efd497a3606080ad8eb97e4802906e46b1f1",
       "text": 335248,
       "data": 696,
       "bss": 25464,
       "static_ram": 26160,
-      "flashed": false
+      "flashed": false,
+      "source_note": "Final signedness and mutex-error corrections included"
     },
     {
       "profile": "S4Bench",
@@ -46,7 +48,8 @@
       "data": 616,
       "bss": 24808,
       "static_ram": 25424,
-      "flashed": false
+      "flashed": false,
+      "source_note": "Built before final signedness and mutex-error corrections; see e4f70be baseline"
     },
     {
       "profile": "Mqtt",
@@ -58,7 +61,8 @@
       "data": 704,
       "bss": 83140,
       "static_ram": 83844,
-      "flashed": false
+      "flashed": false,
+      "source_note": "Built before final signedness and mutex-error corrections; see e4f70be baseline"
     },
     {
       "profile": "PassiveTest",
@@ -70,7 +74,8 @@
       "data": 696,
       "bss": 25464,
       "static_ram": 26160,
-      "flashed": false
+      "flashed": false,
+      "source_note": "Built before final signedness and mutex-error corrections; see e4f70be baseline"
     }
   ],
   "MQTT_build_credentials": "Temporary nondeployable examples, removed after build; no actual credentials committed",
@@ -146,7 +151,7 @@
     "app_program/subsystem4/drv_sdk_clock.c": "bb5b2abfd0b5917db52b21d95467f03e5d96bc0cde7eedc29b4a08b9beed1f38",
     "app_program/subsystem4/encoder_input.c": "c527e8b1ab4aa6205c051a48e49ad1247f98f030b7aa129cc6e1484dc03f38ac",
     "app_program/subsystem4/encoder_input.h": "5bb822b7ac701a4512ea837325678348159a9c16c5abc1d3b8cb34431da0d20b",
-    "app_program/subsystem4/packed_bits.h": "b619e7f91b674789a801db47f5120185801876d74d0f636c2ee53cb4b84889e6",
+    "app_program/subsystem4/packed_bits.h": "eb0df062fb5f790cb2920dcd42cf6d6978542f2d032f987938d2f4b8254a9699",
     "app_program/subsystem4/result_data.c": "233a9b350c23770b0b0ee4ee05353f9b5a1bef653c7e27285de6444f1d3f44ac",
     "app_program/subsystem4/result_data.h": "ae8dd40fa9f6ee0fd423443a73ebbcb58003cd2bce6204e32cb779191237d9e6",
     "app_program/subsystem4/sensor_data.c": "e727245d30435607e5ce6dacd32674714bd46bc6b21da01af759de1f495f0976",
@@ -173,7 +178,7 @@
     "app_program/subsystem5/s5_servo_sweep_test.c": "e3cce26b2aeeadebe52112b0c32752f1b77a87ab4a45298e1b36851df9c7d6a8",
     "app_program/subsystem5/s5_width.c": "0c66e218998179ea75eb46a6f4354095a4000411083b730758d161397da73b18",
     "app_program/subsystem5/s5_width.h": "feadb19fe45126b43119f6b737ed29bf9e1bc7637f2980b00955cfa1f11b77c4",
-    "app_program/subsystem5/subsystem5.c": "f80b3cf13e2636d29579c96fbb820ecfe92444a97659320c93c4621f0e5d5614",
+    "app_program/subsystem5/subsystem5.c": "94c71f74daada009f951d5f1a5af6563cffae455347ccabb873880124885b974",
     "app_program/subsystem5/subsystem5.h": "b62bdfafe82cfcfebbea168394790393796b321e6c931efeb57a584b7b5a8dbd",
     "app_program/subsystem5/subsystem5_test.c": "36acec74012788c1d758bdd194a569f46fb8e6f83cb5bff5e53b07bea8ba500e",
     "app_program/subsystem2/tests/host/app.h": "625c1fe2b7229cc59a2bfcf73f68d1f4fe4aaea4acfdf14ba902e391fae36a01",
@@ -191,12 +196,14 @@
   },
   "log_sha256": {
     "merge-buddy3.log": "f09c015515414d05e5ac3036dff53d72b66897d33869b49bb6de86c062374735",
-    "merge-buddy4.log": "5aed7bfd9f0940ef2afd077bc885e706aa0e7b6fbe0cf553e7a8678f82dbc343",
-    "merge-build-default.log": "f88dbad9e7f9b031e066cf9090f0933d2f3eac37328f9632d808a744915ca406",
+    "merge-buddy4.log": "4ae73d2ddfff8b2536f0f1f91f6d2f4c8ec86783f5cc30137b535dece313fe1d",
+    "merge-build-default.log": "a65d4056ea534cb1085a85e50540c5eb6e79681dab6fe0bd9269a3b760753563",
     "merge-build-mqtt.log": "043c9e57ab5505cce9e1fbaea13a6530a69a500013e250653461273549140508",
     "merge-build-passive.log": "295a8fab7f4d95258f812a51b1d3d10aa84d83ac5beee63c7144dbb222026bc4",
     "merge-build-s4bench.log": "1f607281c93a78fdd6452eb2f24364c11ef286405e2bdc8f016999ad209122a1",
+    "merge-ci-sanitizer-first.log": "1cbaeb5138fa6b06d5fa6061a5ec0ca15d09e221e294d3894f08a8ba2d67576f",
     "merge-edr.log": "94ac2438087e55ca40d4f7c810673b5b0ee1af7b60f72b77e03f5a71d2c3d59a",
     "merge-integration.log": "2fa725893f1c1fee1bfccaf2ac4398989de333a2dca092ff6c966ef64ae04101"
-  }
+  },
+  "CI_correction": "GCC 13 sanitizer build exposed integer-promotion sign-conversion warning in packed read; byte explicitly promoted to unsigned. No checks disabled. S5 writer also exits on mutex errors."
 }

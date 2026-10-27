@@ -158,8 +158,10 @@ static void scan_task(INT stacd, void *exinf)
     hardware_owner=tk_get_tid();
     if (s5_hw_timer_init() < E_OK) {
         s5_status_t fault={.state=S5_FAULT};
-        tk_loc_mtx(status_mutex,TMO_FEVR);status_store(&fault);
-        tk_unl_mtx(status_mutex); tk_ext_tsk(); return;
+        if(tk_loc_mtx(status_mutex,TMO_FEVR)>=E_OK) {
+            status_store(&fault);(void)tk_unl_mtx(status_mutex);
+        }
+        tk_ext_tsk(); return;
     }
     s5_hw_io_init();
     tm_printf((UB *)"[S5] status copies: bounded inheritance wait\n");
@@ -184,7 +186,7 @@ static void scan_task(INT stacd, void *exinf)
         next.time_ms = now.lo;
         INT target = s5_scan_step(&next, &scan);
         INT travelled;
-        tk_loc_mtx(status_mutex, TMO_FEVR);
+        if(tk_loc_mtx(status_mutex,TMO_FEVR)<E_OK) {tk_ext_tsk();return;}
         if (turn_requested)
         {
             turn_requested = FALSE;
@@ -218,7 +220,7 @@ static void scan_task(INT stacd, void *exinf)
             next.angle_deg = target;
         }
         status_store(&next);
-        tk_unl_mtx(status_mutex);
+        if(tk_unl_mtx(status_mutex)<E_OK) {tk_ext_tsk();return;}
         s5_hw_servo(target);
         UW settle_ms = (UW)travelled * S5_SERVO_MS_PER_DEG;
         if (settle_ms < S5_SETTLE_MS)

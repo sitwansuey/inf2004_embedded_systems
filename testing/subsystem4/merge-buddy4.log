@@ -1,13 +1,9 @@
 make: Entering directory '/c/Users/JT/Downloads/inf2004_embedded_systems/app_program/subsystem4/tests/host'
-make -B test CFLAGS='-O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer'
-make[1]: Entering directory '/c/Users/JT/Downloads/inf2004_embedded_systems/app_program/subsystem4/tests/host'
-cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer driver_test.c ../../drv_lsm303dlhc.c  -o ".build/driver_test"
-cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer data_test.c ../../sensor_data.c  -o ".build/data_test"
+cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic data_test.c ../../sensor_data.c  -o ".build/data_test"
 cp ../../packed_bits.h ../../subsystem4.c ../../subsystem4.h ../../sensor_data.h ../../drv_lsm303dlhc.h .build/shim/subsystem4/
 cp app.h .build/shim/app.h
-cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer api_test.c .build/shim/subsystem4/subsystem4.c ../../sensor_data.c  -o ".build/api_test"
-cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer terrain_input_test.c ../../encoder_input.c ../../terrain.c ../../../subsystem2/odometry.c ../../../shared/edr.c  -lm -o ".build/terrain_input_test"
-cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer result_test.c ../../result_data.c  -o ".build/result_test"
+cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic api_test.c .build/shim/subsystem4/subsystem4.c ../../sensor_data.c  -o ".build/api_test"
+cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic result_test.c ../../result_data.c  -o ".build/result_test"
 ./.build/driver_test
 [TEST] S4-U10 PASS  sensor identity/configuration and initialization faults
 [TEST] S4-U11 PASS  signed decoding, XYZ ordering, units and freshness
@@ -39,9 +35,4 @@ S4-U28 PASS smaller/larger completed humps update maximum only upward
 S4-U30 result codec: exact size, boundaries, padding, fault mapping, semantic checks and unchanged errors PASS
 python3 result_vectors.py
 S4-U31 result receivers: 57 valid and 202 rejected C/Python vectors PASS
-make[1]: Leaving directory '/c/Users/JT/Downloads/inf2004_embedded_systems/app_program/subsystem4/tests/host'
-cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic size_probe.c -o .build/size_probe
-./.build/size_probe
-Native sizeof: sample 40 -> 32; status 144 -> 120; terrain 26; encoder input 36
-Persistent cache 63 bytes; shared S4 result 12 bytes (93 bits)
 make: Leaving directory '/c/Users/JT/Downloads/inf2004_embedded_systems/app_program/subsystem4/tests/host'

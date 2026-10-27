@@ -11,7 +11,7 @@ static inline uint64_t s4_bits_get(const uint8_t *p, unsigned bit, unsigned widt
         unsigned start = bit % 8U, take = 8U - start;
         if (take > width) take = width;
         unsigned mask = (1U << take) - 1U;
-        value |= (uint64_t)((p[bit / 8U] >> start) & mask) << shift;
+        value |= (uint64_t)(((unsigned)p[bit / 8U] >> start) & mask) << shift;
         bit += take; shift += take; width -= take;
     }
     return value;
