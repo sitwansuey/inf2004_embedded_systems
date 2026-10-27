@@ -32,7 +32,7 @@ time still requires measurement; zero PWM is not guaranteed immediate braking.
 | S2 -> VC/S1 | bounded protected commanded-status and consistent encoder snapshots; operating-clock timestamps; measured x1 scale |
 | S2 -> S4 in VC | exact 13-byte EDR encoder payload; checked validity, age, IMU skew, count/time wrap and interval continuity; no native struct fusion |
 | VC <-> S3 | single controller binding, modes/100 ms lease, fresh snapshot (<30 ms), bounded 13-byte events (<100 ms), explicit marker acknowledgement |
-| S4 -> VC/S1 | internal mutex snapshot; independent per-channel usability/age; acquisition remains sole I2C owner |
+| S4 -> VC/S1 | 63-byte protected acquisition record; per-channel usability/age decoded locally; 12-byte checked terrain result in shared app_state; acquisition remains sole I2C owner |
 | VC -> S5 | controller-bound navigation mode/direction, scan ID, old reading invalidated until servo settles |
 | S5 -> VC/S1 | copied status, matching actual/requested sample angle, freshness, static scan geometry and bounds |
 | VC -> S1 | protected compact controller/terrain snapshot; no network calls |

@@ -91,3 +91,20 @@ This does not replace physical validation, runtime memory or timing evidence.
 
 The staged physical guide and Buddy 4 ownership recap are in
 `docs/BUDDY4_TESTING.md` and `docs/BUDDY4_IMPLEMENTATION.md`.
+
+## CR1 compact storage continuation after checkpoint 373ad6d
+
+The published draft PR #8 preserves the checkpoint. Subsequent local work
+replaces persistent and cross-task S4 acquisition records with 500-bit/63-byte
+records, narrows task-local terrain fields (165 bits, 21 ARM bytes), and adds
+a checked 93-bit/12-byte S4 terrain result consumed by both VC and B1.
+See cr1-verification.json for current commands, source hashes and build sizes;
+verification-20261027.json remains the earlier checkpoint evidence.
+
+Host groups U10?U31 and GCC static analysis pass, including 259 independent
+C/Python result vectors and compact cache raw/time/counter boundaries. The actual
+vehicle and telemetry task tests exercise the compact records and rejection
+behavior. The unchanged aggregate telemetry remains 50 bytes. Host performance
+and before/after memory comparisons are explicitly separate from physical
+measurements. ASan/UBSan, physical calibration, load timing and runtime memory
+high-water evidence remain outstanding as documented in the current CR1 review.

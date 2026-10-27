@@ -11,6 +11,7 @@
 static int fail_flag_create;
 static int fail_buffer_create;
 static ER lock_result;
+static ER unlock_result;
 static unsigned int deleted_mutexes;
 static unsigned int deleted_flags;
 static unsigned int tasks_started;
@@ -57,7 +58,7 @@ ER tk_loc_mtx(ID id, INT timeout)
 ER tk_unl_mtx(ID id)
 {
     REQUIRE(id == 10);
-    return E_OK;
+    return unlock_result;
 }
 ER tk_del_mtx(ID id)
 {
@@ -98,7 +99,7 @@ ID app_start_task(FP entry, PRI pri, UW affinity, const char *p_name)
 
 int main(void)
 {
-    s4_sensor_status_t state;
+    s4_sensor_cache_t state;
     s4_sensor_status_t output;
 
     REQUIRE(subsystem4_start() == E_OBJ);
@@ -117,10 +118,11 @@ int main(void)
 
     s4_data_reset(&state);
     s4_data_init_result(&state, LSM303_OK);
-    state.task_heartbeat = 42;
-    state.latest.accel.fresh = true;
-    state.latest.accel.valid = true;
-    state.latest.accel.read_time_us = 20000;
+    s4_cache_set_count(&state,S4_COUNT_HEARTBEAT,42);
+    lsm303_frame_t frame={0};
+    frame.accel.fresh=true;frame.accel.valid=true;frame.accel.read_time_us=20000;
+    frame.accel.raw[2]=1000;
+    s4_data_update(&state,&frame,LSM303_OK);
     clock_ms = 30;
     REQUIRE(s4_kernel_now_us(NULL) == UINT64_C(30000));
     wall_clock_ms = INT64_C(123456789000);
@@ -133,12 +135,24 @@ int main(void)
     REQUIRE(s4_sensor_get_status(&output) == E_OK);
     REQUIRE(output.task_heartbeat == 42 && output.accel_usable);
     REQUIRE(output.accel_age_ms == 10 && output.legacy_lines_received == 1);
+    s4_sensor_cache_t record;
+    REQUIRE(s4_sensor_get_record(&record)==E_OK);
+    s4_sensor_status_t decoded;
+    s4_data_snapshot(&record,30000,&decoded);
+    REQUIRE(decoded.accel_usable && decoded.task_heartbeat==42 && sizeof(record)==63);
     lock_result = E_TMOUT;
     output.task_heartbeat = 99;
     REQUIRE(s4_sensor_get_status(&output) == E_TMOUT && output.task_heartbeat == 99);
-    state.task_heartbeat = 123;
+    for(unsigned n=0;n<S4_CACHE_BYTES;++n)record.bytes[n]=0xa5;
+    REQUIRE(s4_sensor_get_record(&record)==E_TMOUT);
+    for(unsigned n=0;n<S4_CACHE_BYTES;++n)REQUIRE(record.bytes[n]==0xa5);
+    s4_cache_set_count(&state,S4_COUNT_HEARTBEAT,123);
     REQUIRE(s4_status_publish(&state) == E_TMOUT);
     lock_result = E_OK;
+    unlock_result=E_SYS;
+    REQUIRE(s4_sensor_get_record(&record)==E_SYS);
+    for(unsigned n=0;n<S4_CACHE_BYTES;++n)REQUIRE(record.bytes[n]==0xa5);
+    unlock_result=E_OK;
     REQUIRE(s4_sensor_get_status(&output) == E_OK && output.task_heartbeat == 42);
     clock_ms = (UINT64_C(1) << 32) + 123;
     REQUIRE(s4_kernel_now_us(NULL) == clock_ms * 1000u);

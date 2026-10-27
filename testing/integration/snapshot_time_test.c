@@ -13,6 +13,7 @@ static jmp_buf finished;
 static UW clock_ms, read_delay, sample_age, line_stamp;
 static unsigned clock_reads, packets;
 static BOOL copy_failure, clock_failure;
+static BOOL bad_s4_record;
 static int64_t decoded[TEL_FIELD_COUNT];
 
 ER tk_get_otm(SYSTIM *time)
@@ -22,7 +23,14 @@ ER tk_get_otm(SYSTIM *time)
 }
 ER tk_dly_tsk(UW delay) { (void)delay;longjmp(finished,1);return E_OK; }
 INT tm_printf(UB *format, ...) { (void)format;return 0; }
-ER app_get_state(app_state_t *state) { *state=(app_state_t){0};return E_OK; }
+ER app_get_state(app_state_t *state) {
+    *state=(app_state_t){0};
+    s4_result_t result={.calculated_ms=clock_ms,.pitch_cdeg=1234,.roll_cdeg=-5678,
+        .height_mm=123,.maximum_mm=456,.terrain=0,.flags=27};
+    REQUIRE(s4_result_encode(&result,state->s4_result,sizeof(state->s4_result)));
+    if(bad_s4_record)state->s4_result[11]|=0x80;
+    return E_OK;
+}
 ER s2_motion_get_status(s2_motion_status_t *state)
 { *state=(s2_motion_status_t){.state=S2_MOTION_STOPPED};return E_OK; }
 ER s2_encoder_get_status(s2_encoder_status_t *state)
@@ -32,8 +40,12 @@ ER s3_status_get(s3_status_t *state)
     *state=(s3_status_t){.configured=1,.acquisition_error=E_OK,.sample_time_ms=line_stamp};
     return E_OK;
 }
-ER s4_sensor_get_status(s4_sensor_status_t *state)
-{ *state=(s4_sensor_status_t){0};return E_OK; }
+ER s4_sensor_get_record(s4_sensor_cache_t *state) {
+    s4_data_reset(state);s4_data_init_result(state,LSM303_OK);
+    lsm303_frame_t frame={0};frame.accel.fresh=frame.accel.valid=1;
+    frame.accel.read_time_us=(uint64_t)clock_ms*1000U;frame.accel.raw[2]=1000;
+    s4_data_update(state,&frame,LSM303_OK);return E_OK;
+}
 ER s5_get_status(s5_status_t *state)
 {
     if(copy_failure)return E_TMOUT;
@@ -57,6 +69,11 @@ int main(void)
     capture();
     REQUIRE(packets==1 && decoded[TEL_TIME_MS]==1010);
     REQUIRE((decoded[TEL_AVAILABLE]&16)!=0 && decoded[TEL_DISTANCE_MM]==400);
+    REQUIRE((decoded[TEL_AVAILABLE]&96)==96 && decoded[TEL_PITCH_CDEG]==1234 &&
+        decoded[TEL_ROLL_CDEG]==-5678 && decoded[TEL_HEIGHT_MM]==123 && decoded[TEL_HIGHEST_MM]==456);
+    bad_s4_record=TRUE;capture();REQUIRE((decoded[TEL_AVAILABLE]&96)==0);
+    bad_s4_record=FALSE;read_delay=61;capture();
+    REQUIRE((decoded[TEL_AVAILABLE]&96)==0 && decoded[TEL_HIGHEST_MM]==456);
     read_delay=20;line_stamp=990;
     capture();
     REQUIRE((decoded[TEL_AVAILABLE]&4)==0); /* line became stale during wait */

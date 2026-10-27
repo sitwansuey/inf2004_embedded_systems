@@ -15,19 +15,23 @@ void telemetry_task(INT code,void *context) {
         if(st && (now.lo-previous>=200U || s.vehicle.fault!=old_fault)) {
             BOOL mo=s2_motion_get_status(&m)==E_OK,en=s2_encoder_get_status(&e)==E_OK && e.valid;
             ER ir_copy=s3_status_get(&l);BOOL li=ir_copy==E_OK;
-            BOOL im=s4_sensor_get_status(&a)==E_OK;
+            s4_sensor_cache_t imu_record={0};
+            BOOL im=s4_sensor_get_record(&imu_record)==E_OK;
             ER sonar_copy=s5_get_status(&o);BOOL so=sonar_copy==E_OK;
             if(tk_get_otm(&now)<E_OK) {tk_dly_tsk(10);continue;}
+            if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&a);
             li=li && l.configured && l.acquisition_error==E_OK && now.lo-l.sample_time_ms<30U;
             BOOL us=so && o.valid && now.lo-o.time_ms<500U;
-            BOOL terrain_fresh=st && now.lo-s.time_ms<=60U && im && a.accel_usable;
+            s4_result_t terrain={0};
+            BOOL terrain_copy=st && s4_result_decode(s.s4_result,sizeof(s.s4_result),&terrain);
+            BOOL terrain_fresh=terrain_copy && now.lo-terrain.calculated_ms<=60U && im && a.accel_usable;
             int64_t v[TEL_FIELD_COUNT]={0};uint8_t out[TELEMETRY_BYTES];
             v[TEL_VERSION]=1;v[TEL_SEQUENCE]=(uint16_t)count++;
             v[TEL_TIME_MS]=now.lo;v[TEL_PHASE]=s.vehicle.phase;v[TEL_FAULT]=s.vehicle.fault;
             v[TEL_COMMAND]=mo?m.command:0;v[TEL_POWER]=mo?m.power_percent:0;v[TEL_MOTOR_STATE]=mo?m.state:2;
             v[TEL_AVAILABLE]=(mo?1:0)|(en?2:0)|(li?4:0)|(im&&a.accel_usable?8:0)|
-                (us?16:0)|(terrain_fresh&&s.terrain.tilt_valid?32:0)|
-                (terrain_fresh&&s.terrain.height_valid?64:0)|(im&&a.mag_usable?128:0);
+                (us?16:0)|(terrain_fresh&&(terrain.flags&S4_RESULT_TILT)?32:0)|
+                (terrain_fresh&&(terrain.flags&S4_RESULT_HEIGHT)?64:0)|(im&&a.mag_usable?128:0);
             v[TEL_LEFT_COUNTS]=e.motor1_forward_counts;v[TEL_RIGHT_COUNTS]=e.motor2_forward_counts;
             v[TEL_SPEED_MM_S]=bounded(s.speed_mm_s,-2000,2000);v[TEL_LINE_STATE]=li?l.output.line.state:0;
             v[TEL_IR0]=li?l.sample.raw[0]:0;v[TEL_IR1]=li?l.sample.raw[1]:0;v[TEL_IR2]=li?l.sample.raw[2]:0;
@@ -39,11 +43,11 @@ void telemetry_task(INT code,void *context) {
             v[TEL_MX_RAW]=im&&a.mag_usable?a.latest.mag.raw[0]:0;
             v[TEL_MY_RAW]=im&&a.mag_usable?a.latest.mag.raw[1]:0;
             v[TEL_MZ_RAW]=im&&a.mag_usable?a.latest.mag.raw[2]:0;
-            v[TEL_PITCH_CDEG]=s.terrain.pitch_cdeg;v[TEL_ROLL_CDEG]=s.terrain.roll_cdeg;v[TEL_TERRAIN]=s.terrain.state;
-            v[TEL_HEIGHT_MM]=s.terrain.height_mm;v[TEL_HIGHEST_MM]=s.terrain.maximum_mm;
+            v[TEL_PITCH_CDEG]=terrain.pitch_cdeg;v[TEL_ROLL_CDEG]=terrain.roll_cdeg;v[TEL_TERRAIN]=terrain.terrain;
+            v[TEL_HEIGHT_MM]=terrain.height_mm;v[TEL_HIGHEST_MM]=terrain.maximum_mm;
             v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=o.object_width_valid?o.object_width_mm:0;
             v[TEL_SERVO_DEG]=o.angle_deg;v[TEL_SCAN_STATE]=o.state;
-            v[TEL_QUALITY]=(o.object_width_valid?1:0)|(s.terrain.shock?2:0)|(s.vehicle.armed?4:0)|
+            v[TEL_QUALITY]=(o.object_width_valid?1:0)|((terrain.flags&S4_RESULT_SHOCK)?2:0)|(s.vehicle.armed?4:0)|
                 (BOARD_BYPASS_VALIDATED?8:0)|(s.odometry_valid?16:0);
             v[TEL_DROPPED]=s1_drop_count();
             if(telemetry_encode(out,v)) {
@@ -58,10 +62,10 @@ void telemetry_task(INT code,void *context) {
                  * No GPIO/PWM ownership, motor command or binary field changes. */
                 if(BOARD_MOTORS_DISABLED && (count%5)==0) {
                     tm_printf((UB *)"[S4TERRAIN] t=%u fresh=%u tilt=%u pitch_cdeg=%d roll_cdeg=%d state=%u height_valid=%u height_mm=%u max_mm=%u odom=%u\n",
-                        s.time_ms,(unsigned)terrain_fresh,(unsigned)s.terrain.tilt_valid,
-                        (INT)s.terrain.pitch_cdeg,(INT)s.terrain.roll_cdeg,(unsigned)s.terrain.state,
-                        (unsigned)s.terrain.height_valid,(unsigned)s.terrain.height_mm,
-                        (unsigned)s.terrain.maximum_mm,(unsigned)s.odometry_valid);
+                        s.time_ms,(unsigned)terrain_fresh,(unsigned)((terrain.flags&S4_RESULT_TILT)!=0U),
+                        (INT)terrain.pitch_cdeg,(INT)terrain.roll_cdeg,(unsigned)terrain.terrain,
+                        (unsigned)((terrain.flags&S4_RESULT_HEIGHT)!=0U),(unsigned)terrain.height_mm,
+                        (unsigned)terrain.maximum_mm,(unsigned)s.odometry_valid);
                     tm_printf((UB *)"[S2ENC] valid=%u m1=%d m2=%d m1ab=%u%u m2ab=%u%u\n",
                         (unsigned)en,e.motor1_forward_counts,e.motor2_forward_counts,
                         (unsigned)e.motor1_a_level,(unsigned)e.motor1_b_level,

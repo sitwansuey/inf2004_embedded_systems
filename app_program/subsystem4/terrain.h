@@ -27,18 +27,34 @@ enum { TERRAIN_FLAT,TERRAIN_ASCENT,TERRAIN_CREST,TERRAIN_DESCENT,TERRAIN_SHOCK,T
 #if TERRAIN_FLAT_CONFIRM_SAMPLES < 1 || TERRAIN_FLAT_CONFIRM_SAMPLES > 255
 #error Invalid flat confirmation sample count
 #endif
-typedef struct {
-    int32_t height_um, peak_um, previous_distance_um;
+#define TERRAIN_FLAT_COUNT_BITS (TERRAIN_FLAT_CONFIRM_SAMPLES<2?1: \
+    TERRAIN_FLAT_CONFIRM_SAMPLES<4?2:TERRAIN_FLAT_CONFIRM_SAMPLES<8?3: \
+    TERRAIN_FLAT_CONFIRM_SAMPLES<16?4:TERRAIN_FLAT_CONFIRM_SAMPLES<32?5: \
+    TERRAIN_FLAT_CONFIRM_SAMPLES<64?6:TERRAIN_FLAT_CONFIRM_SAMPLES<128?7:8)
+/* GCC packed storage is task-local. No pointer to a member is exposed; the
+ * Cortex-M0+ compiler generates safe accesses for unaligned packed members.
+ * This compiler layout is never used as a transport representation. */
+typedef struct __attribute__((packed)) {
+    int32_t previous_distance_um;
+    uint32_t height_code : 20; /* height_um + 20000: 0..1020000 */
+    uint32_t peak_um : 20; /* 0..1000000 */
     uint32_t sample_ms;
-    int16_t pitch_cdeg, roll_cdeg;
-    uint16_t height_mm, maximum_mm;
+    uint32_t pitch_code : 15; /* pitch_cdeg + 9000 */
+    uint32_t roll_code : 16; /* roll_cdeg + 18000 */
+    uint32_t height_mm : 10;
+    uint32_t maximum_mm : 10;
     uint8_t state : 3;
     uint8_t tilt_valid : 1;
     uint8_t height_valid : 1;
     uint8_t shock : 1;
     uint8_t initialized : 1;
-    uint8_t flat_samples;
+    uint8_t flat_samples : TERRAIN_FLAT_COUNT_BITS;
 } terrain_t;
+static inline int32_t terrain_pitch_cdeg(const terrain_t *s) {return (int32_t)s->pitch_code-9000;}
+static inline int32_t terrain_roll_cdeg(const terrain_t *s) {return (int32_t)s->roll_code-18000;}
+static inline int32_t terrain_height_um(const terrain_t *s) {
+    return (int32_t)s->height_code-20000;
+}
 void terrain_step(terrain_t *s,uint32_t sample_ms,const int32_t accel_mg[3],
                   bool accel_valid,int32_t distance_um,bool odometry_valid,
                   bool calibrated,int pitch_zero,int roll_zero);

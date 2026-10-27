@@ -60,7 +60,7 @@ typedef struct
 typedef struct
 {
     lsm303_bus_t bus;
-    bool initialized;
+    bool initialized : 1;
 } lsm303_device_t;
 
 /* Fixed bring-up configuration: accel 50 Hz, +/-2 g, high resolution, BDU,

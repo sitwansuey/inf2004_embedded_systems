@@ -35,13 +35,30 @@ typedef struct
     uint64_t observed_time_us;
 } s4_sensor_status_t;
 
+/* Persistent storage: 500 information bits, rounded to 63 bytes. Derived
+ * scaled values and ages exist only in transient calculation/API views. */
+enum {
+    S4_COUNT_INIT, S4_COUNT_HEARTBEAT, S4_COUNT_ACCEL, S4_COUNT_MAG,
+    S4_COUNT_ACCEL_ERROR, S4_COUNT_MAG_ERROR, S4_COUNT_OVERRUN,
+    S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY, S4_COUNT_TOTAL
+};
+#define S4_CACHE_BITS (212U + 32U * S4_COUNT_TOTAL)
+#define S4_CACHE_BYTES ((S4_CACHE_BITS + 7U) / 8U)
+typedef struct { uint8_t bytes[S4_CACHE_BYTES]; } s4_sensor_cache_t;
+static inline uint64_t s4_operating_ms_to_us(uint64_t ms) {
+    return ms>(UINT64_MAX-1U)/1000U?UINT64_MAX:ms*1000U;
+}
 /* Pure data handling, with no RTOS/hardware calls. The sensor task owns its
  * working copy. subsystem4.c protects the published copy with a mutex. */
-void s4_data_reset(s4_sensor_status_t *p_state);
-void s4_data_init_result(s4_sensor_status_t *p_state, lsm303_result_t result);
-void s4_data_update(s4_sensor_status_t *p_state, const lsm303_frame_t *p_frame,
+void s4_data_reset(s4_sensor_cache_t *p_state);
+void s4_data_init_result(s4_sensor_cache_t *p_state, lsm303_result_t result);
+void s4_data_invalidate(s4_sensor_cache_t *p_state);
+uint32_t s4_cache_count(const s4_sensor_cache_t *p_state, unsigned counter);
+void s4_cache_set_count(s4_sensor_cache_t *p_state, unsigned counter, uint32_t value);
+void s4_cache_increment(s4_sensor_cache_t *p_state, unsigned counter);
+void s4_data_update(s4_sensor_cache_t *p_state, const lsm303_frame_t *p_frame,
                     lsm303_result_t result);
-void s4_data_snapshot(const s4_sensor_status_t *p_state, uint64_t now_us,
+void s4_data_snapshot(const s4_sensor_cache_t *p_state, uint64_t now_us,
                       s4_sensor_status_t *p_output);
 
 #endif

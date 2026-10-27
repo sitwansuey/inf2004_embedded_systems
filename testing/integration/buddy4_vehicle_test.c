@@ -44,14 +44,17 @@ ER s2_encoder_encode(uint8_t *p,size_t capacity)
 }
 ER s3_status_get(s3_status_t *s) { *s=(s3_status_t){0};return E_OK; }
 ER s5_get_status(s5_status_t *s) { *s=(s5_status_t){0};return E_OK; }
-ER s4_sensor_get_status(s4_sensor_status_t *s)
+ER s4_sensor_get_record(s4_sensor_cache_t *s)
 {
-    *s=(s4_sensor_status_t){0};s->configured=1;s->accel_usable=1;
-    s->latest.accel.read_time_us=(uint64_t)(clock_ms-(failure_mode==3U?40U:0U))*1000U;
-    s->latest.accel.milli_units[2]=1000;
-    s->latest.accel.overrun=failure_mode==5U;
-    return E_OK;
+    s4_data_reset(s);s4_data_init_result(s,LSM303_OK);
+    lsm303_frame_t frame={0};frame.accel.fresh=frame.accel.valid=1;
+    frame.accel.read_time_us=(uint64_t)(clock_ms-(failure_mode==3U?40U:0U))*1000U;
+    frame.accel.raw[2]=1000;
+    frame.accel.overrun=failure_mode==5U;
+    if(failure_mode==6U)frame.accel.raw[0]=1900;
+    s4_data_update(s,&frame,LSM303_OK);return E_OK;
 }
+
 ER s1_command_take(control_message_t *c)
 {
     if(failure_mode==4U && iteration==9U && !reset_offered) {
@@ -73,15 +76,20 @@ ID app_start_task(FP task,PRI priority,UW core,const char *name)
 { (void)task;(void)priority;(void)core;(void)name;return 1; }
 int main(void)
 {
-    for(failure_mode=0;failure_mode<6;++failure_mode) {
+    for(failure_mode=0;failure_mode<7;++failure_mode) {
         iteration=stops=positive_requests=0;clock_ms=100;reset_offered=false;
         if(setjmp(done)==0)vehicle_task(0,NULL);
-        if(failure_mode==0)assert(saved.terrain.tilt_valid && saved.odometry_valid);
+        s4_result_t result={0};assert(s4_result_decode(saved.s4_result,sizeof(saved.s4_result),&result));
+        if(failure_mode==0)assert((result.flags&S4_RESULT_TILT) && saved.odometry_valid);
         if(failure_mode==1 || failure_mode==2)
-            assert(!saved.terrain.tilt_valid && !saved.odometry_valid);
-        if(failure_mode==3)assert(!saved.terrain.tilt_valid && saved.odometry_valid);
-        if(failure_mode==4)assert(reset_offered && !saved.terrain.maximum_mm);
-        if(failure_mode==5)assert(!saved.terrain.tilt_valid && saved.odometry_valid);
+            assert(!(result.flags&S4_RESULT_TILT) && !saved.odometry_valid &&
+                   (result.faults&EDR_FAULT_ENCODER));
+        if(failure_mode==3)assert(!(result.flags&S4_RESULT_TILT) && saved.odometry_valid &&
+                                  (result.faults&EDR_FAULT_IMU));
+        if(failure_mode==4)assert(reset_offered && !result.maximum_mm);
+        if(failure_mode==5)assert(!(result.flags&S4_RESULT_TILT) && saved.odometry_valid);
+        if(failure_mode==6)assert((result.flags&S4_RESULT_SHOCK) &&
+                                  (result.faults&EDR_FAULT_IMU) && !(result.flags&S4_RESULT_TILT));
         assert(stops && !positive_requests);
     }
     puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");

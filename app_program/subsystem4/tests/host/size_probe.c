@@ -2,6 +2,7 @@
  * comparison. These are measurement fixtures, never firmware storage. */
 #include "../../sensor_data.h"
 #include "../../encoder_input.h"
+#include "../../result_data.h"
 #ifndef S4_ARM_LAYOUT
 #include <stdio.h>
 #endif
@@ -30,12 +31,16 @@ char s4_before_status[sizeof(before_status_t)];
 char s4_after_status[sizeof(s4_sensor_status_t)];
 char s4_terrain_size[sizeof(terrain_t)];
 char s4_input_size[sizeof(s4_encoder_input_t)];
+char s4_cache_size[sizeof(s4_sensor_cache_t)];
+char s4_result_size[S4_RESULT_SIZE];
 #else
 int main(void)
 {
     printf("Native sizeof: sample %zu -> %zu; status %zu -> %zu; terrain %zu; encoder input %zu\n",
         sizeof(before_sample_t),sizeof(lsm303_sample_t),sizeof(before_status_t),
         sizeof(s4_sensor_status_t),sizeof(terrain_t),sizeof(s4_encoder_input_t));
+    printf("Persistent cache %zu bytes; shared S4 result %u bytes (%u bits)\n",
+        sizeof(s4_sensor_cache_t),(unsigned)S4_RESULT_SIZE,(unsigned)S4_RESULT_BITS);
     return 0;
 }
 #endif

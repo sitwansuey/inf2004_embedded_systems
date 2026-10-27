@@ -1,6 +1,7 @@
 # Josh's Buddy 4 physical validation guide
 
-Software and firmware builds are complete as recorded in the verification JSON.
+The checkpoint and CR1 continuation have separate software/build evidence in
+testing/subsystem4/verification-20261027.json and cr1-verification.json.
 Physical tests below have NOT been run. Work through one stage at a time and
 save the evidence before enabling the next capability. The smallest next test
 is stage 2: the isolated sensor image, with motor power disconnected.

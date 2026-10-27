@@ -1,6 +1,7 @@
 CC ?= gcc
 CFLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic
-CORE = ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/shared/edr.c
+S4_RESULT = ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c
+CORE = $(S4_RESULT) ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/shared/edr.c
 SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_width.c
 .PHONY: test sanitize
 test:
@@ -29,7 +30,7 @@ test:
 	./.build/sonar
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks s5_status_test.c $(LDFLAGS) -o .build/sonar_status
 	./.build/sonar_status
-	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 snapshot_time_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 snapshot_time_test.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time
 	./.build/snapshot_time
 	$(CC) $(CFLAGS) protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/protocol
 	python3 protocol_test.py

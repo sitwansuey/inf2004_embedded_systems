@@ -64,7 +64,7 @@ void monitor_task(INT start_code, void *p_exinf)
                           (UW)status.task_heartbeat);
                 tm_printf((UB *)"[S4TILT] calibrated=%u valid=%u pitch_cdeg=%d roll_cdeg=%d\n",
                     (unsigned)BOARD_TERRAIN_CALIBRATED, (unsigned)tilt.tilt_valid,
-                    (INT)tilt.pitch_cdeg, (INT)tilt.roll_cdeg);
+                    (INT)terrain_pitch_cdeg(&tilt), (INT)terrain_roll_cdeg(&tilt));
             }
         }
         (void)tk_dly_tsk(S4_REPORT_MS);

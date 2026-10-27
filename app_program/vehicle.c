@@ -14,7 +14,7 @@ static void vehicle_task(INT code,void *context) {
     s2_controller_bind();
     if(s3_controller_bind()<E_OK) {s2_emergency_stop();tk_ext_tsk();return;}
     if(APP_S5_ENABLED && s5_controller_bind()<E_OK) {s2_emergency_stop();tk_ext_tsk();return;}
-    app_state_t state={0};s4_encoder_input_t encoder_input={0};
+    app_state_t state={0};s4_encoder_input_t encoder_input={0};terrain_t terrain={0};
     odom_t *odom=&encoder_input.odometry;
     const odom_config_t calibration={BOARD_TICKS_PER_REV,BOARD_WHEEL_CIRCUMFERENCE_MM,BOARD_TRACK_WIDTH_MM};
     s3_mode_t mode=S3_MODE_PAUSED;
@@ -27,15 +27,30 @@ static void vehicle_task(INT code,void *context) {
         BOOL en=s2_encoder_encode(encoder_payload,sizeof(encoder_payload))==E_OK;
         BOOL li=s3_status_get(&line)==E_OK;
         BOOL so=s5_get_status(&scan)==E_OK;
-        BOOL im=s4_sensor_get_status(&imu)==E_OK;
+        s4_sensor_cache_t imu_record={0};
+        BOOL im=s4_sensor_get_record(&imu_record)==E_OK;
         /* Snapshot APIs may wait briefly. Age them against a time obtained
          * afterwards, so a newly published sample cannot appear in the future. */
         if(tk_get_otm(&now)<0) {vc_stop(&state.vehicle,VC_TRANSPORT);s2_emergency_stop();tk_dly_tsk(10);continue;}
+        if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&imu);
         state.time_ms=now.lo;++state.sequence;
-        s4_encoder_terrain_step(&encoder_input,&state.terrain,&calibration,now.lo,
+        s4_encoder_terrain_step(&encoder_input,&terrain,&calibration,now.lo,
             encoder_payload,sizeof(encoder_payload),en,imu.latest.accel.read_time_us,
             imu.latest.accel.milli_units,im && imu.accel_usable && !imu.latest.accel.overrun,BOARD_TERRAIN_CALIBRATED,
             BOARD_PITCH_ZERO_CDEG,BOARD_ROLL_ZERO_CDEG);
+        s4_result_t result={.calculated_ms=now.lo,
+            .pitch_cdeg=terrain_pitch_cdeg(&terrain),.roll_cdeg=terrain_roll_cdeg(&terrain),
+            .height_mm=(uint16_t)terrain.height_mm,.maximum_mm=(uint16_t)terrain.maximum_mm,
+            .terrain=(uint8_t)terrain.state,
+            .flags=(uint8_t)((terrain.tilt_valid?S4_RESULT_TILT:0U)|
+                (terrain.height_valid?S4_RESULT_HEIGHT:0U)|(terrain.shock?S4_RESULT_SHOCK:0U)|
+                (BOARD_TERRAIN_CALIBRATED?S4_RESULT_CALIBRATED:0U)|(odom->valid?S4_RESULT_ODOMETRY:0U)),
+            .faults=(uint8_t)((!odom->valid?EDR_FAULT_ENCODER:0U)|
+                ((!im || !imu.accel_usable || imu.latest.accel.overrun ||
+                   terrain.shock || encoder_input.fault==S4_INPUT_SKEW)?EDR_FAULT_IMU:0U))};
+        BOOL result_ok=s4_result_encode(&result,state.s4_result,sizeof(state.s4_result)) &&
+            s4_result_decode(state.s4_result,sizeof(state.s4_result),&result);
+        if(!result_ok) {vc_stop(&state.vehicle,VC_SENSOR);s2_emergency_stop();}
         state.speed_mm_s=odom->speed_mm_s;
         state.odometry_valid=odom->valid;
         /* At most four copied command records per tick; STOP bypasses that queue. */
@@ -44,7 +59,10 @@ static void vehicle_task(INT code,void *context) {
             if(c.wire[1]==0) {vc_stop(&state.vehicle,VC_OK);break;}
             if(now.lo-c.time_ms>=100U)continue;
             if(c.wire[1]==2 && !state.vehicle.armed && mo && motor.state!=S2_MOTION_MOVING) {
-                state.vehicle=(vc_state_t){0};state.terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};continue;
+                state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
+                s4_result_t cleared={.calculated_ms=now.lo};
+                result=cleared;
+                result_ok=s4_result_encode(&cleared,state.s4_result,sizeof(state.s4_result));continue;
             }
             if(c.wire[1]==1) {
                 if(BOARD_MOTORS_DISABLED) {vc_stop(&state.vehicle,VC_MOTOR);continue;}
@@ -62,9 +80,9 @@ static void vehicle_task(INT code,void *context) {
             .distance_um=odom->distance_um,.yaw_mdeg=odom->turn_mdeg,
             .line_error=line.output.line.error,.line_state=(uint8_t)line.output.line.state,
             .turn_deg=scan.planned_rotate_deg,.approach_mm=scan.planned_approach_mm,.return_mm=scan.planned_return_mm,
-            .sensor_state=scan.state,.odom_valid=odom->valid,.motor_ok=mo && motor.state!=S2_MOTION_FAULT,
-            .terrain_valid=state.terrain.tilt_valid,.shock=state.terrain.shock,
-            .slope=state.terrain.state==TERRAIN_ASCENT || state.terrain.state==TERRAIN_DESCENT,
+            .sensor_state=scan.state,.odom_valid=result_ok && (result.flags&S4_RESULT_ODOMETRY),.motor_ok=mo && motor.state!=S2_MOTION_FAULT,
+            .terrain_valid=result_ok && (result.flags&S4_RESULT_TILT),.shock=(result.flags&S4_RESULT_SHOCK)!=0U,
+            .slope=result.terrain==TERRAIN_ASCENT || result.terrain==TERRAIN_DESCENT,
             .bypass_enabled=BOARD_BYPASS_VALIDATED,.transport_ok=1};
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
         input.steering=input.line_fresh && line.output.steering_allowed;

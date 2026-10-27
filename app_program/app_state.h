@@ -2,10 +2,10 @@
 #define CSC02_APP_STATE_H
 #include "app.h"
 #include "vehicle_policy.h"
-#include "subsystem4/terrain.h"
+#include "subsystem4/result_data.h"
 typedef struct {
     vc_state_t vehicle;
-    terrain_t terrain;
+    uint8_t s4_result[S4_RESULT_SIZE];
     uint32_t time_ms, sequence;
     int32_t speed_mm_s;
     uint8_t navigation : 3;

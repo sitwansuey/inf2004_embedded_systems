@@ -6,6 +6,9 @@ not this packet. See `BUDDY4_IMPLEMENTATION.md` and `BUDDY4_CR1_STORAGE.md`.
 Terrain availability now requires controller state at most 60 ms old and a
 usable accelerometer snapshot; retained maximum is independent of that flag.
 
+The Buddy 4 continuation now uses a separate 12-byte internal result record;
+see BUDDY4_CR1_STORAGE.md. Its 93-bit layout is not this aggregate schema.
+
 Only Change Requirement 1 is implemented. Requirements 2 and 3 are outside this
 change. The schema carries 37 fields in 394 bits, rounded to 50 bytes. Bit
 number zero is the least significant bit of byte zero. Every field stores

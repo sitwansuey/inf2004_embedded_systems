@@ -3,6 +3,20 @@
 Prepared 27 October 2026, Singapore. This records local software work; physical
 validation is the next stage. No firmware was flashed and no motors were started.
 
+## Current CR1 continuation
+
+Checkpoint 373ad6d is published in draft PR #8. Subsequent local Buddy 4 work
+uses a 63-byte packed acquisition record, a 21-byte ARM terrain working state,
+and a separate 12-byte checked terrain result for both the controller and B1.
+The shared app_state now stores result bytes instead of terrain history. Both
+consumers use the same result decoder; B1 retains the 50-byte dashboard packet.
+See BUDDY4_CR1_STORAGE.md for current field widths, fault bits, synchronization,
+measurements and verification. These newer changes are not in the published
+checkpoint yet. Main has advanced to f8107be (Buddy 5); draft PR #8 has conflicts
+and is deliberately not merge-ready. Physical timing/calibration remain open.
+
+The following sections describe the original checkpoint and its provenance.
+
 ## Starting sources
 
 The original clean checkout was main `056a92823bb7bbd87b17f0bb6eb6ed7bd7308e63`.
