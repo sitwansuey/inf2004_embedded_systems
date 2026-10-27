@@ -97,33 +97,68 @@ bool s3_ir_waiting(const s3_ir_t *p_ir)
 
 static ER adc_failure(s3_ir_t *p_ir, ER error)
 {
+#if BOARD_IR_RAW_BENCH
+    tm_printf((UB *)"[S3ADC] client failed error=%d pending=%u\n",
+              error, p_ir->adc_pending ? 1U : 0U);
+#endif
     p_ir->adc_failed = true;
     p_ir->adc_pending = false;
     p_ir->adc_error = error;
     return error;
 }
 
-static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
+static ER submit_scan(s3_ir_t *p_ir, uint32_t now_ms)
 {
     s3_adc_request_t request = {0};
+    uint8_t i;
+    ER er;
+    ++p_ir->adc_sequence;
+    if (p_ir->adc_sequence == 0U) ++p_ir->adc_sequence;
+    request.sequence = p_ir->adc_sequence;
+    request.issued_ms = now_ms;
+    for (i = 0U; i < S3_SENSOR_COUNT; ++i)
+        request.channel[i] = (uint8_t)(p_ir->config.pin[i] - 26U);
+    er = s3_adc_submit(&request);
+    if (er != E_OK) return adc_failure(p_ir, er);
+    p_ir->adc_started_ms = now_ms;
+    p_ir->adc_pending = true;
+    return E_OK;
+}
+
+static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
+                   bool wait)
+{
     s3_adc_reply_t reply = {0};
     uint8_t i;
-    bool received = false;
     ER er;
 
     if (p_ir->adc_failed)
     {
         return p_ir->adc_error;
     }
-    if (p_ir->adc_pending)
+    if (!p_ir->adc_pending)
+    {
+        er = submit_scan(p_ir, now_ms);
+        if (er != E_OK) return er;
+        if (!wait) return E_TMOUT;
+    }
     {
         /* Deadline wins even if an old response is already buffered. Never
          * cancel or reuse memory underneath a still-running device call. */
-        if ((now_ms - p_ir->adc_started_ms) >= S3_ADC_DEADLINE_MS)
+        if ((now_ms - p_ir->adc_started_ms) >= S3_ADC_REPLY_DEADLINE_MS)
         {
             return adc_failure(p_ir, E_TMOUT);
         }
-        er = s3_adc_receive(&reply);
+        er = wait ? s3_adc_receive_wait(&reply) : s3_adc_receive(&reply);
+        if (wait)
+        {
+            SYSTIM completed;
+            ER clock_error = tk_get_otm(&completed);
+            if (clock_error != E_OK) return adc_failure(p_ir, clock_error);
+            now_ms = (uint32_t)completed.lo;
+            if ((now_ms - p_ir->adc_started_ms) >= S3_ADC_REPLY_DEADLINE_MS)
+                return adc_failure(p_ir, E_TMOUT);
+        }
         if (er == E_TMOUT)
         {
             return E_TMOUT;
@@ -141,7 +176,7 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
             return adc_failure(p_ir, (reply.error < E_OK) ? reply.error : E_IO);
         }
         if ((reply.sample.valid_mask != S3_SENSOR_MASK) ||
-            ((now_ms - reply.sample.time_ms) >= S3_ADC_DEADLINE_MS) ||
+            ((now_ms - reply.sample.time_ms) >= S3_ADC_REPLY_DEADLINE_MS) ||
             ((reply.sample.time_ms - p_ir->adc_started_ms) >= S3_ADC_DEADLINE_MS))
         {
             return adc_failure(p_ir, E_IO);
@@ -153,36 +188,18 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
                 return adc_failure(p_ir, E_IO);
             }
         }
-        received = true;
         p_ir->adc_pending = false;
     }
-    ++p_ir->adc_sequence;
-    if (p_ir->adc_sequence == 0U)
+    if (!wait)
     {
-        ++p_ir->adc_sequence;
+        er = submit_scan(p_ir, now_ms);
+        if (er != E_OK) return er;
     }
-    request.sequence = p_ir->adc_sequence;
-    request.issued_ms = now_ms;
-    for (i = 0U; i < S3_SENSOR_COUNT; ++i)
-    {
-        request.channel[i] = (uint8_t)(p_ir->config.pin[i] - 26U);
-    }
-    er = s3_adc_submit(&request);
-    if (er != E_OK)
-    {
-        return adc_failure(p_ir, er);
-    }
-    p_ir->adc_started_ms = now_ms;
-    p_ir->adc_pending = true;
-    if (received)
-    {
-        *p_sample = reply.sample;
-        return E_OK;
-    }
-    return E_TMOUT;
+    *p_sample = reply.sample;
+    return E_OK;
 }
 
-ER s3_ir_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
+static ER read_ir(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample, bool wait)
 {
     uint8_t i;
     if (p_sample == NULL)
@@ -197,7 +214,7 @@ ER s3_ir_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
     }
     if (p_ir->config.mode == S3_IR_ADC)
     {
-        return adc_poll(p_ir, now_ms, p_sample);
+        return adc_poll(p_ir, now_ms, p_sample, wait);
     }
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
     {
@@ -210,4 +227,14 @@ ER s3_ir_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
     }
     p_sample->valid_mask = S3_SENSOR_MASK;
     return E_OK;
+}
+
+ER s3_ir_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
+{
+    return read_ir(p_ir, now_ms, p_sample, false);
+}
+
+ER s3_ir_acquire(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
+{
+    return read_ir(p_ir, now_ms, p_sample, true);
 }

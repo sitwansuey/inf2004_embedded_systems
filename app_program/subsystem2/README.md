@@ -2,6 +2,12 @@
 
 Student ID: 2500613
 
+The shared [external data representation](../../docs/DATA_REPRESENTATION.md)
+defines Buddy 2's compact motor/encoder records, the five-buddy envelope,
+Python decoding, field ranges and integration rules. Task-context byte adapters
+are declared in `s2_data.h`; they preserve the existing controller and watchdog
+boundaries. See [verification evidence](../../testing/data_representation/TEST_LOG.md).
+
 Open-loop PWM motor commands with optional dual-wheel x1 encoder diagnostics.
 The downloaded encoder update is merged with the repository's command watchdog,
 validation, error handling and motion-status API.
@@ -28,10 +34,12 @@ Use `TEST=0` to start the motor task and wait for commands without running tests
 options participate in the profile stamp so switching them rebuilds the objects.
 
 `S2_ONLY=1` builds and starts only this subsystem. The default `S2_ONLY=0` selects
-the full team application, which still contains sample producer/consumer code
-referencing removed `SAMPLE_MSG`, `sem_slots`, `mpf_samples` and `S2_PERIOD_MS`
-interfaces. That build needs the team's controller integration. The downloaded
-`task_motor.c` is another copy of the old sample producer and was not added.
+the full team application. The obsolete `task_producer.c` sample has been
+removed: it referenced the retired `SAMPLE_MSG`, `sem_slots`, `mpf_samples` and
+`S2_PERIOD_MS` interfaces. Full-team builds use the current Buddy 3 implementation
+from `main`; older branches with the original sample consumer need that update.
+The downloaded `task_motor.c` is another copy of the old sample producer and was
+not added. Vehicle-controller integration remains separate from build readiness.
 
 ## Wiring and encoders
 

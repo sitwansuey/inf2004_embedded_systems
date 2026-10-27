@@ -1,0 +1,77 @@
+﻿
+
+microT-Kernel Version 3.00
+
+
+CSC02 CR1 / micro T-Kernel 3, SMP=1, encoders=1
+Boot DISARMED; USB s=STOP, r=reset fault, a=500 ms track lease. Binary telemetry=50 bytes.
+MOTOR LOCK ON: drive GPIOs held low; all movement/ARM commands rejected.
+Clock: kernel operating time (monotonic uptime)
+IR CALIBRATED BENCH: measured endpoints; motor lock required; no motion test
+[S3] roles: GP26=right GP27=left GP28=barcode line-mask=3
+[S3] ADC endpoints white=187,189,213 black=3214,3177,3326
+[S3] paused scan gaps reset observations; TRACK gaps still fault
+Selected subsystems started. Calibration and physical validation required before motion.
+wifi: cyw43_utk_task starting (proc 1)
+wifi: cyw43_init() ...
+wifi: cyw43_init() returned, bringing interface up ...
+[S2] encoders motor 1 A=GP16 B=GP17; motor 2 A=GP4 B=GP5 ready (x1 counts)
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 0,2,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0
+[S5] status copies: bounded inheritance wait
+[S5] wiring: TRIG=GP1 ECHO=GP0
+[S5] startup: centring servo at 0 deg; waiting 1000 ms
+[S3IR] copied=1 error=0 t=180 acquisition=0 mask=7 raw=196,219,323 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=35 algorithm_error=0 line_darkness=2,10
+[S4] 210,0,1,1,-48,-211,930,254,167,16,30,30,6,5,0,0,7
+[S3IR] copied=1 error=0 t=380 acquisition=0 mask=7 raw=198,200,353 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=44 algorithm_error=0 line_darkness=3,3
+[S4] 420,0,1,1,-45,-209,921,259,166,13,30,60,13,11,0,0,14
+[S3IR] copied=1 error=0 t=580 acquisition=0 mask=7 raw=192,213,332 configured=1 steering=0 fresh=1 line=2 blackmask=0 lineerror=0 barcode_darkness=38 algorithm_error=0 line_darkness=1,8
+[S4] 630,0,1,1,-52,-211,938,256,163,15,30,30,20,18,0,0,21
+[S3IR] copied=1 error=0 t=780 acquisition=0 mask=7 raw=198,182,325 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=35 algorithm_error=0 line_darkness=3,0
+[S4] 840,0,1,1,-53,-204,919,258,163,18,30,30,27,25,0,0,28
+[CSC02] t=1000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=143 bytes=50
+[S2ENC] valid=1 m1=0 m2=0 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=0 state=0 fresh=0 valid=0 mm=0 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=980 acquisition=0 mask=7 raw=200,203,335 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=39 algorithm_error=0 line_darkness=4,4
+[S5] startup: centre settling complete; checking forward
+[S4] 1050,0,1,1,-48,-210,930,260,161,12,30,30,34,31,0,0,35
+[S3IR] copied=1 error=0 t=1180 acquisition=0 mask=7 raw=202,216,346 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=42 algorithm_error=0 line_darkness=4,9
+[S4] 1260,0,1,1,-54,-210,931,262,160,14,30,60,41,37,0,0,42
+[S3IR] copied=1 error=0 t=1380 acquisition=0 mask=7 raw=205,169,364 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=48 algorithm_error=0 line_darkness=5,0
+[S4] 1470,0,1,1,-49,-212,925,258,163,12,30,30,48,44,0,0,49
+[S3IR] copied=1 error=0 t=1580 acquisition=0 mask=7 raw=198,192,361 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=47 algorithm_error=0 line_darkness=3,1
+[S4] 1680,0,1,1,-50,-216,930,258,160,11,30,30,55,51,0,0,56
+[S3IR] copied=1 error=0 t=1780 acquisition=0 mask=7 raw=192,208,361 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=47 algorithm_error=0 line_darkness=1,6
+[S4] 1890,0,1,1,-50,-210,930,257,161,14,30,30,62,58,0,0,63
+[CSC02] t=2000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=0 m2=0 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=1970 state=0 fresh=1 valid=1 mm=766 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=1980 acquisition=0 mask=7 raw=202,182,363 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=48 algorithm_error=0 line_darkness=4,0
+[S4] 2100,0,1,1,-46,-211,929,256,164,13,30,30,69,65,0,0,70
+[S3IR] copied=1 error=0 t=2180 acquisition=0 mask=7 raw=201,198,316 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=33 algorithm_error=0 line_darkness=4,3
+[S4] 2310,0,1,1,-47,-214,928,258,164,14,30,30,76,72,0,0,77
+[S3IR] copied=1 error=0 t=2380 acquisition=0 mask=7 raw=197,228,360 configured=1 steering[S3IR] copied=1 error=0 t=18580 acquisition=0 mask=7 raw=195,180,227 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=4 algorithm_error=0 line_darkness=2,0
+[S4] 18690,0,1,1,-47,-213,925,272,173,17,30,30,622,588,0,0,623
+[S3IR] copied=1 error=0 t=18780 acquisition=0 mask=7 raw=195,207,212 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=0 algorithm_error=0 line_darkness=2,6
+[S4] 18900,0,1,1,-53,-214,932,270,171,15,30,30,629,595,0,0,630
+[CSC02] t=19000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=0 m2=0 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=18950 state=0 fresh=1 valid=1 mm=628 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=18980 acquisition=0 mask=7 raw=197,186,218 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1 algorithm_error=0 line_darkness=3,0
+[S4] 19110,0,1,1,-50,-208,925,270,173,15,30,30,636,602,0,0,637
+[S3IR] copied=1 error=0 t=19180 acquisition=0 mask=7 raw=196,210,219 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1 algorithm_error=0 line_darkness=2,7
+[S4] 19320,0,1,1,-51,-215,928,272,172,12,30,30,643,608,0,0,644
+[S3IR] copied=1 error=0 t=19380 acquisition=0 mask=7 raw=198,209,237 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=7 algorithm_error=0 line_darkness=3,6
+[S4] 19530,0,1,1,-52,-214,932,272,172,12,30,30,650,615,0,0,651
+[S3IR] copied=1 error=0 t=19580 acquisition=0 mask=7 raw=195,184,229 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=5 algorithm_error=0 line_darkness=2,0
+[S4] 19740,0,1,1,-47,-208,929,270,170,15,30,30,657,622,0,0,658
+[S3IR] copied=1 error=0 t=19780 acquisition=0 mask=7 raw=195,185,215 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=0 algorithm_error=0 line_darkness=2,0
+[S4] 19950,0,1,1,-65,-200,917,271,170,13,30,30,664,629,0,0,665
+[CSC02] t=20000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S2ENC] valid=1 m1=0 m2=0 m1ab=01 m2ab=00
+[S5RAW] copied=1 t=19990 state=0 fresh=1 valid=1 mm=603 angle=0 sampled=0 echo=0 error=0
+[S3IR] copied=1 error=0 t=19980 acquisition=0 mask=7 raw=197,208,248 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=11 algorithm_error=0 line_darkness=3,6
+[S4] 20160,0,1,1,-48,-210,929,271,171,15,30,30,671,635,0,0,672
+[S3IR] copied=1 error=0 t=20180 acquisition=0 mask=7 raw=198,212,217 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1 algorithm_error=0 line_darkness=3,7
+[S4] 20370,0,1,1,-48,-211,925,270,171,14,30,30,678,642,0,0,679
+[S3IR] copied=1 error=0 t=20380 acquisition=0 mask=7 raw=200,213,246 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=10 algorithm_error=0 line_darkness=4,8

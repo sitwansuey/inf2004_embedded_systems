@@ -1,0 +1,72 @@
+{
+  "channels": [
+    {
+      "gpio": 26,
+      "white": 187,
+      "black": 3214,
+      "counts": [
+        61,
+        60
+      ],
+      "white_minmax": [
+        177,
+        196
+      ],
+      "black_minmax": [
+        3198,
+        3225
+      ],
+      "source": "IR_SURFACE_0554_ANALYSIS.json"
+    },
+    {
+      "gpio": 27,
+      "white": 189,
+      "black": 3177,
+      "counts": [
+        61,
+        60
+      ],
+      "white_minmax": [
+        165,
+        212
+      ],
+      "black_minmax": [
+        3157,
+        3195
+      ],
+      "source": "IR_SURFACE_0554_ANALYSIS.json"
+    },
+    {
+      "gpio": 28,
+      "white": 213,
+      "black": 3326,
+      "counts": [
+        60,
+        60
+      ],
+      "white_minmax": [
+        193,
+        230
+      ],
+      "black_minmax": [
+        3309,
+        3360
+      ],
+      "source": "BARCODE_0620_ANALYSIS.json"
+    }
+  ],
+  "method": "integer mean per independently labelled channel; no combined hardware scan fabricated",
+  "bench_min_contrast": 100,
+  "native_replay": "PASS every observed white and black sample through production calibration and normalization",
+  "source_endpoints_staged": true,
+  "firmware_built": true,
+  "firmware_flashed": true,
+  "physical_line_following_validated": false,
+  "physical_barcode_decoding_validated": false,
+  "motor_lock": true,
+  "installed_firmware_sha256": "3e84e2189a26e3c433126b3eea0bdf9733896cb171207496e375a609518346d3",
+  "physical_stationary_classification_validated": true,
+  "paused_timing_correction_source": true,
+  "paused_timing_correction_built": true,
+  "paused_timing_correction_flashed": true
+}

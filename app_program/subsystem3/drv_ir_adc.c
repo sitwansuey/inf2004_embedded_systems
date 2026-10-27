@@ -104,7 +104,7 @@ ER s3_adc_submit(const s3_adc_request_t *p_request)
     return tk_snd_mbf(h_requests, p_request, (INT)sizeof(*p_request), TMO_POL);
 }
 
-ER s3_adc_receive(s3_adc_reply_t *p_reply)
+static ER receive_reply(s3_adc_reply_t *p_reply, TMO timeout)
 {
     INT length;
     if (p_reply == NULL)
@@ -116,7 +116,7 @@ ER s3_adc_receive(s3_adc_reply_t *p_reply)
     {
         return E_OACV;
     }
-    length = tk_rcv_mbf(h_replies, p_reply, TMO_POL);
+    length = tk_rcv_mbf(h_replies, p_reply, timeout);
     if (length < E_OK)
     {
         return length;
@@ -124,9 +124,19 @@ ER s3_adc_receive(s3_adc_reply_t *p_reply)
     return (length == (INT)sizeof(*p_reply)) ? E_OK : E_IO;
 }
 
+ER s3_adc_receive(s3_adc_reply_t *p_reply)
+{
+    return receive_reply(p_reply, TMO_POL);
+}
+
+ER s3_adc_receive_wait(s3_adc_reply_t *p_reply)
+{
+    return receive_reply(p_reply, S3_ADC_REPLY_WAIT_MS);
+}
+
 static ER check_deadline(uint32_t issued_ms, SYSTIM *p_time)
 {
-    ER er = tk_get_tim(p_time);
+    ER er = tk_get_otm(p_time);
     if (er < E_OK)
     {
         return er;
@@ -229,6 +239,10 @@ ER s3_adc_worker_once(TMO timeout)
         /* A timed-out conversion can leave a stale FIFO/IRQ. Never retry on
          * this boot. The kernel owner must repair/reset its device safely. */
         worker_failed = true;
+#if BOARD_IR_RAW_BENCH
+        tm_printf((UB *)"[S3ADC] worker failed error=%d request=%u\n",
+                  reply.error, request.sequence);
+#endif
         reply.sample = (s3_sample_t){0};
         er = tk_snd_mbf(h_replies, &reply, (INT)sizeof(reply), TMO_POL);
         return (er < E_OK) ? er : reply.error;

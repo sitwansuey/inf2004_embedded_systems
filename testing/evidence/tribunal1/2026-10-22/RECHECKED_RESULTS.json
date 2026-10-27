@@ -1,0 +1,70 @@
+{
+  "checked_on": "23 October 2026",
+  "method": "Recomputed counts/flags and selected embedded hashes from copied original raw logs; no new hardware session was run.",
+  "sonar": {
+    "status_copies": 30,
+    "fresh": 30,
+    "echo_ok": 30,
+    "valid_ranges": 26,
+    "range_mm": [
+      372,
+      841
+    ],
+    "other_four": "Reported invalid during servo transitions; source report interpretation, not independent angle measurement."
+  },
+  "imu": {
+    "records": 143,
+    "all_accel_mag_usable": true,
+    "reported_io_errors": 0
+  },
+  "controller": {
+    "records": 30,
+    "all_stop_disarmed_power0_fault0": true,
+    "electrical_shutdown_proven": false
+  },
+  "ir": {
+    "WHITE": {
+      "records": 41,
+      "mask": 0,
+      "logical_error": 0,
+      "first_original_line": "[S3IR] copied=1 error=0 t=20580 acquisition=0 mask=7 raw=194,211,220 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=2 algorithm_error=0 line_darkness=2,7"
+    },
+    "RIGHT": {
+      "records": 40,
+      "mask": 1,
+      "logical_error": 1000,
+      "first_original_line": "[S3IR] copied=1 error=0 t=55380 acquisition=0 mask=7 raw=2958,517,222 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=2 algorithm_error=0 line_darkness=915,109"
+    },
+    "LEFT": {
+      "records": 40,
+      "mask": 2,
+      "logical_error": -1000,
+      "first_original_line": "[S3IR] copied=1 error=0 t=81980 acquisition=0 mask=7 raw=1386,2872,359 configured=1 steering=0 fresh=1 line=1 blackmask=2 lineerror=-1000 barcode_darkness=46 algorithm_error=0 line_darkness=396,897"
+    },
+    "BARCODE": {
+      "records": 40,
+      "mask": 0,
+      "logical_error": 0,
+      "first_original_line": "[S3IR] copied=1 error=0 t=106780 acquisition=0 mask=7 raw=198,216,2682 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=793 algorithm_error=0 line_darkness=3,9"
+    }
+  },
+  "ir_total": 161,
+  "printed_target": {
+    "white_samples": 802,
+    "white_raw": [
+      147,
+      198
+    ],
+    "black_samples": 802,
+    "black_raw": [
+      783,
+      1034
+    ],
+    "result": "Existing GP28 calibration does not classify the printed black target correctly; no physical symbol PASS."
+  },
+  "barcode_replay": {
+    "records": 1806,
+    "decoded": 0,
+    "scope": "PC replay of physical raw capture, not on-board symbol decoding."
+  }
+}

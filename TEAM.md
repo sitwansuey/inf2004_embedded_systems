@@ -169,7 +169,8 @@ sends to it or waits on it. Agree on the data format before coding.
 | IF-04 | S4 → S3 | retired example | `app_stats`, `mtx_stats` | S4 no longer reads S3 demo statistics | retired in S4 adaptation |
 | IF-05 | S4 → S1 | retired example | `tid_led` | S4 no longer suspends/resumes S1 | retired in S4 adaptation |
 | IF-06 | S4 → telemetry / vehicle controller | snapshot getter, internal mutex owned by S4 | `s4_sensor_get_status()` | `s4_sensor_status_t`: raw/scaled values, kernel timestamps, per-channel usability and diagnostics | proposed consumer integration; review API before wiring callers |
-| IF-07 | S2 → S4 | pending | pending | Timestamped measured encoder distance/speed for later fusion; current S2 diagnostics are insufficient | pending agreement with S2 owner |
+| IF-07 | S2 → S4 | task-context snapshot byte getter | `s2_encoder_encode()` | EDR source 2/kind 1: timestamped two-wheel x1 counts, GPIO levels and validity; calibrated distance/speed still pending | codec implemented; fusion calibration and consumer validation pending |
+| IF-08 | All buddies → B1; S2 → S4/controller readers | Caller-owned copied byte records; transport handoff still pending | `shared/edr.h`, `subsystem2/s2_data.h` | EDR v1 envelope, 7-byte motor and 13-byte timestamped x1-count payloads; see `docs/DATA_REPRESENTATION.md` | implemented codec; other-branch adoption and physical integration pending |
 
 Each interface is tested by at least one integration test
 (`testing/integration/TEST_LOG.md`).
