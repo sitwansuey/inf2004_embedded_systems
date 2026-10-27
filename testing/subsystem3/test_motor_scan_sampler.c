@@ -1,6 +1,6 @@
 /* Real S3 adapter/ADC worker and production decoder. No motor or board I/O. */
 #include "adapter_fixture.h"
-#include "../../app_program/subsystem3/buddy3_robot_ir.h"
+#include "../../app_program/robot_ir_config.h"
 static const unsigned sample_a[29]={1,3,1,1,3,1,3,1,1,1,3,1,1,1,1,3,1,1,3,1,1,3,1,1,3,1,3,1,1};
 static const unsigned sample_z[29]={1,3,1,1,3,1,3,1,1,1,1,3,3,1,3,1,1,1,1,1,1,3,1,1,3,1,3,1,1};
 static uint32_t observed_generation;

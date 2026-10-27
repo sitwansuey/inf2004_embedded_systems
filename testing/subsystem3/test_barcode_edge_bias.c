@@ -1,5 +1,5 @@
 /* Regression fixtures model edge displacement, not a fitted symbol lookup. */
-#include "../../app_program/subsystem3/buddy3_robot_ir.h"
+#include "../../app_program/robot_ir_config.h"
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>

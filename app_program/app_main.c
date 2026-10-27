@@ -1,40 +1,33 @@
-/* Main vehicle controller and application entry point. */
 #include "app.h"
 #include "subsystem2/subsystem2.h"
-#include "subsystem3/subsystem3.h"
-#include "subsystem5/subsystem5.h"
-#include "app_state.h"
-#include "app_logging.h"
-#include "vehicle_line.h"
+
 /*
  * Create and start one task (declared in app.h for every subsystem).
  *   prc = TP_PRC1 (core 0), TP_PRC2 (core 1), or 0 for "any core".
  */
 EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
 {
-	T_CTSK ctsk = {0};
-	ID tid;
-	ER er;
+	T_CTSK	ctsk = {0};
+	ID	tid;
+	ER	er;
 
-	ctsk.task = entry;			  /* function the task runs */
-	ctsk.itskpri = pri;			  /* initial priority (1 = highest) */
-	ctsk.stksz = TASK_STACK_SIZE; /* kernel allocates the stack */
-	ctsk.tskatr = TA_HLNG		  /* written in a high-level language (C) */
-				  | TA_RNG3;	  /* runs at user protection level */
+	ctsk.task    = entry;		/* function the task runs */
+	ctsk.itskpri = pri;		/* initial priority (1 = highest) */
+	ctsk.stksz   = TASK_STACK_SIZE;	/* kernel allocates the stack */
+	ctsk.tskatr  = TA_HLNG		/* written in a high-level language (C) */
+		     | TA_RNG3;		/* runs at user protection level */
 #if TK_SUPPORT_SMP
-	if (prc != 0)
-	{
-		ctsk.tskatr |= TA_ASSPRC; /* honour the affinity below */
-		ctsk.assprc = prc;		  /* which core(s) it may run on */
+	if (prc != 0) {
+		ctsk.tskatr |= TA_ASSPRC;	/* honour the affinity below */
+		ctsk.assprc  = prc;		/* which core(s) it may run on */
 	}
 #else
-	(void)prc; /* single-core build: no affinity */
+	(void)prc;			/* single-core build: no affinity */
 #endif
 
 	/* tk_cre_tsk: create the task.  It starts in the DORMANT state. */
 	tid = tk_cre_tsk(&ctsk);
-	if (tid < E_OK)
-	{
+	if (tid < E_OK) {
 		CHECK(tid, name);
 		return tid;
 	}
@@ -42,391 +35,133 @@ EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
 	/* tk_sta_tsk: DORMANT -> READY.  The int is passed as stacd. */
 	er = tk_sta_tsk(tid, 0);
 	CHECK(er, name);
-	if (er < E_OK) { tk_del_tsk(tid); return er; }
+	if (er < E_OK) {
+		CHECK(tk_del_tsk(tid), "task start cleanup");
+		return er;
+	}
 	return tid;
 }
 
-#if !APP_S2_ONLY
-static ID vehicle_mutex;
-static struct {
-	s2_move_command_t command;
-	UINT power;
-	UW expires;
-	BOOL active;
-} requests[5];
 
-EXPORT ER app_vehicle_request(UINT subsystem, s2_move_command_t command,
-                              UINT power, UW lease_ms)
-{
-	if (subsystem < 1 || subsystem > 4 || command > S2_MOVE_PIVOT_LEFT ||
-	    command < S2_MOVE_STOP || power > 100 || lease_ms == 0 ||
-	    lease_ms > 60000) return E_PAR;
-	ER er = tk_loc_mtx(vehicle_mutex, TMO_POL);
-	if (er < E_OK) return er;
-	SYSTIM now;
-	tk_get_tim(&now);
-	requests[subsystem].command = command;
-	requests[subsystem].power = power;
-	requests[subsystem].expires = now.lo + lease_ms;
-	requests[subsystem].active = TRUE;
-	tk_unl_mtx(vehicle_mutex);
-	return E_OK;
-}
-
-static ER vehicle_init(void)
-{
-	T_CMTX cfg = {0};
-	cfg.mtxatr = TA_INHERIT;
-	vehicle_mutex = tk_cre_mtx(&cfg);
-	return vehicle_mutex < E_OK ? vehicle_mutex : E_OK;
-}
-
-static UW vehicle_cruise_ms(UW millimetres)
-{
-    return (millimetres * 1000U + S5_CRUISE_MM_PER_SECOND - 1U) /
-        S5_CRUISE_MM_PER_SECOND;
-}
-
-static BOOL vehicle_enter(vehicle_fsm_t *drive, UW now_ms,
-    vehicle_phase_t phase, s5_state_t state, INT look, UW duration)
-{
-    ER er = s5_navigation_set(drive->scan_id, state, look);
-    if (er < E_OK) return FALSE;
-    drive->phase = phase;
-    drive->remaining_ms = duration;
-    drive->motion_started = FALSE;
-    drive->last_ms = now_ms;
-    drive->deadline_ms = now_ms + S5_ROTATE_WAIT_MS;
-    return TRUE;
-}
-
-/* cruise_command/cruise_power drive the car while the path ahead is clear:
- * the line follower in line mode, otherwise straight ahead. */
-static void vehicle_fsm_step(vehicle_fsm_t *drive, UW now_ms,
-    const s5_status_t *sensor, BOOL sensor_ok, BOOL external_request,
-    s2_move_command_t cruise_command, UINT cruise_power,
-    s2_move_command_t *command, UINT *power)
-{
-    *command = S2_MOVE_STOP;
-    *power = 0;
-    BOOL cruising = drive->phase == VEHICLE_CRUISE ||
-        drive->phase == VEHICLE_ACQUISITION;
-    /* Ride through brief S5 lock contention on a recent copy while cruising. */
-    if (cruising && !sensor_ok && sensor->time_ms != 0U &&
-        now_ms - sensor->time_ms < VEHICLE_SONAR_HOLD_MS)
-        sensor_ok = TRUE;
-    s5_path_t path = s5_assess_path(sensor, sensor_ok, now_ms);
-    /* S5 reports "no echo" (nothing within range) as a fault: ahead is clear. */
-    if (cruising && path.state == S5_PATH_FAULT &&
-        sensor->echo_result == S5_ECHO_NO_FALL &&
-        sensor->angle_deg == 0 && sensor->sample_angle_deg == 0)
-        path.state = S5_PATH_FORWARD;
-    if (drive->phase == VEHICLE_CRUISE) {
-        if (external_request || now_ms-drive->boot_ms < VEHICLE_START_DELAY_MS) return;
-        if (path.state == S5_PATH_FORWARD) {
-            *command = cruise_command;
-            *power = cruise_power;
-            return;
-        }
-        if (path.state == S5_PATH_IDENTIFY || path.state == S5_PATH_READY) {
-            drive->phase = VEHICLE_ACQUISITION;
-            tm_printf((UB *)"[AVOID] acquisition: identify target and clearance angle\n");
-        } else return;
-    }
-    if (drive->phase == VEHICLE_ACQUISITION) {
-        if (external_request) return;
-        if (path.state == S5_PATH_FORWARD) {
-            drive->phase = VEHICLE_CRUISE;
-            return;
-        }
-        if (path.state != S5_PATH_READY) return;
-        drive->scan_id = sensor->scan_id;
-        drive->side = path.turn_deg < 0 ? -1 : 1;
-        drive->turn_ms = path.turn_ms;
-        drive->approach_mm = path.approach_mm;
-        drive->return_mm = path.return_mm;
-        if (vehicle_enter(drive, now_ms, VEHICLE_APPROACH_ROTATE, S5_APPROACH, 0, path.turn_ms))
-            tm_printf((UB *)"[AVOID] approach: rotate %d deg; cruise %u mm; rotate back\n",
-                      path.turn_deg, path.approach_mm);
-        return;
-    }
-    if (drive->phase == VEHICLE_ABORT) {
-        /* Do not resume a partially completed open-loop route. */
-        if (!external_request && sensor_ok &&
-            s5_navigation_set(sensor->scan_id, S5_MONITOR, 0) >= E_OK)
-            drive->phase = VEHICLE_CRUISE;
-        return;
-    }
-    /* A 90-degree servo move can take longer than the sample stale limit.
-     * Wait only while stopped and S5 explicitly marks its sample invalid;
-     * motion still requires a fresh sample, within the settling timeout. */
-    BOOL settling = sensor_ok && !drive->motion_started && !sensor->valid;
-    if (external_request || (path.state == S5_PATH_UNAVAILABLE && !settling) ||
-        path.state == S5_PATH_FAULT) {
-        drive->phase = VEHICLE_ABORT;
-        drive->motion_started = FALSE;
-        return;
-    }
-    BOOL side_view = drive->phase == VEHICLE_OVERCOME_CRUISE;
-    s5_state_t expected = vehicle_avoidance_stage(drive->phase) == S5_STAGE_APPROACH ? S5_APPROACH :
-        vehicle_avoidance_stage(drive->phase) == S5_STAGE_OVERCOME ? S5_OVERCOME : S5_REORG;
-    INT look = side_view ? -90 * drive->side : 0;
-    if (drive->phase == VEHICLE_RESTORE) expected = S5_MONITOR;
-    BOOL sample_ready = sensor->valid && sensor->state == expected &&
-        sensor->angle_deg == look && sensor->sample_angle_deg == look;
-    if (!sample_ready) {
-        if (drive->motion_started || (W)(now_ms-drive->deadline_ms) >= 0)
-            drive->phase = VEHICLE_ABORT;
-        return;
-    }
-    if (!side_view && sensor->distance_mm <= S5_GUIDANCE_OBSTACLE_MM) {
-        drive->phase = VEHICLE_ABORT;
-        return;
-    }
-    if (drive->phase == VEHICLE_RESTORE) {
-        drive->phase = VEHICLE_CRUISE;
-        tm_printf((UB *)"[AVOID] reorg complete: original heading restored\n");
-        return;
-    }
-    if (!drive->motion_started) {
-        drive->motion_started = TRUE;
-        drive->last_ms = now_ms;
-        drive->deadline_ms = now_ms + S5_NAVIGATION_TIMEOUT_MS;
+#include "app_state.h"
+#include "robot_ir_config.h"
+#include "subsystem3/subsystem3.h"
+#include "subsystem3/drv_ir_adc.h"
+#include "subsystem5/subsystem5.h"
+#include "subsystem1/telemetry_codec.h"
+#if !APP_S2_ONLY && !APP_S4_ONLY
+static ER configure_line(void) {
+    if(BOARD_IR_MODE==S3_IR_DISABLED)return E_OK;
+#if BOARD_IR_RAW_BENCH
+    const s3_ir_config_t raw = {BOARD_IR_MODE,{26,27,28}};
+    return s3_configure_raw(&raw);
+#else
+    s3_adapter_config_t c={0};s3_config_defaults(&c.algorithms);
+    c.ir.mode=BOARD_IR_MODE;c.ir.pin[0]=26;c.ir.pin[1]=27;c.ir.pin[2]=28;
+    robot_ir_apply_layout(&c.algorithms);
+    if(BOARD_IR_MODE==S3_IR_DIGITAL) {
+        c.algorithms.line.raw_max=1;
+        for(unsigned i=0;i<3;++i) {c.algorithms.line.black[i]=BOARD_IR_BLACK_LEVEL;c.algorithms.line.white[i]=1-BOARD_IR_BLACK_LEVEL;}
     } else {
-        UW elapsed = now_ms-drive->last_ms;
-        drive->remaining_ms = elapsed >= drive->remaining_ms ? 0 : drive->remaining_ms-elapsed;
-        drive->last_ms = now_ms;
+        if(!robot_ir_apply_adc_calibration(&c.algorithms)) return E_NOSPT;
     }
-    if ((W)(now_ms-drive->deadline_ms) >= 0) {
-        drive->phase = VEHICLE_ABORT;
-        return;
-    }
-    /* Every handoff emits STOP before changing the sensor direction. */
-    if (side_view && sensor->distance_mm > S5_OBJECT_RANGE_MM) {
-        vehicle_enter(drive, now_ms, VEHICLE_OVERCOME_CLEARANCE, S5_OVERCOME, 0,
-                      vehicle_cruise_ms(S5_OVERCOME_CLEARANCE_MM));
-        return;
-    }
-    if (!side_view && drive->remaining_ms == 0) {
-        switch (drive->phase) {
-        case VEHICLE_APPROACH_ROTATE:
-            vehicle_enter(drive, now_ms, VEHICLE_APPROACH_CRUISE, S5_APPROACH, 0,
-                          vehicle_cruise_ms(drive->approach_mm)); break;
-        case VEHICLE_APPROACH_CRUISE:
-            vehicle_enter(drive, now_ms, VEHICLE_APPROACH_ROTATE_BACK, S5_APPROACH, 0,
-                          drive->turn_ms); break;
-        case VEHICLE_APPROACH_ROTATE_BACK:
-            if (vehicle_enter(drive, now_ms, VEHICLE_OVERCOME_CRUISE, S5_OVERCOME,
-                              -90*drive->side, 0))
-                tm_printf((UB *)"[AVOID] overcome: look toward object; then cruise another 200 mm\n");
-            break;
-        case VEHICLE_OVERCOME_CLEARANCE:
-            if (vehicle_enter(drive, now_ms, VEHICLE_REORG_ROTATE90, S5_REORG, 0,
-                              90U*S5_ROTATE_MS_PER_DEG))
-                tm_printf((UB *)"[AVOID] reorg: rotate 90 toward line; cruise %u mm; rotate -90\n",
-                          drive->return_mm);
-            break;
-        case VEHICLE_REORG_ROTATE90:
-            vehicle_enter(drive, now_ms, VEHICLE_REORG_CRUISE, S5_REORG, 0,
-                          vehicle_cruise_ms(drive->return_mm)); break;
-        case VEHICLE_REORG_CRUISE:
-            vehicle_enter(drive, now_ms, VEHICLE_REORG_ROTATE_MINUS90, S5_REORG, 0,
-                          90U*S5_ROTATE_MS_PER_DEG); break;
-        case VEHICLE_REORG_ROTATE_MINUS90:
-            vehicle_enter(drive, now_ms, VEHICLE_RESTORE, S5_MONITOR, 0, 0); break;
-        default: drive->phase = VEHICLE_ABORT; break;
-        }
-        return;
-    }
-    switch (drive->phase) {
-    case VEHICLE_APPROACH_ROTATE: case VEHICLE_REORG_ROTATE_MINUS90:
-        *command = drive->side > 0 ? S2_MOVE_LEFT : S2_MOVE_RIGHT;
-        *power = VEHICLE_TURN_POWER; break;
-    case VEHICLE_APPROACH_ROTATE_BACK: case VEHICLE_REORG_ROTATE90:
-        *command = drive->side > 0 ? S2_MOVE_RIGHT : S2_MOVE_LEFT;
-        *power = VEHICLE_TURN_POWER; break;
-    default:
-        *command = S2_MOVE_FORWARD;
-        *power = VEHICLE_FORWARD_POWER; break;
-    }
-}
-
-static void vehicle_task(INT stacd, void *exinf)
-{
-	(void)stacd; (void)exinf;
-	s2_controller_bind();
-	s2_move_command_t previous = S2_MOVE_STOP;
-	UINT previous_power = 0;
-	SYSTIM boot;
-	tk_get_tim(&boot);
-	UW last_sent = boot.lo;
-	vehicle_fsm_t drive = { .phase = VEHICLE_CRUISE, .boot_ms = boot.lo };
-	if (VEHICLE_MODE == VEHICLE_MODE_STRAIGHT)
-		tm_printf((UB *)"[AUTO] straight at %u%% after %u ms; no sensors; "
-		          "runs until power-off\n", VEHICLE_FORWARD_POWER,
-		          VEHICLE_START_DELAY_MS);
-	else if (VEHICLE_MODE == VEHICLE_MODE_LINE)
-		tm_printf((UB *)"[AUTO] line follow at %u%% after %u ms; ultrasonic "
-		          "avoidance at %u mm; barcode reading on\n",
-		          VEHICLE_FORWARD_POWER, VEHICLE_START_DELAY_MS, S5_OBSTACLE_MM);
-	else
-		tm_printf((UB *)"[AUTO] forward at %u%% after %u ms; obstacle threshold %u mm\n",
-		          VEHICLE_FORWARD_POWER, VEHICLE_START_DELAY_MS, S5_OBSTACLE_MM);
-	/* Larger value wins; S5 safety overrides every ordinary request. */
-	const UINT importance[5] = {0, 10, 20, 30, 40};
-	app_shared_state_t next = {0};
-	UW next_tick = boot.lo;
-	for (;;) {
-		SYSTIM now;
-		tk_get_tim(&now);
-		s2_move_command_t command = S2_MOVE_STOP;
-		UINT power = 0, best = 0;
-		if (tk_loc_mtx(vehicle_mutex, TMO_POL) >= E_OK) {
-			for (UINT i = 1; i <= 4; ++i) {
-				if (requests[i].active && (W)(now.lo - requests[i].expires) >= 0)
-					requests[i].active = FALSE;
-				if (requests[i].active && importance[i] > best) {
-					best = importance[i]; command = requests[i].command;
-					power = requests[i].power;
-				}
-			}
-			tk_unl_mtx(vehicle_mutex);
-		}
-        app_state_collect(&next);
-        now.lo = next.time_ms;
-		if (VEHICLE_MODE == VEHICLE_MODE_STRAIGHT) {
-			/* No sensors: both wheels forward until the power is switched off. */
-			BOOL go = now.lo - drive.boot_ms >= VEHICLE_START_DELAY_MS;
-			command = go ? S2_MOVE_FORWARD : S2_MOVE_STOP;
-			power = go ? VEHICLE_FORWARD_POWER : 0;
-		} else {
-			/* Clear path: follow the line in line mode, else drive straight.
-			 * At an obstacle the S5 avoidance sequence takes over. */
-			s2_move_command_t cruise_command = S2_MOVE_FORWARD;
-			UINT cruise_power = VEHICLE_FORWARD_POWER;
-			if (VEHICLE_MODE == VEHICLE_MODE_LINE)
-				vehicle_line_step(&cruise_command, &cruise_power);
-			s5_status_t sensor = next.s5;
-			BOOL sensor_ok = next.s5_available;
-			s2_move_command_t auto_command;
-			UINT auto_power;
-			vehicle_fsm_step(&drive, now.lo, &sensor, sensor_ok, best != 0,
-			                 cruise_command, cruise_power,
-			                 &auto_command, &auto_power);
-			if (best == 0) {
-				command = auto_command;
-				power = auto_power;
-			} else if (now.lo - drive.boot_ms < VEHICLE_START_DELAY_MS ||
-			           drive.phase != VEHICLE_CRUISE ||
-			           s5_assess_path(&sensor, sensor_ok, now.lo).state != S5_PATH_FORWARD) {
-				command = S2_MOVE_STOP; power = 0;
-			}
-		}
-		if (command == S2_MOVE_STOP) power = 0;
-		BOOL changed = command != previous || power != previous_power;
-		/* S2 stops the motors if a moving command is not renewed in time. */
-		BOOL renew = command != S2_MOVE_STOP &&
-		             now.lo - last_sent >= VEHICLE_RENEW_MS;
-		if (changed || renew) {
-			ER er = s2_movement_send(command, power);
-			if (er >= E_OK) {
-				previous = command; previous_power = power;
-				last_sent = now.lo;
-				if (changed)
-					tm_printf((UB *)"[AUTO] motor command %d, power %u%%\n", command, power);
-			}
-			else CHECK(er, "vehicle movement");
-		}
-        next.phase = drive.phase;
-        next.avoidance_stage = vehicle_avoidance_stage(drive.phase);
-        next.movement = previous;
-        next.power_percent = previous_power;
-        CHECK(app_state_publish(&next), "publish vehicle state");
-        app_log_state(&next);
-        /* Deadline scheduling accounts for work time instead of adding it
-         * to the 10 ms period. Skip missed ticks rather than busy catching up. */
-        next_tick += APP_STATE_PERIOD_MS;
-        tk_get_tim(&now);
-        W remaining = (W)(next_tick - now.lo);
-        if (remaining <= 0) {
-            next_tick = now.lo + APP_STATE_PERIOD_MS;
-            remaining = APP_STATE_PERIOD_MS;
-        }
-        tk_dly_tsk((UW)remaining);
-	}
+    return s3_configure(&c);
+#endif
 }
 #endif
-
-EXPORT INT usermain(void)
-{
-	T_RVER ver;
-
-	/* tk_ref_ver: ask the kernel who it is */
-	tk_ref_ver(&ver);
-	tm_printf((UB *)"\n=== micro T-Kernel on Raspberry Pi Pico W"
-					" (spec 0x%04x, product 0x%04x) ===\n",
-			  ver.spver, ver.prver);
-#if TK_SUPPORT_SMP
-	tm_printf((UB *)"dual-core (SMP) build, usermain on core %d\n",
-			  tk_get_prc() - 1); /* tk_get_prc() counts from 1 */
+EXPORT INT usermain(void) {
+    T_RVER ver;tk_ref_ver(&ver);
+    tm_printf((UB *)"\nCSC02 CR1 / micro T-Kernel 3, SMP=%u, encoders=%u\n",TK_SUPPORT_SMP,S2_ENCODER_ENABLED);
+#if BOARD_IR_CONTINUOUS_BENCH
+    tm_printf((UB *)"IR CONTINUOUS BENCH v6: boot STOPPED; supervised USB start only\n");
+    tm_printf((UB *)"IRLINE continuous: 30pct 20000ms pattern-stop=0 encoder-stop=0\n");
+    tm_printf((UB *)"IRLINE emergency STOP/USB lease/ADC/motor faults retained; ultrasonic DISABLED\n");
+#elif BOARD_IR_LINE_ONLY_BENCH
+    tm_printf((UB *)"IR LINE ONLY BENCH v5: boot STOPPED; ultrasonic DISABLED; supervised USB start only\n");
+    tm_printf((UB *)"IRLINE limits: PWM<=50%% run<=20000ms heartbeat<250ms motor-watchdog<=150ms progress<=750ms\n");
+    tm_printf((UB *)"IRLINE no obstacle protection; white cannot prove line presence; no navigation\n");
+    tm_printf((UB *)"IRLINE course: cross=straight recent-side=hold bounded=500/800ms\n");
+#elif BOARD_IR_LINE_TRACE_BENCH
+    tm_printf((UB *)"IR LINE TRACE BENCH v2: boot STOPPED; both white=assumed centre; supervised USB start only\n");
+    tm_printf((UB *)"IRLINE limits: PWM<=20%% run<=6000ms heartbeat<250ms motor-watchdog<=150ms\n");
+    tm_printf((UB *)"IRLINE GP27=left GP26=right; both black=STOP; white cannot prove line presence\n");
+#elif BOARD_IR_MOTOR_SCAN_BENCH
+    tm_printf((UB *)"IR MOTOR SCAN BENCH v5: boot STOPPED; USB framed start only; no navigation\n");
+    tm_printf((UB *)"IRSCAN barcode: min_run=20ms sample=10ms bias<=half_narrow\n");
+    tm_printf((UB *)"IRSCAN limits: PWM<=20%% run<=6000ms heartbeat<250ms motor-watchdog<=150ms\n");
 #else
-	tm_printf((UB *)"single-core build\n");
+    tm_printf((UB *)"Boot DISARMED; USB s=STOP, r=reset fault, a=500 ms track lease. Binary telemetry=%u bytes.\n",TELEMETRY_BYTES);
 #endif
-
+    if(BOARD_MOTORS_DISABLED)tm_printf((UB *)"MOTOR LOCK ON: drive GPIOs held low; all movement/ARM commands rejected.\n");
+    tm_printf((UB *)"Clock: kernel operating time (monotonic uptime)\n");
+#if BOARD_IR_RAW_BENCH
+    tm_printf((UB *)"IR RAW BENCH: input-only; no calibrated line or barcode authority\n");
+    tm_printf((UB *)"[S3] raw input mode=%u pins=GP26,GP27,GP28\n",BOARD_IR_MODE);
+#if BOARD_IR_MODE == 2
+    tm_printf((UB *)"[S3] ADC timing: conversion<%ums reply<%ums\n",
+              S3_ADC_DEADLINE_MS,S3_ADC_REPLY_DEADLINE_MS);
+    tm_printf((UB *)"[S3] ADC acquisition: bounded reply wait; no prefetched next scan\n");
+#endif
+#endif
+#if BOARD_IR_CALIBRATED_BENCH
+    tm_printf((UB *)"IR CALIBRATED BENCH: measured endpoints; motor lock required; no motion test\n");
+    tm_printf((UB *)"[S3] roles: GP26=right GP27=left GP28=barcode line-mask=3\n");
+    {
+        const uint16_t white[S3_SENSOR_COUNT]=BOARD_IR_ADC_WHITE;
+        const uint16_t black[S3_SENSOR_COUNT]=BOARD_IR_ADC_BLACK;
+        tm_printf((UB *)"[S3] ADC endpoints white=%u,%u,%u black=%u,%u,%u\n",
+                  (unsigned)white[0],(unsigned)white[1],(unsigned)white[2],
+                  (unsigned)black[0],(unsigned)black[1],(unsigned)black[2]);
+    }
+    tm_printf((UB *)"[S3] paused scan gaps reset observations; TRACK gaps still fault\n");
+#endif
+#if BOARD_IR_BARCODE_CAPTURE
+#if BOARD_IR_LINE_TRACE_BENCH
+    tm_printf((UB *)"IRLINE capture: all ADC scans; steering uses only GP26/27\n");
+#elif BOARD_IR_MOTOR_SCAN_BENCH
+    tm_printf((UB *)"IRSCAN capture: GP28 ADC; unchanged A/Z decoder; timed forward diagnostic only\n");
+#else
+    tm_printf((UB *)"IR BARCODE CAPTURE: copied scans; motor locked; host decoder replay\n");
+#endif
+    tm_printf((UB *)"[S3] scan schedule: cyclic10; capture receive without status mutex\n");
+#endif
+    ER er=E_OK;
 #if APP_S2_ONLY
-	/* Isolated movement test; no example producer/monitor tasks. */
-	tm_printf((UB *)"[S2 ONLY] movement test firmware\n");
-	ER er = subsystem2_init();
-	CHECK(er, "subsystem2_init");
-	if (er >= E_OK) {
-		er = subsystem2_start();
-		CHECK(er, "subsystem2_start");
-		if (er >= E_OK) {
-			subsystem2_test();
-		}
-	}
+    er=subsystem2_init();
+    if(er>=0)er=subsystem2_start();
+#if APP_TEST
+    if(er>=0)subsystem2_test(); /* explicitly selected raised-wheel bench profile */
+#endif
+#elif APP_S4_ONLY
+    er=subsystem4_init();
+    if(er>=0)er=subsystem4_start();
+#if APP_TEST
+    if(er>=0)subsystem4_test();
+#endif
 #else
-	ER er = subsystem2_init();
-	CHECK(er, "subsystem2_init");
-#if VEHICLE_MODE == VEHICLE_MODE_LINE
-	/* Line mode adds the IR line and barcode sensors to the ultrasonic. */
-	if (er >= E_OK) er = subsystem3_init();
-	CHECK(er, "subsystem3_init");
-	if (er >= E_OK) er = vehicle_line_init();
-	CHECK(er, "vehicle_line_init");
-#endif
-#if VEHICLE_MODE != VEHICLE_MODE_STRAIGHT
-	if (er >= E_OK) er = subsystem5_init();
-	CHECK(er, "subsystem5_init");
-#endif /* straight mode starts no sensor subsystem */
-	if (er >= E_OK) er = app_state_init();
-	CHECK(er, "app_state_init");
-	if (er >= E_OK) er = vehicle_init();
-	CHECK(er, "vehicle_init");
-	if (er >= E_OK) er = subsystem2_start();
-#if VEHICLE_MODE == VEHICLE_MODE_LINE
-	if (er >= E_OK) er = subsystem3_start();
-#endif
-#if VEHICLE_MODE != VEHICLE_MODE_STRAIGHT
-	if (er >= E_OK) er = subsystem5_start();
-#endif
-    if (er >= E_OK) {
-#if APP_S5_MASTER_TEST
-        tm_printf((UB *)"[S5 MASTER TEST] acquisition then approach\n");
-#elif APP_ACQUISITION_TEST
-        tm_printf((UB *)"[ACQUISITION TEST] acquire left then right bound; GP22 double beep\n");
-#elif APP_ACQUISITION_LEFT_TEST
-        tm_printf((UB *)"[ACQUISITION LEFT TEST] forward to 15 cm, find left bound, beep GP22\n");
-#elif APP_TEST
-        tm_printf((UB *)"[S5 TEST] sensor sweep firmware; motors remain stopped\n");
+    er=subsystem1_init();
+    if(er>=0)er=subsystem2_init();
+    if(er>=0)er=subsystem3_init();
+    if(er>=0)er=configure_line();
+    if(er>=0)er=subsystem4_init();
+    if(er>=0)er=subsystem5_init();
+    if(er>=0)er=app_state_init();
+    /* All shared objects exist before any application task starts. */
+    if(er>=0)er=subsystem2_start();
+    if(er>=0)er=subsystem3_start();
+    if(er>=0)er=subsystem4_start();
+    if(er>=0)er=subsystem5_start();
+    if(er>=0)er=subsystem1_start();
+#if !APP_S5_DIAGNOSTICS
+    if(er>=0)er=vehicle_start();
 #else
-        ID tid = app_start_task((FP)vehicle_task, 10, TP_PRC1, "vehicle");
-        CHECK(tid, "vehicle start");
+    if(er>=0)tm_printf((UB *)"Explicit S5 diagnostic owns the hardware; integrated controller not started.\n");
 #endif
-    } else CHECK(er, "vehicle startup");
-#endif /* APP_S2_ONLY */
-
-	/* Sleep forever.  Returning from usermain() would shut down. */
-	tk_slp_tsk(TMO_FEVR);
-	return 0;
+#if APP_TEST
+    if(er>=0) {subsystem5_test();tm_printf((UB *)"[TEST] passive integrated checks completed; no motor test requested\n");}
+#endif
+#endif
+    if(er<0)tm_printf((UB *)"[STARTUP FAIL] %d; controller not armed\n",er);
+    else tm_printf((UB *)"Selected subsystems started. Calibration and physical validation required before motion.\n");
+    for(;;)tk_slp_tsk(TMO_FEVR);
 }

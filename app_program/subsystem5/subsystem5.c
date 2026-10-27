@@ -1,4 +1,6 @@
 #include "subsystem5.h"
+#include "../robot_config.h"
+#if APP_S5_ENABLED
 #include "s5_hardware.h"
 #include "s5_scan.h"
 #include "s5_data.h"
@@ -8,31 +10,30 @@
 #endif
 
 static ID status_mutex;
-static uint8_t status_data[S5_DATA_SIZE] = {
-    S5_CENTERING, 0, 90, 90, 90, 90, 90, 90
-};
-
-/* Caller holds status_mutex. Invalid internal data fails closed. */
-static void status_load(s5_status_t *value)
-{
-    if (!s5_data_decode(status_data, sizeof(status_data), value))
-        *value = (s5_status_t){.state = S5_FAULT};
+static ID controller;
+ER s5_controller_bind(void) {
+    if(status_mutex<=0)return E_OBJ;
+    ER er=tk_loc_mtx(status_mutex,S5_LOCK_WAIT_MS);if(er<0)return er;
+    if(controller && controller!=tk_get_tid())er=E_OACV;else controller=tk_get_tid();
+    ER unlocked=tk_unl_mtx(status_mutex);return unlocked<E_OK?unlocked:er;
 }
-static void status_store(const s5_status_t *value)
-{
-    if (!s5_data_encode(value, status_data, sizeof(status_data))) {
-        s5_status_t fault = {.state = S5_FAULT};
-        (void)s5_data_encode(&fault, status_data, sizeof(status_data));
+static uint8_t status_data[S5_DATA_SIZE]={S5_CENTERING,0,90,90,90,90,90,90};
+/* Caller holds status_mutex; native structures are transient decoded views. */
+static void status_load(s5_status_t *value) {
+    if(!s5_data_decode(status_data,sizeof(status_data),value))
+        *value=(s5_status_t){.state=S5_FAULT};
+}
+static void status_store(const s5_status_t *value) {
+    if(!s5_data_encode(value,status_data,sizeof(status_data))) {
+        s5_status_t fault={.state=S5_FAULT};
+        (void)s5_data_encode(&fault,status_data,sizeof(status_data));
     }
 }
-
-EXPORT ER s5_status_encode(uint8_t *data, size_t capacity)
-{
-    if (!data || capacity < S5_DATA_SIZE) return E_PAR;
-    s5_status_t copy;
-    ER er = s5_get_status(&copy);
-    if (er < E_OK) return er;
-    return s5_data_encode(&copy, data, capacity) ? E_OK : E_PAR;
+ER s5_status_encode(uint8_t *data,size_t capacity) {
+    if(!data || capacity<S5_DATA_SIZE)return E_PAR;
+    s5_status_t copy;ER er=s5_get_status(&copy);
+    if(er<E_OK)return er;
+    return s5_data_encode(&copy,data,capacity)?E_OK:E_PAR;
 }
 static BOOL recenter;
 static BOOL turn_requested;
@@ -42,14 +43,15 @@ static INT navigation_look;
 
 EXPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg)
 {
-    s5_status_t status;
+    if(controller<=0 || tk_get_tid()!=controller)return E_OACV;
     if ((state != S5_APPROACH && state != S5_OVERCOME &&
          state != S5_REORG && state != S5_ROTATING && state != S5_MONITOR) ||
         look_deg < -90 || look_deg > 90)
         return E_PAR;
-    ER er = tk_loc_mtx(status_mutex, TMO_POL);
+    if (status_mutex <= 0) return E_OBJ;
+    ER er = tk_loc_mtx(status_mutex, S5_LOCK_WAIT_MS);
     if (er < E_OK) return er;
-    status_load(&status);
+    s5_status_t status;status_load(&status);
     if (status.scan_id != scan_id || (status.state == S5_FAULT && state != S5_MONITOR))
         er = E_OBJ;
     else {
@@ -61,31 +63,32 @@ EXPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg)
         status.valid = FALSE;
     }
     status_store(&status);
-    tk_unl_mtx(status_mutex);
-    return er;
+    ER unlocked = tk_unl_mtx(status_mutex);
+    return unlocked < E_OK ? unlocked : er;
 }
 
 EXPORT ER s5_get_status(s5_status_t *copy)
 {
-    s5_status_t status;
     if (!copy)
         return E_PAR;
-    ER er = tk_loc_mtx(status_mutex, TMO_POL);
+    if (status_mutex <= 0) return E_OBJ;
+    ER er = tk_loc_mtx(status_mutex, S5_LOCK_WAIT_MS);
     if (er < E_OK)
         return er;
-    status_load(&status);
-    *copy = status;
-    tk_unl_mtx(status_mutex);
-    return E_OK;
+    s5_status_t value;status_load(&value);
+    er=tk_unl_mtx(status_mutex);
+    if(er>=E_OK)*copy=value;
+    return er;
 }
 
 EXPORT ER s5_avoidance_begin(UW scan_id)
 {
-    s5_status_t status;
-    ER er = tk_loc_mtx(status_mutex, TMO_POL);
+    if(controller<=0 || tk_get_tid()!=controller)return E_OACV;
+    if (status_mutex <= 0) return E_OBJ;
+    ER er = tk_loc_mtx(status_mutex, S5_LOCK_WAIT_MS);
     if (er < E_OK)
         return er;
-    status_load(&status);
+    s5_status_t status;status_load(&status);
     if (status.state != S5_READY || !status.valid || status.scan_id != scan_id)
         er = E_OBJ;
     else
@@ -95,56 +98,45 @@ EXPORT ER s5_avoidance_begin(UW scan_id)
         status.valid = FALSE;
     }
     status_store(&status);
-    tk_unl_mtx(status_mutex);
-    return er;
+    ER unlocked = tk_unl_mtx(status_mutex);
+    return unlocked < E_OK ? unlocked : er;
 }
 
 EXPORT ER s5_avoidance_complete(void)
 {
-    s5_status_t status;
-    ER er = tk_loc_mtx(status_mutex, TMO_POL);
+    if(controller<=0 || tk_get_tid()!=controller)return E_OACV;
+    if (status_mutex <= 0) return E_OBJ;
+    ER er = tk_loc_mtx(status_mutex, S5_LOCK_WAIT_MS);
     if (er < E_OK)
         return er;
-    status_load(&status);
+    s5_status_t status;status_load(&status);
     if (status.state != S5_READY && status.state != S5_ROTATING)
         er = E_OBJ;
     else
         recenter = TRUE;
-    status_store(&status);
-    tk_unl_mtx(status_mutex);
+    ER unlocked = tk_unl_mtx(status_mutex);
+    return unlocked < E_OK ? unlocked : er;
+}
+
+
+static ID hardware_owner;
+#if APP_TEST && APP_S5_DIAGNOSTICS
+ER s5_test_position(INT angle,BOOL take_sample,s5_status_t *copy) {
+    if(!copy || angle < -90 || angle > 90)return E_PAR;
+    if(!hardware_owner || tk_get_tid()!=hardware_owner)return E_OACV;
+    s5_status_t sample={.state=S5_CENTERING,.angle_deg=angle};
+    s5_hw_servo(angle);tk_dly_tsk(1000);
+    if(take_sample)s5_hw_sample(&sample);
+    SYSTIM now;ER er=tk_get_otm(&now);if(er<E_OK)return er;
+    sample.time_ms=now.lo;sample.sample_angle_deg=angle;
+    er=tk_loc_mtx(status_mutex,S5_LOCK_WAIT_MS);if(er<E_OK)return er;
+    status_store(&sample);er=tk_unl_mtx(status_mutex);
+    if(er>=E_OK)*copy=sample;
     return er;
 }
-
-#if APP_TEST
-/* The S5 test task is the only owner of sensor/servo hardware in test builds. */
-EXPORT ER s5_test_position(INT angle, BOOL take_sample, s5_status_t *copy)
-{
-    if (angle < -90 || angle > 90 || !copy)
-        return E_PAR;
-    s5_hw_servo(angle);
-    tk_dly_tsk(1000);
-    *copy = (s5_status_t){.state = S5_CENTERING, .angle_deg = angle};
-    if (take_sample)
-    {
-        s5_hw_sample(copy);
-        copy->valid = copy->echo_result == S5_ECHO_OK;
-    }
-    SYSTIM now;
-    tk_get_tim(&now);
-    copy->time_ms = now.lo;
-    copy->sample_angle_deg = angle;
-    ER er = tk_loc_mtx(status_mutex, TMO_FEVR);
-    if (er < E_OK)
-        return er;
-    status_store(copy);
-    tk_unl_mtx(status_mutex);
-    return E_OK;
-}
-
-static void sensor_test_task(INT stacd, void *exinf)
-{
-    (void)stacd;
-    (void)exinf;
+static void sensor_test_task(INT code,void *context) {
+    (void)code;(void)context;hardware_owner=tk_get_tid();
+    if(s5_hw_timer_init()<E_OK){tk_ext_tsk();return;}
     s5_hw_io_init();
 #if APP_S5_MASTER_TEST
     s5_master_test();
@@ -153,17 +145,28 @@ static void sensor_test_task(INT stacd, void *exinf)
 #elif APP_ACQUISITION_LEFT_TEST
     acquisition_left_test();
 #else
-    subsystem5_test();
+    s5_servo_sweep_test();
 #endif
     tk_ext_tsk();
 }
 #endif
-
+#if !APP_S5_DIAGNOSTICS
 static void scan_task(INT stacd, void *exinf)
 {
     (void)stacd;
     (void)exinf;
+    hardware_owner=tk_get_tid();
+    if (s5_hw_timer_init() < E_OK) {
+        s5_status_t fault={.state=S5_FAULT};
+        if(tk_loc_mtx(status_mutex,TMO_FEVR)>=E_OK) {
+            status_store(&fault);(void)tk_unl_mtx(status_mutex);
+        }
+        tk_ext_tsk(); return;
+    }
     s5_hw_io_init();
+    tm_printf((UB *)"[S5] status copies: bounded inheritance wait\n");
+    tm_printf((UB *)"[S5] wiring: TRIG=GP%u ECHO=GP%u\n",
+              BOARD_ULTRASONIC_TRIG_GPIO, BOARD_ULTRASONIC_ECHO_GPIO);
     tm_printf((UB *)"[S5] startup: centring servo at 0 deg; waiting %u ms\n",
               S5_STARTUP_CENTER_MS);
     tk_dly_tsk(S5_STARTUP_CENTER_MS);
@@ -174,16 +177,16 @@ static void scan_task(INT stacd, void *exinf)
     {
         s5_hw_sample(&next);
         UW distance = next.distance_mm;
-        BOOL valid = next.echo_result == S5_ECHO_OK;
+        BOOL valid = next.valid;
         SYSTIM now;
-        tk_get_tim(&now);
+        tk_get_otm(&now);
         next.valid = valid;
         next.distance_mm = distance;
         next.sample_angle_deg = next.angle_deg;
         next.time_ms = now.lo;
         INT target = s5_scan_step(&next, &scan);
         INT travelled;
-        tk_loc_mtx(status_mutex, TMO_FEVR);
+        if(tk_loc_mtx(status_mutex,TMO_FEVR)<E_OK) {tk_ext_tsk();return;}
         if (turn_requested)
         {
             turn_requested = FALSE;
@@ -217,7 +220,7 @@ static void scan_task(INT stacd, void *exinf)
             next.angle_deg = target;
         }
         status_store(&next);
-        tk_unl_mtx(status_mutex);
+        if(tk_unl_mtx(status_mutex)<E_OK) {tk_ext_tsk();return;}
         s5_hw_servo(target);
         UW settle_ms = (UW)travelled * S5_SERVO_MS_PER_DEG;
         if (settle_ms < S5_SETTLE_MS)
@@ -225,11 +228,10 @@ static void scan_task(INT stacd, void *exinf)
         tk_dly_tsk(next.valid ? S5_SAMPLE_MS : settle_ms);
     }
 }
+#endif
 EXPORT ER subsystem5_init(void)
 {
-    ER er = s5_hw_timer_init();
-    if (er < E_OK)
-        return er;
+    if (status_mutex > 0) return E_OBJ;
     T_CMTX cfg = {0};
     cfg.mtxatr = TA_INHERIT;
     status_mutex = tk_cre_mtx(&cfg);
@@ -237,10 +239,13 @@ EXPORT ER subsystem5_init(void)
 }
 EXPORT ER subsystem5_start(void)
 {
-#if APP_TEST
-    ID tid = app_start_task((FP)sensor_test_task, S5_PRI_MAIN, TP_PRC2, "sensor sweep test");
+    if (status_mutex <= 0) return E_OBJ;
+#if APP_TEST && APP_S5_DIAGNOSTICS
+    ID tid=app_start_task((FP)sensor_test_task,S5_PRI_MAIN,TP_PRC2,"S5 explicit diagnostic");
 #else
     ID tid = app_start_task((FP)scan_task, S5_PRI_MAIN, TP_PRC2, "obstacle scan");
 #endif
     return tid < E_OK ? tid : E_OK;
 }
+
+#endif

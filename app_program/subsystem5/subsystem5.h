@@ -1,7 +1,9 @@
 #ifndef SUBSYSTEM5_H
 #define SUBSYSTEM5_H
 #include "../app.h"
+#include "../robot_config.h"
 #define S5_PRI_MAIN 20
+#define S5_LOCK_WAIT_MS 5
 #define S5_OBSTACLE_MM 200U /* acquisition at 20 cm, inclusive */
 #define S5_ACQUISITION_SAMPLES 2U
 #define S5_SCAN_ECHO_FAILURES 3U /* retry at the same angle before resetting */
@@ -107,6 +109,7 @@ typedef struct
     UW object_width_min_mm;
     UW object_width_max_mm;
 } s5_status_t;
+IMPORT ER s5_controller_bind(void);
 IMPORT ER s5_get_status(s5_status_t *status);
 /* Legacy single-rotation handshake. S5 centres the sensor and
  * monitors forward distance until completion or abort. */
@@ -163,7 +166,8 @@ IMPORT void aqcuisition_test(void);
 #if APP_ACQUISITION_LEFT_TEST
 IMPORT void acquisition_left_test(void);
 #endif
-#if APP_TEST
+#if APP_TEST && APP_S5_DIAGNOSTICS
+IMPORT void s5_servo_sweep_test(void);
 /* Test-only API: command an angle, wait 1 s, optionally measure once. */
 IMPORT ER s5_test_position(INT angle, BOOL take_sample, s5_status_t *copy);
 #endif

@@ -13,6 +13,8 @@ typedef struct { UW mtxatr; } T_CMTX;
 #define TRUE 1
 #define FALSE 0
 #define E_OK 0
+ID tk_get_tid(void);
+#define E_OACV (-27)
 #define E_PAR (-17)
 #define E_OBJ (-41)
 #define E_TMOUT (-50)
@@ -25,7 +27,7 @@ ER tk_loc_mtx(ID id, INT timeout);
 ER tk_unl_mtx(ID id);
 ID tk_cre_mtx(const T_CMTX *cfg);
 ER tk_dly_tsk(INT delay);
-ER tk_get_tim(SYSTIM *now);
+ER tk_get_otm(SYSTIM *now);
 void tk_ext_tsk(void);
 void tm_printf(const UB *format, ...);
 ID app_start_task(FP entry, PRI pri, UW core, const char *name);

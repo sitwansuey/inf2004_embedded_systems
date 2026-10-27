@@ -6,11 +6,12 @@
 
 static ER lock_result;
 static unsigned locks;
+ID tk_get_tid(void) {return 100;}
 ER tk_loc_mtx(ID id, INT timeout) { (void)id; (void)timeout; if (lock_result == E_OK) ++locks; return lock_result; }
 ER tk_unl_mtx(ID id) { (void)id; assert(locks == 1); --locks; return E_OK; }
 ID tk_cre_mtx(const T_CMTX *cfg) { (void)cfg; return 1; }
 ER tk_dly_tsk(INT delay) { (void)delay; return E_OK; }
-ER tk_get_tim(SYSTIM *now) { *now = (SYSTIM){0}; return E_OK; }
+ER tk_get_otm(SYSTIM *now) { *now = (SYSTIM){0}; return E_OK; }
 void tk_ext_tsk(void) {}
 void tm_printf(const UB *format, ...) { (void)format; }
 ID app_start_task(FP entry, PRI pri, UW core, const char *name) { (void)entry; (void)pri; (void)core; (void)name; return 1; }
@@ -25,6 +26,8 @@ int main(void)
     s5_status_t v = {0}, decoded;
     uint8_t data[S5_DATA_SIZE], again[S5_DATA_SIZE], packet[S5_DATA_SIZE + 2];
     size_t length;
+    assert(s5_get_status(&v)==E_OBJ);
+    assert(subsystem5_init()==E_OK && s5_controller_bind()==E_OK);
     assert(s5_get_status(&v) == E_OK && v.state == S5_CENTERING && v.angle_deg == 0);
     /* Exhaust all control-byte values, including reserved bits/codes. */
     assert(s5_data_encode(&v, data, sizeof(data)));

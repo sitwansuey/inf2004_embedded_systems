@@ -11,6 +11,9 @@ typedef struct
     BOOL averaging_bound;
     UINT bound_samples;
     UW bound_sum_mm;
+    INT origin_left, origin_right;
+    uint8_t position_recorded : 1;
+    uint8_t plan_pending : 1;
 } s5_scan_context_t;
 IMPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan);
 #endif

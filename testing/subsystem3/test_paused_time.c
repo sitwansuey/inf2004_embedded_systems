@@ -1,6 +1,6 @@
 /* Production-core regression for the robot's latched paused timing fault. */
 #include <stdio.h>
-#include "../../app_program/subsystem3/buddy3_robot_ir.h"
+#include "../../app_program/robot_ir_config.h"
 static unsigned checks,failures;
 #define CHECK(c) do { ++checks; if(!(c)) { ++failures; printf("FAIL line %d: %s\n",__LINE__,#c); } } while(0)
 

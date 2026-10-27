@@ -5,7 +5,7 @@ ifeq ($(wildcard $(S4_SDK)/rp2_common/hardware_i2c/i2c.c),)
 $(error Buddy 4 needs PICO_SDK_PATH pointing to Pico SDK 2.2.0, including for UART builds)
 endif
 
-S4_INCLUDES := common/pico_base_headers common/pico_binary_info \
+S4_INCLUDES := common/pico_base_headers common/pico_binary_info common/pico_util \
                common/pico_time common/hardware_claim \
                rp2040/pico_platform rp2040/hardware_regs \
                rp2040/hardware_structs \

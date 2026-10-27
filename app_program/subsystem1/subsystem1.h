@@ -11,6 +11,8 @@
 #define SUBSYSTEM1_H
 
 #include "../app.h"
+IMPORT ER s1_binary_init(void);
+IMPORT void telemetry_task(INT code,void *context);
 
 #define S1_PRI_LED	12		/* priority band 12-13 (TEAM.md) */
 #define S1_LED_PIN	19		/* GP19: LED + 330R resistor to GND */

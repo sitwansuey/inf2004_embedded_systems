@@ -1,8 +1,0 @@
-Tested commit: 93f71ae0effb76f3a535e948e8c1e098934c7ee8
-Command: git diff --check
-Exit code: 0
-Expected exit code: 0
-
-STDOUT
-
-STDERR
