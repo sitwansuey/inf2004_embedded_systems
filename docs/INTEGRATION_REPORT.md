@@ -6,7 +6,6 @@ speed PID, absolute heading and audio work remain; see the explicit limits below
 
 ## Repository and branch audit
 
-Confirmed checkout: `C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems`.
 The starting tree was clean on feat/buddy3-line-barcode-ci at bac31d8. Created
 `local/csc02-cr1-integration-20261021`, fetched origin read-only, and fast-forwarded
 only this new local branch to origin/main 210a407. Those two commits have the

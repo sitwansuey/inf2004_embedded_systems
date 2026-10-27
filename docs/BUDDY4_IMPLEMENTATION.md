@@ -1,142 +1,97 @@
-# Buddy 4 integration and ownership recap
+# Buddy 4 implementation and ownership
 
-Prepared 27 October 2026, Singapore. This records local software work; physical
-validation is the next stage. No firmware was flashed and no motors were started.
+## Current software baseline
 
-## Current reconciled software baseline
+Buddy 4 is integrated on `buddy4/cr1-integration` with main `58b89c2`.
+See MAIN_RECONCILIATION_20261027.md for the startup/controller conflict decisions.
+This branch is a software baseline for testing, not final hardware acceptance.
+It boots disarmed and motor-locked. Calibration and autonomous bypass remain
+unset by default. No board was flashed or driven during this implementation.
 
-Checkpoint 373ad6d and CR1 continuation 8f14916 are reconciled with main f8107be
-(Buddy 5 PR #7) in PR #8. The integrated controller, STOP protections and common
-operating clock are retained; Buddy 5's checked packed status is adopted. See
-MAIN_RECONCILIATION_20261027.md for conflict decisions and current verification,
-and BUDDY1_RETROSPECTIVE_REVIEW.md for the requested follow-up review.
+## Sensor-to-controller path
 
-Buddy 4 uses a 63-byte acquisition record, a 21-byte ARM terrain working state
-and a 12-byte checked result for controller/B1. B1 retains the 50-byte aggregate
-schema. Physical calibration, accuracy, load timing and runtime memory evidence
-remain open. Nothing was flashed or started during software reconciliation.
+1. The sensor task alone owns I2C1 on GP2 SDA / GP3 SCL. The GY-511 contains
+   an LSM303DLHC accelerometer and magnetometer, not a gyroscope. Channel quality,
+   clipping, overrun, freshness, absent devices and reinitialization are handled
+   by the existing driver/acquisition path.
+2. Authoritative acquisition storage and protected cross-task copies use a
+   500-bit / 63-byte record. `s4_sensor_get_record()` copies under the bounded
+   priority-inheritance mutex; `s4_data_snapshot()` creates a temporary decoded
+   view after the consumer obtains current operating time. Wide diagnostic
+   views are not the persistent cache or the binary transmission format.
+3. The controller obtains Buddy 2's exact 13-byte encoder payload through
+   `s2_encoder_encode()`. `s4_encoder_terrain_step()` checks API result, format,
+   validity, age, IMU alignment, duplicates, count/time wrap and continuity.
+   Both sources use `tk_get_otm()`. IMU microsecond-shaped timestamps are
+   millisecond operating time multiplied by 1000, not microsecond precision.
+4. Checked odometry converts counts using measured calibration. Its owner-local
+   state uses 181 bits / 23 ARM bytes; persistent calibration uses 38 bits /
+   5 ARM bytes. Full-range counts/timestamps and cumulative distance retain
+   32 bits; speed, interval distance and yaw use their proven smaller domains.
+   Public configuration views and checked arithmetic remain wide until validated.
+5. Terrain processing uses gravity-derived pitch and measured encoder travel:
+   incremental rise is travel times sin(pitch). Mounting calibration, usable
+   aligned data, flat-baseline confirmation and continuity gate the estimate.
+   The task-local terrain state uses 165 bits / 21 ARM bytes.
+6. Only an ordered, valid ascent/crest/descent and return to baseline completes
+   a hump. Reversal, shock, sensor loss or a broken interval abandons the partial
+   traversal. A completed hump can increase the retained run maximum; pause and
+   recoverable faults retain it. Stopped/disarmed RESET or reboot starts a new run.
+7. The controller publishes a checked 93-bit / 12-byte terrain result under the
+   existing app-state mutex. Controller and Buddy 1 use `s4_result_decode()`.
+   B1 adapts the result to the existing 394-bit / 50-byte aggregate telemetry.
+   Optional standalone EDR framing is source 4 / kind 2, total 14 bytes; it is
+   not silently substituted for the aggregate MQTT schema.
 
-The following sections describe the original checkpoint and its provenance.
+## Ownership and interfaces
 
-## Starting sources
-
-The original clean checkout was main `056a92823bb7bbd87b17f0bb6eb6ed7bd7308e63`.
-GitHub was refreshed and the new local branch
-`buddy4/integration-cr1-20261027` starts at main
-`0269a02da74cdf7cd9ebd0a6bb46597dcfbc3677`, including Buddy 2
-`fc1dd8dfac1d30a06369f8ed08f29a7d718125fd` and published Buddy 3
-`16f319c5169967ff6a916e8ce22cfed0c84f6acd`. Main already removed the obsolete
-producer that caused the old build failure.
-
-The handoff ZIP is a broader integrated snapshot, based on local `b02e335` plus
-uncommitted work, rather than only Buddy 3. All 1,250 manifested files matched
-SHA256 and length. Its 1,164 repository files were compared with main using
-`056a928` as the reference. Nonoverlapping work was recovered; overlapping
-Buddy 2 source was reconciled explicitly. The original checkout branch and ZIP
-remain intact. The supplied restoration script copied the snapshot but then
-failed on an empty deleted-files entry; no deleted source was required.
-
-Restored files include the prior controller, STOP epochs, operating-clock fixes,
-IR integration, sonar integration, binary telemetry, dashboard, tests, tools and
-historical evidence. Those are inherited work, not newly authored Buddy 4 work.
-See `BUDDY4_CHANGE_PROVENANCE.json` for recovered paths and conflict decisions.
-
-## Final data path
-
-1. Buddy 2 remains the sole encoder/PWM owner. Its sequence-checked getter now
-   timestamps with `tk_get_otm()`, including the motor watchdog and command lease.
-   This preserves the local integration's monotonic operating-clock correction.
-2. The controller calls `s2_encoder_encode()` into a fresh caller-owned buffer.
-   Success supplies exactly the existing 13-byte EDR v1 encoder payload:
-   left count u32 LE, right count u32 LE, operating milliseconds u32 LE, flags u8.
-   Counts are signed cumulative positions represented modulo 2^32. Flags are
-   VALID, left A/B and right A/B in bits 0..4; bits 5..7 must be zero.
-3. Buddy 4 `encoder_input.c` uses the existing checked decoder. It rejects API
-   errors, wrong lengths, noncanonical invalid records, reserved bits,
-   stale/future samples, inconsistent repeats, ambiguous count changes and gaps.
-   Odometry uses measured x1 count scale and wheel dimensions, never PWM.
-4. Source age is checked after the potentially waiting snapshot calls.
-   IMU read timestamps are explicitly divided by 1000, then compared in the same
-   operating-millisecond domain. That scaling adds no timestamp resolution.
-5. Existing gravity-derived pitch/roll and geometric height integration are
-   retained. Height requires calibration, valid aligned inputs, a confirmed flat
-   baseline and an ordered ascent/crest/descent/flat traversal. Shocks, overrun,
-   loss, reversal or discontinuity cancel completion. Either wheel reversing
-   cancels height even between repeated IMU samples; usable tilt and navigation
-   odometry can remain available during an intentional turn.
-6. The controller receives bounded state through the existing application
-   snapshot. MQTT is outside the control decision. Existing STOP precedence,
-   queue invalidation and peripheral ownership remain. A full movement pool
-   cannot prevent the controller's STOP epoch from being offered.
-7. Buddy 1 keeps the existing aggregate 394-bit/50-byte telemetry and Python
-   dashboard contract. The 15-byte EDR framed encoder packet is a separate
-   format; no global envelope migration was made. `CR1_PROTOCOL.md` defines the
-   aggregate bit offsets, units and availability flags. Terrain availability
-   now also requires a recent application snapshot and usable acceleration.
-
-The maximum updates only on a valid completed hump. Faults, pause and ordinary
-loss preserve it, while invalidating current height. The stopped/disarmed RESET
-command clears terrain and encoder history; reboot also starts a new in-memory
-run. ARM/renewal alone does not clear the maximum. No nonvolatile history exists.
-
-## Configurable assumptions and limitations
-
-Initial encoder maximum age is 60 ms, IMU/encoder skew 30 ms and encoder/terrain
-gap 60 ms. These accommodate a nominal 20 ms IMU period plus the 10 ms controller
-cycle; they are configurable assumptions requiring load measurements. They are
-not established Tribunal timing guarantees. Flat confirmation is five samples,
-flat band 3 degrees, slope entry 5 degrees, accepted roll at most 15 degrees,
-base return tolerance 20 mm and minimum completed hump 5 mm. Named macros in
-`terrain.h` and `encoder_input.h` expose these provisional settings.
-
-LSM303DLHC has an accelerometer and magnetometer, no gyro. Tilt assumes gravity
-dominates the measured acceleration. Height is an estimate, not validated
-accuracy. Wheel slip, mounting flex, vibration and sample association contribute
-error. A reset with identical plausible count/time values is indistinguishable
-from continuous motion without a producer boot/session identifier; local state
-must be reset whenever a producer session changes. Neither physical timing nor
-runtime stack/heap high-water usage has been measured in this session.
-
-## Buddy 4 ownership
-
-| Area | Buddy 4 responsibility | Other owner or shared boundary |
+| Area | Buddy 4 responsibility | Other owner boundary |
 |---|---|---|
-| GY-511 acquisition | Driver validation, I2C1 task, per-channel quality, freshness, protected snapshots | GP2/GP3 and I2C1 have one S4 owner |
-| Incoming encoder use | Decode and validate the agreed bytes; check time alignment and reject bad fusion input | B2 owns IRQ counts, wheel signs and measured encoder calibration |
-| Terrain | Mounting/zero calibration, pitch/roll, hump state, height validity, maximum/reset rules | Controller decides speed/STOP; B2 writes PWM |
-| Compact information | S4 state/flags, field ranges, units, validity and documented output meaning | B1 owns MQTT queue/transport and dashboard; shared aggregate schema |
-| Evidence | S4 software regressions and sensor/terrain physical evidence | Cross-subsystem tests involve B1/B2/controller owners |
+| Acquisition | IMU driver/data, quality, timestamps and protected copies | No other task accesses I2C |
+| Encoder consumption | Checked B2 decoding, age/skew and terrain association | B2 owns GPIO IRQ, counts, PWM and motor watchdog |
+| Terrain | Mounting/zero calibration, pitch/roll, state, height and maximum | Controller chooses speed/STOP; B2 actuates |
+| Representation | Compact B4 cache/history/result and odometry dependency | B1 owns publication/dashboard contracts; controller owns arbitration |
+| Validation | B4 software regressions, physical IMU and ramp evidence | Whole-vehicle timing/network/drive tests involve the affected owners |
 
-New or revised Buddy 4 files: `encoder_input.c/.h`, `terrain.c/.h`,
-`drv_lsm303dlhc.h`, `sensor_data.c/.h`, `subsystem4.c`, `task_sensor.c`,
-`task_monitor.c`, host tests and size probe. The driver implementation itself is
-reused; flags/enums in its cached types were narrowed.
+The interfaces needed by the current B4 path are implemented. Buddy 1's
+retrospective review should confirm schema selection, units, validity/history,
+source/type routing and fault aggregation using BUDDY1_RETROSPECTIVE_REVIEW.md.
+No universal payload or new per-buddy decoder is necessary if the existing
+checked contracts are retained. A changed external schema needs a coordinated
+version/receiver change, not a raw struct copy.
 
-Necessary shared/B2 edits: controller encoder adapter call, checked modular
-odometry deltas, EDR-compatible packed motor state plus preserved STOP epochs,
-operating-clock timestamps, bounded motor-status waits, polling STOP at most
-every configured 10 ms wait, host fixtures and S4-only link dependencies.
-The portable B2 runner and codecs are kept from latest main. B1 gets only
-terrain freshness gating and passive terrain diagnostics beyond restored work.
-Windows build helpers now have a native MSYS2 backend using the installed
-extension toolchain, while retaining WSL support.
+## Scope and remaining physical work
 
-This is local integration for owner review. It does not claim team approval to
-publish another buddy's subsystem. Only CR1 is addressed; CR2/CR3 are excluded.
+The professor's revised final demonstration uses approximately the smaller
+practice ramp's height; the higher ramp can be disregarded. The numeric height,
+slope and acceptance tolerance remain to be measured/agreed. No expected answer
+is pre-entered into the estimator and no new narrow height bound is inferred.
+Follow BUDDY4_TESTING.md for sensor-only, mounting, encoder scale, complete ramp,
+maximum/reset, invalid-data, controller and dashboard checks.
 
-## Verification
+Initial configurable assumptions remain encoder age 60 ms, IMU/encoder skew
+30 ms and interval gap 60 ms; flat band 3 degrees, slope entry 5 degrees,
+maximum accepted roll 15 degrees, return residual 20 mm and minimum hump 5 mm.
+Review these against smaller-ramp geometry and measured noise. They are not
+accuracy or timing guarantees. Gravity-based tilt is unreliable under sustained
+dynamic acceleration; slip, sensor mounting and wheelbase geometry affect height.
+Absolute compass heading, PID speed regulation and audio playback are not
+implemented by this B4 work.
 
-The exact commands, tool versions, source hashes, ELF/UF2 hashes and sizes are
-recorded in `../testing/subsystem4/verification-20261027.json` and its logs.
-Checks cover S4 acquisition, data/API behavior, production encoder/terrain
-adapter, actual vehicle task, B2 EDR/watchdog profiles, recovered integration,
-C/Python vectors, B3 regressions and Cortex-M0+ object compilation. Native
-GCC static analysis was run on the S4 suite. Default integrated and isolated
-S4Bench firmware were built with Pico SDK 2.3.0 and Arm GNU 15.2.
+B4's stored field review, tables and software regressions are implemented,
+including the previously outstanding odometry storage. This does not certify
+whole-team CR1 completion: B1 commands, B3 persistent/ADC records, B5 ranges and
+shared controller state retain findings in the dated CR1 team review.
+Target accuracy, latency/jitter, fault-to-PWM response and runtime stack/heap
+high-water evidence remain required before Week 13 acceptance.
 
-ASan/UBSan were attempted but could not link because the installed native GCC
-lacks their runtime libraries. This is a toolchain limitation, not a sanitizer
-pass. Historical sanitizer logs in the handoff remain historical evidence.
+## Verification records
 
-Continue with `BUDDY4_TESTING.md`; the first physical step is acquisition-only
-S4Bench with motor power disconnected. Calibration defaults remain unset.
+`testing/subsystem4/ready-verification.json` identifies the current sources,
+artifacts and checks. `ready-baseline.json` is the same-profile main-reconciled
+baseline before odometry packing. Host boundary tests and a before/after
+production-code benchmark supplement the driver/terrain/codec and actual
+controller/telemetry tests. ARM layouts and full-image static RAM are measured
+separately from native layouts. See BUDDY4_CR1_STORAGE.md for the precise domains,
+compiler-layout limits and performance tradeoffs. Older verification/merge/cr1
+records remain dated engineering evidence, not instructions for another device.

@@ -23,6 +23,12 @@ typedef struct {
     uint32_t accel_overruns, publish_errors, legacy_lines_received;
     uint64_t observed_time_us;
 } before_status_t;
+typedef struct {
+    uint32_t time_ms,left,right;
+    int32_t distance_um,speed_mm_s,delta_um,turn_mdeg;
+    uint8_t initialized : 1;
+    uint8_t valid : 1;
+} before_odometry_t;
 #ifdef S4_ARM_LAYOUT
 /* nm -S reports byte sizes for the real ARM ABI without executing target code. */
 char s4_before_sample[sizeof(before_sample_t)];
@@ -33,6 +39,10 @@ char s4_terrain_size[sizeof(terrain_t)];
 char s4_input_size[sizeof(s4_encoder_input_t)];
 char s4_cache_size[sizeof(s4_sensor_cache_t)];
 char s4_result_size[S4_RESULT_SIZE];
+char s4_before_odometry[sizeof(before_odometry_t)];
+char s4_after_odometry[sizeof(odom_t)];
+char s4_before_calibration[sizeof(odom_config_t)];
+char s4_after_calibration[sizeof(odom_calibration_t)];
 #else
 int main(void)
 {
@@ -41,6 +51,8 @@ int main(void)
         sizeof(s4_sensor_status_t),sizeof(terrain_t),sizeof(s4_encoder_input_t));
     printf("Persistent cache %zu bytes; shared S4 result %u bytes (%u bits)\n",
         sizeof(s4_sensor_cache_t),(unsigned)S4_RESULT_SIZE,(unsigned)S4_RESULT_BITS);
+    printf("Odometry %zu -> %zu; persistent calibration %zu -> %zu bytes\n",
+        sizeof(before_odometry_t),sizeof(odom_t),sizeof(odom_config_t),sizeof(odom_calibration_t));
     return 0;
 }
 #endif

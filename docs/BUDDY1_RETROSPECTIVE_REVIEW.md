@@ -1,9 +1,9 @@
 # Buddy 1 retrospective integration review
 
-The user authorized merging the integrated software baseline before this review.
-This checklist identifies the exact interfaces to inspect; it does not assert
-that Buddy 1 has already approved them. The separate buddy1/MQTT branch was not
-merged wholesale; reconcile it against this main before later adoption.
+This checklist identifies the interfaces to inspect on buddy4/cr1-integration,
+reconciled with main 58b89c2. PR #8 remains unmerged and Buddy 1 approval is not
+asserted. The separate buddy1/MQTT branch was not merged wholesale; reconcile
+its text-message interfaces against these binary contracts before adoption.
 
 ## Formats are distinct
 
@@ -21,6 +21,14 @@ specified in CR1_PROTOCOL.md, BUDDY4_CR1_STORAGE.md and SUBSYSTEM5_DATA.md.
 
 ## Code and behavior to review
 
+- B4's existing contracts are implemented, with matching C and Python decoders.
+  No new common payload is required to consume them. Choose explicitly between
+  the existing aggregate and optional standalone result frame; changes to units,
+  domain, field order or schema require coordinated version/receiver changes.
+- app_state_t now stores speed in 12 bits. Native consumers must rebuild and
+  use app_speed_mm_s(), not the removed speed_mm_s member or raw layout copies
+  as a wire format. Odometry/calibration packing is task-local; B2's 13-byte
+  payload and all tabled binary interfaces above remain unchanged.
 - subsystem1/task_telemetry.c obtains compact B4 records, decodes after source
   copies against operating time, and packs the agreed aggregate. Current tilt
   and height availability clear on stale/invalid data; maximum remains retained
@@ -44,7 +52,7 @@ specified in CR1_PROTOCOL.md, BUDDY4_CR1_STORAGE.md and SUBSYSTEM5_DATA.md.
 
 ## Evidence and remaining checks
 
-See testing/subsystem4/merge-verification.json and PR #8's CI results. Native
+See testing/subsystem4/ready-verification.json and PR #8's CI results. Native
 checks exercise C/Python codecs, embedded zeros, queue-full cases, fragmented
 commands, reconnect handling and actual telemetry consumers. Separately verify
 real broker delivery, dashboard units/availability/history, disconnect behavior,

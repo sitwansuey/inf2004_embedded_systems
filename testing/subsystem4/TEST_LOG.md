@@ -1,7 +1,7 @@
 # Subsystem 4 — test log
 
 **Subsystem:** Buddy 4, GY-511 / LSM303DLHC acquisition and snapshots
-**Student ID:** <student ID> · **Code:** `app_program/subsystem4/`
+**Student ID:** 2500243 · **Code:** `app_program/subsystem4/`
 
 See `testing/README.md` for evidence/commit conventions and
 `app_program/subsystem4/README.md` for the bench/API guide.
@@ -40,6 +40,8 @@ Existing IDs are retained. S4-U02 is retired and must not be reused.
 `make -C app_program/subsystem4/tests/host test`.
 They test software against mock bus/kernel calls, not real bus timing or
 physical cross-core execution.
+
+| S4-U32 | Packed odometry/calibration, all speed values, signed interval/yaw wraps and invalid inputs | CR1 / B2-to-B4 | host auto | `odometry_storage_test.c` | Values preserved; invalid input rejected before narrowing |
 
 ## Results
 
@@ -108,3 +110,17 @@ behavior. The unchanged aggregate telemetry remains 50 bytes. Host performance
 and before/after memory comparisons are explicitly separate from physical
 measurements. ASan/UBSan, physical calibration, load timing and runtime memory
 high-water evidence remain outstanding as documented in the current CR1 review.
+
+## Main 58b89c2 reconciliation and completed B4 storage pass
+
+The main-reconciled baseline is commit 5f0b8c7. The current software results,
+source/artifact hashes, exact layouts and profile comparisons are in
+ready-verification.json and ready-prefixed logs. B4's 23 host groups and GCC
+analysis pass, including S4-U32. Integration passes with actual controller and
+telemetry consumers; signed shared speed is also tested through the real
+50-byte telemetry codec. B3 host/analysis/header/ARM/failure-propagation and the
+EDR/B2/S5 gate pass. Default, S4Bench and MQTT ARM builds pass. No firmware was
+flashed, no motor command was sent and physical acceptance remains pending.
+Linux ASan/UBSan results belong to the exact pushed PR head's CI, separately
+from the local Windows checks. The before/after benchmark checksums agree;
+host timing is not target latency evidence.

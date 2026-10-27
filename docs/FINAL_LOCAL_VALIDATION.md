@@ -1,6 +1,6 @@
 # Final local checkout validation
 
-Checkout: C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems
+Historical checkout validation; source identity is recorded below.
 
 Branch: local/csc02-cr1-integration-20261021. Source integration commit:
 a3dbb7b6116ba2ab6f3e2f06fce2cb5735f809af. A subsequent local commit fixes the

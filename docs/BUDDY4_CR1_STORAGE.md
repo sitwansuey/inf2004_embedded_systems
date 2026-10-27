@@ -100,6 +100,65 @@ compact forms above. int32/int64 intermediates are used for signed differences,
 raw-times-gain arithmetic, norm sums and geometry rather than narrowed before
 checking.
 
+## Odometry dependency and persistent calibration
+
+After reconciling main 58b89c2, the B4-owned encoder-input object retains the
+existing B2 odometry algorithm with compact owner-local storage. This closes
+the odometry finding in the earlier team review. No encoder payload or B4
+result layout changes. Accessors decode signed low-bit representations; no
+pointer to an individual packed member is exposed. GCC generates packed ARM
+loads/stores. The object has one controller-task owner and is never accessed
+by an ISR, serialized or shared as a packed atomic object.
+
+| Stored field | Domain / units | Bits |
+|---|---|---:|
+| time_ms | Modulo 2^32 operating ms | 32 |
+| left / right | Modulo 2^32 encoder counts | 32 each |
+| distance_um | Full signed int32 cumulative distance, checked overflow | 32 |
+| speed_bits | -2000..2000 mm/s; decode with odom_speed_mm_s | 12 |
+| delta_bits | -200000..200000 um; decode with odom_delta_um | 19 |
+| turn_bits | Signed modulo remainder -359999..359999 mdeg; odom_turn_mdeg | 20 |
+| initialized / valid | Boolean | 1 each |
+| calibration ticks_per_rev | 1..100000, plus zero for unconfigured | 17 |
+| calibration circumference_mm | 20..2000, plus zero for unconfigured | 11 |
+| calibration track_mm | 40..1000, plus zero for unconfigured | 10 |
+| shared app-state speed_bits | Same signed speed domain, app_speed_mm_s getter | 12 |
+
+Odometry is 181 information bits: **32 -> 23 ARM bytes**, or **32 -> 25 native
+MinGW bytes**. B4's containing encoder-input object is **36 -> 24 ARM bytes**
+and **36 -> 26 native bytes**. The private calibration has 38 bits:
+**12 -> 5 ARM bytes**, **12 -> 8 native bytes**. Compiler allocation differs;
+these are measured storage sizes, not portable packet sizes. B1 reads the
+shared speed through app_speed_mm_s; the ARM app-state struct shrinks
+**68 -> 64 bytes**, copied under the unchanged mutex.
+
+The 100 ms maximum odometry interval and per-wheel 2000 mm/s discontinuity
+checks prove the interval and speed bounds before any mask/narrowing. Position
+overflow, count half-range ambiguity, time/count rollover and invalid samples
+retain the previous rejection behavior. Calibration is validated in the wide
+odom_config_t view before storage. Unpack validates unused codes; invalid
+pack/unpack leaves the destination unchanged. A zero record remains
+unconfigured. Wide config and arithmetic values are short-lived processing
+views, not the long-lived controller calibration record.
+
+S4-U32 covers every accepted integer speed, signed interval extrema, repeated
+yaw wraps in both directions, count/time rollover, overflow/discontinuity and
+invalid calibration/output preservation. ready-odometry-benchmark.json compares
+the actual main-reconciled baseline 5f0b8c7 with this implementation over two
+million synthetic steps per run, three runs each. All observable-state
+checksums agree. Before/after native workload ranges were 104.5-143 ns and
+102-108 ns per iteration on this host, including decode/checksum overhead.
+The coarse timer, warm-up and scheduling variation do not establish a speedup,
+target execution time or acceptable robot latency.
+
+The same Default ARM profile changes static data+BSS **26160 -> 26156 bytes**
+and text **335248 -> 336000 bytes**. This is a four-byte static RAM reduction
+and a 752-byte text increase, not a claim that task stacks shrink by all
+private-layout savings. The compiler's controller own-frame estimate is
+recorded separately in ready-static-stack.log with the matching baseline;
+both matched versions report 760 bytes. Callees, interrupt nesting and runtime
+high-water marks remain unmeasured.
+
 ## Buddy 4 result contract for the controller and Buddy 1
 
 result_data.c/.h define a separate 93-bit result in exactly 12 bytes. Both
@@ -176,6 +235,8 @@ performance under concurrent load, fault-to-PWM timing and runtime memory
 high-water measurements remain Week 13 evidence still to collect. This is a
 Buddy 4 software field-width review, not a claim of whole-team CR1 completion.
 
-The compiled controller function has a 688-byte own frame within its configured
-2048-byte task stack. This excludes nested calls/interrupt effects and is not
-a runtime high-water or complete stack-safety measurement. See cr1-static-stack.log.
+The matched main-reconciled baseline and current controller both have a
+760-byte own frame within the configured 2048-byte task stack, using the same
+Default compile flags. The older 688-byte record in cr1-static-stack.log is
+historical. Neither value includes nested calls/interrupt effects or establishes
+runtime stack safety. See ready-before-static-stack.log and ready-static-stack.log.

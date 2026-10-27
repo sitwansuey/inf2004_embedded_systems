@@ -58,8 +58,7 @@ void s4_encoder_terrain_step(s4_encoder_input_t *s, terrain_t *t,
         /* Retain the cumulative distance; a new good record establishes a
          * baseline. Do not bridge an unknown interval with old counts. */
         s->odometry.valid = 0;
-        s->odometry.speed_mm_s = 0;
-        s->odometry.delta_um = 0;
+        odom_clear_motion(&s->odometry);
         /* odom_step's first usable record already establishes its baseline. */
         if (!priming) s->odometry.initialized = 0;
     }

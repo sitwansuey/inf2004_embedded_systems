@@ -1,8 +1,8 @@
 # CSC02 subsystem ownership and integrated interfaces
 
-The local CR1 integration retains micro T-Kernel 3. The user authorized changes
-across the five buddies' implementations and explicitly authorized publishing
-and merging PR #8. Physical validation remains separate.
+The CR1 integration retains micro T-Kernel 3. Subsystem ownership and checked
+interfaces below describe the integrated candidate. Physical validation and
+whole-team CR1 acceptance remain separate.
 
 | Owner | Responsibility | Task priority and core | Hardware |
 |---|---|---|---|
@@ -55,7 +55,7 @@ scheduler, MPU, resource-sharing redesign or CR2/CR3 feature was introduced.
 27 October Buddy 4 continuation: see `docs/BUDDY4_IMPLEMENTATION.md` for current
 integration provenance, owner boundaries, verification and limitations. The
 EDR envelope and the aggregate 50-byte dashboard schema remain separate.
-Publication/merge was authorized by the user; Buddy 1 review is retrospective.
+Buddy 1 interface review remains retrospective.
 See docs/MAIN_RECONCILIATION_20261027.md for adopted S5 storage and retained safety
 contracts, and docs/BUDDY1_RETROSPECTIVE_REVIEW.md for interface review.
 

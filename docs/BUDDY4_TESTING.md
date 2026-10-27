@@ -24,18 +24,20 @@ does not explicitly address whether encoder assistance is permitted.
 
 ## 1 Hardware free checks
 
-Run from the repository root. Native GCC and MSYS2 are already installed here.
+Run from the repository root with native GCC, Python and GNU Make installed.
+The Windows examples below assume MSYS2 in C:\msys64.
 
 ```powershell
 & C:\msys64\ucrt64\bin\python.exe -B testing/data_representation/run.py --report edr-check-report.json
-& C:\msys64\usr\bin\bash.exe -c 'export PATH=/ucrt64/bin:/usr/bin:$PATH; cd /c/Users/JT/Downloads/inf2004_embedded_systems; make -C app_program/subsystem4/tests/host test sizes && make -C testing/integration test'
+& C:\msys64\usr\bin\bash.exe -c 'export PATH=/ucrt64/bin:/usr/bin:$PATH; make -C app_program/subsystem4/tests/host test sizes && make -C testing/integration test'
 ```
 
 Both suites must exit successfully. Tests use explicitly synthetic wheel and
 IMU values; they do not supply your robot's calibration. For static analysis,
 run the same bash command with `make -C app_program/subsystem4/tests/host analyze`.
 The `sanitize` target requires a GCC/Clang installation with ASan/UBSan runtimes;
-the installed Windows GCC cannot link those libraries.
+some Windows GCC installations cannot link those libraries. Linux CI runs
+ASan/UBSan separately; a missing local runtime is not a sanitizer pass.
 
 ## 2 Isolated IMU acquisition with motors disabled
 
@@ -44,13 +46,13 @@ common ground, 3.3 V logic, GP2 SDA and GP3 SCL, and confirm the actual module
 power requirements. I2C1 is owned only by S4. The source expects accelerometer
 0x19 and magnetometer 0x1E. Do not use the old IRContinuous motion profile.
 
-The extension already installed the following compiler and SDK. Build in
-PowerShell, without WSL or any downloads:
+For the Pico VS Code extension installation, supply your installed compiler
+and SDK directories. For example, build in PowerShell without WSL:
 
 ```powershell
 .\tools\build_windows.ps1 -Backend Native `
-  -ArmToolchainBin C:\Users\JT\.pico-sdk\toolchain\15_2_Rel1\bin `
-  -PicoSdkPath C:\Users\JT\.pico-sdk\sdk\2.3.0 -Profile S4Bench
+  -ArmToolchainBin "$env:USERPROFILE\.pico-sdk\toolchain\15_2_Rel1\bin" `
+  -PicoSdkPath "$env:USERPROFILE\.pico-sdk\sdk\2.3.0" -Profile S4Bench
 ```
 
 Output: `build_make/mtk3pico_smp1_usb_cdc_wifi_enc_s4.uf2`. This startup starts

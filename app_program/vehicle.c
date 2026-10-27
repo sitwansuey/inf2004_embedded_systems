@@ -16,12 +16,18 @@ static void vehicle_task(INT code,void *context) {
     if(APP_S5_ENABLED && s5_controller_bind()<E_OK) {s2_emergency_stop();tk_ext_tsk();return;}
     app_state_t state={0};s4_encoder_input_t encoder_input={0};terrain_t terrain={0};
     odom_t *odom=&encoder_input.odometry;
-    const odom_config_t calibration={BOARD_TICKS_PER_REV,BOARD_WHEEL_CIRCUMFERENCE_MM,BOARD_TRACK_WIDTH_MM};
+    odom_calibration_t calibration_record={0};
+    {
+        const odom_config_t measured={BOARD_TICKS_PER_REV,BOARD_WHEEL_CIRCUMFERENCE_MM,BOARD_TRACK_WIDTH_MM};
+        (void)odom_calibration_pack(&measured,&calibration_record);
+    }
     s3_mode_t mode=S3_MODE_PAUSED;
     uint32_t next_tick=0;unsigned previous_phase=VC_DISARMED,previous_look=0;
     BOOL requested_sensor_mode=FALSE;
     for(;;) {
         SYSTIM now;
+        odom_config_t calibration={0}; /* short-lived calculation/API view */
+        (void)odom_calibration_unpack(&calibration_record,&calibration);
         s2_motion_status_t motor={0};uint8_t encoder_payload[EDR_ENCODER_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
         BOOL mo=s2_motion_get_status(&motor)==E_OK;
         BOOL en=s2_encoder_encode(encoder_payload,sizeof(encoder_payload))==E_OK;
@@ -51,7 +57,7 @@ static void vehicle_task(INT code,void *context) {
         BOOL result_ok=s4_result_encode(&result,state.s4_result,sizeof(state.s4_result)) &&
             s4_result_decode(state.s4_result,sizeof(state.s4_result),&result);
         if(!result_ok) {vc_stop(&state.vehicle,VC_SENSOR);s2_emergency_stop();}
-        state.speed_mm_s=odom->speed_mm_s;
+        state.speed_bits=(uint16_t)odom->speed_bits;
         state.odometry_valid=odom->valid;
         /* S5 preserves full-width diagnostics. Validate before narrowing. */
         BOOL plan_usable=scan.planned_rotate_deg>=-80 && scan.planned_rotate_deg<=80 &&
@@ -81,7 +87,7 @@ static void vehicle_task(INT code,void *context) {
             }
         }
         vc_input_t input={.now_ms=now.lo,.scan_id=scan.scan_id,
-            .distance_um=odom->distance_um,.yaw_mdeg=odom->turn_mdeg,
+            .distance_um=odom->distance_um,.yaw_mdeg=odom_turn_mdeg(odom),
             .line_error=line.output.line.error,.line_state=(uint8_t)line.output.line.state,
             .turn_deg=plan_usable?(int16_t)scan.planned_rotate_deg:0,
             .approach_mm=plan_usable?(uint16_t)scan.planned_approach_mm:0,

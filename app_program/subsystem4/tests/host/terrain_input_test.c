@@ -108,7 +108,7 @@ static void wraps(void)
     baseline(); tick(flat, 1000000U);
     assert(!input.odometry.valid);
     reset(); counts = (uint32_t)INT32_MAX - 5U; baseline(); tick(flat, 10);
-    assert(input.odometry.valid && input.odometry.delta_um == 20000);
+    assert(input.odometry.valid && odom_delta_um(&input.odometry) == 20000);
     puts("S4-U25 PASS unsigned/signed count boundaries, timer wrap, half-range and discontinuity");
 }
 static void traversals(void)

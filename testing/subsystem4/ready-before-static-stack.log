@@ -1,0 +1,4 @@
+../app_program/subsystem4/tests/host/.build/baseline-firmware/vehicle.c:12:13:vehicle_task.part.0	760	static
+../app_program/subsystem4/tests/host/.build/baseline-firmware/vehicle.c:12:13:vehicle_task	8	static
+../app_program/subsystem4/tests/host/.build/baseline-firmware/vehicle.c:156:4:vehicle_start	8	static
+../app_program/subsystem4/tests/host/.build/baseline-firmware/vehicle.c:162:4:app_vehicle_request	16	static

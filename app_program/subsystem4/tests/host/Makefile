@@ -2,7 +2,7 @@ CC ?= cc
 CPPFLAGS += -I../.. -I.build
 CFLAGS ?= -O1 -g
 CFLAGS += -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic
-BINARIES := .build/driver_test .build/data_test .build/api_test .build/terrain_input_test .build/result_test
+BINARIES := .build/driver_test .build/data_test .build/api_test .build/terrain_input_test .build/result_test .build/odometry_storage_test
 SHIM_SOURCE := .build/shim/subsystem4/subsystem4.c
 SHIM_INPUTS := ../../packed_bits.h  ../../subsystem4.c ../../subsystem4.h ../../sensor_data.h ../../drv_lsm303dlhc.h app.h
 
@@ -19,13 +19,18 @@ test: $(BINARIES)
 	./.build/api_test
 	./.build/terrain_input_test
 	./.build/result_test
+	./.build/odometry_storage_test
 	python3 result_vectors.py
+
+.build/odometry_storage_test: odometry_storage_test.c ../../../subsystem2/odometry.c ../../../subsystem2/odometry.h ../../../shared/edr.c
+	@mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) odometry_storage_test.c ../../../subsystem2/odometry.c ../../../shared/edr.c $(LDFLAGS) -o "$@"
 
 .build/result_test: result_test.c ../../result_data.c ../../result_data.h ../../packed_bits.h
 	@mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) result_test.c ../../result_data.c $(LDFLAGS) -o "$@"
 
-.build/terrain_input_test: terrain_input_test.c ../../encoder_input.c ../../encoder_input.h ../../terrain.c ../../terrain.h ../../../subsystem2/odometry.c ../../../shared/edr.c
+.build/terrain_input_test: terrain_input_test.c ../../../subsystem2/odometry.h ../../encoder_input.c ../../encoder_input.h ../../terrain.c ../../terrain.h ../../../subsystem2/odometry.c ../../../shared/edr.c
 	@mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) terrain_input_test.c ../../encoder_input.c ../../terrain.c ../../../subsystem2/odometry.c ../../../shared/edr.c $(LDFLAGS) -lm -o "$@"
 

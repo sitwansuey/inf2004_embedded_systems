@@ -11,13 +11,13 @@ Start with [integration evidence](docs/INTEGRATION_REPORT.md),
 [CR1 binary contract](docs/CR1_PROTOCOL.md), [ownership](TEAM.md), and
 [hardware acceptance](docs/HARDWARE_ACCEPTANCE.md).
 
-For the 27 October integration of latest main, the handoff and Buddy 4, start
+For Buddy 4 integration with main 58b89c2, start
 with [current implementation and ownership](docs/BUDDY4_IMPLEMENTATION.md),
 [physical testing](docs/BUDDY4_TESTING.md) and [S4 storage review](docs/BUDDY4_CR1_STORAGE.md).
 Those records distinguish current checks from the historical evidence below.
 The Windows helper also supports `-Backend Native` using the compiler and SDK
 already installed by the Pico VS Code extension; see the physical testing guide
-for this machine's exact command. WSL support remains available.
+for portable build examples. WSL support remains available.
 
 Current main reconciliation and remaining physical work: [merge report](docs/MAIN_RECONCILIATION_20261027.md).
 Buddy 1: [retrospective interface review](docs/BUDDY1_RETROSPECTIVE_REVIEW.md).

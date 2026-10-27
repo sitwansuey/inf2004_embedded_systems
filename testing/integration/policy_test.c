@@ -61,12 +61,12 @@ static void controller(void) {
 static void odometry(void) {
     odom_config_t c={100,200,100};odom_t s={0};
     odom_step(&s,&c,0,UINT32_MAX-1,UINT32_MAX-1,true);assert(!s.valid);
-    odom_step(&s,&c,20,3,3,true);assert(s.valid && s.delta_um==10000 && s.speed_mm_s==500);
-    odom_step(&s,&c,40,3,8,true);assert(s.valid && s.turn_mdeg>5700 && s.turn_mdeg<5740);
+    odom_step(&s,&c,20,3,3,true);assert(s.valid && odom_delta_um(&s)==10000 && odom_speed_mm_s(&s)==500);
+    odom_step(&s,&c,40,3,8,true);assert(s.valid && odom_turn_mdeg(&s)>5700 && odom_turn_mdeg(&s)<5740);
     odom_step(&s,&c,200,4,9,true);assert(!s.valid);
     odom_step(&s,&c,220,4,9,false);assert(!s.valid);
     s=(odom_t){0};odom_step(&s,&c,UINT32_MAX-10,0,0,true);
-    odom_step(&s,&c,9,1,1,true);assert(s.valid && s.speed_mm_s==100);
+    odom_step(&s,&c,9,1,1,true);assert(s.valid && odom_speed_mm_s(&s)==100);
     odom_step(&s,&c,29,INT_MAX,INT_MAX,true);assert(!s.valid);
     puts("INT-CR1-02 odometry: wrap, scale, speed, yaw, gaps and discontinuities PASS");
 }

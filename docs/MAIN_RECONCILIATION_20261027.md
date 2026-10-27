@@ -36,10 +36,10 @@ are software checks; no flashing or hardware action was performed.
 
 ## First reconciliation: main f8107be
 
-The user authorized reconciling current Buddy 4 work with latest main, pushing
-and merging PR #8, with Buddy 1 reviewing retrospectively. This is an integrated
-software baseline. Physical calibration, accuracy, motor-response timing and
-runtime memory evidence remain separate work. No board was flashed or started.
+This is an integrated software baseline for review. Physical calibration,
+accuracy, motor-response timing and runtime memory evidence remain separate
+work. PR #8 remains unmerged; Buddy 1 review is retrospective. No board was
+flashed or started.
 
 ## Sources and decisions
 
@@ -80,4 +80,4 @@ uncalibrated defaults remain. See BUDDY4_TESTING.md for staged validation.
 ## Retrospective review
 
 Buddy 1 should review BUDDY1_RETROSPECTIVE_REVIEW.md against the new main before
-adopting any separate MQTT branch. No message was sent to teammates by the agent.
+adopting any separate MQTT branch.

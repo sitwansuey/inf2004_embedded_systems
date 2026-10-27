@@ -36,7 +36,7 @@ void telemetry_task(INT code,void *context) {
                 (us?16:0)|(terrain_fresh&&(terrain.flags&S4_RESULT_TILT)?32:0)|
                 (terrain_fresh&&(terrain.flags&S4_RESULT_HEIGHT)?64:0)|(im&&a.mag_usable?128:0);
             v[TEL_LEFT_COUNTS]=e.motor1_forward_counts;v[TEL_RIGHT_COUNTS]=e.motor2_forward_counts;
-            v[TEL_SPEED_MM_S]=bounded(s.speed_mm_s,-2000,2000);v[TEL_LINE_STATE]=li?l.output.line.state:0;
+            v[TEL_SPEED_MM_S]=bounded(app_speed_mm_s(&s),-2000,2000);v[TEL_LINE_STATE]=li?l.output.line.state:0;
             v[TEL_IR0]=li?l.sample.raw[0]:0;v[TEL_IR1]=li?l.sample.raw[1]:0;v[TEL_IR2]=li?l.sample.raw[2]:0;
             v[TEL_BLACK_MASK]=li?l.output.line.black_mask:0;v[TEL_LINE_ERROR]=li?l.output.line.error:0;
             v[TEL_BARCODE]=s.barcode;v[TEL_NAVIGATION]=s.navigation;

@@ -1,0 +1,7 @@
+make: Entering directory '/c/Users/JT/Downloads/inf2004_embedded_systems/app_program/subsystem4/tests/host'
+cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic size_probe.c -o .build/size_probe
+./.build/size_probe
+Native sizeof: sample 40 -> 32; status 144 -> 120; terrain 26; encoder input 26
+Persistent cache 63 bytes; shared S4 result 12 bytes (93 bits)
+Odometry 32 -> 25; persistent calibration 12 -> 8 bytes
+make: Leaving directory '/c/Users/JT/Downloads/inf2004_embedded_systems/app_program/subsystem4/tests/host'

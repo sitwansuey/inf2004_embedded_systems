@@ -15,6 +15,7 @@ static unsigned clock_reads, packets;
 static BOOL copy_failure, clock_failure;
 static BOOL bad_s4_record;
 static BOOL bad_s5_fields;
+static int32_t test_speed;
 static int64_t decoded[TEL_FIELD_COUNT];
 
 ER tk_get_otm(SYSTIM *time)
@@ -26,6 +27,8 @@ ER tk_dly_tsk(UW delay) { (void)delay;longjmp(finished,1);return E_OK; }
 INT tm_printf(UB *format, ...) { (void)format;return 0; }
 ER app_get_state(app_state_t *state) {
     *state=(app_state_t){0};
+    state->speed_bits=(uint16_t)((uint32_t)test_speed & UINT32_C(0xfff));
+    state->odometry_valid=1;
     s4_result_t result={.calculated_ms=clock_ms,.pitch_cdeg=1234,.roll_cdeg=-5678,
         .height_mm=123,.maximum_mm=456,.terrain=0,.flags=27};
     REQUIRE(s4_result_encode(&result,state->s4_result,sizeof(state->s4_result)));
@@ -73,6 +76,12 @@ int main(void)
     REQUIRE((decoded[TEL_AVAILABLE]&16)!=0 && decoded[TEL_DISTANCE_MM]==400);
     REQUIRE((decoded[TEL_AVAILABLE]&96)==96 && decoded[TEL_PITCH_CDEG]==1234 &&
         decoded[TEL_ROLL_CDEG]==-5678 && decoded[TEL_HEIGHT_MM]==123 && decoded[TEL_HIGHEST_MM]==456);
+    const int32_t speeds[]={-2000,-1,0,1,2000};
+    for(unsigned n=0;n<sizeof(speeds)/sizeof(speeds[0]);++n) {
+        test_speed=speeds[n];capture();
+        REQUIRE(packets==1 && decoded[TEL_SPEED_MM_S]==speeds[n]);
+        REQUIRE((decoded[TEL_QUALITY]&16)!=0);
+    }
     bad_s5_fields=TRUE;capture();
     REQUIRE(packets==1 && (decoded[TEL_AVAILABLE]&16)==0 && (decoded[TEL_QUALITY]&1)==0);
     bad_s5_fields=FALSE;
@@ -91,6 +100,6 @@ int main(void)
     copy_failure=FALSE;clock_failure=TRUE;
     capture();
     REQUIRE(packets==0); /* no publication with an unusable age reference */
-    puts("INT-CR1-10: post-snapshot clock, fresh/new and stale data, failed copies/clock, actual binary codec PASS");
+    puts("INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
     return 0;
 }

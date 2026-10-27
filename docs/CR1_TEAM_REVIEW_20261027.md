@@ -1,5 +1,11 @@
 # Buddy implementation and CR1 review — 27 October 2026
 
+Subsequent implementation update: main 58b89c2 is now reconciled on the Buddy 4
+branch. The B2/B4 odometry speed/delta/yaw, persistent calibration and shared
+speed finding below is addressed; see BUDDY4_CR1_STORAGE.md and
+testing/subsystem4/ready-verification.json. Other owners' findings remain for
+review. The table below is retained as the dated pre-change audit.
+
 Reviewed candidate: `29fb124168e4b12df4cf6af53bc8ac02631b91bc`, branch
 `buddy4/cr1-integration`. It incorporates main `f8107be` through the reviewed
 reconciliation. This dated review describes that candidate; findings need
