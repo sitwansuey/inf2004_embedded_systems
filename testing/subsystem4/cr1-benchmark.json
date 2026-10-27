@@ -1,0 +1,57 @@
+{
+  "scope": "Native host only; excludes RTOS/I2C and is not ARM timing",
+  "checkpoint": "373ad6d",
+  "checkpoint_input_sha256": {
+    "sensor_data.c": "8fa62007a3fa436fd93e303388a98986a4f9877e21b17c297757b8240f74e16c",
+    "sensor_data.h": "156f9a06b8205ffdc7b8066c1ea43ca23fae2809ef8cd149f4bae1a40c00d203",
+    "drv_lsm303dlhc.h": "b40853b86ee6bac21ec3686976f33556fff0f456b502b4fc44636ea481daaf46"
+  },
+  "results": {
+    "checkpoint": [
+      {
+        "cache_bytes": 120,
+        "iterations": 2000000,
+        "seconds": 0.045,
+        "ns_per_update_snapshot": 22.5,
+        "checksum": 546240064
+      },
+      {
+        "cache_bytes": 120,
+        "iterations": 2000000,
+        "seconds": 0.042,
+        "ns_per_update_snapshot": 21.0,
+        "checksum": 546240064
+      },
+      {
+        "cache_bytes": 120,
+        "iterations": 2000000,
+        "seconds": 0.041,
+        "ns_per_update_snapshot": 20.5,
+        "checksum": 546240064
+      }
+    ],
+    "compact": [
+      {
+        "cache_bytes": 63,
+        "iterations": 2000000,
+        "seconds": 1.432,
+        "ns_per_update_snapshot": 716.0,
+        "checksum": 546240064
+      },
+      {
+        "cache_bytes": 63,
+        "iterations": 2000000,
+        "seconds": 1.221,
+        "ns_per_update_snapshot": 610.5,
+        "checksum": 546240064
+      },
+      {
+        "cache_bytes": 63,
+        "iterations": 2000000,
+        "seconds": 1.241,
+        "ns_per_update_snapshot": 620.5,
+        "checksum": 546240064
+      }
+    ]
+  }
+}

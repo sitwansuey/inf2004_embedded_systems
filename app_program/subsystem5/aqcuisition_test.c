@@ -6,6 +6,7 @@
 #include "../subsystem2/subsystem2.h"
 
 #if APP_TEST && (APP_ACQUISITION_TEST || APP_S5_MASTER_TEST)
+#include "../board_pins.h"
 static void left_test_beep(void)
 {
     if (pwm_set_pin(BOARD_BUZZER_GPIO) < E_OK)
@@ -34,11 +35,11 @@ EXPORT BOOL acquisition_test_run(s5_status_t *result)
         return FALSE;
     s5_hw_servo(0);
     tk_dly_tsk(S5_STARTUP_CENTER_MS);
-    tk_get_tim(&start);
+    tk_get_otm(&start);
     tm_printf((UB *)"[ACQUISITION TEST] forward to 15 cm, then acquire left and right bounds\n");
     for (;;)
     {
-        tk_get_tim(&now);
+        tk_get_otm(&now);
         if (now.lo - start.lo >= 30000U) {
             tm_printf((UB *)"[ACQUISITION TEST] timeout: left_valid=%d right_valid=%d average_samples=%u\n",
                       sample.left_bound_valid, sample.right_bound_valid, scan.bound_samples);

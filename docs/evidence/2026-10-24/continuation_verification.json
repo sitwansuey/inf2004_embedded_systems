@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-24 Asia/Singapore",
+  "repository": "C:\\Users\\godga\\Downloads\\ES\\inf2004_embedded_systems",
+  "branch": "local/csc02-cr1-continue-20261024",
+  "head": "b02e335e802054960e2716f848009ca992f442be",
+  "preservation": {
+    "baseline_manifest_files": 86,
+    "original_files_byte_identical": 85,
+    "only_existing_manifest_change": [
+      "app_program/robot_ir_calibration.h"
+    ],
+    "numeric_calibration_defines_unchanged": true,
+    "backup": "tools/robot_bench/artifacts/NEW_CHECKOUT_20261024_BEFORE*"
+  },
+  "firmware": {
+    "profile": "IRBarcodeCapture",
+    "sha256": "346dc09e75f348f36719e24ff6f88015ae4901b50e14397bea07f483bba26d2e",
+    "matches_previous_verified_image": true,
+    "text": 331884,
+    "data": 456,
+    "bss": 25584,
+    "static_ram": 26040,
+    "uf2_bytes": 665088,
+    "telemetry_bytes": 50,
+    "elf_flash_bytes_compared": 332340,
+    "flashed": false
+  },
+  "tests": {
+    "buddy3_native": "PASS; all test target executables, zero failures",
+    "integration_groups": [
+      "INT-CR1-01",
+      "INT-CR1-02",
+      "INT-CR1-03",
+      "INT-CR1-04",
+      "INT-CR1-05",
+      "INT-CR1-06",
+      "INT-CR1-07",
+      "INT-CR1-08",
+      "INT-CR1-09",
+      "INT-CR1-10"
+    ],
+    "helper_checks": 16,
+    "arm_fresh_rebuild": "PASS; MAKEFLAGS=-B",
+    "build_helper_default": "PASS; motor-lock/UF2/source checks; no Flash switch"
+  },
+  "remote_refs_cached_only": [
+    "origin 210a407e74fd1538b9494539480d6328b5434941",
+    "origin/buddy1/MQTT 176587a7b9b080533060abf87e0dab2878d78503",
+    "origin/buddy4/gy511 edee2969ae54da026a9b5212dc62144c34f2b39b",
+    "origin/feat/buddy3-line-barcode-ci bac31d8f775066c2a1e111e4c05773a58d3500ab",
+    "origin/main 210a407e74fd1538b9494539480d6328b5434941",
+    "origin/subsystem5 5d8cf50a44803f680271f3c3c5ed28ad8072c878",
+    "origin/system2commit 25589b363f8b7b822878e269672ef54187834324"
+  ],
+  "remote_operations": [],
+  "hardware": "No new USB capture, flash, drive or sensor adjustment. Printed-bar calibration/onboard decoding/motion remain unvalidated."
+}

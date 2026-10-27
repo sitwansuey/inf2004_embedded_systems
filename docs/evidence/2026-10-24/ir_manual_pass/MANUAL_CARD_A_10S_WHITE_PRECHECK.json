@@ -1,0 +1,10 @@
+{
+  "inspection": "IR_MOTOR_INSPECT_20261024_212441_896_RESULT.json",
+  "scan_window_seconds": 10,
+  "rows": [
+    "[IRSCAN] t=1490130 active=0 prepared=0 mode=2 reason=8 power=0 raw=218 darkness=9 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=-2575 m2=-2766",
+    "[IRSCAN] t=1490230 active=0 prepared=0 mode=2 reason=8 power=0 raw=201 darkness=1 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=-2575 m2=-2766",
+    "[IRSCAN] t=1490330 active=0 prepared=0 mode=2 reason=8 power=0 raw=181 darkness=0 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=-2575 m2=-2766"
+  ],
+  "passed": true
+}

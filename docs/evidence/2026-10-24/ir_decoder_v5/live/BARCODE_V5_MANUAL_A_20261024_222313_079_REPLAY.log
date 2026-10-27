@@ -1,0 +1,2 @@
+REJECT status=2 t=104470 segment=1
+SUMMARY rows=2502 segments=1 discontinuities=0 rejected=1 decoded=0 expected=0 wrong=0 max_gap_ms=30 timeout_ms=10000

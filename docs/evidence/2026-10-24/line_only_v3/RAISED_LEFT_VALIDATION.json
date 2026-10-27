@@ -1,0 +1,22 @@
+{
+  "profile": "IRLineOnly",
+  "version": 3,
+  "test": "raised_LEFT",
+  "power_percent": 10,
+  "requested_duration_ms": 6000,
+  "terminal_reason": "COMPLETE",
+  "final_commanded_STOP_acknowledged": true,
+  "physical_braking_distance_validated": false,
+  "sustained_left_command_rows": 41,
+  "sustained_left_command_span_ms": 4000,
+  "left_encoder_start": 863,
+  "left_encoder_end": 863,
+  "right_encoder_start": 840,
+  "right_encoder_end": 1802,
+  "operator_confirms_left_stopped_right_forward": true,
+  "raised_left_steering_validated": true,
+  "floor_tracking_validated": false,
+  "log_sha256": "3d2dc631c40e142cf56cd72bbf3d2b6ad9d28cf51e805a99f20678e297a187cc",
+  "result_sha256": "dac1c62b3413fb697867bf2873bdce9580d19425a5b429ab4bdbc596d24cd755",
+  "inference": "Same-power sustained pivot succeeds raised and loses right-encoder progress on floor. Load/friction or supply under load is a candidate; exact cause remains unproven."
+}

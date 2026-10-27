@@ -1,3 +1,5 @@
+#include "../robot_config.h"
+#if APP_S5_ENABLED
 /* Ultrasonic timing and servo PWM; no scan or motor decisions. */
 #include "s5_hardware.h"
 #include <tk/syslib.h>
@@ -79,7 +81,9 @@ EXPORT void s5_hw_servo(INT left_deg)
 {
     /* 125 MHz / 125 = 1 MHz; 20 ms frame, 750..2250 us commanded pulse range.
      * Slice 6 belongs exclusively to S5; GP13 must not use this slice. */
-    pwm_set_cc(BOARD_SERVO_GPIO, 1500 + (1000 / 90) * left_deg);
+    if (left_deg < -90) left_deg=-90;
+    if (left_deg > 90) left_deg=90;
+    pwm_set_cc(BOARD_SERVO_GPIO, 1500 + (750 * left_deg) / 90);
 }
 
 EXPORT ER s5_hw_timer_init(void)
@@ -107,10 +111,13 @@ EXPORT void s5_hw_sample(s5_status_t *sample)
     s2_encoder_status_t before = {0}, after = {0};
     SYSTIM start, end;
     ER first = s2_encoder_get_status(&before);
-    tk_get_tim(&start);
-    sample->echo_result = s5_hw_measure_raw(&sample->distance_mm, &sample->echo_us);
+    tk_get_otm(&start);
+    UW distance=0, pulse=0;
+    sample->echo_result = s5_hw_measure_raw(&distance, &pulse);
+    sample->distance_mm = distance <= 5000U ? (uint16_t)distance : 0;
+    sample->echo_us = pulse <= 25000U ? (uint16_t)pulse : 25000U;
     ER last = s2_encoder_get_status(&after);
-    tk_get_tim(&end);
+    tk_get_otm(&end);
     sample->motor1_counts_start = before.motor1_forward_counts;
     sample->motor2_counts_start = before.motor2_forward_counts;
     sample->motor1_counts_end = after.motor1_forward_counts;
@@ -122,3 +129,5 @@ EXPORT void s5_hw_sample(s5_status_t *sample)
     sample->sample_angle_deg = sample->angle_deg;
     sample->valid = sample->echo_result == S5_ECHO_OK && sample->distance_mm > 0 && sample->distance_mm <= 5000;
 }
+
+#endif

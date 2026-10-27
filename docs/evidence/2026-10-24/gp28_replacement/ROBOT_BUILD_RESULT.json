@@ -1,0 +1,31 @@
+{
+  "started": "2026-10-24T19:49:22.2663737+08:00",
+  "drive": "D:\\",
+  "motor_lock": true,
+  "flashed": false,
+  "firmware_profile": "IRBarcodeCapture",
+  "ir_barcode_capture": true,
+  "ir_adc_endpoints": {
+    "black": [
+      3214,
+      3177,
+      2472
+    ],
+    "white": [
+      187,
+      189,
+      197
+    ]
+  },
+  "ir_calibrated_bench": true,
+  "ir_paused_timing_fix": true,
+  "physical_line_following_validated": false,
+  "physical_barcode_decoding_validated": false,
+  "ultrasonic_wiring": "TRIG=GP1 ECHO=GP0; restored from Buddy 5 app.h",
+  "s5_status_copy_fix": true,
+  "firmware_sha256": "62138085A10333222FDED32FEA180830B2D8EDE3DDCE6BAD1FBCD810A716C681",
+  "previous_sha256": "346DC09E75F348F36719E24FF6F88015AE4901B50E14397BEA07F483BBA26D2E",
+  "bytes": 665088,
+  "build_verified": true,
+  "artifact": "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_REPLACEMENT_CAL_20261024_01\\BUILD\\CSC02_IR_BARCODE_CAPTURE_LOCKED.uf2"
+}

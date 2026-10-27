@@ -1,47 +1,49 @@
-# Buddy 3: IR acquisition, line processing and barcode decoding
-
-This branch contains only Buddy 3-owned production sources, native tests,
-IR layout/calibration helpers and documentation. It does not include the
-local Vehicle Controller, motor/encoder, USB/MQTT, IMU, ultrasonic, kernel
-ADC or global build-profile changes used for robot integration testing.
-
-Current sensor roles: GP27 LEFT line, GP26 RIGHT line, GP28 barcode. The
-sampler owns acquisition at a nominal 10 ms and publishes copied status;
-only the existing ADC worker accesses ADC. Configure kernel ADC pad ownership
-separately with its owner. Defaults leave IR disabled and never start motion.
-
-Recent changes: cyclic sampling without catch-up bursts; bounded ADC reply
-wait followed by STOP/generation/lease/freshness checks; copied raw/capture
-status; paused-mode timing; compact 13-byte events; barcode edge-bias model
-and native regressions. Physical barcode decoding remains unfinished.
-
-Buddy 3 board/layout/calibration helpers are private to this directory, so
-native tests do not depend on unpublished shared controller configuration.
-Without a coordinator-declared drive lock, raw bring-up refuses E_OACV;
-its native positive tests explicitly declare a test-only lock.
-If a team robot_config.h exists, its settings remain authoritative. Measured
-endpoints are opt-in and robot-specific. The optional motor-scan API only
-feeds a diagnostic decoder in the IR sampler; it never commands a motor.
-
-Validation: see testing/subsystem3/PUBLISH_VALIDATION.md, HARDWARE_VALIDATION.md
-and TEST_LOG.md. Native/analyzer and real ARM checks pass. The whole branch
-still has an unchanged Buddy 2 producer build failure; its owners must fix it.
-The user-operated 30%/20-second line-response test turned successfully and
-went straight at a cross, then acknowledged STOP. Its external motor/test
-controller is intentionally excluded here. This does not establish autonomous
-full-course tracking, calibrated distance/error accuracy or A/Z hardware reliability.
-
-Run native checks with make -C testing/subsystem3 test verify-failure check-headers.
-Historical design and API documentation follows; dated claims of installed
-firmware below describe earlier integration experiments, not this branch's image.
-
----
+<!-- CURRENT DECODER V5 -->
+Current source uses a bounded BLACK/WHITE edge-offset model. Recorded A decodes on the PC;
+v5 is installed and STOP verified; first live A was incomplete. Calibrated profiles use a 20 ms minimum at
+unchanged nominal 10 ms acquisition. [v5 evidence](../../docs/IR_DECODER_EDGE_BIAS_FIX.md).
+Earlier dated log summaries below are historical.
 
 # Buddy 3 IR line following and barcode processing
 
 Student ID: 2500383. This module produces tracking results and navigation
 requests for the Vehicle Controller. It never executes movement. Motor PWM,
 encoders, motion leases and actual turns remain Buddy 2/controller responsibilities.
+
+## Current robot bring-up (22 October 2026)
+
+User confirms GP27 left line, GP26 right line, GP28 dedicated barcode.
+Stationary WHITE/RIGHT/LEFT/BARCODE passed161/161 samples on3E84E2 with motor
+lock on. Subsequent A/Z recordings on78ED21 have2247 complete copies but no
+decoded symbol:40ms gaps and14/16s sweeps exceed unchanged limits.
+Native-tested cyclic sampling/mutex correction now awaits rebuild/flash;
+see docs/IR_SCAN_SCHEDULE_FIX.md. Host GP28-only replay needs no line patches
+and retains30ms continuity/40ms min run/10s timeout. The robot core remains
+PAUSED during capture; its real controller gates are not weakened. Physical
+decoded characters, moving line following and motion remain unvalidated.
+
+The IRRawAdc/IRRawDigital build profiles now provide an input-only raw bench
+through s3_configure_raw. A compile-time drive lock is mandatory. Raw scans are
+published for labelled white/black tests, while configured and steering remain
+false and TRACK is rejected. No surface endpoints are invented or applied;
+line/barcode processing waits for measured calibration and sensor placement.
+Default builds still leave IR disabled. ADC0..2 continue through the existing
+Buddy 3 worker and kernel ADC device; ADC3/GP29 is never selected or claimed.
+The user reports 3V3 Grove power but cannot yet identify AO versus DO. Reading
+these existing signals through ADC is a diagnostic, not proof of their type.
+See docs/IR_RAW_BRINGUP.md for the current operator procedure. The older audit
+and original phase descriptions below predate the shared integration.
+
+The first robot ADC bench booted but returned acquisition timeouts. Widening
+the reply deadline to 30 ms allowed two complete startup scans, then the
+prefetched pipeline failed again after a delayed wake. The current sampler
+submits a current request after waking and uses a bounded copied-reply wait,
+then rechecks STOP/generation, monotonic time and lease expiry. Only the
+existing worker calls adca; no next scan is prefetched before sleeping.
+Conversion/freshness limits remain 20/30 ms and device failures stay latched.
+Native tests cover delayed wakeups, rollover, STOP, expired leases and failed
+waits; the new firmware still needs an ARM rebuild and physical retest.
+No labelled calibration values have been obtained.
 
 The native algorithms, digital GPIO adapter and optional kernel ADC worker are
 implemented and host tested. Hardware acquisition remains disabled at boot. ADC
@@ -187,13 +189,16 @@ It does not assert that the complete project alphabet or checksum is specified.
 Decoder tests independently transcribe the PDF runs. Validation requires the
 exact run count, start/stop patterns, both separator widths, three wide elements
 per character, and a known symbol. Forward and reverse passes inspect only the
-saved buffer, at most twice. Local narrow-width medians allow different scales
-and moderate changes in speed between characters. Each element must remain
-within 25% of its local nominal width; adjacent character units cannot differ
-by more than 2:1. Abrupt motion within a character may cause rejection. No
+saved buffer, at most twice. Wide/narrow groups need at least 1.5:1 raw separation.
+A per-character BLACK/WHITE offset, bounded to half a narrow unit, must satisfy the
+original 1:3 width bands for every corrected interval (within 25%). WHITE separators
+use adjacent offsets. Adjacent character units cannot differ by more than 2:1.
+Abrupt motion within a character may cause rejection. No
 odometry is read: Buddy 2 currently supplies no measured travel-distance API.
 
-Capture stores at most 29 widths. Default minimum run is 40 ms; quiet approach
+Capture stores at most 29 widths. Generic minimum run is 40 ms; calibrated board
+profiles use 20 ms at nominal 10 ms acquisition. Isolated 10 ms pulses are rejected.
+Shorter-bar optical reliability remains unvalidated. Quiet approach
 is 200 ms; the trailing quiet must exceed both 200 ms and four times the widest
 observed run. A frame times out at 10,000 ms. Bad timing, partial data, overflow,
 invalid framing and unknown symbols generate no navigation. In the active core,
@@ -209,7 +214,8 @@ allows a new capture. The controller must establish physical clearance (for
 example verified travel since the marker), not infer it from a noisy sensor.
 The default map_a/map_z are NONE; test-only LEFT mappings do not enter firmware.
 
-The minimum measurable element sets a speed limit: v <= narrow_width / 0.040 s
+The minimum measurable element sets an ideal time constraint: v <= narrow_width /
+minimum_run_time (0.020 s calibrated, 0.040 s generic)
 before adding scheduler and optical margins. The approximately 141 mm extent in
 the supplied dimension figure does not establish actual narrow widths on every
 print. Measure both scales, speed and worst-case sample jitter. Trailing quiet

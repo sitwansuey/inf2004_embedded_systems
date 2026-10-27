@@ -1,0 +1,22 @@
+{
+  "mode": "Scan",
+  "status": "EARLY_STOP_BAD_COMMAND",
+  "motor_power_requested": 8,
+  "duration_ms": 3000,
+  "commands_sent": 66,
+  "log": "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_MOTOR_SCAN_20261024\\HARDWARE\\IR_MOTOR_SCAN_20261024_205530_230.log",
+  "flashed": false,
+  "physical_braking_validated": false,
+  "port": "COM5",
+  "firmware_handshake": true,
+  "operator_wheels_raised": false,
+  "operator_clear_floor": true,
+  "operator_direction_verified": true,
+  "start_acknowledged": false,
+  "motor_stop_acknowledged": true,
+  "motor_activity_recorded": false,
+  "terminal_reason_code": 7,
+  "terminal_reason": "BAD_COMMAND",
+  "decodes": [],
+  "rejects": []
+}

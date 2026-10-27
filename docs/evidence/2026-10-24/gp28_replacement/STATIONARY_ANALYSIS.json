@@ -1,0 +1,221 @@
+{
+  "scope": "Replacement GP28 barcode-only stationary calibration capture at mounted height. ADC mask/timing validate acquisition transport, not electrical presence of unused line inputs. No calibrated endpoint applied yet.",
+  "printed_scale": "User confirmed corrected measurements",
+  "sensor_paper_gap_mm": null,
+  "setup": "User instructed to keep robot fixed and slide the printed sheet on a firm flat plane without lifting.",
+  "commands_sent": 0,
+  "firmware_changed": false,
+  "calibration_applied": false,
+  "reference": {
+    "white": 213,
+    "black": 3326,
+    "black_source": "Historical table target, not printed ink",
+    "hysteresis_low": 400,
+    "hysteresis_high": 600
+  },
+  "captures": [
+    {
+      "label": "BLACK",
+      "log": "PRINT_BLACK_20261024_194221_730.log",
+      "sha256": "7cd5eb48ceaa6ce557157bb329f3eb8a1f7224effdefa82146ddc3dfed636f50",
+      "samples": 810,
+      "min": 2449,
+      "max": 2493,
+      "mean": 2472.320987654321,
+      "median": 2473.0,
+      "range": 44,
+      "first_quarter_mean": 2473.207920792079,
+      "last_quarter_mean": 2471.910891089109,
+      "sample_interval_ms": [
+        10,
+        10
+      ],
+      "drop_counter": 0,
+      "controller_records": 8,
+      "normalized_range_current": [
+        718,
+        732
+      ],
+      "current_calibration_label_mismatches": 0,
+      "all_adc_channels": {
+        "GP26": {
+          "min": 253,
+          "max": 282,
+          "mean": 269.13703703703703
+        },
+        "GP27": {
+          "min": 18,
+          "max": 44,
+          "mean": 32.687654320987654
+        },
+        "GP28": {
+          "min": 2449,
+          "max": 2493,
+          "mean": 2472.320987654321
+        }
+      }
+    },
+    {
+      "label": "BLACK",
+      "log": "PRINT_BLACK_REPEAT_20261024_194515_600.log",
+      "sha256": "8a763678d99a495d2e001dc960ab62095328a66ff473badb2739eb0b0676afa0",
+      "samples": 810,
+      "min": 3046,
+      "max": 3090,
+      "mean": 3068.0506172839505,
+      "median": 3069.0,
+      "range": 44,
+      "first_quarter_mean": 3066.7772277227723,
+      "last_quarter_mean": 3067.866336633663,
+      "sample_interval_ms": [
+        10,
+        10
+      ],
+      "drop_counter": 0,
+      "controller_records": 8,
+      "normalized_range_current": [
+        910,
+        924
+      ],
+      "current_calibration_label_mismatches": 0,
+      "all_adc_channels": {
+        "GP26": {
+          "min": 1872,
+          "max": 1906,
+          "mean": 1888.6604938271605
+        },
+        "GP27": {
+          "min": 20,
+          "max": 54,
+          "mean": 37.27037037037037
+        },
+        "GP28": {
+          "min": 3046,
+          "max": 3090,
+          "mean": 3068.0506172839505
+        }
+      }
+    },
+    {
+      "label": "WHITE",
+      "log": "PRINT_WHITE_20261024_194106_251.log",
+      "sha256": "14fff3a7f4621ae7c8b101f0c2fc14e4b2983a7a4f7236728aa70cdd5a3855eb",
+      "samples": 806,
+      "min": 177,
+      "max": 219,
+      "mean": 197.98387096774192,
+      "median": 199.0,
+      "range": 42,
+      "first_quarter_mean": 199.11940298507463,
+      "last_quarter_mean": 196.83582089552237,
+      "sample_interval_ms": [
+        10,
+        10
+      ],
+      "drop_counter": 0,
+      "controller_records": 8,
+      "normalized_range_current": [
+        0,
+        1
+      ],
+      "current_calibration_label_mismatches": 0,
+      "all_adc_channels": {
+        "GP26": {
+          "min": 275,
+          "max": 297,
+          "mean": 288.5955334987593
+        },
+        "GP27": {
+          "min": 18,
+          "max": 44,
+          "mean": 33.425558312655085
+        },
+        "GP28": {
+          "min": 177,
+          "max": 219,
+          "mean": 197.98387096774192
+        }
+      }
+    },
+    {
+      "label": "WHITE",
+      "log": "PRINT_WHITE_REPEAT_20261024_194438_244.log",
+      "sha256": "fc51cf71173a484c143b167101a6233c3c5092404f9f0f69731f3886478df3ce",
+      "samples": 810,
+      "min": 186,
+      "max": 229,
+      "mean": 207.97530864197532,
+      "median": 209.0,
+      "range": 43,
+      "first_quarter_mean": 207.81683168316832,
+      "last_quarter_mean": 207.40594059405942,
+      "sample_interval_ms": [
+        10,
+        10
+      ],
+      "drop_counter": 0,
+      "controller_records": 8,
+      "normalized_range_current": [
+        0,
+        5
+      ],
+      "current_calibration_label_mismatches": 0,
+      "all_adc_channels": {
+        "GP26": {
+          "min": 304,
+          "max": 332,
+          "mean": 321.45802469135805
+        },
+        "GP27": {
+          "min": 19,
+          "max": 46,
+          "mean": 34.050617283950615
+        },
+        "GP28": {
+          "min": 186,
+          "max": 229,
+          "mean": 207.97530864197532
+        }
+      }
+    }
+  ],
+  "failed_capture_attempts": [],
+  "setup_record": {
+    "setup_id": "IR_REPLACEMENT_CAL_20261024_01",
+    "date_local": "2026-10-24",
+    "timezone": "Asia/Singapore",
+    "user_report": "User believes replacement barcode module now works and explicitly requested calibration",
+    "module_origin": "Awaiting optional confirmation of which line module was moved; calibration depends only on the replacement GP28 input",
+    "signal_path": "Replacement module A0 connected to GP28 per preparation instructions; user confirmed WHITE at final mounted height",
+    "sensor_model": "Not established; attached module manual specifies ST188/LM393, while the other attachment describes TCRT5000. No TCRT5000 distance figure is assumed for this setup.",
+    "sensor_paper_gap_mm": null,
+    "mounting": "Final mounted height reported by user; retain fixed robot and printed sheet plane throughout calibration",
+    "sensitivity_screws": "Instructed to leave fixed throughout this calibration",
+    "d0": "Instructed to remain disconnected on barcode module",
+    "motor_power": "User confirmed readiness under motor-power-off instruction",
+    "line_inputs": "A line module may be absent or replaced. GP26/GP27 readings must not establish line-sensor health, calibration or driving readiness.",
+    "print_dimensions": "User previously confirmed corrected printed measurements",
+    "target": "Actual corrected printed sheet: blank WHITE area and centre of a widest BLACK barcode bar",
+    "analysis_scope": "Replacement GP28 barcode-only stationary calibration capture at mounted height. ADC mask/timing validate acquisition transport, not electrical presence of unused line inputs. No calibrated endpoint applied yet.",
+    "firmware_changed": false,
+    "calibration_applied": false,
+    "commands_sent": 0,
+    "previous_setups": "Different modules/planes in IR_RETEST, IR_HEIGHT_RETEST, IR_AO_ISOLATION and IR_NEAR_TARGET must not be pooled into this calibration"
+  },
+  "observed_median_contrast": 2566.5,
+  "stability_limit": 641.625,
+  "criterion": "Existing bench criterion: full range of each color <= one quarter of median black-white contrast; not a school accuracy specification.",
+  "pooled_stable": true,
+  "pooled_ranges": {
+    "WHITE": [
+      177,
+      229
+    ],
+    "BLACK": [
+      2449,
+      3090
+    ]
+  },
+  "current_calibration_classification_pass": true,
+  "status": "PASS_STATIONARY_GP28_REFLECTANCE"
+}

@@ -1,0 +1,4 @@
+../app_program/vehicle.c:12:13:vehicle_task.part.0	760	static
+../app_program/vehicle.c:12:13:vehicle_task	8	static
+../app_program/vehicle.c:162:4:vehicle_start	8	static
+../app_program/vehicle.c:168:4:app_vehicle_request	16	static

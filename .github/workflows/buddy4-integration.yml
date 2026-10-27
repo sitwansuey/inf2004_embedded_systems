@@ -1,0 +1,26 @@
+name: Buddy 4 integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  software:
+    name: Buddy 4 and integrated application
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Buddy 4 host checks and GCC analysis
+        run: make -C app_program/subsystem4/tests/host analyze sizes
+      - name: Controller, sensor and binary transport integration
+        run: make -C testing/integration test
+      - name: Buddy 4 address and undefined-behavior sanitizers
+        run: make -C app_program/subsystem4/tests/host sanitize
+      - name: Integration address and undefined-behavior sanitizers
+        run: make -C testing/integration sanitize

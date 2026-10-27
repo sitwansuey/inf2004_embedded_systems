@@ -1,0 +1,24 @@
+{
+  "mode": "Scan",
+  "status": "EARLY_STOP_BAD_PATTERN",
+  "motor_power_requested": 12,
+  "duration_ms": 6000,
+  "commands_sent": 114,
+  "log": "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_MOTOR_SCAN_20261024\\HARDWARE\\IR_MOTOR_SCAN_20261024_213738_383.log",
+  "flashed": false,
+  "physical_braking_validated": false,
+  "port": "COM5",
+  "firmware_handshake": true,
+  "operator_wheels_raised": false,
+  "operator_clear_floor": true,
+  "operator_direction_verified": true,
+  "start_acknowledged": true,
+  "motor_stop_acknowledged": true,
+  "motor_activity_recorded": true,
+  "terminal_reason_code": 10,
+  "terminal_reason": "BAD_PATTERN",
+  "decodes": [],
+  "rejects": [
+    "[IRSCAN REJECT] status=3 t=2267120"
+  ]
+}

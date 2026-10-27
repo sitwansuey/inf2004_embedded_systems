@@ -1,10 +1,3 @@
-# Latest isolated Buddy 3 validation — 25 October 2026
-
-Native GCC analyzer/regressions, expected-failure propagation, real kernel
-headers and real ARM objects passed. See PUBLISH_VALIDATION.md for commands,
-counts, scope and the unchanged Buddy 2 full-firmware build blocker.
-Historical test definitions/results follow.
-
 # Subsystem 3 — test log
 
 **Subsystem:** Buddy 3 IR line following/barcode decoding  ·  **Student ID:** 2500383  ·  **Code:** `app_program/subsystem3/`

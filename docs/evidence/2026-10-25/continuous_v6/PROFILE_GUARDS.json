@@ -1,0 +1,47 @@
+[
+  {
+    "name": "continuous_valid",
+    "accepted": true,
+    "expected": true
+  },
+  {
+    "name": "course_valid",
+    "accepted": true,
+    "expected": true
+  },
+  {
+    "name": "normal_valid",
+    "accepted": true,
+    "expected": true
+  },
+  {
+    "name": "continuous_requires30",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "name": "continuous_requires_line_only",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "name": "continuous_requires20s",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "name": "continuous_no_sonar",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "name": "no_mqtt",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "name": "motor_watchdog_limit",
+    "accepted": false,
+    "expected": false
+  }
+]

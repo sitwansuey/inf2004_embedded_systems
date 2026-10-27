@@ -1,6 +1,6 @@
 /* Test the production board configurator against the user's physical layout. */
 #include <stdio.h>
-#include "../../app_program/subsystem3/buddy3_robot_ir.h"
+#include "../../app_program/robot_ir_config.h"
 
 static unsigned int checks;
 static unsigned int failures;

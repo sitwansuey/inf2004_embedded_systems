@@ -1,0 +1,66 @@
+{
+  "status": "PASS_THREE_STATIONARY_LINE_INPUTS",
+  "scope": "Physical ADC capture replayed with production line classification on PC; not motor steering validation.",
+  "steps": [
+    {
+      "target": "RightBlack",
+      "result": "LINE_RIGHT_BLACK_20261024_231656_686_LINE_RESULT.json",
+      "log": "LINE_RIGHT_BLACK_20261024_231656_686.log",
+      "log_sha256": "a62b0f1c63497b2f9efb638f7e97aa8e9ab0f6d011277ac5902f3d829b6e18e6",
+      "rows": 798,
+      "mismatches": 0,
+      "discontinuities": 0,
+      "raw_min": [
+        3420,
+        177
+      ],
+      "raw_max": [
+        3446,
+        228
+      ]
+    },
+    {
+      "target": "LeftBlack",
+      "result": "LINE_LEFT_BLACK_REPEAT_20261024_231736_067_LINE_RESULT.json",
+      "log": "LINE_LEFT_BLACK_REPEAT_20261024_231736_067.log",
+      "log_sha256": "f9715a3032546096e26dd9ebd6be0d402c864b1adf816c4e92b6423d4d5ddbef",
+      "rows": 808,
+      "mismatches": 0,
+      "discontinuities": 0,
+      "raw_min": [
+        206,
+        2941
+      ],
+      "raw_max": [
+        233,
+        2985
+      ]
+    },
+    {
+      "target": "White",
+      "result": "LINE_WHITE_FINAL_20261024_231816_337_LINE_RESULT.json",
+      "log": "LINE_WHITE_FINAL_20261024_231816_337.log",
+      "log_sha256": "7d190212c331df67d1cdfea1b8b49355d6eb936f594e99632f1a65cb56362a0f",
+      "rows": 812,
+      "mismatches": 0,
+      "discontinuities": 0,
+      "raw_min": [
+        206,
+        176
+      ],
+      "raw_max": [
+        232,
+        228
+      ]
+    }
+  ],
+  "total_rows": 2418,
+  "calibration_changed": false,
+  "commands_sent": 0,
+  "both_black_physical_test_required": false,
+  "both_black_physical_test_performed": false,
+  "both_black_STOP_policy_host_tested": true,
+  "line_flashed": false,
+  "physical_line_following_validated": false,
+  "caster_operator_report": "Still rough; operator expects feedback to correct drift. Mechanical contribution remains unvalidated."
+}

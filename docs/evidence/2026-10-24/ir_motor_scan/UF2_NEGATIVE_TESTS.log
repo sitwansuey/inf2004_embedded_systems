@@ -1,0 +1,4 @@
+PASS wrong_family: rejected before artifact creation
+PASS mismatched_ELF_payload: rejected before artifact creation
+PASS old_locked_profile: rejected before artifact creation
+PASS valid_motor_scan: accepted after ELF/source verification

@@ -1,0 +1,41 @@
+{
+  "profile": "IRContinuous",
+  "version": 6,
+  "firmware_sha256": "2deddabc20183951ddb8036240d8d1b50f5fdfe903ef4bf13a240956f018bf69",
+  "power_percent": 30,
+  "requested_duration_ms": 20000,
+  "observed_active_to_terminal_ms": 20000,
+  "terminal_reason": "COMPLETE",
+  "final_commanded_STOP_acknowledged": true,
+  "active_status_rows": 223,
+  "line_masks_seen": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "motor_commands_seen": [
+    1,
+    5,
+    6
+  ],
+  "both_black_forward_status_rows": 64,
+  "first_encoder_counts": [
+    0,
+    0
+  ],
+  "counts_at_completion": [
+    8777,
+    7380
+  ],
+  "operator_statement": "it turns sucessfully and at cross it goes straight done",
+  "operator_confirms_turn_success": true,
+  "operator_confirms_cross_straight": true,
+  "user_operated_turn_cross_test_pass": true,
+  "scope": "User-operated 30%/20 s response test; user planned to move/reposition robot. Unassisted whole-course tracking, classification reliability and accuracy are not established.",
+  "autonomous_full_course_validated": false,
+  "physical_braking_distance_validated": false,
+  "source_log": "C:\\Users\\godga\\Downloads\\ES\\inf2004_embedded_systems\\tools\\robot_bench\\artifacts\\CONTINUOUS_20261025_002926_537.log",
+  "source_log_sha256": "703d6d7380a30da02fa382e0be03220b82878ae0d41e7b4596c9d790494344a6",
+  "source_result_sha256": "f8b63bea669f0c27c5525584f27880e72035695d22f324b2baf69fc9cfa0c0ee"
+}

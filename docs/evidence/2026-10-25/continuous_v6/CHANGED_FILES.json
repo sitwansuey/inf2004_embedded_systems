@@ -1,0 +1,18 @@
+[
+  "app_program/ir_motor_scan.h",
+  "app_program/robot_config.h",
+  "app_program/ir_line_trace.h",
+  "app_program/ir_line_trace.c",
+  "app_program/vehicle_line_trace.c",
+  "app_program/app_main.c",
+  "build_make/pico_rp2040.mk",
+  "tools/build_firmware.sh",
+  "tools/build_windows.ps1",
+  "testing/integration/continuous_line_test.c",
+  "testing/integration/Makefile",
+  "tools/robot_bench/verify_continuous.py",
+  "tools/robot_bench/INSTALL_CONTINUOUS.ps1",
+  "tools/robot_bench/RUN_CONTINUOUS_20S.ps1",
+  "docs/CONTINUOUS_30_PERCENT_TEST.md",
+  "LOCAL_CONTINUATION.md"
+]

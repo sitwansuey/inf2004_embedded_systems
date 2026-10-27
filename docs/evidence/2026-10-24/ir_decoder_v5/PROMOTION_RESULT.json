@@ -1,0 +1,17 @@
+{
+  "branch": "local/csc02-ir-motor-scan-20261024",
+  "source_version": 5,
+  "installed_version": 3,
+  "changed_files": [
+    "app_program/subsystem3/buddy3_barcode.c",
+    "app_program/robot_ir_config.h",
+    "testing/subsystem3/Makefile",
+    "testing/subsystem3/test_motor_scan_sampler.c",
+    "app_program/app_main.c",
+    "app_program/vehicle_ir_motor_scan.c",
+    "tools/robot_bench/RUN_IR_MOTOR_SCAN.ps1",
+    "tools/robot_bench/verify_ir_motor_scan.py",
+    "testing/subsystem3/test_barcode_edge_bias.c"
+  ],
+  "flashed": false
+}

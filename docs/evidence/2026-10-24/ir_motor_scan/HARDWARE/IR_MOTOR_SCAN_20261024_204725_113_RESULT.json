@@ -1,0 +1,16 @@
+{
+  "mode": "Scan",
+  "status": "ERROR",
+  "motor_power_requested": 8,
+  "duration_ms": 3000,
+  "commands_sent": 65,
+  "log": "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_MOTOR_SCAN_20261024\\HARDWARE\\IR_MOTOR_SCAN_20261024_204725_113.log",
+  "flashed": false,
+  "physical_braking_validated": false,
+  "port": "COM5",
+  "firmware_handshake": true,
+  "operator_wheels_raised": false,
+  "operator_clear_floor": true,
+  "operator_direction_verified": true,
+  "error": "START was not acknowledged. STOP sent on exit; inspect log."
+}

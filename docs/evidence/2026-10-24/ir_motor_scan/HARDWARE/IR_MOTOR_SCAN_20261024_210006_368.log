@@ -1,0 +1,614 @@
+﻿[IRSCAN] t=13970 active=0 prepared=0 mode=1 reason=8 power=0 raw=222 darkness=10 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=13960 raw=3041,45,222 mask=7 dropped=0
+[S3B] t=13970 raw=3044,42,221 mask=7 dropped=0
+[CSC02] t=14000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S3IR] copied=1 error=0 t=13990 acquisition=0 mask=7 raw=3040,36,225 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=12 algorithm_error=0 line_darkness=942,0
+[S3B] t=13980 raw=3041,48,221 mask=7 dropped=0
+[S3B] t=13990 raw=3040,36,225 mask=7 dropped=0
+[S3B] t=14000 raw=3044,45,202 mask=7 dropped=0
+[IRSCAN READY] v=3 active=0 prepared=0 cap=20 lease=250 max_ms=6000 adc=1 motor=1 front=1
+[S3B] t=14010 raw=3036,43,220 mask=7 dropped=0
+[S3B] t=14020 raw=3040,45,213 mask=7 dropped=0
+[S3B] t=14030 raw=3042,37,219 mask=7 dropped=0
+[S3B] t=14040 raw=3039,44,222 mask=7 dropped=0
+[S3B] t=14050 raw=3041,41,226 mask=7 dropped=0
+[S4] 14070,0,1,1,-42,-228,927,152,213,-4,20,20,435,413,0,0,469
+[IRSCAN] t=14070 active=0 prepared=0 mode=1 reason=8 power=0 raw=194 darkness=0 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14060 raw=3040,44,194 mask=7 dropped=0
+[S3B] t=14070 raw=3044,41,202 mask=7 dropped=0
+[S3B] t=14080 raw=3038,45,194 mask=7 dropped=0
+[S3B] t=14090 raw=3041,38,225 mask=7 dropped=0
+[S3B] t=14100 raw=3044,45,222 mask=7 dropped=0
+[S3B] t=14110 raw=3044,40,188 mask=7 dropped=0
+[S3B] t=14120 raw=3043,43,218 mask=7 dropped=0
+[S3B] t=14130 raw=3044,40,216 mask=7 dropped=0
+[S3B] t=14140 raw=3039,46,224 mask=7 dropped=0
+[S3B] t=14150 raw=3037,40,216 mask=7 dropped=0
+[S3B] t=14160 raw=3038,44,188 mask=7 dropped=0
+[IRSCAN] t=14170 active=0 prepared=0 mode=1 reason=8 power=0 raw=188 darkness=0 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14170 raw=3035,43,221 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=14190 acquisition=0 mask=7 raw=3032,39,188 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=0 algorithm_error=0 line_darkness=939,0
+[S3B] t=14180 raw=3033,45,225 mask=7 dropped=0
+[S3B] t=14190 raw=3032,39,188 mask=7 dropped=0
+[S3B] t=14200 raw=3036,44,196 mask=7 dropped=0
+[S3B] t=14210 raw=3038,41,200 mask=7 dropped=0
+[S3B] t=14220 raw=3040,43,197 mask=7 dropped=0
+[S3B] t=14230 raw=3038,37,224 mask=7 dropped=0
+[S3B] t=14240 raw=3038,44,212 mask=7 dropped=0
+[S3B] t=14250 raw=3034,40,224 mask=7 dropped=0
+[IRSCAN] t=14270 active=0 prepared=0 mode=1 reason=8 power=0 raw=218 darkness=9 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14260 raw=3039,56,218 mask=7 dropped=0
+[S3B] t=14270 raw=3041,38,220 mask=7 dropped=0
+[S3B] t=14280 raw=3034,44,192 mask=7 dropped=0
+[S4] 14280,0,1,1,-38,-221,936,153,210,-4,20,20,442,420,0,0,476
+[S3B] t=14290 raw=3039,42,217 mask=7 dropped=0
+[S3B] t=14300 raw=3034,44,220 mask=7 dropped=0
+[S3B] t=14310 raw=3032,38,224 mask=7 dropped=0
+[S3B] t=14320 raw=3035,44,224 mask=7 dropped=0
+[S3B] t=14330 raw=3040,40,215 mask=7 dropped=0
+[S3B] t=14340 raw=3038,42,215 mask=7 dropped=0
+[S3B] t=14350 raw=3035,40,195 mask=7 dropped=0
+[IRSCAN] t=14370 active=0 prepared=0 mode=1 reason=8 power=0 raw=211 darkness=6 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14360 raw=3034,45,211 mask=7 dropped=0
+[S3B] t=14370 raw=3038,40,218 mask=7 dropped=0
+[S3B] t=14380 raw=3037,44,213 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=14390 acquisition=0 mask=7 raw=3036,39,208 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=4 algorithm_error=0 line_darkness=941,0
+[S3B] t=14390 raw=3036,39,208 mask=7 dropped=0
+[S3B] t=14400 raw=3037,46,218 mask=7 dropped=0
+[IRSCAN] t=14410 active=0 prepared=1 mode=1 reason=0 power=0 raw=218 darkness=9 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14410 raw=3034,48,188 mask=7 dropped=0
+[S3B] t=14420 raw=3034,42,197 mask=7 dropped=0
+[S3B] t=14430 raw=3034,35,203 mask=7 dropped=0
+[S3B] t=14440 raw=3042,43,213 mask=7 dropped=0
+[S3B] t=14450 raw=3034,41,214 mask=7 dropped=0
+[S3B] t=14460 raw=3032,46,225 mask=7 dropped=0
+[S3B] t=14470 raw=3037,38,191 mask=7 dropped=0
+[S3B] t=14480 raw=3038,44,220 mask=7 dropped=0
+[S4] 14490,0,1,1,-40,-220,935,150,207,-3,20,20,449,426,0,0,483
+[S3B] t=14490 raw=3038,46,224 mask=7 dropped=0
+[IRSCAN] t=14510 active=0 prepared=1 mode=1 reason=0 power=0 raw=222 darkness=10 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14500 raw=3041,43,222 mask=7 dropped=0
+[S3B] t=14510 raw=3036,41,223 mask=7 dropped=0
+[S3B] t=14520 raw=3036,43,187 mask=7 dropped=0
+[S3B] t=14530 raw=3040,42,222 mask=7 dropped=0
+[S3B] t=14540 raw=3039,44,187 mask=7 dropped=0
+[S3B] t=14550 raw=3034,38,224 mask=7 dropped=0
+[S3B] t=14560 raw=3040,45,219 mask=7 dropped=0
+[S3B] t=14570 raw=3023,40,193 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=14590 acquisition=0 mask=7 raw=3026,38,211 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=6 algorithm_error=0 line_darkness=937,0
+[S3B] t=14580 raw=3031,45,189 mask=7 dropped=0
+[S3B] t=14590 raw=3026,38,211 mask=7 dropped=0
+[S3B] t=14600 raw=3025,44,198 mask=7 dropped=0
+[IRSCAN] t=14610 active=0 prepared=1 mode=1 reason=0 power=0 raw=198 darkness=0 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14610 raw=3018,44,217 mask=7 dropped=0
+[S3B] t=14620 raw=3015,48,225 mask=7 dropped=0
+[S3B] t=14630 raw=3018,41,219 mask=7 dropped=0
+[S3B] t=14640 raw=3012,45,225 mask=7 dropped=0
+[S3B] t=14650 raw=3011,41,224 mask=7 dropped=0
+[S3B] t=14660 raw=3012,43,197 mask=7 dropped=0
+[S3B] t=14670 raw=3011,40,196 mask=7 dropped=0
+[S3B] t=14680 raw=3016,44,197 mask=7 dropped=0
+[S3B] t=14690 raw=3018,40,221 mask=7 dropped=0
+[S4] 14700,0,1,1,-43,-221,936,151,209,-4,20,20,456,432,0,0,490
+[IRSCAN] t=14710 active=0 prepared=1 mode=1 reason=0 power=0 raw=208 darkness=4 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14700 raw=3012,43,208 mask=7 dropped=0
+[S3B] t=14710 raw=3013,43,214 mask=7 dropped=0
+[S3B] t=14720 raw=3018,44,201 mask=7 dropped=0
+[S3B] t=14730 raw=3016,38,216 mask=7 dropped=0
+[S3B] t=14740 raw=3012,46,213 mask=7 dropped=0
+[S3B] t=14750 raw=3013,41,209 mask=7 dropped=0
+[IRSCAN START] mode=2 power=8 duration=3000
+[IRSCAN] t=14770 active=1 prepared=0 mode=2 reason=0 power=8 raw=193 darkness=0 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=0 m2=6
+[S3B] t=14760 raw=3017,45,193 mask=7 dropped=0
+[S3B] t=14770 raw=3011,44,202 mask=7 dropped=0
+[S2 MOTOR] command=1 power=8%
+[S3IR] copied=1 error=0 t=14790 acquisition=0 mask=7 raw=3016,40,203 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=2 algorithm_error=0 line_darkness=934,0
+[S3B] t=14780 raw=3018,44,217 mask=7 dropped=0
+[S3B] t=14790 raw=3016,40,203 mask=7 dropped=0
+[S3B] t=14800 raw=3018,47,221 mask=7 dropped=0
+[S3B] t=14810 raw=3012,41,224 mask=7 dropped=0
+[S3B] t=14820 raw=3016,43,198 mask=7 dropped=0
+[S3B] t=14830 raw=3020,41,218 mask=7 dropped=0
+[S3B] t=14840 raw=3016,41,225 mask=7 dropped=0
+[S3B] t=14850 raw=3010,33,221 mask=7 dropped=0
+[IRSCAN] t=14870 active=1 prepared=0 mode=2 reason=0 power=8 raw=218 darkness=9 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=6 m2=13
+[S3B] t=14860 raw=2981,42,218 mask=7 dropped=0
+[S3B] t=14870 raw=2989,38,190 mask=7 dropped=0
+[S3B] t=14880 raw=3040,43,194 mask=7 dropped=0
+[S3B] t=14890 raw=3040,34,229 mask=7 dropped=0
+[S4] 14910,0,1,1,-6,48,1005,144,209,-6,20,20,463,439,0,0,497
+[S3B] t=14900 raw=2997,36,226 mask=7 dropped=0
+[S3B] t=14910 raw=2988,36,217 mask=7 dropped=0
+[S3B] t=14920 raw=2989,43,197 mask=7 dropped=0
+[S3B] t=14930 raw=2949,41,211 mask=7 dropped=0
+[S3B] t=14940 raw=2976,43,196 mask=7 dropped=0
+[S3B] t=14950 raw=2984,50,211 mask=7 dropped=0
+[IRSCAN] t=14970 active=1 prepared=0 mode=2 reason=0 power=8 raw=191 darkness=0 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=17 m2=22
+[S3B] t=14960 raw=3009,40,191 mask=7 dropped=0
+[S3B] t=14970 raw=3026,36,224 mask=7 dropped=0
+[CSC02] t=15000 phase=1 fault=0 armed=1 cmd=1 power=8 flags=159 bytes=50
+[S3IR] copied=1 error=0 t=14990 acquisition=0 mask=7 raw=3002,50,220 configured=1 steering=0 fresh=1 line=1 blackmask=1 lineerror=1000 barcode_darkness=10 algorithm_error=0 line_darkness=929,0
+[S3B] t=14980 raw=3024,42,212 mask=7 dropped=0
+[S3B] t=14990 raw=3002,50,220 mask=7 dropped=0
+[S3B] t=15000 raw=2976,44,208 mask=7 dropped=0
+[S3B] t=15010 raw=2961,41,220 mask=7 dropped=0
+[S3B] t=15020 raw=2952,38,228 mask=7 dropped=0
+[S3B] t=15030 raw=2914,43,204 mask=7 dropped=0
+[S3B] t=15040 raw=2832,46,203 mask=7 dropped=0
+[S3B] t=15050 raw=2808,35,236 mask=7 dropped=0
+[S3B] t=15060 raw=2637,41,986 mask=7 dropped=0
+[IRSCAN] t=15070 active=1 prepared=0 mode=2 reason=0 power=8 raw=986 darkness=346 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=29 m2=30
+[S3B] t=15070 raw=2653,38,2742 mask=7 dropped=0
+[S3B] t=15080 raw=2537,36,3001 mask=7 dropped=0
+[S3B] t=15090 raw=2529,37,3120 mask=7 dropped=0
+[S3B] t=15100 raw=2253,40,3090 mask=7 dropped=0
+[S3B] t=15110 raw=2326,27,2988 mask=7 dropped=0
+[S4] 15120,0,1,1,-72,-462,862,146,205,-1,20,20,470,446,0,0,504
+[S3B] t=15120 raw=2009,38,2957 mask=7 dropped=0
+[S3B] t=15130 raw=1977,49,2120 mask=7 dropped=0
+[S3B] t=15140 raw=1678,41,801 mask=7 dropped=0
+[S3B] t=15150 raw=1430,31,238 mask=7 dropped=0
+[IRSCAN] t=15170 active=1 prepared=0 mode=2 reason=0 power=8 raw=226 darkness=12 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=40 m2=39
+[S3B] t=15160 raw=610,34,226 mask=7 dropped=0
+[S3B] t=15170 raw=794,33,203 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=15190 acquisition=0 mask=7 raw=325,45,192 configured=1 steering=0 fresh=1 line=2 blackmask=0 lineerror=0 barcode_darkness=0 algorithm_error=0 line_darkness=45,0
+[S3B] t=15180 raw=297,45,204 mask=7 dropped=0
+[S3B] t=15190 raw=325,45,192 mask=7 dropped=0
+[S3B] t=15200 raw=252,33,198 mask=7 dropped=0
+[S3B] t=15210 raw=257,28,190 mask=7 dropped=0
+[S3B] t=15220 raw=226,43,203 mask=7 dropped=0
+[S3B] t=15230 raw=240,28,193 mask=7 dropped=0
+[S3B] t=15240 raw=227,30,197 mask=7 dropped=0
+[S3B] t=15250 raw=229,34,223 mask=7 dropped=0
+[IRSCAN] t=15270 active=1 prepared=0 mode=2 reason=0 power=8 raw=223 darkness=11 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=52 m2=48
+[S3B] t=15260 raw=217,35,223 mask=7 dropped=0
+[S3B] t=15270 raw=222,30,203 mask=7 dropped=0
+[S3B] t=15280 raw=216,33,216 mask=7 dropped=0
+[S3B] t=15290 raw=214,40,200 mask=7 dropped=0
+[S3B] t=15300 raw=206,35,205 mask=7 dropped=0
+[S3B] t=15310 raw=210,32,218 mask=7 dropped=0
+[S4] 15330,0,1,1,47,-176,925,149,201,-8,20,20,477,453,0,0,511
+[S3B] t=15320 raw=204,37,205 mask=7 dropped=0
+[S3B] t=15330 raw=208,33,197 mask=7 dropped=0
+[S3B] t=15340 raw=209,35,232 mask=7 dropped=0
+[S3B] t=15350 raw=208,25,234 mask=7 dropped=0
+[IRSCAN] t=15370 active=1 prepared=0 mode=2 reason=0 power=8 raw=668 darkness=207 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=65 m2=57
+[S3B] t=15360 raw=203,30,668 mask=7 dropped=0
+[S3B] t=15370 raw=205,31,2696 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=15390 acquisition=0 mask=7 raw=201,26,3208 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1000 algorithm_error=0 line_darkness=4,0
+[S3B] t=15380 raw=203,30,3141 mask=7 dropped=0
+[S3B] t=15390 raw=201,26,3208 mask=7 dropped=0
+[S3B] t=15400 raw=204,34,3154 mask=7 dropped=0
+[S3B] t=15410 raw=202,29,3016 mask=7 dropped=0
+[S3B] t=15420 raw=198,36,2134 mask=7 dropped=0
+[S3B] t=15430 raw=198,22,508 mask=7 dropped=0
+[S3B] t=15440 raw=198,31,217 mask=7 dropped=0
+[S3B] t=15450 raw=200,30,209 mask=7 dropped=0
+[IRSCAN] t=15470 active=1 prepared=0 mode=2 reason=0 power=8 raw=225 darkness=12 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=77 m2=66
+[S3B] t=15460 raw=204,35,225 mask=7 dropped=0
+[S3B] t=15470 raw=203,39,217 mask=7 dropped=0
+[S3B] t=15480 raw=198,34,226 mask=7 dropped=0
+[S3B] t=15490 raw=197,33,242 mask=7 dropped=0
+[S3B] t=15500 raw=204,33,241 mask=7 dropped=0
+[S3B] t=15510 raw=203,24,1193 mask=7 dropped=0
+[S3B] t=15520 raw=204,32,2694 mask=7 dropped=0
+[S3B] t=15530 raw=199,30,3218 mask=7 dropped=0
+[S3B] t=15540 raw=213,32,3386 mask=7 dropped=0
+[S4] 15540,0,1,1,-38,-249,932,142,190,-12,20,20,484,459,0,0,518
+[S3B] t=15550 raw=205,30,3491 mask=7 dropped=0
+[IRSCAN] t=15570 active=1 prepared=0 mode=2 reason=0 power=8 raw=3507 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=88 m2=75
+[S3B] t=15560 raw=200,28,3507 mask=7 dropped=0
+[S3B] t=15570 raw=200,34,3530 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=15590 acquisition=0 mask=7 raw=205,28,3556 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1000 algorithm_error=0 line_darkness=5,0
+[S3B] t=15580 raw=203,34,3531 mask=7 dropped=0
+[S3B] t=15590 raw=205,28,3556 mask=7 dropped=0
+[S3B] t=15600 raw=204,34,3560 mask=7 dropped=0
+[S3B] t=15610 raw=197,34,3561 mask=7 dropped=0
+[S3B] t=15620 raw=203,26,3556 mask=7 dropped=0
+[S3B] t=15630 raw=199,42,3576 mask=7 dropped=0
+[S3B] t=15640 raw=204,33,3561 mask=7 dropped=0
+[S3B] t=15650 raw=201,28,3546 mask=7 dropped=0
+[IRSCAN] t=15670 active=1 prepared=0 mode=2 reason=0 power=8 raw=3554 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=100 m2=85
+[S3B] t=15660 raw=206,38,3554 mask=7 dropped=0
+[S3B] t=15670 raw=196,29,3555 mask=7 dropped=0
+[S3B] t=15680 raw=205,33,3506 mask=7 dropped=0
+[S3B] t=15690 raw=200,32,3441 mask=7 dropped=0
+[S3B] t=15700 raw=200,37,3385 mask=7 dropped=0
+[S3B] t=15710 raw=202,32,3257 mask=7 dropped=0
+[S3B] t=15720 raw=205,36,3008 mask=7 dropped=0
+[S3B] t=15730 raw=205,32,1732 mask=7 dropped=0
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 15750,0,1,1,-60,-244,942,137,194,-9,20,20,491,465,0,0,525
+[S3B] t=15740 raw=206,42,262 mask=7 dropped=0
+[S3B] t=15750 raw=201,32,218 mask=7 dropped=0
+[IRSCAN] t=15770 active=1 prepared=0 mode=2 reason=0 power=8 raw=209 darkness=5 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=112 m2=94
+[S3B] t=15760 raw=200,29,209 mask=7 dropped=0
+[S3B] t=15770 raw=199,28,220 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=15790 acquisition=0 mask=7 raw=201,32,222 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=10 algorithm_error=0 line_darkness=4,0
+[S3B] t=15780 raw=200,37,203 mask=7 dropped=0
+[S3B] t=15790 raw=201,32,222 mask=7 dropped=0
+[S3B] t=15800 raw=206,33,261 mask=7 dropped=0
+[S3B] t=15810 raw=200,29,381 mask=7 dropped=0
+[S3B] t=15820 raw=200,34,2013 mask=7 dropped=0
+[S3B] t=15830 raw=196,27,2904 mask=7 dropped=0
+[S3B] t=15840 raw=203,31,3260 mask=7 dropped=0
+[S3B] t=15850 raw=195,32,3440 mask=7 dropped=0
+[IRSCAN] t=15870 active=1 prepared=0 mode=2 reason=0 power=8 raw=3359 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=124 m2=102
+[S3B] t=15860 raw=205,31,3359 mask=7 dropped=0
+[S3B] t=15870 raw=194,28,3354 mask=7 dropped=0
+[S3B] t=15880 raw=201,34,3320 mask=7 dropped=0
+[S3B] t=15890 raw=196,32,3322 mask=7 dropped=0
+[S3B] t=15900 raw=188,33,3378 mask=7 dropped=0
+[S3B] t=15910 raw=204,26,3465 mask=7 dropped=0
+[S3B] t=15920 raw=202,36,3461 mask=7 dropped=0
+[S3B] t=15930 raw=198,31,3419 mask=7 dropped=0
+[S3B] t=15940 raw=201,35,3446 mask=7 dropped=0
+[S3B] t=15950 raw=202,27,3432 mask=7 dropped=0
+[S4] 15960,0,1,1,-76,-262,943,131,190,-8,20,20,498,472,0,0,532
+[IRSCAN] t=15970 active=1 prepared=0 mode=2 reason=0 power=8 raw=3422 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=137 m2=112
+[S3B] t=15960 raw=203,38,3422 mask=7 dropped=0
+[S3B] t=15970 raw=200,27,3384 mask=7 dropped=0
+[CSC02] t=16000 phase=1 fault=0 armed=1 cmd=1 power=8 flags=155 bytes=50
+[S3IR] copied=0 error=-50 t=0 acquisition=0 mask=0 raw=0,0,0 configured=0 steering=0 fresh=0 line=0 blackmask=0 lineerror=0 barcode_darkness=0 algorithm_error=0 line_darkness=0,0
+[S3B] t=15980 raw=200,32,3325 mask=7 dropped=0
+[S3B] t=15990 raw=194,32,3278 mask=7 dropped=0
+[S3B] t=16000 raw=200,30,3211 mask=7 dropped=0
+[S3B] t=16010 raw=197,30,2649 mask=7 dropped=0
+[S3B] t=16020 raw=196,25,1925 mask=7 dropped=0
+[S3B] t=16030 raw=194,30,256 mask=7 dropped=0
+[S3B] t=16040 raw=196,36,232 mask=7 dropped=0
+[S3B] t=16050 raw=202,30,225 mask=7 dropped=0
+[IRSCAN] t=16070 active=1 prepared=0 mode=2 reason=0 power=8 raw=228 darkness=13 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=149 m2=120
+[S3B] t=16060 raw=199,32,228 mask=7 dropped=0
+[S3B] t=16070 raw=207,29,220 mask=7 dropped=0
+[S3B] t=16080 raw=197,36,195 mask=7 dropped=0
+[S3B] t=16090 raw=198,27,205 mask=7 dropped=0
+[S3B] t=16100 raw=195,22,264 mask=7 dropped=0
+[S3B] t=16110 raw=196,29,1535 mask=7 dropped=0
+[S3B] t=16120 raw=202,34,2736 mask=7 dropped=0
+[S3B] t=16130 raw=197,29,3016 mask=7 dropped=0
+[S3B] t=16140 raw=205,32,2987 mask=7 dropped=0
+[S3B] t=16150 raw=205,32,2922 mask=7 dropped=0
+[S4] 16170,0,1,1,-87,-183,907,129,180,-12,20,20,505,478,0,0,539
+[IRSCAN] t=16170 active=1 prepared=0 mode=2 reason=0 power=8 raw=2590 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=162 m2=129
+[S3B] t=16160 raw=202,26,2590 mask=7 dropped=0
+[S3B] t=16170 raw=202,34,1454 mask=7 dropped=0
+[S3B] t=16180 raw=211,35,261 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=16190 acquisition=0 mask=7 raw=202,28,223 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=11 algorithm_error=0 line_darkness=4,0
+[S3B] t=16190 raw=202,28,223 mask=7 dropped=0
+[S3B] t=16200 raw=202,34,214 mask=7 dropped=0
+[S3B] t=16210 raw=198,42,207 mask=7 dropped=0
+[S3B] t=16220 raw=202,32,234 mask=7 dropped=0
+[S3B] t=16230 raw=212,35,230 mask=7 dropped=0
+[S3B] t=16240 raw=205,34,220 mask=7 dropped=0
+[S3B] t=16250 raw=211,29,305 mask=7 dropped=0
+[IRSCAN] t=16270 active=1 prepared=0 mode=2 reason=0 power=8 raw=1592 darkness=613 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=174 m2=138
+[S3B] t=16260 raw=206,31,1592 mask=7 dropped=0
+[S3B] t=16270 raw=201,31,2852 mask=7 dropped=0
+[S3B] t=16280 raw=200,32,3163 mask=7 dropped=0
+[S3B] t=16290 raw=204,41,3308 mask=7 dropped=0
+[S3B] t=16300 raw=201,44,3377 mask=7 dropped=0
+[S3B] t=16310 raw=211,29,3422 mask=7 dropped=0
+[S3B] t=16320 raw=208,28,3466 mask=7 dropped=0
+[S3B] t=16330 raw=205,28,3476 mask=7 dropped=0
+[S3B] t=16340 raw=202,31,3467 mask=7 dropped=0
+[S3B] t=16350 raw=204,40,3408 mask=7 dropped=0
+[IRSCAN] t=16370 active=1 prepared=0 mode=2 reason=0 power=8 raw=3418 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=186 m2=147
+[S3B] t=16360 raw=212,30,3418 mask=7 dropped=0
+[S3B] t=16370 raw=210,28,3428 mask=7 dropped=0
+[S4] 16380,0,1,1,-76,-209,933,126,184,-11,20,20,512,485,0,0,546
+[S3IR] copied=1 error=0 t=16390 acquisition=0 mask=7 raw=209,28,3460 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1000 algorithm_error=0 line_darkness=7,0
+[S3B] t=16380 raw=205,33,3452 mask=7 dropped=0
+[S3B] t=16390 raw=209,28,3460 mask=7 dropped=0
+[S3B] t=16400 raw=212,32,3481 mask=7 dropped=0
+[S3B] t=16410 raw=206,27,3424 mask=7 dropped=0
+[S3B] t=16420 raw=208,30,3420 mask=7 dropped=0
+[S3B] t=16430 raw=211,30,3366 mask=7 dropped=0
+[S3B] t=16440 raw=209,30,3224 mask=7 dropped=0
+[S3B] t=16450 raw=202,29,3065 mask=7 dropped=0
+[IRSCAN] t=16470 active=1 prepared=0 mode=2 reason=0 power=8 raw=2578 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=199 m2=156
+[S3B] t=16460 raw=204,34,2578 mask=7 dropped=0
+[S3B] t=16470 raw=217,29,800 mask=7 dropped=0
+[S3B] t=16480 raw=206,21,222 mask=7 dropped=0
+[S3B] t=16490 raw=214,22,230 mask=7 dropped=0
+[S3B] t=16500 raw=206,30,222 mask=7 dropped=0
+[S3B] t=16510 raw=208,34,213 mask=7 dropped=0
+[S3B] t=16520 raw=208,32,166 mask=7 dropped=0
+[S3B] t=16530 raw=212,30,213 mask=7 dropped=0
+[S3B] t=16540 raw=217,32,229 mask=7 dropped=0
+[S3B] t=16550 raw=208,33,971 mask=7 dropped=0
+[IRSCAN] t=16570 active=1 prepared=0 mode=2 reason=0 power=8 raw=2262 darkness=907 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=211 m2=165
+[S3B] t=16560 raw=206,43,2262 mask=7 dropped=0
+[S3B] t=16570 raw=217,37,2888 mask=7 dropped=0
+[S3B] t=16580 raw=209,30,2920 mask=7 dropped=0
+[S4] 16590,0,1,1,-69,-194,992,126,180,-9,20,20,519,492,0,0,553
+[S3IR] copied=1 error=0 t=16590 acquisition=0 mask=7 raw=219,42,2957 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1000 algorithm_error=0 line_darkness=10,0
+[S3B] t=16590 raw=219,42,2957 mask=7 dropped=0
+[S3B] t=16600 raw=210,36,2733 mask=7 dropped=0
+[S3B] t=16610 raw=214,44,1797 mask=7 dropped=0
+[S3B] t=16620 raw=218,34,645 mask=7 dropped=0
+[S3B] t=16630 raw=218,30,211 mask=7 dropped=0
+[S3B] t=16640 raw=221,32,233 mask=7 dropped=0
+[S3B] t=16650 raw=216,37,195 mask=7 dropped=0
+[IRSCAN] t=16670 active=1 prepared=0 mode=2 reason=0 power=8 raw=224 darkness=11 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=224 m2=175
+[S3B] t=16660 raw=216,43,224 mask=7 dropped=0
+[S3B] t=16670 raw=222,21,211 mask=7 dropped=0
+[S3B] t=16680 raw=219,36,197 mask=7 dropped=0
+[S3B] t=16690 raw=223,33,269 mask=7 dropped=0
+[S3B] t=16700 raw=220,34,994 mask=7 dropped=0
+[S3B] t=16710 raw=216,29,2470 mask=7 dropped=0
+[S3B] t=16720 raw=223,37,2707 mask=7 dropped=0
+[S3B] t=16730 raw=219,35,2824 mask=7 dropped=0
+[S3B] t=16740 raw=224,33,2780 mask=7 dropped=0
+[S3B] t=16750 raw=240,32,2177 mask=7 dropped=0
+[IRSCAN] t=16770 active=1 prepared=0 mode=2 reason=0 power=8 raw=1075 darkness=385 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=237 m2=184
+[S3B] t=16760 raw=224,38,1075 mask=7 dropped=0
+[S3B] t=16770 raw=229,32,236 mask=7 dropped=0
+[S3B] t=16780 raw=221,30,194 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=16790 acquisition=0 mask=7 raw=225,33,193 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=0 algorithm_error=0 line_darkness=12,0
+[S4] 16800,0,1,1,-58,-235,910,117,174,-15,20,20,526,499,0,0,560
+[S3B] t=16790 raw=225,33,193 mask=7 dropped=0
+[S3B] t=16800 raw=220,41,218 mask=7 dropped=0
+[S3B] t=16810 raw=224,33,217 mask=7 dropped=0
+[S3B] t=16820 raw=219,31,206 mask=7 dropped=0
+[S3B] t=16830 raw=221,29,195 mask=7 dropped=0
+[S3B] t=16840 raw=222,38,204 mask=7 dropped=0
+[S3B] t=16850 raw=221,28,201 mask=7 dropped=0
+[IRSCAN] t=16870 active=1 prepared=0 mode=2 reason=0 power=8 raw=182 darkness=0 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=250 m2=194
+[S3B] t=16860 raw=224,43,182 mask=7 dropped=0
+[S3B] t=16870 raw=218,37,213 mask=7 dropped=0
+[S3B] t=16880 raw=218,42,182 mask=7 dropped=0
+[S3B] t=16890 raw=213,38,195 mask=7 dropped=0
+[S3B] t=16900 raw=212,30,216 mask=7 dropped=0
+[S3B] t=16910 raw=220,28,202 mask=7 dropped=0
+[S3B] t=16920 raw=219,34,213 mask=7 dropped=0
+[S3B] t=16930 raw=224,24,212 mask=7 dropped=0
+[S3B] t=16940 raw=216,34,212 mask=7 dropped=0
+[S3B] t=16950 raw=224,30,186 mask=7 dropped=0
+[IRSCAN] t=16970 active=1 prepared=0 mode=2 reason=0 power=8 raw=183 darkness=0 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=262 m2=203
+[S3B] t=16960 raw=221,42,183 mask=7 dropped=0
+[S3B] t=16970 raw=222,30,209 mask=7 dropped=0
+[CSC02] t=17000 phase=1 fault=0 armed=1 cmd=1 power=8 flags=159 bytes=50
+[S3IR] copied=1 error=0 t=16990 acquisition=0 mask=7 raw=235,31,340 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=62 algorithm_error=0 line_darkness=15,0
+[S3B] t=16980 raw=227,34,222 mask=7 dropped=0
+[S3B] t=16990 raw=235,31,340 mask=7 dropped=0
+[S3B] t=17000 raw=232,27,1802 mask=7 dropped=0
+[S4] 17010,0,1,1,-61,-459,960,114,177,-10,20,20,533,505,0,0,567
+[S3B] t=17010 raw=272,29,2673 mask=7 dropped=0
+[S3B] t=17020 raw=244,34,2889 mask=7 dropped=0
+[S3B] t=17030 raw=290,32,2930 mask=7 dropped=0
+[S3B] t=17040 raw=237,34,2798 mask=7 dropped=0
+[S3B] t=17050 raw=236,29,2069 mask=7 dropped=0
+[IRSCAN] t=17070 active=1 prepared=0 mode=2 reason=0 power=8 raw=998 darkness=352 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=274 m2=212
+[S3B] t=17060 raw=233,34,998 mask=7 dropped=0
+[S3B] t=17070 raw=245,34,239 mask=7 dropped=0
+[S3B] t=17080 raw=262,30,202 mask=7 dropped=0
+[S3B] t=17090 raw=251,32,206 mask=7 dropped=0
+[S3B] t=17100 raw=276,33,193 mask=7 dropped=0
+[S3B] t=17110 raw=228,31,199 mask=7 dropped=0
+[S3B] t=17120 raw=227,25,188 mask=7 dropped=0
+[S3B] t=17130 raw=218,28,235 mask=7 dropped=0
+[S3B] t=17140 raw=221,33,253 mask=7 dropped=0
+[S3B] t=17150 raw=271,35,2126 mask=7 dropped=0
+[S3B] t=17160 raw=242,34,2840 mask=7 dropped=0
+[IRSCAN] t=17170 active=1 prepared=0 mode=2 reason=0 power=8 raw=2840 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=287 m2=221
+[S3B] t=17170 raw=258,34,3124 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=17190 acquisition=0 mask=7 raw=243,42,3244 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=1000 algorithm_error=0 line_darkness=18,0
+[S3B] t=17180 raw=236,41,3206 mask=7 dropped=0
+[S3B] t=17190 raw=243,42,3244 mask=7 dropped=0
+[S3B] t=17200 raw=229,33,3277 mask=7 dropped=0
+[S3B] t=17210 raw=227,33,3270 mask=7 dropped=0
+[S4] 17220,0,1,1,-46,-253,1009,108,172,-13,20,20,540,511,0,0,574
+[S3B] t=17220 raw=233,30,3307 mask=7 dropped=0
+[S3B] t=17230 raw=228,29,3268 mask=7 dropped=0
+[S3B] t=17240 raw=229,24,3281 mask=7 dropped=0
+[S3B] t=17250 raw=229,35,3306 mask=7 dropped=0
+[IRSCAN] t=17270 active=1 prepared=0 mode=2 reason=0 power=8 raw=3256 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=301 m2=229
+[S3B] t=17260 raw=222,30,3256 mask=7 dropped=0
+[S3B] t=17270 raw=248,37,3339 mask=7 dropped=0
+[S3B] t=17280 raw=241,41,3353 mask=7 dropped=0
+[S3B] t=17290 raw=213,30,3300 mask=7 dropped=0
+[S3B] t=17300 raw=255,30,3286 mask=7 dropped=0
+[S3B] t=17310 raw=234,38,3236 mask=7 dropped=0
+[S3B] t=17320 raw=234,34,2982 mask=7 dropped=0
+[S3B] t=17330 raw=233,56,2841 mask=7 dropped=0
+[S3B] t=17340 raw=316,32,2292 mask=7 dropped=0
+[S3B] t=17350 raw=245,34,300 mask=7 dropped=0
+[IRSCAN] t=17370 active=1 prepared=0 mode=2 reason=0 power=8 raw=243 darkness=20 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=315 m2=236
+[S3B] t=17360 raw=244,32,243 mask=7 dropped=0
+[S3B] t=17370 raw=296,30,214 mask=7 dropped=0
+[S3B] t=17380 raw=225,44,233 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=17390 acquisition=0 mask=7 raw=243,34,226 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=12 algorithm_error=0 line_darkness=18,0
+[S3B] t=17390 raw=243,34,226 mask=7 dropped=0
+[S3B] t=17400 raw=224,44,206 mask=7 dropped=0
+[S3B] t=17410 raw=249,29,244 mask=7 dropped=0
+[S4] 17430,0,1,1,-109,-335,986,98,168,-10,20,20,547,517,0,0,581
+[S3B] t=17420 raw=323,32,421 mask=7 dropped=0
+[S3B] t=17430 raw=277,33,2203 mask=7 dropped=0
+[S3B] t=17440 raw=284,33,2821 mask=7 dropped=0
+[S3B] t=17450 raw=263,27,3005 mask=7 dropped=0
+[IRSCAN] t=17470 active=1 prepared=0 mode=2 reason=0 power=8 raw=3059 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=329 m2=244
+[S3B] t=17460 raw=265,32,3059 mask=7 dropped=0
+[S3B] t=17470 raw=277,35,2874 mask=7 dropped=0
+[S3B] t=17480 raw=301,33,2016 mask=7 dropped=0
+[S3B] t=17490 raw=265,35,269 mask=7 dropped=0
+[S3B] t=17500 raw=269,30,244 mask=7 dropped=0
+[S3B] t=17510 raw=249,25,212 mask=7 dropped=0
+[S3B] t=17520 raw=273,40,241 mask=7 dropped=0
+[S3B] t=17530 raw=283,40,202 mask=7 dropped=0
+[S3B] t=17540 raw=276,40,209 mask=7 dropped=0
+[S3B] t=17550 raw=275,41,225 mask=7 dropped=0
+[IRSCAN] t=17570 active=1 prepared=0 mode=2 reason=0 power=8 raw=226 darkness=12 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=343 m2=251
+[S3B] t=17560 raw=256,36,226 mask=7 dropped=0
+[S3B] t=17570 raw=230,33,205 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=17590 acquisition=0 mask=7 raw=214,44,214 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=7 algorithm_error=0 line_darkness=8,0
+[S3B] t=17580 raw=261,28,225 mask=7 dropped=0
+[S3B] t=17590 raw=214,44,214 mask=7 dropped=0
+[S3B] t=17600 raw=254,33,211 mask=7 dropped=0
+[S3B] t=17610 raw=212,28,244 mask=7 dropped=0
+[S3B] t=17620 raw=250,34,231 mask=7 dropped=0
+[S3B] t=17630 raw=242,34,211 mask=7 dropped=0
+[S3B] t=17640 raw=221,33,201 mask=7 dropped=0
+[S4] 17640,0,1,1,5,-473,1020,89,158,-17,20,20,554,524,0,0,588
+[S3B] t=17650 raw=259,33,240 mask=7 dropped=0
+[IRSCAN] t=17670 active=1 prepared=0 mode=2 reason=0 power=8 raw=257 darkness=26 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=356 m2=257
+[S3B] t=17660 raw=303,28,257 mask=7 dropped=0
+[S3B] t=17670 raw=226,36,268 mask=7 dropped=0
+[S3B] t=17680 raw=249,40,363 mask=7 dropped=0
+[S3B] t=17690 raw=259,37,1039 mask=7 dropped=0
+[S3B] t=17700 raw=252,32,2538 mask=7 dropped=0
+[S3B] t=17710 raw=261,53,3277 mask=7 dropped=0
+[S3B] t=17720 raw=249,32,3583 mask=7 dropped=0
+[S3B] t=17730 raw=256,33,3625 mask=7 dropped=0
+[S3B] t=17740 raw=242,34,3643 mask=7 dropped=0
+[S3B] t=17750 raw=237,34,3490 mask=7 dropped=0
+[IRSCAN] t=17770 active=0 prepared=0 mode=2 reason=1 power=0 raw=3353 darkness=1000 adc=1 front=1 motor_state=1 command=1 motor_power=8 m1=370 m2=264
+[S3B] t=17760 raw=237,32,3353 mask=7 dropped=0
+[S3B] t=17770 raw=242,32,2559 mask=7 dropped=0
+[S3B] t=17780 raw=242,35,2388 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=17790 acquisition=0 mask=7 raw=237,36,1982 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=784 algorithm_error=0 line_darkness=16,0
+[S3B] t=17790 raw=237,36,1982 mask=7 dropped=0
+[S3B] t=17800 raw=237,33,2186 mask=7 dropped=0
+[S3B] t=17810 raw=236,35,2202 mask=7 dropped=0
+[S3B] t=17820 raw=230,34,2211 mask=7 dropped=0
+[S3B] t=17830 raw=237,34,2192 mask=7 dropped=0
+[S3B] t=17840 raw=237,33,2201 mask=7 dropped=0
+[S4] 17850,0,1,1,-41,-139,928,81,150,-16,20,20,561,531,0,0,595
+[S3B] t=17850 raw=240,35,2215 mask=7 dropped=0
+[IRSCAN] t=17870 active=0 prepared=0 mode=2 reason=1 power=0 raw=2228 darkness=892 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=17860 raw=235,34,2228 mask=7 dropped=0
+[S3B] t=17870 raw=233,38,2212 mask=7 dropped=0
+[S3B] t=17880 raw=239,33,2216 mask=7 dropped=0
+[S3B] t=17890 raw=239,42,2232 mask=7 dropped=0
+[S3B] t=17900 raw=237,34,2241 mask=7 dropped=0
+[S3B] t=17910 raw=240,32,2233 mask=7 dropped=0
+[S3B] t=17920 raw=241,34,2234 mask=7 dropped=0
+[S3B] t=17930 raw=240,36,2220 mask=7 dropped=0
+[S3B] t=17940 raw=240,35,2209 mask=7 dropped=0
+[S3B] t=17950 raw=241,30,2200 mask=7 dropped=0
+[IRSCAN] t=17970 active=0 prepared=0 mode=2 reason=1 power=0 raw=2213 darkness=886 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=17960 raw=230,33,2213 mask=7 dropped=0
+[S3B] t=17970 raw=241,34,2214 mask=7 dropped=0
+[CSC02] t=18000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=50
+[S3IR] copied=1 error=0 t=17990 acquisition=0 mask=7 raw=240,30,2187 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=874 algorithm_error=0 line_darkness=17,0
+[S3B] t=17980 raw=241,32,2190 mask=7 dropped=0
+[S3B] t=17990 raw=240,30,2187 mask=7 dropped=0
+[S3B] t=18000 raw=235,34,2183 mask=7 dropped=0
+[S3B] t=18010 raw=235,32,2187 mask=7 dropped=0
+[S3B] t=18020 raw=236,33,2214 mask=7 dropped=0
+[S3B] t=18030 raw=241,32,2189 mask=7 dropped=0
+[S3B] t=18040 raw=239,32,2204 mask=7 dropped=0
+[S3B] t=18050 raw=237,37,2211 mask=7 dropped=0
+[S4] 18060,0,1,1,-48,-222,933,80,149,-20,20,20,568,538,0,0,602
+[IRSCAN] t=18070 active=0 prepared=0 mode=2 reason=1 power=0 raw=2205 darkness=882 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18060 raw=235,35,2205 mask=7 dropped=0
+[S3B] t=18070 raw=241,34,2213 mask=7 dropped=0
+[S3B] t=18080 raw=239,32,2210 mask=7 dropped=0
+[S3B] t=18090 raw=235,31,2213 mask=7 dropped=0
+[S3B] t=18100 raw=240,33,2206 mask=7 dropped=0
+[S3B] t=18110 raw=235,37,2214 mask=7 dropped=0
+[S3B] t=18120 raw=240,33,2214 mask=7 dropped=0
+[S3B] t=18130 raw=241,31,2195 mask=7 dropped=0
+[S3B] t=18140 raw=235,39,2194 mask=7 dropped=0
+[S3B] t=18150 raw=242,29,2210 mask=7 dropped=0
+[IRSCAN] t=18170 active=0 prepared=0 mode=2 reason=1 power=0 raw=2212 darkness=885 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18160 raw=241,32,2212 mask=7 dropped=0
+[S3B] t=18170 raw=236,35,2212 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=18190 acquisition=0 mask=7 raw=239,33,2229 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=893 algorithm_error=0 line_darkness=17,0
+[S3B] t=18180 raw=235,34,2221 mask=7 dropped=0
+[S3B] t=18190 raw=239,33,2229 mask=7 dropped=0
+[S3B] t=18200 raw=235,33,2248 mask=7 dropped=0
+[S3B] t=18210 raw=234,37,2235 mask=7 dropped=0
+[S3B] t=18220 raw=237,33,2189 mask=7 dropped=0
+[S3B] t=18230 raw=233,33,2140 mask=7 dropped=0
+[S3B] t=18240 raw=237,32,2088 mask=7 dropped=0
+[S3B] t=18250 raw=234,35,2049 mask=7 dropped=0
+[S4] 18270,0,1,1,-40,-230,938,82,148,-17,20,20,575,544,0,0,609
+[IRSCAN] t=18270 active=0 prepared=0 mode=2 reason=1 power=0 raw=2051 darkness=814 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18260 raw=231,34,2051 mask=7 dropped=0
+[S3B] t=18270 raw=236,35,1981 mask=7 dropped=0
+[S3B] t=18280 raw=236,32,1985 mask=7 dropped=0
+[S3B] t=18290 raw=231,35,1971 mask=7 dropped=0
+[S3B] t=18300 raw=237,34,1949 mask=7 dropped=0
+[S3B] t=18310 raw=237,34,1906 mask=7 dropped=0
+[S3B] t=18320 raw=236,32,1904 mask=7 dropped=0
+[S3B] t=18330 raw=230,34,1901 mask=7 dropped=0
+[S3B] t=18340 raw=236,34,1883 mask=7 dropped=0
+[S3B] t=18350 raw=236,34,1883 mask=7 dropped=0
+[IRSCAN] t=18370 active=0 prepared=0 mode=2 reason=1 power=0 raw=1873 darkness=736 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18360 raw=236,30,1873 mask=7 dropped=0
+[S3B] t=18370 raw=231,36,1860 mask=7 dropped=0
+[S3IR] copied=1 error=0 t=18390 acquisition=0 mask=7 raw=235,35,1822 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=714 algorithm_error=0 line_darkness=15,0
+[S3B] t=18380 raw=236,32,1854 mask=7 dropped=0
+[S3B] t=18390 raw=235,35,1822 mask=7 dropped=0
+[S3B] t=18400 raw=235,31,1813 mask=7 dropped=0
+[S3B] t=18410 raw=229,35,1822 mask=7 dropped=0
+[S3B] t=18420 raw=230,33,1809 mask=7 dropped=0
+[S3B] t=18430 raw=236,34,1809 mask=7 dropped=0
+[S3B] t=18440 raw=234,32,1840 mask=7 dropped=0
+[S3B] t=18450 raw=232,33,1817 mask=7 dropped=0
+[IRSCAN] t=18470 active=0 prepared=0 mode=2 reason=1 power=0 raw=1811 darkness=709 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18460 raw=234,29,1811 mask=7 dropped=0
+[S3B] t=18470 raw=234,42,1825 mask=7 dropped=0
+[S4] 18480,0,1,1,-44,-225,938,80,149,-20,20,50,582,550,0,0,616
+[IRSCAN] t=18490 active=0 prepared=0 mode=2 reason=8 power=0 raw=1814 darkness=710 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18480 raw=236,33,1814 mask=7 dropped=0
+[S3B] t=18490 raw=234,37,1836 mask=7 dropped=0
+[S3B] t=18500 raw=236,33,1848 mask=7 dropped=0
+[S3B] t=18510 raw=229,35,1838 mask=7 dropped=0
+[S3B] t=18520 raw=236,33,1829 mask=7 dropped=0
+[S3B] t=18530 raw=233,33,1817 mask=7 dropped=0
+[S3B] t=18540 raw=234,33,1826 mask=7 dropped=0
+[S3B] t=18550 raw=232,35,1848 mask=7 dropped=0
+[S3B] t=18560 raw=235,33,1840 mask=7 dropped=0
+[S3B] t=18570 raw=235,34,1845 mask=7 dropped=0
+[IRSCAN] t=18590 active=0 prepared=0 mode=2 reason=8 power=0 raw=1813 darkness=710 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3IR] copied=1 error=0 t=18590 acquisition=0 mask=7 raw=235,37,1845 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=724 algorithm_error=0 line_darkness=15,0
+[S3B] t=18580 raw=236,33,1813 mask=7 dropped=0
+[S3B] t=18590 raw=235,37,1845 mask=7 dropped=0
+[S3B] t=18600 raw=230,27,1848 mask=7 dropped=0
+[S3B] t=18610 raw=234,37,1850 mask=7 dropped=0
+[S3B] t=18620 raw=235,34,1850 mask=7 dropped=0
+[S3B] t=18630 raw=236,35,1851 mask=7 dropped=0
+[S3B] t=18640 raw=238,32,1835 mask=7 dropped=0
+[S3B] t=18650 raw=230,34,1837 mask=7 dropped=0
+[S3B] t=18660 raw=236,33,1841 mask=7 dropped=0
+[S3B] t=18670 raw=230,34,1847 mask=7 dropped=0
+[S3B] t=18680 raw=234,32,1829 mask=7 dropped=0
+[S4] 18690,0,1,1,-43,-227,932,84,150,-18,20,20,589,557,0,0,623
+[IRSCAN] t=18690 active=0 prepared=0 mode=2 reason=8 power=0 raw=1829 darkness=717 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18690 raw=233,37,1835 mask=7 dropped=0
+[S3B] t=18700 raw=236,33,1849 mask=7 dropped=0
+[S3B] t=18710 raw=230,35,1848 mask=7 dropped=0
+[S3B] t=18720 raw=229,33,1822 mask=7 dropped=0
+[S3B] t=18730 raw=232,34,1822 mask=7 dropped=0
+[S3B] t=18740 raw=237,33,1821 mask=7 dropped=0
+[S3B] t=18750 raw=229,34,1822 mask=7 dropped=0
+[S3B] t=18760 raw=234,33,1824 mask=7 dropped=0
+[S3B] t=18770 raw=236,35,1838 mask=7 dropped=0
+[S3B] t=18780 raw=234,32,1849 mask=7 dropped=0
+[IRSCAN] t=18790 active=0 prepared=0 mode=2 reason=8 power=0 raw=1849 darkness=726 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3IR] copied=1 error=0 t=18790 acquisition=0 mask=7 raw=229,36,1846 configured=1 steering=0 fresh=1 line=3 blackmask=0 lineerror=0 barcode_darkness=724 algorithm_error=0 line_darkness=13,0
+[S3B] t=18790 raw=229,36,1846 mask=7 dropped=0
+[S3B] t=18800 raw=230,31,1823 mask=7 dropped=0
+[S3B] t=18810 raw=235,35,1826 mask=7 dropped=0
+[S3B] t=18820 raw=232,31,1845 mask=7 dropped=0
+[S3B] t=18830 raw=231,34,1826 mask=7 dropped=0
+[S3B] t=18840 raw=236,35,1845 mask=7 dropped=0
+[S3B] t=18850 raw=234,45,1835 mask=7 dropped=0
+[S3B] t=18860 raw=236,29,1833 mask=7 dropped=0
+[S3B] t=18870 raw=236,36,1832 mask=7 dropped=0
+[S3B] t=18880 raw=235,37,1829 mask=7 dropped=0
+[IRSCAN] t=18890 active=0 prepared=0 mode=2 reason=8 power=0 raw=1829 darkness=717 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264
+[S3B] t=18890 raw=235,36,1849 mask=7 dropped=0
+[S4] 18900,0,1,1,-42,-225,936,82,150,-18,20,20,596,563,0,0,630
+[S3B] t=18900 raw=231,31,1844 mask=7 dropped=0
+[S3B] t=18910 raw=235,34,1846 mask=7 dropped=0
+[S3B] t=18920 raw=235,32,1828 mask=7 dropped=0
+[S3B] t=18930 raw=230,36,1829 mask=7 dropped=0
+[S3B] t=18940 raw=230,32,1828 mask=7 dropped=0
+[S3B] t=18950 raw=235,34,1854 mask=7 dropped=0
+[S3B] t=18960 raw=232,32,1851 mask=7 dropped=0
+[S3B] t=18970 raw=221,36,1828 mask=7 dropped=0
+[S3B] t=18980 raw=234,32,1851 mask=7 dropped=0
+[IRSCAN] t=18990 active=0 prepared=0 mode=2 reason=8 power=0 raw=1851 darkness=727 adc=1 front=1 motor_state=0 command=0 motor_power=0 m1=370 m2=264

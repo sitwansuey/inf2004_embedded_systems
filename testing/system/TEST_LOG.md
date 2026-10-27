@@ -23,3 +23,7 @@ Add a new row for every run. Never edit or delete old rows.
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
 | YYYY-MM-DD | SYS-01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
+
+## 21 October 2026 CR1 local integration
+
+Software checks PASS in the staged integration snapshot; see `docs/INTEGRATION_REPORT.md` and the `logs/2026-10-21_cr1_*` evidence. Hardware acceptance NOT RUN: robot connection postponed by the user. Exact tested source content is recorded in the delivered manifest; final checkout verification records the local commit.

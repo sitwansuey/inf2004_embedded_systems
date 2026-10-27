@@ -1,0 +1,492 @@
+{
+  "recording": "BARCODE_V5_MANUAL_A_20261024_222313_079",
+  "trace": "TRACE status=2 t=104470 started=104230 captured_elements=1 required_elements=29 widths_ms=40",
+  "edges": [
+    {
+      "t_ms": 104230,
+      "relative_ms": 5930,
+      "black": true,
+      "raw": 1724
+    },
+    {
+      "t_ms": 104270,
+      "relative_ms": 5970,
+      "black": false,
+      "raw": 232
+    },
+    {
+      "t_ms": 104520,
+      "relative_ms": 6220,
+      "black": true,
+      "raw": 2404
+    },
+    {
+      "t_ms": 104540,
+      "relative_ms": 6240,
+      "black": false,
+      "raw": 419
+    },
+    {
+      "t_ms": 104620,
+      "relative_ms": 6320,
+      "black": true,
+      "raw": 2003
+    },
+    {
+      "t_ms": 104760,
+      "relative_ms": 6460,
+      "black": false,
+      "raw": 212
+    },
+    {
+      "t_ms": 104820,
+      "relative_ms": 6520,
+      "black": true,
+      "raw": 2386
+    },
+    {
+      "t_ms": 104920,
+      "relative_ms": 6620,
+      "black": false,
+      "raw": 780
+    },
+    {
+      "t_ms": 105000,
+      "relative_ms": 6700,
+      "black": true,
+      "raw": 2344
+    },
+    {
+      "t_ms": 105020,
+      "relative_ms": 6720,
+      "black": false,
+      "raw": 294
+    },
+    {
+      "t_ms": 105100,
+      "relative_ms": 6800,
+      "black": true,
+      "raw": 2314
+    },
+    {
+      "t_ms": 105230,
+      "relative_ms": 6930,
+      "black": false,
+      "raw": 237
+    },
+    {
+      "t_ms": 105300,
+      "relative_ms": 7000,
+      "black": true,
+      "raw": 1673
+    },
+    {
+      "t_ms": 105330,
+      "relative_ms": 7030,
+      "black": false,
+      "raw": 281
+    },
+    {
+      "t_ms": 105400,
+      "relative_ms": 7100,
+      "black": true,
+      "raw": 1875
+    },
+    {
+      "t_ms": 105430,
+      "relative_ms": 7130,
+      "black": false,
+      "raw": 261
+    },
+    {
+      "t_ms": 105610,
+      "relative_ms": 7310,
+      "black": true,
+      "raw": 1626
+    },
+    {
+      "t_ms": 105640,
+      "relative_ms": 7340,
+      "black": false,
+      "raw": 805
+    },
+    {
+      "t_ms": 105720,
+      "relative_ms": 7420,
+      "black": true,
+      "raw": 2537
+    },
+    {
+      "t_ms": 105840,
+      "relative_ms": 7540,
+      "black": false,
+      "raw": 284
+    },
+    {
+      "t_ms": 105910,
+      "relative_ms": 7610,
+      "black": true,
+      "raw": 2114
+    },
+    {
+      "t_ms": 105940,
+      "relative_ms": 7640,
+      "black": false,
+      "raw": 249
+    },
+    {
+      "t_ms": 106120,
+      "relative_ms": 7820,
+      "black": true,
+      "raw": 2459
+    },
+    {
+      "t_ms": 106150,
+      "relative_ms": 7850,
+      "black": false,
+      "raw": 412
+    },
+    {
+      "t_ms": 106230,
+      "relative_ms": 7930,
+      "black": true,
+      "raw": 2267
+    },
+    {
+      "t_ms": 106400,
+      "relative_ms": 8100,
+      "black": false,
+      "raw": 516
+    },
+    {
+      "t_ms": 106490,
+      "relative_ms": 8190,
+      "black": true,
+      "raw": 1826
+    },
+    {
+      "t_ms": 106660,
+      "relative_ms": 8360,
+      "black": false,
+      "raw": 256
+    },
+    {
+      "t_ms": 106740,
+      "relative_ms": 8440,
+      "black": true,
+      "raw": 1860
+    },
+    {
+      "t_ms": 106780,
+      "relative_ms": 8480,
+      "black": false,
+      "raw": 876
+    },
+    {
+      "t_ms": 106880,
+      "relative_ms": 8580,
+      "black": true,
+      "raw": 1665
+    },
+    {
+      "t_ms": 107230,
+      "relative_ms": 8930,
+      "black": false,
+      "raw": 990
+    },
+    {
+      "t_ms": 107890,
+      "relative_ms": 9590,
+      "black": true,
+      "raw": 1619
+    },
+    {
+      "t_ms": 109260,
+      "relative_ms": 10960,
+      "black": false,
+      "raw": 784
+    },
+    {
+      "t_ms": 109280,
+      "relative_ms": 10980,
+      "black": true,
+      "raw": 2462
+    },
+    {
+      "t_ms": 109300,
+      "relative_ms": 11000,
+      "black": false,
+      "raw": 934
+    },
+    {
+      "t_ms": 116630,
+      "relative_ms": 18330,
+      "black": true,
+      "raw": 1719
+    },
+    {
+      "t_ms": 116770,
+      "relative_ms": 18470,
+      "black": false,
+      "raw": 990
+    },
+    {
+      "t_ms": 116930,
+      "relative_ms": 18630,
+      "black": true,
+      "raw": 1574
+    },
+    {
+      "t_ms": 118280,
+      "relative_ms": 19980,
+      "black": false,
+      "raw": 930
+    },
+    {
+      "t_ms": 118380,
+      "relative_ms": 20080,
+      "black": true,
+      "raw": 1724
+    },
+    {
+      "t_ms": 119800,
+      "relative_ms": 21500,
+      "black": false,
+      "raw": 242
+    },
+    {
+      "t_ms": 120920,
+      "relative_ms": 22620,
+      "black": true,
+      "raw": 2477
+    },
+    {
+      "t_ms": 121020,
+      "relative_ms": 22720,
+      "black": false,
+      "raw": 172
+    }
+  ],
+  "runs": [
+    {
+      "relative_ms": 5930,
+      "black": true,
+      "duration_ms": 40
+    },
+    {
+      "relative_ms": 5970,
+      "black": false,
+      "duration_ms": 250
+    },
+    {
+      "relative_ms": 6220,
+      "black": true,
+      "duration_ms": 20
+    },
+    {
+      "relative_ms": 6240,
+      "black": false,
+      "duration_ms": 80
+    },
+    {
+      "relative_ms": 6320,
+      "black": true,
+      "duration_ms": 140
+    },
+    {
+      "relative_ms": 6460,
+      "black": false,
+      "duration_ms": 60
+    },
+    {
+      "relative_ms": 6520,
+      "black": true,
+      "duration_ms": 100
+    },
+    {
+      "relative_ms": 6620,
+      "black": false,
+      "duration_ms": 80
+    },
+    {
+      "relative_ms": 6700,
+      "black": true,
+      "duration_ms": 20
+    },
+    {
+      "relative_ms": 6720,
+      "black": false,
+      "duration_ms": 80
+    },
+    {
+      "relative_ms": 6800,
+      "black": true,
+      "duration_ms": 130
+    },
+    {
+      "relative_ms": 6930,
+      "black": false,
+      "duration_ms": 70
+    },
+    {
+      "relative_ms": 7000,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "relative_ms": 7030,
+      "black": false,
+      "duration_ms": 70
+    },
+    {
+      "relative_ms": 7100,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "relative_ms": 7130,
+      "black": false,
+      "duration_ms": 180
+    },
+    {
+      "relative_ms": 7310,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "relative_ms": 7340,
+      "black": false,
+      "duration_ms": 80
+    },
+    {
+      "relative_ms": 7420,
+      "black": true,
+      "duration_ms": 120
+    },
+    {
+      "relative_ms": 7540,
+      "black": false,
+      "duration_ms": 70
+    },
+    {
+      "relative_ms": 7610,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "relative_ms": 7640,
+      "black": false,
+      "duration_ms": 180
+    },
+    {
+      "relative_ms": 7820,
+      "black": true,
+      "duration_ms": 30
+    },
+    {
+      "relative_ms": 7850,
+      "black": false,
+      "duration_ms": 80
+    },
+    {
+      "relative_ms": 7930,
+      "black": true,
+      "duration_ms": 170
+    },
+    {
+      "relative_ms": 8100,
+      "black": false,
+      "duration_ms": 90
+    },
+    {
+      "relative_ms": 8190,
+      "black": true,
+      "duration_ms": 170
+    },
+    {
+      "relative_ms": 8360,
+      "black": false,
+      "duration_ms": 80
+    },
+    {
+      "relative_ms": 8440,
+      "black": true,
+      "duration_ms": 40
+    },
+    {
+      "relative_ms": 8480,
+      "black": false,
+      "duration_ms": 100
+    },
+    {
+      "relative_ms": 8580,
+      "black": true,
+      "duration_ms": 350
+    },
+    {
+      "relative_ms": 8930,
+      "black": false,
+      "duration_ms": 660
+    },
+    {
+      "relative_ms": 9590,
+      "black": true,
+      "duration_ms": 1370
+    },
+    {
+      "relative_ms": 10960,
+      "black": false,
+      "duration_ms": 20
+    },
+    {
+      "relative_ms": 10980,
+      "black": true,
+      "duration_ms": 20
+    },
+    {
+      "relative_ms": 11000,
+      "black": false,
+      "duration_ms": 7330
+    },
+    {
+      "relative_ms": 18330,
+      "black": true,
+      "duration_ms": 140
+    },
+    {
+      "relative_ms": 18470,
+      "black": false,
+      "duration_ms": 160
+    },
+    {
+      "relative_ms": 18630,
+      "black": true,
+      "duration_ms": 1350
+    },
+    {
+      "relative_ms": 19980,
+      "black": false,
+      "duration_ms": 100
+    },
+    {
+      "relative_ms": 20080,
+      "black": true,
+      "duration_ms": 1420
+    },
+    {
+      "relative_ms": 21500,
+      "black": false,
+      "duration_ms": 1120
+    },
+    {
+      "relative_ms": 22620,
+      "black": true,
+      "duration_ms": 100
+    }
+  ],
+  "rows": 2502,
+  "initial_raw": 209,
+  "final_raw": 185,
+  "final_black": false,
+  "scope": "Full recording; unchanged thresholds and v5 production decoder. Counts distinguish first latched attempt from later transitions."
+}

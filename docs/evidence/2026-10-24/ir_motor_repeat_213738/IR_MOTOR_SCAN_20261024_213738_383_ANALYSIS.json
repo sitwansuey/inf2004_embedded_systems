@@ -1,0 +1,23 @@
+{
+  "log": "C:\\Users\\godga\\Documents\\Codex\\2026-10-21\\referenced-chatgpt-conversation-this-is-an-2\\outputs\\IR_MOTOR_SCAN_20261024\\HARDWARE\\IR_MOTOR_SCAN_20261024_213738_383.log",
+  "log_sha256": "b446d5e62808edf970b9187f23390c2527ba08660344e0323cb5a31ccad03040",
+  "samples": 806,
+  "sample_interval_ms": 10,
+  "gaps": 0,
+  "dropped": 0,
+  "power_percent": 12,
+  "maximum_duration_ms": 6000,
+  "start_status_ms": 2266710,
+  "inactive_status_ms": 2267130,
+  "reported_active_duration_ms": 420,
+  "first_rejected_black_interval_ms": 10,
+  "decoder_status": "NOISE",
+  "trace": "TRACE status=3 t=2267120 started=2267110 captured_elements=0 required_elements=29 widths_ms=",
+  "motor_stop_acknowledged": true,
+  "decoded": false,
+  "physical_braking_validated": false,
+  "operator_manually_dragged_during_recording": true,
+  "physical_motor_power_confirmed": false,
+  "controlled_motor_traverse_validated": false,
+  "scope": "Host sent a motor START command, but the operator subsequently confirmed manually dragging during this recording. The log cannot isolate motor-driven motion from manual motion. Onboard rejection independently reproduced by production PC decoder. Encoder scale and surface speed uncalibrated; cause of the short optical pulse remains unresolved."
+}

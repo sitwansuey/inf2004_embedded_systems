@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "stages": [
+    {
+      "name": "Python wire contract and dashboard decoder",
+      "passed": true,
+      "seconds": 10.703
+    },
+    {
+      "name": "C99 codec, golden packets and all-buddy framing",
+      "passed": true,
+      "seconds": 2.375
+    },
+    {
+      "name": "Buddy 2 adapters and watchdog (eight host profiles)",
+      "passed": true,
+      "seconds": 18.703
+    }
+  ],
+  "started_utc": "2026-10-27T14:14:42.512371+00:00",
+  "python": "3.12.11",
+  "platform": "win32",
+  "revision": {
+    "commit": "5f0b8c7c4cb9c728c7e93f8785f42f6ddd2d28f9",
+    "working_tree_modified": true
+  },
+  "compiler": {
+    "name": "gcc.EXE",
+    "version": "gcc.EXE (Rev8, Built by MSYS2 project) 15.2.0"
+  },
+  "inputs": {
+    "sha256": "1dc62045ca77a8065ff5b0363df86236379c17caf9ad1f92dff5d105964f8f1a",
+    "files": {
+      "app_program/shared/edr.c": "960b520b5407660c09581a2a95041092933561f634bc870ae5d3064e78b7ccdf",
+      "app_program/shared/edr.h": "1b04013ca17d679ee08d20fd6f802c01e0081ac31c6a38078eed0c990239776a",
+      "app_program/subsystem2/s2_data.c": "c015a2214499bf37ed6f5f9abcc723bd4bf599d14baf072299b3ed3c9e6a88a6",
+      "app_program/subsystem2/s2_data.h": "26d91002c2cccbcd6bea2cbc5c124e72d3f324ce10daa1f8d02331cd565552c9",
+      "app_program/subsystem2/subsystem2.c": "4f451d1c200264149c48fd6d6e010ac25234dbde993a7d789d4eff3770830407",
+      "app_program/subsystem2/subsystem2.h": "813a35dd7f7b51ab85d69d322634655b04b42db85243be9e9a1f27070dbe7ffb",
+      "app_program/subsystem2/subsystem2_test.c": "9b7398de91bf1bc3d399ba80d89392b650daee3941319fee8efcabdaabcbb180",
+      "app_program/subsystem2/tests/host/app.h": "625c1fe2b7229cc59a2bfcf73f68d1f4fe4aaea4acfdf14ba902e391fae36a01",
+      "app_program/subsystem2/tests/host/board_pins.h": "7c17ac960451d948be56d1de6a68f4c444a106045d62864d48a548fe3863e12a",
+      "app_program/subsystem2/tests/host/run.py": "8da91e748d6ab0948014a1aef6928f7894dd57df4d3fc54c4fd042f875bf3eb6",
+      "app_program/subsystem2/tests/host/subsystem2_host_test.c": "5b7dcf6733f2448613e4c79722d915fc834ad3b67da3f627b39ebf748033711a",
+      "app_program/subsystem2/tests/host/tk/syslib.h": "753e5051f2877b41b8ab21574d17e24582188615ed722c6efe66e5f8d557c3ef",
+      "app_program/subsystem5/s5_data.c": "84b0ee9d02824fde16491221ed2958ffd6d6764460b636561b5afc2afd37a67c",
+      "app_program/subsystem5/s5_data.h": "cd25e0ee5ee2b166c7ef39c035df0fac676f719522884a80e412da1508501154",
+      "app_program/subsystem5/s5_policy.c": "d764bc673fd7b0b72c93fddff1add3280ecc13a97f8140b1d9907f8551bbfbc6",
+      "app_program/subsystem5/s5_scan.c": "69b6799789f182b454841c3e6c5278b66b0f83921b3fcbe53f5897df8b6d38f5",
+      "app_program/subsystem5/s5_width.c": "9a1c2a81d718dcb49895d9250d373844c32824190fb109a02b05a02b75951413",
+      "app_program/subsystem5/subsystem5.c": "16b67ed2bde44e8daf26212c0c66d9125a442b2a8f4585618188546b8d86e5ee",
+      "app_program/subsystem5/subsystem5.h": "5444b375af823ff4eea1e2869d4af6e4dc52148213a01abe4719659fceb8b420",
+      "testing/data_representation/run.py": "4b51d4aea6dcfc649755b4f2fe9aa453b444f275898b465f905b831dcd65a45c",
+      "testing/data_representation/test_edr.c": "dce56b67aac35e71b5c33348efc9e1b26506e4a368e1cac26bd33839da1ed747",
+      "testing/data_representation/test_edr.py": "f4d4ab9fe11806f7c24f6cc19a8753f62c7532fb1f63d77331e447b7fceadac5",
+      "testing/data_representation/test_s5.py": "da409b383b6b06ef43005f1dd7b9af2e697748640a2a205d98497779249bf213",
+      "testing/data_representation/vectors.json": "108d89b8f403fbe1cb708da8f0a0c3264b00d6aa8531bcf338efac7f0d601577",
+      "testing/subsystem5/host_app.h": "fc0feeb19c81225805594ca05a32f52015546446749bc0f3227b5699cc3118ce",
+      "testing/subsystem5/test_data.c": "3aaa89738db0d20f7c82c71c53c70d19f151333942eb1ebab7da33a83d530bc2",
+      "tools/edr_decode.py": "88efe13ebc9333ccb4d7654359b0a23f71042c851fbdc919f9fea4c47849cfa1"
+    }
+  }
+}

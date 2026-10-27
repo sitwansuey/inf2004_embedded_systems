@@ -81,7 +81,7 @@ EXPORT s5_path_t s5_assess_path(const s5_status_t *sensor, BOOL available, UW no
         path.state = S5_PATH_IDENTIFY;
     else if (sensor->valid || (sensor->state == S5_READY && sensor->acquisition_clear))
     {
-        if (sensor->state == S5_MONITOR && sensor->angle_deg == 0 &&
+        if (sensor->state == S5_MONITOR && sensor->angle_deg == 0 && sensor->sample_angle_deg == 0 &&
             sensor->distance_mm > S5_OBSTACLE_MM)
             path.state = S5_PATH_FORWARD;
         else if (sensor->state == S5_GUIDING && sensor->angle_deg == 0 &&
@@ -111,4 +111,3 @@ EXPORT s5_path_t s5_assess_path(const s5_status_t *sensor, BOOL available, UW no
     }
     return path;
 }
-
