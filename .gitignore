@@ -27,3 +27,6 @@ config/wifi_secrets.h
 
 # Buddy 4 host-test build output
 app_program/subsystem4/tests/host/.build/
+
+# Local pre-integration evidence; CI reports are printed in the job log.
+/edr-check-report*.json

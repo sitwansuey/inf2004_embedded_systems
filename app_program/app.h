@@ -9,6 +9,13 @@
 #ifndef APP_H
 #define APP_H
 
+/* Use the standard size_t for shared byte-buffer APIs. tk/syslib.h offers
+ * this guard to suppress its incompatible legacy typedef on ARM GCC. */
+#include <stddef.h>
+#ifndef PROHIBIT_DEF_SIZE_T
+#define PROHIBIT_DEF_SIZE_T
+#endif
+
 #include <tk/tkernel.h>		/* micro T-Kernel API (tk_xxx_yyy) */
 #include <tm/tmonitor.h>	/* T-Monitor API: tm_printf() console output */
 #include <bsp/libbsp.h>		/* Board helpers: gpio_set_pin/val, pwm_... */

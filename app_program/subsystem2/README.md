@@ -2,6 +2,12 @@
 
 Student ID: 2500613
 
+The shared [external data representation](../../docs/DATA_REPRESENTATION.md)
+defines Buddy 2's compact motor/encoder records, the five-buddy envelope,
+Python decoding, field ranges and integration rules. Task-context byte adapters
+are declared in `s2_data.h`; they preserve the existing controller and watchdog
+boundaries. See [verification evidence](../../testing/data_representation/TEST_LOG.md).
+
 Open-loop PWM motor commands with optional dual-wheel x1 encoder diagnostics.
 The downloaded encoder update is merged with the repository's command watchdog,
 validation, error handling and motion-status API.

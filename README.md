@@ -9,6 +9,20 @@ For this branch's motor/dual-encoder firmware, see
 Raise the wheels before flashing the test image. The full application still
 contains sample interfaces that must be reconciled with the team's controller.
 
+Before implementing or integrating a buddy's binary-data interface, run the
+hardware-free [shared data contract check](testing/data_representation/README.md):
+
+**Windows:** double-click `check_data.cmd` in the repository root. The window
+stays open so you can read PASS/FAIL. **Linux/WSL/macOS:** run:
+
+```sh
+sh check_data.sh
+```
+
+All three stages must finish with `EDR CHECK PASS`. This needs Python and native
+GCC/Clang, and checks the shared byte contract plus Buddy 2's adapters/watchdog.
+Both launchers save `edr-check-report.json` in the repository root.
+
 You need a **Raspberry Pi Pico W**, a USB cable, and a computer running
 macOS, Linux, or Windows with **WSL (Ubuntu)**. On Windows, run every
 command below inside the WSL Ubuntu terminal.

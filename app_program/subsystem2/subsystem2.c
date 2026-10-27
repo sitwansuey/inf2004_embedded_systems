@@ -5,14 +5,24 @@
 
 #include "subsystem2.h"
 #include "../board_pins.h"
+#include "../shared/edr.h"
 #include <tk/syslib.h>
+
+/* Persistent state uses the same motor word as the external representation.
+ * Native enum fields exist only in temporary compatibility snapshots. */
+typedef struct
+{
+    uint16_t motor;
+    ER last_error;
+    UW last_command_ms;
+} s2_packed_status_t;
 
 static ID h_controller_task;
 static ID h_movement_mailbox;
 static ID h_movement_pool;
 static ID h_status_lock;
 static BOOL motor_started;
-static s2_motion_status_t motion_status;
+static s2_packed_status_t motion_status;
 
 /* PWM duty = compare / (wrap + 1). */
 #define MOTOR_PWM_WRAP 6249U
@@ -203,6 +213,7 @@ EXPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status)
         {
             UW sequence;
             UW pins;
+            SYSTIM sampled;
 
             /* Retry if the IRQ updates either wheel during the copy. */
             for (;;)
@@ -229,6 +240,12 @@ EXPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status)
                 p_status->motor1_b_edges =
                     __atomic_load_n(&encoder1_b_edges, __ATOMIC_RELAXED);
                 pins = in_w(GPIO_IN);
+                er = tk_get_tim(&sampled);
+                if (er < E_OK)
+                {
+                    *p_status = (s2_encoder_status_t){0};
+                    return er;
+                }
                 __atomic_thread_fence(__ATOMIC_SEQ_CST);
                 if (sequence == __atomic_load_n(&encoder_sequence,
                                                 __ATOMIC_ACQUIRE))
@@ -250,6 +267,7 @@ EXPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status)
             p_status->motor2_forward_counts =
                 (INT)(p_status->positive_pulses - p_status->negative_pulses);
             p_status->valid = 1U;
+            p_status->sampled_ms = sampled.lo;
         }
 #else
         er = E_NOSPT;
@@ -380,7 +398,7 @@ static BOOL movement_valid(s2_move_command_t command, UINT power_percent)
            (power_percent <= 100U);
 }
 
-static ER motion_publish(const s2_motion_status_t *p_status)
+static ER motion_publish(const s2_packed_status_t *p_status)
 {
     ER er = tk_wai_sem(h_status_lock, 1, TMO_FEVR);
 
@@ -395,40 +413,109 @@ static ER motion_publish(const s2_motion_status_t *p_status)
 
 EXPORT ER s2_motion_get_status(s2_motion_status_t *p_status)
 {
-    ER er = E_PAR;
+    uint8_t command;
+    uint8_t power;
+    uint8_t state;
+    s2_packed_status_t packed;
+    ER er;
 
-    if (p_status != NULL)
+    if (NULL == p_status)
     {
-        er = E_OBJ;
-        if (h_status_lock > 0)
-        {
-            er = tk_wai_sem(h_status_lock, 1, TMO_FEVR);
-            if (er >= E_OK)
-            {
-                *p_status = motion_status;
-                er = tk_sig_sem(h_status_lock, 1);
-            }
-        }
+        return E_PAR;
     }
-    return er;
+
+    if (h_status_lock <= 0)
+    {
+        return E_OBJ;
+    }
+
+    er = tk_wai_sem(h_status_lock, 1, TMO_FEVR);
+    if (er < E_OK)
+    {
+        return er;
+    }
+
+    packed = motion_status;
+    er = tk_sig_sem(h_status_lock, 1);
+    if (er < E_OK)
+    {
+        return er;
+    }
+
+    if (!edr_motor_unpack(packed.motor, &command, &power, &state))
+    {
+        return E_SYS;
+    }
+
+    /* The codec validates both legacy enum ranges before these casts. */
+    p_status->command = (s2_move_command_t)command;
+    p_status->power_percent = power;
+    p_status->state = (s2_motion_state_t)state;
+    p_status->last_error = packed.last_error;
+    p_status->last_command_ms = packed.last_command_ms;
+
+    return E_OK;
 }
 
-static ER motion_fault(s2_motion_status_t *p_status, ER error)
+static ER motion_fault(s2_packed_status_t *p_status, ER error)
 {
     motor_stop();
-    p_status->state = S2_MOTION_FAULT;
-    p_status->command = S2_MOVE_STOP;
-    p_status->power_percent = 0;
+    if (!edr_motor_pack(UINT8_C(0), UINT8_C(0), S2_MOTION_FAULT,
+                        &p_status->motor))
+    {
+        return E_SYS;
+    }
+
     p_status->last_error = error;
     /* tm_printf takes an unsigned-byte format string. */
     tm_printf((UB *)"[S2 FAULT] error=%d; PWM outputs off\n", error);
     return motion_publish(p_status);
 }
 
+/* Compute the watchdog wait from packed state, without keeping decoded
+ * command fields alive while the motor task waits for another message. */
+static ER s2_command_wait(const s2_packed_status_t * const p_status,
+                           TMO * const p_wait)
+{
+    uint8_t command;
+    uint8_t power;
+    uint8_t state;
+    SYSTIM now;
+    uint32_t elapsed;
+    ER result;
+
+    if (!edr_motor_unpack(p_status->motor, &command, &power, &state))
+    {
+        return E_SYS;
+    }
+
+    *p_wait = TMO_FEVR;
+    if (S2_MOTION_MOVING != state)
+    {
+        return E_OK;
+    }
+
+    result = tk_get_tim(&now);
+    if (result < E_OK)
+    {
+        return result;
+    }
+
+    elapsed = now.lo - p_status->last_command_ms;
+    if (elapsed >= S2_COMMAND_TIMEOUT_MS)
+    {
+        return E_TMOUT;
+    }
+
+    /* The configured lease fits a positive TMO value. */
+    *p_wait = (TMO)(S2_COMMAND_TIMEOUT_MS - elapsed);
+
+    return E_OK;
+}
+
 static void motor_task(INT stacd, void *p_exinf)
 {
-    s2_motion_status_t current = {S2_MOTION_STOPPED, S2_MOVE_STOP, 0,
-                                  E_OK, 0};
+    s2_packed_status_t current = {0, E_OK, 0};
     ER er = motor_init();
 
     (void)stacd;
@@ -453,28 +540,11 @@ static void motor_task(INT stacd, void *p_exinf)
         TMO wait = TMO_FEVR;
         SYSTIM now;
 
-        if (current.state == S2_MOTION_MOVING)
+        er = s2_command_wait(&current, &wait);
+        if (er < E_OK)
         {
-            er = tk_get_tim(&now);
-            if (er >= E_OK)
-            {
-                UW elapsed = now.lo - current.last_command_ms;
-
-                if (elapsed >= S2_COMMAND_TIMEOUT_MS)
-                {
-                    er = E_TMOUT;
-                }
-                else
-                {
-                    /* The configured lease fits a positive TMO value. */
-                    wait = (TMO)(S2_COMMAND_TIMEOUT_MS - elapsed);
-                }
-            }
-            if (er < E_OK)
-            {
-                er = motion_fault(&current, er);
-                continue;
-            }
+            er = motion_fault(&current, er);
+            continue;
         }
 
         er = tk_rcv_mbx(h_movement_mailbox, &p_raw, wait);
@@ -492,8 +562,15 @@ static void motor_task(INT stacd, void *p_exinf)
 
         /* The mailbox header is the first member of the pooled message. */
         s2_movement_msg_t *p_msg = (s2_movement_msg_t *)p_raw;
-        s2_move_command_t command = p_msg->command;
-        UINT power = p_msg->power_percent;
+        uint16_t motor = p_msg->motor;
+        uint8_t packed_command;
+        uint8_t packed_power;
+        uint8_t packed_state;
+        s2_move_command_t command;
+        UINT power;
+        uint8_t current_command;
+        uint8_t current_power;
+        uint8_t current_state;
         UW issued_at = p_msg->issued_at_ms;
 
         /* Copy all fields before returning the block to the pool. */
@@ -503,11 +580,16 @@ static void motor_task(INT stacd, void *p_exinf)
             er = motion_fault(&current, er);
             continue;
         }
-        if (!movement_valid(command, power))
+        if (!edr_motor_unpack(motor, &packed_command, &packed_power,
+                              &packed_state) ||
+            (packed_state != S2_MOTION_STOPPED))
         {
             er = motion_fault(&current, E_PAR);
             continue;
         }
+        /* Unpack validates the command and power before widening. */
+        command = (s2_move_command_t)packed_command;
+        power = packed_power;
 
         if ((command == S2_MOVE_STOP) || (power == 0U))
         {
@@ -530,8 +612,14 @@ static void motor_task(INT stacd, void *p_exinf)
         }
 
         /* Identical renewals leave PWM running without extra log messages. */
-        if ((command != current.command) ||
-            (power != current.power_percent))
+        if (!edr_motor_unpack(current.motor, &current_command,
+                              &current_power, &current_state))
+        {
+            er = motion_fault(&current, E_SYS);
+            continue;
+        }
+
+        if (((UINT)command != current_command) || (power != current_power))
         {
             er = motor_apply(command, power, issued_at);
             if (er < E_OK)
@@ -543,10 +631,16 @@ static void motor_task(INT stacd, void *p_exinf)
             tm_printf((UB *)"[S2 MOTOR] command=%d power=%u%%\n",
                       command, power);
         }
-        current.state = (command == S2_MOVE_STOP) ?
-                        S2_MOTION_STOPPED : S2_MOTION_MOVING;
-        current.command = command;
-        current.power_percent = power;
+        /* Validated command/power values fit exactly in the packed fields. */
+        if (!edr_motor_pack((uint8_t)command, (uint8_t)power,
+                            (S2_MOVE_STOP == command) ?
+                            S2_MOTION_STOPPED : S2_MOTION_MOVING,
+                            &current.motor))
+        {
+            er = motion_fault(&current, E_SYS);
+            continue;
+        }
+
         current.last_error = E_OK;
         current.last_command_ms = issued_at;
         er = motion_publish(&current);
@@ -616,8 +710,8 @@ EXPORT ER subsystem2_init(void)
         }
         else
         {
-            motion_status = (s2_motion_status_t)
-                {S2_MOTION_STOPPED, S2_MOVE_STOP, 0, E_OK, 0};
+            /* STOP, zero power and STOPPED are all encoded as zero. */
+            motion_status = (s2_packed_status_t){0, E_OK, 0};
         }
     }
     return er;
@@ -646,6 +740,7 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
 {
     void *p_block = NULL;
     SYSTIM now = {0};
+    uint16_t motor;
     ER er = E_OK;
 
 #if !APP_S2_ONLY
@@ -678,6 +773,15 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
     }
     if (er >= E_OK)
     {
+        /* movement_valid() checked both fixed-width value ranges. */
+        if (!edr_motor_pack((uint8_t)command, (uint8_t)power_percent,
+                             UINT8_C(0), &motor))
+        {
+            er = E_PAR;
+        }
+    }
+    if (er >= E_OK)
+    {
         er = tk_get_mpf(h_movement_pool, &p_block, TMO_POL);
     }
     if (er >= E_OK)
@@ -686,8 +790,7 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
         s2_movement_msg_t *p_msg = (s2_movement_msg_t *)p_block;
 
         p_msg->hdr.msgque[0] = NULL;
-        p_msg->command = command;
-        p_msg->power_percent = power_percent;
+        p_msg->motor = motor;
         p_msg->issued_at_ms = now.lo;
         /* The mailbox header is the first member of the message. */
         er = tk_snd_mbx(h_movement_mailbox, (T_MSG *)p_msg);

@@ -3,6 +3,11 @@
 All test records for the project live in this folder. A test only counts as
 done when it is **written down here with its result and a saved log**.
 
+For the hardware-free binary-data pre-integration gate, every buddy can run
+`python -B testing/data_representation/run.py --report edr-check-report.json`
+from the repository root. See the [gate guide](data_representation/README.md)
+for expected output, CI checks, evidence reports and adding a new buddy schema.
+
 ```
 testing/
 ├── README.md              this guide

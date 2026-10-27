@@ -5,9 +5,11 @@
 # app_program/*.c plus one level of subfolders (one per subsystem)
 ifeq ($(S2_ONLY),1)
 TEMP_SRCS = ../app_program/app_main.c ../app_program/subsystem2/subsystem2.c \
-            ../app_program/subsystem2/subsystem2_test.c
+            ../app_program/subsystem2/subsystem2_test.c \
+            ../app_program/subsystem2/s2_data.c ../app_program/shared/edr.c
 else ifeq ($(S4_ONLY),1)
-TEMP_SRCS = ../app_program/app_main.c $(wildcard ../app_program/subsystem4/*.c)
+TEMP_SRCS = ../app_program/app_main.c $(wildcard ../app_program/subsystem4/*.c) \
+            ../app_program/shared/edr.c
 else
 TEMP_SRCS = $(wildcard ../app_program/*.c) $(wildcard ../app_program/*/*.c)
 endif
