@@ -71,7 +71,7 @@ $blocked=$false;try{& (Join-Path $PSScriptRoot 'REPLAY_BARCODE_LOG.ps1') -RepoRo
 if(-not $blocked){throw 'Local override was not explicitly rejected'}
 $checks.Add('PASS an untracked local board override cannot bypass replay source/profile checks')
 $real='BARCODE_TRY_Z_20261022_143940_356'
-foreach($suffix in @('.log','_RESULT.json')){Copy-Item -LiteralPath (Join-Path $repoPath ('docs/evidence/2026-10-22/'+$real+$suffix)) -Destination $testOutput}
+foreach($suffix in @('.log','_RESULT.json')){Copy-Item -LiteralPath (Join-Path $repoPath ('testing/fixtures/robot_bench/'+$real+$suffix)) -Destination $testOutput}
 $r=& (Join-Path $PSScriptRoot 'REPLAY_BARCODE_LOG.ps1') -RepoRoot $repoPath -OutputDirectory $testOutput -LogPath (Join-Path $testOutput ($real+'.log')) -SummaryPath (Join-Path $testOutput ($real+'_RESULT.json')) -Symbol Z
 if($r.status -ne 'NOT_DECODED' -or $r.rows -ne 1806 -or $r.discontinuities -ne 0){throw 'Archived real failed Z changed result'}
 $checks.Add('PASS archived real Z remains NOT_DECODED with1806 continuous scans')
@@ -97,6 +97,18 @@ $lines|Set-Content -LiteralPath (Join-Path $OutputDirectory ($LogName+'.log')) -
 @{status='CAPTURED';procedure='BarcodeCapture';commands_sent=0;controller_lines=1;controller_fault_records=$fault;incomplete_controller_records=0;unexpected_motor_status_lines=0;barcode_hold=$BarcodeHold;barcode_capture_unique_scans=120;barcode_capture_rows=120;barcode_capture_valid_rows=120;barcode_capture_incomplete_records=0;barcode_capture_errors=0;barcode_capture_gap_records=0;barcode_capture_dropped_min=0;barcode_capture_dropped_max=0}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $OutputDirectory ($LogName+'_RESULT.json'))
 '@|Set-Content -LiteralPath (Join-Path $mockTools 'TEST_ROBOT_USB.ps1')
 function Read-Host {param($Prompt);return ''}
+# Only the isolated mock allowlist follows this checkout's calibration header.
+# Keep the production/historical flash allowlist unchanged and fail-closed.
+$mockVerificationPath=Join-Path $mockTools 'source_verification.json'
+$mockVerification=Get-Content -LiteralPath $mockVerificationPath -Raw|ConvertFrom-Json
+$mockVerification.files.'app_program/robot_ir_calibration.h'='00'
+$mockVerification|ConvertTo-Json -Depth 20|Set-Content -LiteralPath $mockVerificationPath -Encoding UTF8
+$blocked=$false
+try{& (Join-Path $mockTools 'TEST_BARCODE_PLANE.ps1') -RepoRoot $repoPath -OutputDirectory $testOutput}catch{$blocked=$_.Exception.Message -like '*ADC endpoints changed*'}
+if(-not $blocked){throw 'Stale calibration allowlist accepted'}
+$checks.Add('PASS stale calibration allowlist rejected before capture')
+$mockVerification.files.'app_program/robot_ir_calibration.h'=(Get-FileHash -LiteralPath (Join-Path $repoPath 'app_program/robot_ir_calibration.h') -Algorithm SHA256).Hash
+$mockVerification|ConvertTo-Json -Depth 20|Set-Content -LiteralPath $mockVerificationPath -Encoding UTF8
 foreach($mode in @('stable','weak','fault')) {
     @{mode=$mode;repo=$repoPath;output=$testOutput}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $mockTools 'config.json')
     $thrown=$false;try{& (Join-Path $mockTools 'TEST_BARCODE_PLANE.ps1') -RepoRoot $repoPath -OutputDirectory $testOutput}catch{$thrown=$true}

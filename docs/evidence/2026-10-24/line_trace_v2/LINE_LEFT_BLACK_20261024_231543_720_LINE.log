@@ -1,1 +1,0 @@
-{"rows":800,"expected_mask":2,"mismatches":314,"discontinuities":0,"invalid":0,"raw_min":[206,216],"raw_max":[234,2559],"darkness_min":[6,9],"darkness_max":[15,793],"mask_counts":[210,0,590,0],"state_counts":[0,590,20,190,0]}

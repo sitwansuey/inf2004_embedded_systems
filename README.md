@@ -1,103 +1,65 @@
-# INF2004 CSC02 local robot integration
+# INF2004 CSC02 robot firmware
 
-This branch integrates the five subsystems on micro T-Kernel 3 and implements
-compact representations for Change Requirement 1. Firmware boots DISARMED. It needs measured board
-configuration before motion; software tests do not establish robot accuracy.
-Drive is also locked at build time by `BOARD_MOTORS_DISABLED=1`. Motor inputs
-stay GPIO-low, motor PWM is not enabled and movement/ARM commands are rejected.
-This takes effect on the board only after the updated firmware is built and flashed.
+Pico W / RP2040 firmware using micro T-Kernel 3 SMP. See TEAM.md for hardware
+ownership and task/interface responsibilities. The current implementation
+includes the five subsystems, controller, binary telemetry and dashboard.
 
-Start with [integration evidence](docs/INTEGRATION_REPORT.md),
-[CR1 binary contract](docs/CR1_PROTOCOL.md), [ownership](TEAM.md), and
-[hardware acceptance](docs/HARDWARE_ACCEPTANCE.md).
+Firmware boots DISARMED with `BOARD_MOTORS_DISABLED=1`. Motor calibration trims
+remain 97% (left) and 98% (right). Calibration, physical accuracy, full-course
+behavior, target timing and runtime memory still require validation. GY-511 has
+an accelerometer and magnetometer, no gyroscope. Motion output uses open-loop
+PWM; PID speed regulation, absolute heading and audio playback are absent.
 
-For Buddy 4 integration with main 58b89c2, start
-with [current implementation and ownership](docs/BUDDY4_IMPLEMENTATION.md),
-[physical testing](docs/BUDDY4_TESTING.md) and [S4 storage review](docs/BUDDY4_CR1_STORAGE.md).
-Those records distinguish current checks from the historical evidence below.
-The Windows helper also supports `-Backend Native` using the compiler and SDK
-already installed by the Pico VS Code extension; see the physical testing guide
-for portable build examples. WSL support remains available.
+## Build
 
-Current main reconciliation and remaining physical work: [merge report](docs/MAIN_RECONCILIATION_20261027.md).
-Buddy 1: [retrospective interface review](docs/BUDDY1_RETROSPECTIVE_REVIEW.md).
-
-## Windows build
-
-Use WSL Ubuntu with make, a native compiler, arm-none-eabi-gcc and an existing
-Pico SDK containing tinyusb, cyw43-driver and (for MQTT) lwIP. The local checks
-used ARM GCC 14.2.1, native GCC 15.2.0 and Pico SDK 2.3.1.
-
-From the checkout's PowerShell terminal:
+Install the Pico SDK (including TinyUSB/CYW43 and lwIP for MQTT), Arm GNU
+compiler, GNU Make and a host compiler/Python for software tests. From the
+repository root on Windows with MSYS2:
 
 ```powershell
-.\tools\build_windows.ps1 -PicoSdkPath 'C:\path to\pico-sdk' -Profile Default
+.\tools\build_windows.ps1 -Backend Native `
+  -ArmToolchainBin "$env:USERPROFILE\.pico-sdk\toolchain\15_2_Rel1\bin" `
+  -PicoSdkPath "$env:USERPROFILE\.pico-sdk\sdk\2.3.0" -Profile Default
 ```
 
-The helper safely aliases SDK paths containing spaces inside WSL, builds in
-`build_make/`, and never downloads dependencies or flashes. Profiles are
-Default, Mqtt, PassiveTest, SingleCore, Uart, S2Bench, S4Bench, IRRawAdc,
-IRRawDigital, IRCalibrated and IRBarcodeCapture. The calibrated profiles use this robot's measured endpoints
-under the mandatory drive lock for stationary observation; it does not enable
-motion. See [IR calibration evidence](docs/IR_MEASURED_CALIBRATION.md).
-Mqtt requires
-your ignored `config/wifi_secrets.h`; the build tests used a placeholder only in
-an isolated snapshot. Never flash that placeholder MQTT build as a real setup.
+Adjust paths to your installation. The helper builds only; it does not flash.
+`S4Bench` starts IMU application tasks for sensor-only validation. `Mqtt`
+requires ignored `config/wifi_secrets.h` copied from its example. Local board
+calibration belongs in ignored `app_program/robot_config.local.h`. UART builds
+conflict with sonar pins and disable Buddy 5. Explicit motion diagnostic
+profiles have different limits; review their source before use.
 
-For a shell with a space-free `PICO_SDK_PATH`, equivalent commands include:
+## Software checks
 
-```sh
-make -C build_make -j8
-make -C build_make NET=lwip MQTT=1 -j8
-make -C build_make TEST=1 -j8
-make -C build_make SMP=0 -j8
-make -C build_make CONSOLE=uart WIFI=none -j8
-```
-
-All profiles keep the drive lock by default, including S2Bench. The servo can
-center/scan. Only a deliberate rebuild with `BOARD_MOTORS_DISABLED=0` in the
-local configuration permits movement after the remaining arming/calibration
-checks. S2Bench automatically moves wheels when that lock is removed; support
-the robot before manually flashing it. UART
-uses the ultrasonic pins, disables S5 and cannot arm the integrated controller.
-
-Copy `app_program/robot_config.local.example.h` to ignored
-`app_program/robot_config.local.h` and enter measured values. Read the hardware
-acceptance procedure before enabling IR, tilt/odometry or bypass. ADC pad setup
-follows BOARD_IR_MODE=2, never takes GP29, and requires calibrated endpoints.
-
-## Tests and dashboard
+Run these in a shell with GCC, GNU Make, Python and Arm GNU on PATH:
 
 ```sh
+python -B testing/data_representation/run.py
+make -C app_program/subsystem4/tests/host analyze sizes
+make -C testing/integration test
 make -C testing/subsystem3 test analyze check-headers arm-check verify-failure
-make -C app_program/subsystem4/tests/host test sanitize
-make -C testing/integration test sanitize
 ```
 
-Run Buddy 2's `app_program/subsystem2/tests/host/run.ps1` with a native Windows
-GCC (for example MSYS2 UCRT64). It checks eight movement configurations with
-the lock explicitly removed in simulation, plus two default-lock configurations
-that verify rejected movement, zero drive PWM, no PWM mux/enabling, and working
-encoders. Checks include renewal, expiry, STOP saturation and controller ownership.
+Linux CI also runs ASan/UBSan; some native Windows GCC distributions lack those
+runtimes. Test fixtures, schemas and CI definitions are tracked implementation
+inputs. Generated reports, captures and supplementary documents stay local.
 
-The read-only dashboard subscribes only to `csc02/telemetry`. Install its listed
-dependencies in your preferred environment, then run:
+## Interfaces
 
-```sh
-python app_program/external_systems/Dashboard/dashboard.py --broker YOUR_BROKER
-```
+B2's checked 13-byte encoder payload feeds B4 terrain processing. B4 exposes
+protected 63-byte acquisition copies and a checked 12-byte terrain result;
+C interfaces and exact field definitions are in subsystem4 headers/code. The
+controller alone authorizes motion; B2 owns PWM/encoder IRQ, B3 owns IR, B4
+owns I2C and B5 owns sonar/servo. B1 publishes the separate 50-byte aggregate
+through the network owner. Shared speed uses `app_speed_mm_s()`. Preserve
+explicit lengths, validity/fault flags, operating time, STOP and lease behavior.
 
-It binds only to 127.0.0.1:8001, validates the binary schema and marks stale and
-unavailable readings. `decoder.py HEX` works offline without MQTT dependencies.
-`tools/robot_console.py --port COMx --log PATH` records USB output read-only.
-Its explicit --arm mode renews the short lease and sends STOP on exit. No
-connected-hardware action was performed during this code-only stage.
+Dashboard: run `python app_program/external_systems/Dashboard/dashboard.py --broker YOUR_BROKER`
+after installing that folder's requirements. It subscribes to
+`csc02/telemetry`; unavailable readings and stale data must remain distinguishable.
 
-Motion output is still open-loop PWM. Encoder-based distance/relative-turn
-feedback and terrain processing are implemented, but PID speed regulation,
-absolute compass heading and audio playback are not implemented. PID gains and
-motor response need physical measurements; do not describe this as a validated
-closed-loop speed controller or a completed hardware acceptance run.
-
-All changes remain on the named local branch. No push, PR, remote merge or
-automatic deployment is part of this workflow.
+The professor's final ramp is approximately the smaller practice ramp's height.
+The higher ramp may be disregarded. Measure geometry and calibrate the estimator;
+do not pre-enter the expected answer. Supplementary guides/evidence are local
+only for now. Required CR1 representation tables, RAM/message comparisons and
+correctness/performance evidence must be added to GitHub before final submission.

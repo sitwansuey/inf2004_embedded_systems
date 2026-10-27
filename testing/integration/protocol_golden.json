@@ -1,8 +1,0 @@
-{
-  "schema_bits": 394,
-  "bytes": 50,
-  "minimum": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-  "maximum": "f0ffffffffffcf37d9ffffffffffffffff7fd0e7ffffffff1ffaf2ffffffffffffffff1fca08ca58f4d1479cf469fdffff03",
-  "random_cases": 300,
-  "rejected_bounds": 74
-}

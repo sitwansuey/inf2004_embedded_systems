@@ -1,7 +1,0 @@
-refs/remotes/origin/HEAD 210a407e74fd1538b9494539480d6328b5434941
-refs/remotes/origin/buddy1/MQTT 176587a7b9b080533060abf87e0dab2878d78503
-refs/remotes/origin/buddy4/gy511 edee2969ae54da026a9b5212dc62144c34f2b39b
-refs/remotes/origin/feat/buddy3-line-barcode-ci bac31d8f775066c2a1e111e4c05773a58d3500ab
-refs/remotes/origin/main 210a407e74fd1538b9494539480d6328b5434941
-refs/remotes/origin/subsystem5 5d8cf50a44803f680271f3c3c5ed28ad8072c878
-refs/remotes/origin/system2commit 25589b363f8b7b822878e269672ef54187834324

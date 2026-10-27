@@ -39,3 +39,19 @@ tools/robot_bench/artifacts/
 
 # EDR generated report
 edr-check-report.json
+
+# Supplementary documentation, evidence and session records remain local.
+# Promote selected final-submission evidence explicitly when ready.
+/docs/
+/testing/evidence/
+/testing/**/logs/
+/testing/**/*.md
+!/testing/README.md
+/app_program/subsystem*/README.md
+*.log
+!/testing/fixtures/**/*.log
+/testing/subsystem4/*.json
+/testing/integration/protocol_golden.json
+
+# Temporary clean-tree verification export
+/.slim-validation/
