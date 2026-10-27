@@ -3,6 +3,7 @@
 ## Current software baseline
 
 Buddy 4 is integrated on `buddy4/cr1-integration` with main `58b89c2`.
+Integration PR: https://github.com/sitwansuey/inf2004_embedded_systems/pull/9.
 See MAIN_RECONCILIATION_20261027.md for the startup/controller conflict decisions.
 This branch is a software baseline for testing, not final hardware acceptance.
 It boots disarmed and motor-locked. Calibration and autonomous bypass remain

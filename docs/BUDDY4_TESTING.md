@@ -1,6 +1,8 @@
 # Buddy 4 physical validation guide
 
-The checkpoint and CR1 continuation have separate software/build evidence in
+Latest software/layout/build evidence is in
+testing/subsystem4/ready-verification.json; check PR #9 for Linux CI.
+The checkpoint and earlier CR1 continuation have separate software/build evidence in
 testing/subsystem4/verification-20261027.json and cr1-verification.json.
 Physical tests below have NOT been run. Work through one stage at a time and
 save the evidence before enabling the next capability. The smallest next test

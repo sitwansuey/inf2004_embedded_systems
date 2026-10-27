@@ -2,6 +2,8 @@
 
 ## Second reconciliation: main 58b89c2
 
+Integration record: PR #9, prepared on buddy4/cr1-integration.
+
 Main added 9c3bd3d and 58b89c2 after the first reconciliation below. The
 Buddy 4 branch now incorporates those commits. Their changes add IR line and
 barcode processing, wheel duty trims (97/98 percent), movement renewal and

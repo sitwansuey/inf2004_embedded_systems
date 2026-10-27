@@ -1,9 +1,10 @@
 # Buddy 1 retrospective integration review
 
 This checklist identifies the interfaces to inspect on buddy4/cr1-integration,
-reconciled with main 58b89c2. PR #8 remains unmerged and Buddy 1 approval is not
-asserted. The separate buddy1/MQTT branch was not merged wholesale; reconcile
-its text-message interfaces against these binary contracts before adoption.
+reconciled with main 58b89c2. PR #9 records this integration; Buddy 1 approval
+is not asserted. The separate buddy1/MQTT branch was not merged wholesale;
+reconcile its text-message interfaces against these binary contracts before
+adoption.
 
 ## Formats are distinct
 
@@ -52,7 +53,7 @@ specified in CR1_PROTOCOL.md, BUDDY4_CR1_STORAGE.md and SUBSYSTEM5_DATA.md.
 
 ## Evidence and remaining checks
 
-See testing/subsystem4/ready-verification.json and PR #8's CI results. Native
+See testing/subsystem4/ready-verification.json and PR #9's CI results. Native
 checks exercise C/Python codecs, embedded zeros, queue-full cases, fragmented
 commands, reconnect handling and actual telemetry consumers. Separately verify
 real broker delivery, dashboard units/availability/history, disconnect behavior,
