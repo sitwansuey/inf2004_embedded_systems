@@ -1,59 +1,5 @@
-/*
- *	app_main.c
- *	START HERE.  usermain() below is your program's entry point.
- *
- *	How micro T-Kernel starts your code
- *	-----------------------------------
- *	  reset -> kernel initialises itself -> creates the "initial task"
- *	        -> initial task calls usermain()
- *
- *	usermain() runs inside that initial task at priority 1 (the highest).
- *	On a single core nothing you create runs until usermain() blocks, but
- *	on the dual-core build the OTHER core may start a new task at once.
- *	So usermain() works in two phases:
- *	  1. every subsystem creates its kernel objects  (subsystemN_init)
- *	  2. every subsystem starts its tasks             (subsystemN_start)
- *	and then puts the initial task to sleep forever.
- *	If usermain() RETURNS, the kernel shuts the whole system down.
- *
- *	The example system: one subsystem per folder, one task each
- *	------------------------------------------------------------
- *	  subsystem1/  LED       blinks GP19, paced by a cyclic handler
- *	  subsystem2/  Producer  makes a "sample" every 300 ms     (core 1)
- *	  subsystem3/  Consumer  collects samples into statistics  (core 0)
- *	  subsystem4/  Buddy 4   GY-511 sampling and protected sensor snapshots
- *	  subsystem5/  (empty template for the fifth student)
- *
- *	How they talk to each other (the interfaces, see TEAM.md section 5):
- *	  IF-01  S2 -> S3  mailbox mbx_samples      (owned by S3)
- *	  IF-02  S3 -> S2  semaphore sem_slots + memory pool mpf_samples
- *	                   (owned by S2: S3 hands slots and blocks back)
- *	  IF-03  S3 -> S4  message buffer mbf_summary + event flag flg_events
- *	                   (owned by S4)
- *	  IF-04/IF-05: retired for S4; see TEAM.md's sensor snapshot interface
- *	  S4 owns I2C1 and its snapshot mutex; it does not control S1's LED
- *	The subsystem that RECEIVES or OWNS the data creates the object and
- *	publishes its ID in its header; the other side just uses it.
- *
- *	micro T-Kernel APIs used, and where to find them:
- *	  tasks       tk_cre_tsk tk_sta_tsk tk_slp_tsk tk_wup_tsk tk_can_wup
- *	              tk_dly_tsk tk_sus_tsk tk_rsm_tsk tk_chg_pri tk_ref_tsk
- *	              tk_get_tid tk_get_prc                         app_main.c, S1-S4
- *	  semaphore   tk_cre_sem tk_wai_sem tk_sig_sem tk_ref_sem       S2, S3, S4
- *	  mem. pool   tk_cre_mpf tk_get_mpf tk_rel_mpf tk_ref_mpf       S2, S3, S4
- *	  mailbox     tk_cre_mbx tk_snd_mbx tk_rcv_mbx                  S2, S3
- *	  mutex       tk_cre_mtx tk_loc_mtx tk_unl_mtx                  S3, S4
- *	  msg buffer  tk_cre_mbf tk_snd_mbf tk_rcv_mbf                  S3, S4
- *	  event flag  tk_cre_flg tk_set_flg tk_wai_flg                  S3, S4
- *	  cyclic      tk_cre_cyc tk_ref_cyc                             S1
- *	  alarm       tk_cre_alm tk_sta_alm tk_stp_alm                  S4
- *	  time        tk_get_tim                                        S2, S4
- *	  system      tk_ref_ver                                        app_main.c
- *
- *	Output appears on the USB serial port (115200 8N1 in any terminal).
- */
-
 #include "app.h"
+#include "subsystem2/subsystem2.h"
 
 /*
  * Create and start one task (declared in app.h for every subsystem).
@@ -96,82 +42,126 @@ EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
 	return tid;
 }
 
-EXPORT INT usermain(void)
-{
-	T_RVER	ver;
 
-	/* tk_ref_ver: ask the kernel who it is */
-	tk_ref_ver(&ver);
-	tm_printf((UB*)"\n=== micro T-Kernel on Raspberry Pi Pico W"
-		  " (spec 0x%04x, product 0x%04x) ===\n", ver.spver, ver.prver);
-#if TK_SUPPORT_SMP
-	tm_printf((UB*)"dual-core (SMP) build, usermain on core %d\n",
-		  tk_get_prc() - 1);	/* tk_get_prc() counts from 1 */
+#include "app_state.h"
+#include "robot_ir_config.h"
+#include "subsystem3/subsystem3.h"
+#include "subsystem3/drv_ir_adc.h"
+#include "subsystem5/subsystem5.h"
+#include "subsystem1/telemetry_codec.h"
+#if !APP_S2_ONLY && !APP_S4_ONLY
+static ER configure_line(void) {
+    if(BOARD_IR_MODE==S3_IR_DISABLED)return E_OK;
+#if BOARD_IR_RAW_BENCH
+    const s3_ir_config_t raw = {BOARD_IR_MODE,{26,27,28}};
+    return s3_configure_raw(&raw);
 #else
-	tm_printf((UB*)"single-core build\n");
+    s3_adapter_config_t c={0};s3_config_defaults(&c.algorithms);
+    c.ir.mode=BOARD_IR_MODE;c.ir.pin[0]=26;c.ir.pin[1]=27;c.ir.pin[2]=28;
+    robot_ir_apply_layout(&c.algorithms);
+    if(BOARD_IR_MODE==S3_IR_DIGITAL) {
+        c.algorithms.line.raw_max=1;
+        for(unsigned i=0;i<3;++i) {c.algorithms.line.black[i]=BOARD_IR_BLACK_LEVEL;c.algorithms.line.white[i]=1-BOARD_IR_BLACK_LEVEL;}
+    } else {
+        if(!robot_ir_apply_adc_calibration(&c.algorithms)) return E_NOSPT;
+    }
+    return s3_configure(&c);
 #endif
-
+}
+#endif
+EXPORT INT usermain(void) {
+    T_RVER ver;tk_ref_ver(&ver);
+    tm_printf((UB *)"\nCSC02 CR1 / micro T-Kernel 3, SMP=%u, encoders=%u\n",TK_SUPPORT_SMP,S2_ENCODER_ENABLED);
+#if BOARD_IR_CONTINUOUS_BENCH
+    tm_printf((UB *)"IR CONTINUOUS BENCH v6: boot STOPPED; supervised USB start only\n");
+    tm_printf((UB *)"IRLINE continuous: 30pct 20000ms pattern-stop=0 encoder-stop=0\n");
+    tm_printf((UB *)"IRLINE emergency STOP/USB lease/ADC/motor faults retained; ultrasonic DISABLED\n");
+#elif BOARD_IR_LINE_ONLY_BENCH
+    tm_printf((UB *)"IR LINE ONLY BENCH v5: boot STOPPED; ultrasonic DISABLED; supervised USB start only\n");
+    tm_printf((UB *)"IRLINE limits: PWM<=50%% run<=20000ms heartbeat<250ms motor-watchdog<=150ms progress<=750ms\n");
+    tm_printf((UB *)"IRLINE no obstacle protection; white cannot prove line presence; no navigation\n");
+    tm_printf((UB *)"IRLINE course: cross=straight recent-side=hold bounded=500/800ms\n");
+#elif BOARD_IR_LINE_TRACE_BENCH
+    tm_printf((UB *)"IR LINE TRACE BENCH v2: boot STOPPED; both white=assumed centre; supervised USB start only\n");
+    tm_printf((UB *)"IRLINE limits: PWM<=20%% run<=6000ms heartbeat<250ms motor-watchdog<=150ms\n");
+    tm_printf((UB *)"IRLINE GP27=left GP26=right; both black=STOP; white cannot prove line presence\n");
+#elif BOARD_IR_MOTOR_SCAN_BENCH
+    tm_printf((UB *)"IR MOTOR SCAN BENCH v5: boot STOPPED; USB framed start only; no navigation\n");
+    tm_printf((UB *)"IRSCAN barcode: min_run=20ms sample=10ms bias<=half_narrow\n");
+    tm_printf((UB *)"IRSCAN limits: PWM<=20%% run<=6000ms heartbeat<250ms motor-watchdog<=150ms\n");
+#else
+    tm_printf((UB *)"Boot DISARMED; USB s=STOP, r=reset fault, a=500 ms track lease. Binary telemetry=%u bytes.\n",TELEMETRY_BYTES);
+#endif
+    if(BOARD_MOTORS_DISABLED)tm_printf((UB *)"MOTOR LOCK ON: drive GPIOs held low; all movement/ARM commands rejected.\n");
+    tm_printf((UB *)"Clock: kernel operating time (monotonic uptime)\n");
+#if BOARD_IR_RAW_BENCH
+    tm_printf((UB *)"IR RAW BENCH: input-only; no calibrated line or barcode authority\n");
+    tm_printf((UB *)"[S3] raw input mode=%u pins=GP26,GP27,GP28\n",BOARD_IR_MODE);
+#if BOARD_IR_MODE == 2
+    tm_printf((UB *)"[S3] ADC timing: conversion<%ums reply<%ums\n",
+              S3_ADC_DEADLINE_MS,S3_ADC_REPLY_DEADLINE_MS);
+    tm_printf((UB *)"[S3] ADC acquisition: bounded reply wait; no prefetched next scan\n");
+#endif
+#endif
+#if BOARD_IR_CALIBRATED_BENCH
+    tm_printf((UB *)"IR CALIBRATED BENCH: measured endpoints; motor lock required; no motion test\n");
+    tm_printf((UB *)"[S3] roles: GP26=right GP27=left GP28=barcode line-mask=3\n");
+    {
+        const uint16_t white[S3_SENSOR_COUNT]=BOARD_IR_ADC_WHITE;
+        const uint16_t black[S3_SENSOR_COUNT]=BOARD_IR_ADC_BLACK;
+        tm_printf((UB *)"[S3] ADC endpoints white=%u,%u,%u black=%u,%u,%u\n",
+                  (unsigned)white[0],(unsigned)white[1],(unsigned)white[2],
+                  (unsigned)black[0],(unsigned)black[1],(unsigned)black[2]);
+    }
+    tm_printf((UB *)"[S3] paused scan gaps reset observations; TRACK gaps still fault\n");
+#endif
+#if BOARD_IR_BARCODE_CAPTURE
+#if BOARD_IR_LINE_TRACE_BENCH
+    tm_printf((UB *)"IRLINE capture: all ADC scans; steering uses only GP26/27\n");
+#elif BOARD_IR_MOTOR_SCAN_BENCH
+    tm_printf((UB *)"IRSCAN capture: GP28 ADC; unchanged A/Z decoder; timed forward diagnostic only\n");
+#else
+    tm_printf((UB *)"IR BARCODE CAPTURE: copied scans; motor locked; host decoder replay\n");
+#endif
+    tm_printf((UB *)"[S3] scan schedule: cyclic10; capture receive without status mutex\n");
+#endif
+    ER er=E_OK;
 #if APP_S2_ONLY
-	/* Standalone motor build: do not start the sample consumer/monitor. */
-	ER er = subsystem2_init();
-	CHECK(er, "subsystem2_init");
-	if (er >= E_OK) {
-		er = subsystem2_start();
-		CHECK(er, "subsystem2_start");
-	}
-	if (er < E_OK) {
-		tm_printf((UB*)"motor startup failed; tests skipped\n");
-		for (;;) {
-			tk_slp_tsk(TMO_FEVR);
-		}
-	}
-#else
-	/* Phase 1: every subsystem creates its kernel objects */
-#if !APP_S4_ONLY
-	CHECK(subsystem1_init(), "subsystem1_init");
-	CHECK(subsystem2_init(), "subsystem2_init");
-	CHECK(subsystem3_init(), "subsystem3_init");
-#endif
-	CHECK(subsystem4_init(), "subsystem4_init");
-#if !APP_S4_ONLY
-	CHECK(subsystem5_init(), "subsystem5_init");
-#endif
-
-	/* Phase 2: every subsystem starts its tasks */
-#if !APP_S4_ONLY
-	CHECK(subsystem1_start(), "subsystem1_start");
-	CHECK(subsystem2_start(), "subsystem2_start");
-	CHECK(subsystem3_start(), "subsystem3_start");
-#endif
-	CHECK(subsystem4_start(), "subsystem4_start");
-#if !APP_S4_ONLY
-	CHECK(subsystem5_start(), "subsystem5_start");
-#endif
-#endif /* APP_S2_ONLY */
-
-	tm_printf((UB*)"all selected subsystems started\n\n");
-
+    er=subsystem2_init();
+    if(er>=0)er=subsystem2_start();
 #if APP_TEST
-	/* Test build (make TEST=1): run every subsystem's tests in turn,
-	   here in the initial task, while the system is running.  Tests may
-	   call tk_dly_tsk() to let the other tasks work for a while. */
-	tm_printf((UB*)"[TEST] === test run start ===\n");
-#if APP_S2_ONLY
-	subsystem2_test();
+    if(er>=0)subsystem2_test(); /* explicitly selected raised-wheel bench profile */
+#endif
 #elif APP_S4_ONLY
-	subsystem4_test();
+    er=subsystem4_init();
+    if(er>=0)er=subsystem4_start();
+#if APP_TEST
+    if(er>=0)subsystem4_test();
+#endif
 #else
-	subsystem1_test();
-	subsystem2_test();
-	subsystem3_test();
-	subsystem4_test();
-	subsystem5_test();
+    er=subsystem1_init();
+    if(er>=0)er=subsystem2_init();
+    if(er>=0)er=subsystem3_init();
+    if(er>=0)er=configure_line();
+    if(er>=0)er=subsystem4_init();
+    if(er>=0)er=subsystem5_init();
+    if(er>=0)er=app_state_init();
+    /* All shared objects exist before any application task starts. */
+    if(er>=0)er=subsystem2_start();
+    if(er>=0)er=subsystem3_start();
+    if(er>=0)er=subsystem4_start();
+    if(er>=0)er=subsystem5_start();
+    if(er>=0)er=subsystem1_start();
+#if !APP_S5_DIAGNOSTICS
+    if(er>=0)er=vehicle_start();
+#else
+    if(er>=0)tm_printf((UB *)"Explicit S5 diagnostic owns the hardware; integrated controller not started.\n");
 #endif
-	tm_printf((UB*)"[TEST] === test run end ===\n");
+#if APP_TEST
+    if(er>=0) {subsystem5_test();tm_printf((UB *)"[TEST] passive integrated checks completed; no motor test requested\n");}
 #endif
-
-	/* Sleep forever.  Returning from usermain() would shut down. */
-	for (;;) {
-		tk_slp_tsk(TMO_FEVR);
-	}
+#endif
+    if(er<0)tm_printf((UB *)"[STARTUP FAIL] %d; controller not armed\n",er);
+    else tm_printf((UB *)"Selected subsystems started. Calibration and physical validation required before motion.\n");
+    for(;;)tk_slp_tsk(TMO_FEVR);
 }

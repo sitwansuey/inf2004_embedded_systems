@@ -11,6 +11,7 @@
 #define SUBSYSTEM1_H
 
 #include "../app.h"
+<<<<<<< HEAD
 #include "telemetry_topics.h"
 
 /* Task context only. Nonblocking copied messages; E_TMOUT means queue full.
@@ -29,6 +30,10 @@ IMPORT ER s1_telemetry_record(const uint8_t *bytes, UINT length);
 IMPORT ER s1_telemetry_acceleration(UINT sensor_id, INT millig);
 IMPORT ER s1_telemetry_magnetic(UINT sensor_id, INT milligauss);
 IMPORT void s1_sensor_telemetry_task(INT stacd, void *exinf);
+=======
+IMPORT ER s1_binary_init(void);
+IMPORT void telemetry_task(INT code,void *context);
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 #define S1_PRI_LED	12		/* priority band 12-13 (TEAM.md) */
 #define S1_LED_PIN	19		/* GP19: LED + 330R resistor to GND */

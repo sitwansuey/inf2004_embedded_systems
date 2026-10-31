@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../app_program/subsystem3/buddy3_robot_ir.h"
+#include "../../app_program/robot_ir_config.h"
 
 static int parse_row(char *text, uint32_t values[6])
 {

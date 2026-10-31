@@ -1,4 +1,4 @@
-﻿Debug
+Debug
 Release
 
 # Build artifacts
@@ -8,6 +8,7 @@ Release
 *.o
 *.d
 build_make/tools/elf2uf2
+build_make/tools/elf2uf2.exe
 tools/elf2uf2/elf2uf2
 build_make/.build_profile
 
@@ -28,5 +29,29 @@ config/wifi_secrets.h
 # Buddy 4 host-test build output
 app_program/subsystem4/tests/host/.build/
 
-# Local pre-integration evidence; CI reports are printed in the job log.
-/edr-check-report*.json
+# Local board calibration and generated test files
+app_program/robot_config.local.h
+testing/integration/.build/
+**/__pycache__/
+
+# Local robot bench builds, captures and test artifacts
+tools/robot_bench/artifacts/
+
+# EDR generated report
+edr-check-report.json
+
+# Supplementary documentation, evidence and session records remain local.
+# Promote selected final-submission evidence explicitly when ready.
+/docs/
+/testing/evidence/
+/testing/**/logs/
+/testing/**/*.md
+!/testing/README.md
+/app_program/subsystem*/README.md
+*.log
+!/testing/fixtures/**/*.log
+/testing/subsystem4/*.json
+/testing/integration/protocol_golden.json
+
+# Temporary clean-tree verification export
+/.slim-validation/

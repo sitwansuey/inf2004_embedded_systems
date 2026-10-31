@@ -16,15 +16,17 @@ static lsm303_frame_t good_frame(uint64_t time_us)
     frame.accel.valid = true;
     frame.accel.status = LSM303_DATA_OK;
     frame.accel.read_time_us = time_us;
+    frame.accel.raw[2] = 1000;
     frame.accel.milli_units[2] = 1000;
     frame.mag = frame.accel;
+    frame.mag.raw[2] = 392;
     frame.mag.milli_units[2] = 400;
     return frame;
 }
 
 static void test_empty_and_init(void)
 {
-    s4_sensor_status_t state;
+    s4_sensor_cache_t state;
     s4_sensor_status_t copy;
 
     s4_data_reset(&state);
@@ -34,15 +36,17 @@ static void test_empty_and_init(void)
     REQUIRE(copy.mag_age_ms == S4_NO_SAMPLE_AGE);
     REQUIRE(copy.init_result == LSM303_NOT_INITIALIZED);
     s4_data_init_result(&state, LSM303_IO_ERROR);
-    REQUIRE(!state.configured && state.init_attempts == 1);
+    s4_data_snapshot(&state,10000,&copy);
+    REQUIRE(!copy.configured && copy.init_attempts == 1);
     s4_data_init_result(&state, LSM303_OK);
-    REQUIRE(state.configured && state.init_attempts == 2);
+    s4_data_snapshot(&state,10000,&copy);
+    REQUIRE(copy.configured && copy.init_attempts == 2);
     puts("[TEST] S4-U15 PASS  absent/uninitialized state cannot publish usable data");
 }
 
 static void test_freshness(void)
 {
-    s4_sensor_status_t state;
+    s4_sensor_cache_t state;
     s4_sensor_status_t copy;
     lsm303_frame_t frame = good_frame(10000);
     lsm303_frame_t empty = { 0 };
@@ -65,7 +69,7 @@ static void test_freshness(void)
 
 static void test_fault_and_recovery(void)
 {
-    s4_sensor_status_t state;
+    s4_sensor_cache_t state;
     s4_sensor_status_t copy;
     lsm303_frame_t frame = good_frame(10000);
     lsm303_frame_t fault = { 0 };
@@ -93,9 +97,9 @@ static void test_fault_and_recovery(void)
 
 static void test_clipping_and_time_boundaries(void)
 {
-    s4_sensor_status_t state;
+    s4_sensor_cache_t state;
     s4_sensor_status_t copy;
-    const uint64_t time_us = (UINT64_C(1) << 32) + 40000;
+    const uint64_t time_us = ((UINT64_C(1) << 32) + 40)*1000U;
     lsm303_frame_t frame = good_frame(time_us);
 
     s4_data_reset(&state);
@@ -109,6 +113,8 @@ static void test_clipping_and_time_boundaries(void)
     REQUIRE(!copy.mag_usable && copy.mag_age_ms == S4_NO_SAMPLE_AGE);
     s4_data_snapshot(&state, time_us + UINT64_C(5000000000000), &copy);
     REQUIRE(copy.mag_age_ms == S4_NO_SAMPLE_AGE - 1u && !copy.mag_usable);
+    s4_data_snapshot(&state, UINT64_MAX, &copy);
+    REQUIRE(!copy.mag_usable && copy.mag_age_ms == S4_NO_SAMPLE_AGE);
     puts("[TEST] S4-U18 PASS  clipping, future timestamps, 64-bit time and age saturation");
 }
 
@@ -118,5 +124,24 @@ int main(void)
     test_freshness();
     test_fault_and_recovery();
     test_clipping_and_time_boundaries();
+    s4_sensor_cache_t state;s4_sensor_status_t view;
+    s4_data_reset(&state);s4_data_init_result(&state,LSM303_OK);
+    for(unsigned n=0;n<S4_COUNT_TOTAL;++n)s4_cache_set_count(&state,n,UINT32_MAX-n);
+    for(unsigned n=0;n<S4_COUNT_TOTAL;++n)REQUIRE(s4_cache_count(&state,n)==UINT32_MAX-n);
+    s4_cache_increment(&state,S4_COUNT_INIT);REQUIRE(s4_cache_count(&state,S4_COUNT_INIT)==0);
+    const uint64_t ms=(UINT64_MAX-1U)/1000U;
+    lsm303_frame_t frame=good_frame(ms*1000U);
+    frame.accel.raw[0]=-2048;frame.accel.raw[1]=2047;
+    frame.mag.raw[0]=INT16_MIN;frame.mag.raw[1]=INT16_MAX;
+    frame.mag.valid=false;frame.mag.status=LSM303_DATA_CLIPPED;
+    s4_data_update(&state,&frame,LSM303_OK);s4_data_snapshot(&state,ms*1000U,&view);
+    REQUIRE(view.latest.accel.raw[0]==-2048 && view.latest.accel.raw[1]==2047);
+    REQUIRE(view.latest.mag.raw[0]==INT16_MIN && view.latest.mag.raw[1]==INT16_MAX);
+    REQUIRE(view.latest.accel.read_time_us==ms*1000U && !view.mag_usable);
+    frame=good_frame(12345);s4_data_update(&state,&frame,LSM303_OK);
+    s4_data_snapshot(&state,13000,&view);REQUIRE(!view.accel_usable && !view.mag_usable);
+    REQUIRE((state.bytes[S4_CACHE_BYTES-1U]&0xf0U)==0);
+    printf("S4-U29 compact cache: %u bits/%u bytes, raw/time boundaries, exact units, counter isolation/wrap PASS\n",
+        (unsigned)S4_CACHE_BITS,(unsigned)S4_CACHE_BYTES);
     return EXIT_SUCCESS;
 }

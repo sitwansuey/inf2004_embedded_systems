@@ -21,6 +21,15 @@ ROOT = HERE.parents[1]
 INPUTS = (
     "app_program/shared/edr.h",
     "app_program/shared/edr.c",
+    "app_program/subsystem5/s5_data.c",
+    "app_program/subsystem5/s5_data.h",
+    "app_program/subsystem5/subsystem5.c",
+    "app_program/subsystem5/subsystem5.h",
+    "app_program/subsystem5/s5_policy.c",
+    "app_program/subsystem5/s5_scan.c",
+    "app_program/subsystem5/s5_width.c",
+    "testing/subsystem5/test_data.c",
+    "testing/subsystem5/host_app.h",
     "tools/edr_decode.py",
     "app_program/subsystem1/packed16.h",
     "app_program/subsystem1/tests/host/packed16_test.c",
@@ -101,7 +110,7 @@ def write_c_vectors(path: Path) -> None:
             lines.append("{{"+values+"}, "+str(len(packet))+"U, "+str(valid).lower()+
                          ", "+str(v.get("id",0))+"U, "+str(v.get("data",0))+"U},")
     lines.append("};")
-    path.write_text("\n".join(lines),encoding="utf-8")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def run_codec_tests(compiler: str) -> None:

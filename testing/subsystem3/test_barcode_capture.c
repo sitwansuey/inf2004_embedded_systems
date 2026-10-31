@@ -1,6 +1,6 @@
 /* Production sampler/capture queue: copied data and explicit overflow. */
 #include "adapter_fixture.h"
-#include "../../app_program/subsystem3/buddy3_robot_ir.h"
+#include "../../app_program/robot_ir_config.h"
 
 static void setup_capture(void)
 {

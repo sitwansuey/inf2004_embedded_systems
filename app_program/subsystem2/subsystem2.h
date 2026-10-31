@@ -11,6 +11,9 @@
 
 #define S2_PRI_MOTOR 14
 #define S2_COMMAND_COUNT 8
+#ifndef APP_S2_ONLY
+#define APP_S2_ONLY 0
+#endif
 
 /* Refresh moving commands before this lease expires (milliseconds). */
 #ifndef S2_COMMAND_TIMEOUT_MS
@@ -19,6 +22,23 @@
 
 #if (S2_COMMAND_TIMEOUT_MS == 0) || (S2_COMMAND_TIMEOUT_MS > 2147483647U)
 #error "S2_COMMAND_TIMEOUT_MS must fit a positive TMO value"
+#endif
+
+/* Per-wheel duty scaling (percent) to balance mismatched motors.
+ * Lower the faster wheel's trim until FORWARD drives straight.
+ * Motor 1 is the left wheel, motor 2 the right wheel.
+ */
+#ifndef S2_MOTOR1_TRIM_PERCENT
+#define S2_MOTOR1_TRIM_PERCENT 97U
+#endif
+
+#ifndef S2_MOTOR2_TRIM_PERCENT
+#define S2_MOTOR2_TRIM_PERCENT 98U
+#endif
+
+#if (S2_MOTOR1_TRIM_PERCENT == 0) || (S2_MOTOR1_TRIM_PERCENT > 100U) || \
+    (S2_MOTOR2_TRIM_PERCENT == 0) || (S2_MOTOR2_TRIM_PERCENT > 100U)
+#error "S2_MOTORx_TRIM_PERCENT must be 1..100"
 #endif
 
 /* Enable after confirming the encoder wiring in board_pins.h. */
@@ -46,6 +66,7 @@ typedef struct
     T_MSG hdr; /* Kernel mailbox header must be first. */
     uint16_t motor; /* EDR motor word; no native enum layout in queued data. */
     UW issued_at_ms;
+    UW stop_epoch;
 } s2_movement_msg_t;
 
 typedef enum
@@ -88,6 +109,7 @@ typedef struct
 IMPORT ER subsystem2_init(void);
 IMPORT ER subsystem2_start(void);
 IMPORT void s2_controller_bind(void);
+IMPORT ER s2_emergency_stop(void);
 
 /* Other subsystems submit expiring requests to the vehicle controller. */
 IMPORT ER app_vehicle_request(UINT subsystem, s2_move_command_t command,
@@ -103,7 +125,7 @@ IMPORT ER s2_motion_get_status(s2_motion_status_t *p_status);
  * Both wheels share a consistent cumulative x1 count snapshot (modulo 32 bits).
  * Forward signs follow the downloaded wiring: motor 1 negative, motor 2 positive.
  * GPIO levels are live samples; these counts do not provide PID or angle control.
- * sampled_ms is tk_get_tim().lo within the successful sequence-checked copy.
+ * sampled_ms is tk_get_otm().lo within the successful sequence-checked copy.
  * Clock errors return the error with a zeroed snapshot.
  */
 IMPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status);

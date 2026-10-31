@@ -1,5 +1,5 @@
 #include "subsystem3.h"
-#include "buddy3_board.h"
+#include "../robot_config.h"
 #include "drv_ir_adc.h"
 #include "event_codec.h"
 
