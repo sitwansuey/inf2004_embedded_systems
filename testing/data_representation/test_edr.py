@@ -1,66 +1,48 @@
-"""Independent, standard-library verification of the dashboard wire contract."""
-
-import importlib.util
 import json
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 import unittest
-
-
-ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("edr_decode", ROOT / "tools/edr_decode.py")
-EDR = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(EDR)
-VECTORS = json.loads(Path(__file__).with_name("vectors.json").read_text())
-
-
-class EdrTests(unittest.TestCase):
-    def test_shared_known_packets(self):
-        for vector in VECTORS["valid_packets"]:
-            with self.subTest(vector=vector["name"]):
-                packet = bytes.fromhex(vector["hex"])
-                decoded = EDR.decode_packet(packet)
-                self.assertEqual(decoded["source"], vector["source"])
-                self.assertEqual(decoded["kind"], vector["kind"])
-                if "motion" in vector:
-                    fields = vector["motion"]
-                    self.assertEqual(decoded["payload"], fields)
-                    encoded = EDR.encode_motion(fields["command"], fields["power_percent"],
-                                                fields["state"], fields["faults"],
-                                                fields["command_ms"])
-                elif "encoder" in vector:
-                    fields = vector["encoder"]
-                    self.assertEqual(decoded["payload"], dict(fields, valid=bool(fields["flags"] & 1)))
-                    encoded = EDR.encode_encoder(**fields)
-                else:
-                    self.assertFalse(decoded["supported"])
-                    self.assertEqual(decoded["payload"]["hex"], packet[2:].hex())
-                    encoded = EDR.encode_packet(vector["source"], vector["kind"], packet[2:])
-                self.assertEqual(encoded, packet)
-                json.dumps(decoded)  # Public output must be JSON-compatible.
-
-    def test_shared_malformed_packets(self):
-        for vector in VECTORS["invalid_packets"]:
-            with self.subTest(vector=vector["name"]):
-                with self.assertRaises(ValueError):
-                    EDR.decode_packet(bytes.fromhex(vector["hex"]))
-
-    def test_every_motor_word_and_every_valid_combination(self):
-        valid_count = 0
+ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT/"tools"))
+import edr_decode as edr
+class CodecTests(unittest.TestCase):
+    def test_all_words(self):
         for word in range(65536):
-            command = word % 8
-            power = (word // 8) % 128
-            state = (word // 1024) % 4
-            expected_valid = word < 4096 and command < 7 and power < 101 and state < 3
-            if expected_valid:
-                unpacked = EDR.unpack_motor(word)
-                self.assertEqual(unpacked, {"motor_word": word, "command": command,
-                                            "power_percent": power, "state": state})
-                self.assertEqual(EDR.pack_motor(command, power, state), word)
-                valid_count += 1
+            sid,data=word & 15,word >> 4
+            valid=(sid!=0 and (sid!=3 or data<=180) and (sid!=12 or data<=127)
+                   and (sid!=11 or ((data&7)<=6 and ((data>>3)&127)<=100 and data>>10<=2)))
+            packet=word.to_bytes(2,"little")
+            if not valid:
+                with self.assertRaises(ValueError): edr.decode_packet(packet)
+                with self.assertRaises(ValueError): edr.encode_packet(sid,data)
             else:
+<<<<<<< HEAD
+                decoded=edr.decode_packet(packet)
+                self.assertEqual((decoded["id"],decoded["data"]),(sid,data))
+                self.assertEqual(edr.encode_packet(sid,data),packet)
+    def test_vectors(self):
+        vectors=json.loads((ROOT/"testing/data_representation/vectors.json").read_text())
+        for v in vectors["valid_packets"]:
+            result=edr.decode_packet(bytes.fromhex(v["hex"]))
+            self.assertEqual((result["id"],result["data"]),(v["id"],v["data"]))
+        for v in vectors["invalid_packets"]:
+            with self.assertRaises(ValueError): edr.decode_packet(bytes.fromhex(v["hex"]))
+    def test_ranges_and_units(self):
+        for sid,data in ((0,1),(16,1),(1,4096),(1,-1),(True,1),(1,1.5)):
+            with self.assertRaises(ValueError): edr.encode_packet(sid,data)
+        self.assertEqual(edr.decode_packet(edr.encode_packet(8,0))["value"],-204.8)
+        self.assertAlmostEqual(edr.decode_packet(edr.encode_packet(13,3048))["value"],9.80665)
+        self.assertEqual(edr.decode_packet(edr.encode_packet(11,edr.pack_motor(1,30,1)))["motor"],
+                         {"command":1,"power_percent":30,"state":1})
+    def test_cli(self):
+        result=subprocess.run([sys.executable,"-B",str(ROOT/"tools/edr_decode.py"),"41 06"],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0)
+        self.assertEqual(json.loads(result.stdout)["data"],100)
+        result=subprocess.run([sys.executable,"-B",str(ROOT/"tools/edr_decode.py"),"42 07 f1 04 00 78 56 34 12"],capture_output=True,text=True)
+        self.assertNotEqual(result.returncode,0)
+if __name__=="__main__": unittest.main()
+=======
                 with self.assertRaises(ValueError, msg=f"word {word}"):
                     EDR.unpack_motor(word)
         self.assertEqual(valid_count, 7 * 101 * 3)
@@ -204,3 +186,4 @@ class EdrTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e

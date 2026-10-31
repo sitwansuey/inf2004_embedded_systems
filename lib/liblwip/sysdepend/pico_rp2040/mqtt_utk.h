@@ -14,6 +14,10 @@
  * than once -- a second call while already connecting/connected is a no-op.
  */
 void mqtt_utk_start(void);
+<<<<<<< HEAD
+/* Only from cyw43_utk_task; bounded, nonblocking telemetry drain. */
+=======
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 void mqtt_utk_poll_telemetry(void);
 
 #endif /* MQTT_UTK_H */

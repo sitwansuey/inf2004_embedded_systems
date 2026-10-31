@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+"""Canonical EDR16 codec and CLI. Example: python tools/edr_decode.py '41 06'."""
+=======
 #!/usr/bin/env python3
 """Decode version 1 EDR MQTT bytes for dashboard consumers (no dependencies).
 
@@ -8,13 +11,21 @@ Buddy 5 kind 0 have payload schemas here; other payloads remain lossless hex.
 
 from __future__ import annotations
 
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 import argparse
 import json
-from pathlib import Path
-import struct
-import sys
 
+MQTT_TOPIC = "Robopico/sensors/edr16/v1"
+NAMES = {1:"encoder_left", 2:"encoder_right", 3:"servo_angle_deg",
+         4:"distance_cm", 5:"ir_left", 6:"ir_right", 7:"ir_barcode",
+         8:"mag_x_ut", 9:"mag_y_ut", 10:"mag_z_ut", 11:"motor_status",
+         12:"motor_faults", 13:"accel_x_mps2", 14:"accel_y_mps2", 15:"accel_z_mps2"}
 
+<<<<<<< HEAD
+def integer(value, low, high):
+    if type(value) is not int or not low <= value <= high:
+        raise ValueError(f"expected integer in {low}..{high}")
+=======
 VERSION = 1
 UINT32_MAX = 0xFFFFFFFF
 
@@ -51,26 +62,42 @@ def _integer(name: str, value: int, minimum: int, maximum: int) -> int:
         raise ValueError(f"{name} must be an integer")
     if not minimum <= value <= maximum:
         raise ValueError(f"{name} must be in {minimum}..{maximum}")
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
     return value
 
+def pack_motor(command, power_percent, state):
+    return (integer(command,0,6) | (integer(power_percent,0,100) << 3)
+            | (integer(state,0,2) << 10))
 
-def pack_motor(command: int, power_percent: int, state: int) -> int:
-    """Build the 12-bit word; reject values that would truncate or overlap."""
-    return (_integer("command", command, 0, 6)
-            | (_integer("power_percent", power_percent, 0, 100) << 3)
-            | (_integer("state", state, 0, 2) << 10))
+def unpack_motor(data):
+    integer(data,0,4095)
+    command, power, state = data & 7, (data >> 3) & 127, data >> 10
+    integer(command,0,6); integer(power,0,100); integer(state,0,2)
+    return {"command":command,"power_percent":power,"state":state}
 
+def validate(sensor_id, data):
+    integer(sensor_id,1,15); integer(data,0,4095)
+    if sensor_id == 3: integer(data,0,180)
+    if sensor_id == 11: unpack_motor(data)
+    if sensor_id == 12: integer(data,0,127)
 
-def unpack_motor(word: int) -> dict:
-    _integer("motor_word", word, 0, 0xFFFF)
-    command = word & 7
-    power = (word >> 3) & 127
-    state = (word >> 10) & 3
-    if word >> 12 or command > 6 or power > 100 or state > 2:
-        raise ValueError("invalid motor word (reserved bits or field range)")
-    return {"motor_word": word, "command": command,
-            "power_percent": power, "state": state}
+def encode_packet(sensor_id, data):
+    validate(sensor_id, data)
+    return ((data << 4) | sensor_id).to_bytes(2,"little")
 
+<<<<<<< HEAD
+def decode_packet(packet):
+    if not isinstance(packet,(bytes,bytearray,memoryview)) or len(packet) != 2:
+        raise ValueError("EDR16 requires exactly two bytes")
+    word = int.from_bytes(packet,"little")
+    sensor_id, data = word & 15, word >> 4
+    validate(sensor_id,data)
+    value = data
+    if 8 <= sensor_id <= 10: value = (data-2048)/10
+    if 13 <= sensor_id <= 15: value = (data-2048)*9.80665/1000
+    result = {"id":sensor_id,"name":NAMES[sensor_id],"data":data,"value":value}
+    if sensor_id == 11: result["motor"] = unpack_motor(data)
+=======
 
 def encode_packet(source: int, kind: int, payload: bytes) -> bytes:
     """Frame a buddy-owned payload; semantic validation belongs to its codec."""
@@ -150,41 +177,13 @@ def decode_packet(packet: bytes) -> dict:
         result.update(supported=True, record_type="encoder", payload=payload)
     elif source == 5 and kind == 0:
         result.update(supported=True, record_type="obstacle", payload=decode_obstacle(payload_bytes))
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
     return result
 
-
-def count_delta(current: int, previous: int) -> int:
-    """Signed modulo-32 tick delta; an ambiguous half-range raises ValueError."""
-    _integer("current", current, 0, UINT32_MAX)
-    _integer("previous", previous, 0, UINT32_MAX)
-    difference = (current - previous) & UINT32_MAX
-    if difference == 0x80000000:
-        raise ValueError("ambiguous half-range count delta")
-    return difference if difference < 0x80000000 else difference - 0x100000000
-
-
-def age_is_fresh(now_ms: int, sampled_ms: int, maximum_ms: int) -> bool:
-    _integer("now_ms", now_ms, 0, UINT32_MAX)
-    _integer("sampled_ms", sampled_ms, 0, UINT32_MAX)
-    _integer("maximum_ms", maximum_ms, 0, UINT32_MAX)
-    return maximum_ms < 0x80000000 and ((now_ms - sampled_ms) & UINT32_MAX) <= maximum_ms
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    inputs = parser.add_mutually_exclusive_group(required=True)
-    inputs.add_argument("hex_packet", nargs="?", help="one packet as hexadecimal")
-    inputs.add_argument("--file", type=Path, help="read one binary packet")
-    arguments = parser.parse_args()
-    try:
-        packet = (arguments.file.read_bytes() if arguments.file is not None
-                  else bytes.fromhex(arguments.hex_packet))
-        print(json.dumps(decode_packet(packet), indent=2))
-    except (ValueError, OSError, TypeError) as error:
-        print(f"edr_decode: {error}", file=sys.stderr)
-        return 2
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("hex",help="exactly two bytes, little-endian")
+    args=parser.parse_args()
+    try: print(json.dumps(decode_packet(bytes.fromhex(args.hex))))
+    except (ValueError,TypeError) as error: parser.error(str(error))
+if __name__ == "__main__": main()

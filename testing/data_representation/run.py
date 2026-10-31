@@ -31,6 +31,16 @@ INPUTS = (
     "testing/subsystem5/test_data.c",
     "testing/subsystem5/host_app.h",
     "tools/edr_decode.py",
+    "app_program/subsystem1/packed16.h",
+    "app_program/subsystem1/tests/host/packed16_test.c",
+    "app_program/subsystem1/tests/host/telemetry_host_test.c",
+    "app_program/external_systems/Dashboard/test_packed16.py",
+    "app_program/external_systems/Dashboard/test_dashboard_display.cjs",
+    "app_program/external_systems/Dashboard/dashboard.js",
+    "app_program/subsystem1/telemetry.c",
+    "app_program/subsystem1/task_telemetry.c",
+    "app_program/external_systems/Dashboard/packed16.py",
+    "app_program/external_systems/Dashboard/dashboard.py",
     "testing/data_representation/vectors.json",
     "testing/data_representation/test_edr.c",
     "testing/data_representation/run.py",
@@ -91,32 +101,16 @@ def run_stage(name: str, action, stages: list) -> None:
 
 def write_c_vectors(path: Path) -> None:
     """Translate fixture data to C literals without using the Python codec."""
-    vectors = json.loads((HERE / "vectors.json").read_text())
-    lines = ["/* Generated only in the temporary test directory from vectors.json. */",
-             "static const edr_test_packet_t g_edr_test_packets[] =", "{"]
-    for valid, collection in ((True, "valid_packets"), (False, "invalid_packets")):
-        for vector in vectors[collection]:
-            packet = bytes.fromhex(vector["hex"])
-            byte_values = ", ".join(f"0x{value:02x}U" for value in packet) or "0U"
-            motion, encoder = vector.get("motion", {}), vector.get("encoder", {})
-            values = [motion.get(key, 0) for key in ("motor_word", "faults", "command_ms")]
-            values += [encoder.get(key, 0) for key in ("left_counts", "right_counts", "sampled_ms", "flags")]
-            literals = ", ".join(f"UINT32_C({value})" for value in values)
-            lines.append("    {" + f'"{vector["name"]}", {str(valid).lower()}, '
-                         + f'{vector.get("source", 0)}U, {vector.get("kind", 0)}U, '
-                         + f"{len(packet)}U, {{{byte_values}}}, {literals}" + "},")
-    lines += ["};", "static const edr_test_delta_t g_edr_test_deltas[] =", "{"]
-    for vector in vectors["count_deltas"]:
-        delta = vector["delta"]
-        delta_literal = f"INT32_C({delta})" if delta is not None else "INT32_C(0)"
-        lines.append("    {" + f'UINT32_C({vector["current"]}), UINT32_C({vector["previous"]}), '
-                     + f"{str(delta is not None).lower()}, {delta_literal}" + "},")
-    lines += ["};", "static const edr_test_age_t g_edr_test_ages[] =", "{"]
-    for vector in vectors["freshness"]:
-        literals = ", ".join(f"UINT32_C({vector[key]})" for key in ("now_ms", "sampled_ms", "maximum_ms"))
-        lines.append("    {" + literals + f', {str(vector["fresh"]).lower()}' + "},")
-    lines += ["};", ""]
-    path.write_text("\n".join(lines))
+    data = json.loads((HERE / "vectors.json").read_text())
+    lines = ["static const vector_t vectors[] = {"]
+    for valid, key in ((True,"valid_packets"),(False,"invalid_packets")):
+        for v in data[key]:
+            packet=bytes.fromhex(v["hex"])
+            values=", ".join(f"0x{x:02x}U" for x in packet) or "0U"
+            lines.append("{{"+values+"}, "+str(len(packet))+"U, "+str(valid).lower()+
+                         ", "+str(v.get("id",0))+"U, "+str(v.get("data",0))+"U},")
+    lines.append("};")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def run_codec_tests(compiler: str) -> None:
@@ -134,6 +128,22 @@ def run_codec_tests(compiler: str) -> None:
         subprocess.run(command, cwd=ROOT, check=True)
         subprocess.run([str(executable)], cwd=ROOT, check=True)
 
+    # S1 queue/binary-length regression tests use the same shared header.
+    with tempfile.TemporaryDirectory(prefix="s1-edr-tests-") as directory:
+        for name in ("packed16_test", "telemetry_host_test"):
+            executable = Path(directory) / (name + (".exe" if os.name == "nt" else ""))
+            subprocess.run([compiler,"-std=c99","-Wall","-Wextra","-Werror",
+                str(ROOT / "app_program/subsystem1/tests/host" / (name+".c")),
+                "-o",str(executable)],check=True)
+            subprocess.run([str(executable)],check=True)
+
+
+def run_python_tests():
+    for directory, pattern in ((HERE,"test_*.py"),
+            (ROOT / "app_program/external_systems/Dashboard", "test_packed16.py")):
+        subprocess.run([sys.executable,"-B","-m","unittest","discover",
+                        "-s",str(directory),"-p",pattern,"-v"],cwd=ROOT,check=True)
+
 
 def run_motor_tests(compiler: str) -> None:
     path = ROOT / "app_program/subsystem2/tests/host/run.py"
@@ -150,7 +160,7 @@ def main() -> int:
     parser.add_argument("--report", type=Path,
                         help="write a shareable JSON result, including failures")
     arguments = parser.parse_args()
-    report = {"schema_version": 1, "passed": False, "stages": [],
+    report = {"schema_version": 2, "passed": False, "stages": [],
               "started_utc": datetime.now(timezone.utc).isoformat(),
               "python": platform.python_version(), "platform": sys.platform,
               "revision": revision_info()}
@@ -169,11 +179,8 @@ def main() -> int:
         report["inputs"] = input_fingerprint()
         print("EDR pre-integration check (no Pico, SDK or broker required)", flush=True)
         run_stage("Python wire contract and dashboard decoder",
-                  lambda: subprocess.run(
-                      [sys.executable, "-B", "-m", "unittest", "discover",
-                       "-s", str(HERE), "-p", "test_*.py", "-v"],
-                      cwd=ROOT, check=True), report["stages"])
-        run_stage("C99 codec, golden packets and all-buddy framing",
+                  run_python_tests, report["stages"])
+        run_stage("C99 codec, golden packets and exhaustive 16-bit records",
                   lambda: run_codec_tests(compiler), report["stages"])
         run_stage("Buddy 2 adapters and watchdog (eight host profiles)",
                   lambda: run_motor_tests(compiler), report["stages"])

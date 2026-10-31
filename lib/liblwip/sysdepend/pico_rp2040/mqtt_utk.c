@@ -20,13 +20,25 @@
 #include "lwip/timeouts.h"
 #include "wifi_secrets.h"
 #include "mqtt_utk.h"
+<<<<<<< HEAD
+#include "../../../../app_program/subsystem1/telemetry_topics.h"
+=======
 #include "../../../../app_program/subsystem1/network_bridge.h"
 #include <string.h>
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 #include <tm/tmonitor.h>
 
 #define MQTT_UTK_HEARTBEAT_MS   5000
 #define MQTT_UTK_KEEPALIVE_S    60
 #define MQTT_UTK_RETRY_MS       3000
+
+/* Keep existing local secrets files compatible. */
+#ifndef MQTT_USERNAME
+#define MQTT_USERNAME NULL
+#endif
+#ifndef MQTT_PASSWORD
+#define MQTT_PASSWORD NULL
+#endif
 
 /* Inbound message staging. A publish arrives as one topic callback followed by
  * one or more data callbacks, so the topic has to be kept until the fragment
@@ -49,6 +61,37 @@ static unsigned command_enabled;
 static void publish_done_cb(void *arg,err_t result);
 static void retry_timeout(void *arg);
 
+<<<<<<< HEAD
+static void heartbeat_timeout(void *arg);
+static void publish_done_cb(void *arg, err_t result);
+
+void mqtt_utk_poll_telemetry(void)
+{
+    static char topic[S1_TOPIC_MAX];
+    static unsigned char payload[S1_PAYLOAD_MAX];
+    static unsigned int length;
+    static int pending;
+    unsigned int budget;
+    err_t error;
+    if (client == NULL || !mqtt_client_is_connected(client)) return;
+    /* Bound each visit so network maintenance cannot be starved by producers.
+     * Keep a message staged on lwIP backpressure rather than losing it.
+     */
+    for (budget = 0; budget < 4; ++budget) {
+        if (!pending) {
+            int result = s1_telemetry_take_bytes(topic, payload, &length);
+            if (result <= 0) return;
+            pending = 1;
+        }
+        error = mqtt_publish(client, topic, payload, (u16_t)length,
+                             0 /* QoS 0 */, 0 /* not retained */,
+                             publish_done_cb, NULL);
+        if (error != ERR_OK) return;
+        pending = 0;
+    }
+}
+=======
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 /* All callbacks and publishing remain on cyw43_utk_task. Binary-safe and
  * length-delimited: a NUL is a payload byte, never a terminator. */
@@ -199,12 +242,17 @@ void mqtt_utk_start(void)
 
 	client_info.client_id = MQTT_CLIENT_ID;
 	client_info.keep_alive = MQTT_UTK_KEEPALIVE_S;
+<<<<<<< HEAD
+	client_info.client_user = MQTT_USERNAME;
+	client_info.client_pass = MQTT_PASSWORD;
+=======
 #ifdef MQTT_USERNAME
     client_info.client_user=MQTT_USERNAME;
 #endif
 #ifdef MQTT_PASSWORD
     client_info.client_pass=MQTT_PASSWORD;
 #endif
+>>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 	connecting = 1;
 	err = mqtt_client_connect(client, &broker_addr, MQTT_BROKER_PORT,

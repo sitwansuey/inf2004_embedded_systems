@@ -769,7 +769,7 @@ static void test_data_adapters(void)
     uint8_t payload[EDR_ENCODER_SIZE + 1U];
     const uint8_t timeout_payload[EDR_MOTION_SIZE] =
     {
-        0x00U, 0x08U, EDR_FAULT_TIMEOUT, 0x78U, 0x56U, 0x34U, 0x12U
+        0x0bU, 0x80U, 0x0cU, 0x02U
     };
     s2_packed_status_t status;
 
@@ -786,8 +786,8 @@ static void test_data_adapters(void)
 
     /* Startup has no measured count sample, even when encoders are enabled. */
 #if S2_ENCODER_ENABLED
-    assert(s2_encoder_encode(payload, sizeof(payload)) == E_OK);
-    assert_payload_fill(payload, EDR_ENCODER_SIZE, 0U);
+    assert(s2_encoder_encode(payload, sizeof(payload)) == E_OBJ);
+    assert_payload_fill(payload, EDR_ENCODER_SIZE, 0xa5U);
     assert(payload[EDR_ENCODER_SIZE] == 0xa5U);
 #else
     assert(s2_encoder_encode(payload, sizeof(payload)) == E_NOSPT);
@@ -810,7 +810,7 @@ static void test_data_adapters(void)
     status.last_error = E_SYS;
     assert(motion_publish(&status) == E_OK);
     assert(s2_motion_encode(payload, sizeof(payload)) == E_OK);
-    assert(payload[2] == EDR_FAULT_MOTOR);
+    assert(payload[2] == 0x0cU && payload[3] == 0x04U);
 
     /* A corrupt stored word cannot become a partial external payload. */
     motion_status.motor |= UINT16_C(0x8000);
@@ -823,8 +823,7 @@ static void test_data_adapters(void)
     {
         const uint8_t encoder_payload[EDR_ENCODER_SIZE] =
         {
-            1U, 0U, 0U, 0U, 1U, 0U, 0U, 0U,
-            0x12U, 0x34U, 0x56U, 0x78U, 0x11U
+            0x11U, 0x00U, 0x12U, 0x00U
         };
         s2_encoder_status_t encoder;
 
