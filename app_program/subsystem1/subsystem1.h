@@ -22,6 +22,13 @@ IMPORT ER s1_telemetry_integer(S1_READING_ID reading, INT value);
 IMPORT ER s1_telemetry_boolean(S1_READING_ID reading, BOOL value);
 IMPORT ER s1_telemetry_text(S1_READING_ID reading, const char *value);
 IMPORT ER s1_telemetry_init(void);
+/* 12-bit raw value. Encoder counts wrap modulo 4096; mag is mG + 2048.
+ * Task context only; queue-full returns E_TMOUT. No blocking retry. */
+IMPORT ER s1_telemetry_u12(UINT sensor_id, UINT value);
+IMPORT ER s1_telemetry_record(const uint8_t *bytes, UINT length);
+IMPORT ER s1_telemetry_acceleration(UINT sensor_id, INT millig);
+IMPORT ER s1_telemetry_magnetic(UINT sensor_id, INT milligauss);
+IMPORT void s1_sensor_telemetry_task(INT stacd, void *exinf);
 
 #define S1_PRI_LED	12		/* priority band 12-13 (TEAM.md) */
 #define S1_LED_PIN	19		/* GP19: LED + 330R resistor to GND */

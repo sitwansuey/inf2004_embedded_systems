@@ -1,20 +1,21 @@
-/* Proposed display contract; this is not the current firmware MQTT format. */
+/* Display fields populated by the shared EDR16 receiver or explicit imports. */
 'use strict';
 const groups = [
   ['navigation','Left IR','03','Raw left sensor reading.',['ir_left']],
   ['navigation','Right IR','03','Raw right sensor reading.',['ir_right']],
   ['navigation','Barcode IR','03','Barcode sensor reading and decoded data.',['ir_barcode','barcode']],
-  ['motion','Left wheel encoder','02','Measured wheel feedback requires encoder integration.',['encoder_left','left_speed_mps']],
-  ['motion','Right wheel encoder','02','Measured wheel feedback requires encoder integration.',['encoder_right','right_speed_mps']],
+  ['motion','Left wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_left','left_speed_mps']],
+  ['motion','Right wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_right','right_speed_mps']],
   ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact','imu_status']],
   ['terrain','Magnetometer','04','Heading uses the magnetometer. Pitch, roll and turn rate are derived estimates; the GY-511 has no gyroscope.',['mag_x_ut','mag_y_ut','mag_z_ut','heading_deg','pitch_deg','roll_deg','turn_rate_dps','valid']],
   ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','depth_cm','left_clearance_cm','right_clearance_cm']],
   ['terrain','Terrain & hump analysis','04','Derived motion and hump estimates.',['motion_class','hump_state','hump_height_cm','run_max_height_cm','valid']],
   ['obstacle','Servo Motor','05','Scan actuator position and avoidance decisions.',['state','servo_angle_deg','bypass_side','route']],
-  ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','distance_m','last_error','last_command_ms']],
+  ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','fault_flags','distance_m','last_error','last_command_ms']],
   ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence']]
 ];
 // Topic names are case-sensitive. Keep the two roots exactly as agreed.
+const wireTopic = 'Robopico/sensors/edr16/v1';
 const topicRoots = { sensors: 'Robopico/sensors', actuators: 'Robopico/Actuators' };
 const sectionTopics = {
   'Left IR': ['sensors','left_ir'],
@@ -38,7 +39,7 @@ const eventTopic = `${topicRoots.actuators}/vehicle_controller/events`;
 let mqttPacket = {};
 const labels = {
   ir_left:['Raw reading'],ir_barcode:['Raw reading'],ir_right:['Raw reading'],
-  encoder_left:['Pulse count'],encoder_right:['Pulse count'],left_speed_mps:['Wheel speed','m/s'],right_speed_mps:['Wheel speed','m/s'],
+  fault_flags:['Motor fault bits'],encoder_left:['Pulse count (mod 4096)'],encoder_right:['Pulse count (mod 4096)'],left_speed_mps:['Wheel speed','m/s'],right_speed_mps:['Wheel speed','m/s'],
   accel_x_mps2:['Acceleration X','m/s²'],accel_y_mps2:['Acceleration Y','m/s²'],accel_z_mps2:['Acceleration Z','m/s²'],
   mag_x_ut:['Magnetic field X','µT'],mag_y_ut:['Magnetic field Y','µT'],mag_z_ut:['Magnetic field Z','µT'],
   heading_deg:['Heading / yaw alias','°'],pitch_deg:['Pitch','°'],roll_deg:['Roll','°'],turn_rate_dps:['Estimated turn rate','°/s'],
@@ -63,16 +64,16 @@ function render(packet={}, mode='Waiting') {
     const supplied=fields.filter(field=>packet[key]?.[field]!==undefined && packet[key]?.[field]!==null).length;
     text(panel,'p',supplied ? `${supplied}/${fields.length} readings supplied · ${mode==='Demo'?'Demo snapshot':mode==='MQTT'?'MQTT messages':'Imported snapshot'}` : 'Awaiting sensor data','sensor-status');
     const [category,section]=sectionTopics[title];
-    text(panel,'p',`${topicRoots[category]}/${section}/+`,'topic-path');
+    text(panel,'p',`MQTT: ${wireTopic}`,'topic-path');
     const list=text(panel,'dl','','fields');
     fields.forEach(field=>{
       const [label,unit]=fieldLabel(field);
       const row=text(list,'div','','field');
-      row.title=`${topicRoots[category]}/${section}/${field}`;
+      row.title=`Display field: ${topicRoots[category]}/${section}/${field}`;
       text(row,'dt',label);
       const dd=text(row,'dd',display(packet[key]?.[field]));
       if(unit)text(dd,'span',unit,'unit');
-      text(row,'code',`${topicRoots[category]}/${section}/${field}`,'field-topic');
+      text(row,'code',`Display field: ${section}/${field}`,'field-topic');
     });
     text(panel,'p',note,'panel-note');
   });
@@ -110,7 +111,7 @@ function receiveMqtt(topic,payload) {
 window.dashboard={
   setTelemetry:packet=>render(validate(packet),'Imported'),
   receiveMqtt,
-  subscriptions:[`${topicRoots.sensors}/#`,`${topicRoots.actuators}/#`],
+  subscriptions:[wireTopic],
   topicBindings,
   eventTopic
 };
@@ -118,12 +119,17 @@ render();
 
 // Python owns the MQTT TCP subscription; the browser polls latest readings.
 if(location.protocol==='http:' || location.protocol==='https:') {
-  let lastSequence=0;
+  let lastSequence=0, receiverId=null;
   async function pollBroker() {
     try {
       const response=await fetch('/api/telemetry',{cache:'no-store'});
       if(!response.ok)throw new Error('Receiver unavailable');
       const snapshot=await response.json();
+      if(receiverId!==snapshot.receiver_id) {
+        if(receiverId!==null)render();
+        receiverId=snapshot.receiver_id;
+        lastSequence=0;
+      }
       for(const message of snapshot.messages) {
         if(message.sequence<=lastSequence)continue;
         try { receiveMqtt(message.topic,message.payload); }
@@ -131,8 +137,11 @@ if(location.protocol==='http:' || location.protocol==='https:') {
       }
       lastSequence=Math.max(lastSequence,...snapshot.messages.map(message=>message.sequence));
       el('connection').textContent=snapshot.status;
+      el('updated').textContent=snapshot.last_received_at
+        ? `Last packet received: ${new Date(snapshot.last_received_at*1000).toLocaleTimeString()}`
+        : 'Last packet received: —';
       el('notice').textContent=snapshot.status==='MQTT subscribed'
-        ? 'Subscribed to Robopico/sensors/# and Robopico/Actuators/# · Waiting for publications or showing latest received values.'
+        ? `Subscribed to ${snapshot.mqtt_topic} · ${snapshot.received_packets} packets decoded · ${snapshot.rejected_packets} rejected · Latest received values; sensor freshness is not encoded.`
         : `${snapshot.status} · Displayed values may be from earlier messages.`;
     } catch(error) {
       el('connection').textContent='Dashboard receiver unavailable';

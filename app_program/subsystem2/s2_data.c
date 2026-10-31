@@ -1,107 +1,44 @@
-/*
- * s2_data.c
- * Snapshot adapters; the shared codec owns all byte order and bit layout.
- */
-
+/* Public snapshots -> pairs of standard EDR16 records. */
 #include "s2_data.h"
 #include "subsystem2.h"
 
-ER s2_motion_encode(uint8_t * const p_payload, const size_t capacity)
+ER s2_motion_encode(uint8_t * const output, const size_t capacity)
 {
     s2_motion_status_t status;
-    edr_motion_t motion = {0};
-    uint8_t payload[EDR_MOTION_SIZE];
+    uint8_t bytes[EDR_MOTION_SIZE];
+    uint16_t motor;
+    unsigned int faults = 0U;
     ER result;
-
-    if ((NULL == p_payload) || (capacity < EDR_MOTION_SIZE))
-    {
-        return E_PAR;
-    }
-
+    if (!output || capacity < sizeof(bytes)) return E_PAR;
     result = s2_motion_get_status(&status);
-    if (result < E_OK)
-    {
-        return result;
-    }
-
-    /* The snapshot getter has decoded validated motor-word ranges. */
-    if (!edr_motor_pack((uint8_t)status.command,
-                        (uint8_t)status.power_percent,
-                        (uint8_t)status.state, &motion.motor))
-    {
-        return E_SYS;
-    }
-
-    if (E_TMOUT == status.last_error)
-    {
-        motion.faults = EDR_FAULT_TIMEOUT;
-    }
-    else if (status.last_error < E_OK)
-    {
-        motion.faults = EDR_FAULT_MOTOR;
-    }
-    else
-    {
-        /* No motor-command fault is present in this snapshot. */
-    }
-
-    motion.command_ms = status.last_command_ms;
-    if (!edr_motion_encode(&motion, payload, sizeof(payload)))
-    {
-        return E_SYS;
-    }
-
-    for (size_t index = 0U; index < EDR_MOTION_SIZE; ++index)
-    {
-        p_payload[index] = payload[index];
-    }
-
+    if (result < E_OK) return result;
+    /* Validate original widths before casting; never wrap an invalid input. */
+    if ((unsigned int)status.command > 6U || status.power_percent > 100U ||
+        (unsigned int)status.state > 2U) return E_SYS;
+    if (!edr_motor_pack((uint8_t)status.command, (uint8_t)status.power_percent,
+                        (uint8_t)status.state, &motor)) return E_SYS;
+    if (status.last_error == E_TMOUT) faults = EDR_FAULT_TIMEOUT;
+    else if (status.last_error < E_OK) faults = EDR_FAULT_MOTOR;
+    if (!edr_encode(EDR_MOTOR_STATUS, motor, bytes, 2U) ||
+        !edr_encode(EDR_MOTOR_FAULTS, faults, bytes + 2, 2U)) return E_SYS;
+    for (size_t i = 0U; i < sizeof(bytes); ++i) output[i] = bytes[i];
     return E_OK;
 }
 
-ER s2_encoder_encode(uint8_t * const p_payload, const size_t capacity)
+ER s2_encoder_encode(uint8_t * const output, const size_t capacity)
 {
     s2_encoder_status_t status;
-    edr_encoder_t encoder = {0};
-    uint8_t payload[EDR_ENCODER_SIZE];
+    uint8_t bytes[EDR_ENCODER_SIZE];
+    uint32_t left, right;
     ER result;
-
-    if ((NULL == p_payload) || (capacity < EDR_ENCODER_SIZE))
-    {
-        return E_PAR;
-    }
-
+    if (!output || capacity < sizeof(bytes)) return E_PAR;
     result = s2_encoder_get_status(&status);
-    if (result < E_OK)
-    {
-        return result;
-    }
-
-    if (0U != status.valid)
-    {
-        /* Unsigned subtraction preserves the count modulo 2^32. */
-        encoder.left_counts = status.motor1_negative_pulses -
-                              status.motor1_positive_pulses;
-        encoder.right_counts = status.positive_pulses - status.negative_pulses;
-        encoder.sampled_ms = status.sampled_ms;
-        /* The getter returns each GPIO level as a single validated bit. */
-        encoder.flags = (uint8_t)(EDR_ENCODER_VALID |
-                         (status.motor1_a_level << 1U) |
-                         (status.motor1_b_level << 2U) |
-                         (status.a_level << 3U) | (status.b_level << 4U));
-    }
-
-    if (!edr_encoder_encode(&encoder, payload, sizeof(payload)))
-    {
-        return E_SYS;
-    }
-
-    for (size_t index = 0U; index < EDR_ENCODER_SIZE; ++index)
-    {
-        p_payload[index] = payload[index];
-    }
-
+    if (result < E_OK) return result;
+    if (!status.valid) return E_OBJ; /* Do not send fake zeros during startup. */
+    left = status.motor1_negative_pulses - status.motor1_positive_pulses;
+    right = status.positive_pulses - status.negative_pulses;
+    if (!edr_encode(EDR_ENCODER_LEFT, left & EDR_DATA_MAX, bytes, 2U) ||
+        !edr_encode(EDR_ENCODER_RIGHT, right & EDR_DATA_MAX, bytes + 2, 2U)) return E_SYS;
+    for (size_t i = 0U; i < sizeof(bytes); ++i) output[i] = bytes[i];
     return E_OK;
 }
-
-/* End of file. */

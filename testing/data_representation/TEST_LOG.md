@@ -1,3 +1,20 @@
+# EDR16 migration verification — 27 October 2026
+
+- Python shared codec: PASS, including all 65,536 words and fixed byte vectors.
+- Python dashboard adapter/receiver: PASS for all IDs, motor expansion,
+  zero bytes, malformed messages, retired topic rejection and text coexistence.
+- ARM GCC 15.2: production shared codec, S1 telemetry/collector/startup and S2
+  adapters compile with -Wall -Wextra -Werror, with networking enabled/disabled.
+- C codec and B1 host test harnesses: compile PASS. All eight B2 test profiles:
+  compile PASS. These ARM binaries have NOT been executed; native GCC/Clang
+  and WSL were unavailable on this machine. Do not call this a full gate PASS.
+- Full firmware link and real Pico/broker tests: NOT RUN.
+
+The record below is historical evidence for the previous EDR envelope. Its
+PASS results do not apply to this migration.
+
+---
+
 # EDR implementation verification
 
 Date: 27 October 2026 (Singapore). No firmware was flashed and no physical

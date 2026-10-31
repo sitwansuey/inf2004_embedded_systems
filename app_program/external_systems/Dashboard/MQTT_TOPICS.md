@@ -1,76 +1,37 @@
-# Dashboard MQTT topics
+# One MQTT topic, multiple dashboard fields
 
-Subscribe to both filters (case-sensitive):
+**Subscribed wire topic:** `Robopico/sensors/edr16/v1`
 
-```text
-Robopico/sensors/#
-Robopico/Actuators/#
-```
+Each payload is exactly two bytes, low byte first. `(word & 15)` identifies the
+reading; `(word >> 4)` supplies the data. The receiver validates before storing
+any values. All mapping below happens locally after unmarshalling; these are
+not additional MQTT subscriptions or publications.
 
-Each dashboard section has its own subtopic, with one leaf topic for each value:
+| ID | Dashboard card | Display fields / conversion |
+|---|---|---|
+| 1 | Left wheel encoder | encoder_left, count modulo 4096 |
+| 2 | Right wheel encoder | encoder_right, count modulo 4096 |
+| 3 | Servo Motor | servo_angle_deg, 0–180 degrees |
+| 4 | Ultrasonic Ranger | distance_cm |
+| 5 | Left IR | ir_left, raw |
+| 6 | Right IR | ir_right, raw |
+| 7 | Barcode IR | ir_barcode, raw |
+| 8–10 | Magnetometer | mag_x_ut / mag_y_ut / mag_z_ut = (data−2048)/10 |
+| 11 | Motor control | direction, power_percent, state |
+| 12 | Motor control | fault_flags, bitmask 0–127 |
+| 13–15 | Accelerometer | accel_x_mps2 / accel_y_mps2 / accel_z_mps2 = (data−2048)*9.80665/1000 |
 
-| Section | Topic prefix |
-| --- | --- |
-| Left IR | `Robopico/sensors/left_ir` |
-| Right IR | `Robopico/sensors/right_ir` |
-| Barcode IR | `Robopico/sensors/barcode_ir` |
-| Left wheel encoder | `Robopico/sensors/left_encoder` |
-| Right wheel encoder | `Robopico/sensors/right_encoder` |
-| Accelerometer | `Robopico/sensors/accelerometer` |
-| Magnetometer | `Robopico/sensors/magnetometer` |
-| Ultrasonic Ranger | `Robopico/sensors/ultrasonic_ranger` |
-| Terrain & hump analysis | `Robopico/sensors/terrain` |
-| Servo Motor | `Robopico/Actuators/servo_motor` |
-| Motor control | `Robopico/Actuators/motors` |
-| Vehicle controller | `Robopico/Actuators/vehicle_controller` |
+The browser keeps legacy-shaped display keys such as
+`Robopico/sensors/left_encoder/encoder_left`. Their only purpose is selecting
+fields in existing cards. The Python receiver does not subscribe to those keys.
 
-The controller is grouped under Actuators as control status. These topics carry status, not movement
-commands. Each exact leaf topic appears below its reading on the dashboard and
-in `window.dashboard.topicBindings`.
+ID 11 extracts command = data & 7, power = (data >> 3) & 127, state = data >> 10.
+Validation rejects command >6, power >100 and state >2. Zero bytes are valid.
+ID zero, wrong lengths, invalid servo angles and invalid fault masks are rejected.
 
-## Payloads
+The prior packed16/v1 topic, individual sensor topics and JSON/event topics
+are not consumed. Demo/JSON import remain explicit browser-only features.
+Supported physical sensors not yet connected remain blank. Additional derived
+fields/events require a future schema change; all nonzero IDs are currently used.
 
-Publish one scalar per leaf: a number, boolean, text, or `null` for unavailable.
-Units appear in field names. For example:
-
-| Topic | Example payload |
-| --- | --- |
-| `Robopico/sensors/left_ir/ir_left` | `650` |
-| `Robopico/sensors/barcode_ir/barcode` | `RIGHT` |
-| `Robopico/sensors/accelerometer/accel_x_mps2` | `0.12` |
-| `Robopico/sensors/ultrasonic_ranger/distance_cm` | `32` |
-| `Robopico/Actuators/servo_motor/servo_angle_deg` | `60` |
-| `Robopico/Actuators/motors/power_percent` | `35` |
-
-Strings that resemble JSON scalars should be JSON-quoted to preserve their type,
-for example barcode `"001"`. Event messages use
-`Robopico/Actuators/vehicle_controller/events` with a JSON object containing
-`time`, `source`, `level`, and `message`.
-
-## Dashboard adapter
-
-The Python MQTT receiver automatically forwards messages to the browser. Manual routing tests can call:
-
-```javascript
-window.dashboard.receiveMqtt(topic, payload);
-```
-
-Updates merge into the displayed MQTT data without clearing other readings.
-Unknown topics return `false`; recognized messages return `true`. Invalid reading
-objects/arrays throw an error. Demo, reset and JSON import clear accumulated MQTT
-data, so sample values cannot masquerade as readings after the first MQTT update.
-
-To test the routing in the browser console without a broker:
-
-```javascript
-dashboard.receiveMqtt('Robopico/sensors/left_ir/ir_left', '650');
-dashboard.receiveMqtt('Robopico/Actuators/servo_motor/servo_angle_deg', '60');
-```
-
-Run `dashboard.py` to subscribe automatically to localhost:1883 and serve the
-browser at http://127.0.0.1:8001. Install `requirements.txt` first. Use `--broker`
-and `--mqtt-port` for other addresses. Firmware still needs to publish sensor
-values on these topics; existing firmware heartbeats are unchanged. Browser
-updates poll latest readings every 250 ms. Samples superseded between polls are
-not plotted or archived. The receiver caches readings for new browser tabs;
-publish with retain if new receiver processes also need the latest values.
+Full bit layout: [DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md).

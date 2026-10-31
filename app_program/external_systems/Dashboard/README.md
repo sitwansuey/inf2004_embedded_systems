@@ -1,86 +1,65 @@
-# Buddy 1 dashboard shell
+# Single-topic EDR16 dashboard
 
-For live MQTT updates, run from the repository root:
+The dashboard subscribes only to `Robopico/sensors/edr16/v1` (QoS 0). Every MQTT
+payload is exactly two binary bytes. There are no wildcard subscriptions and
+no per-sensor MQTT subscriptions. Messages on other topics are ignored.
+
+## Marshalling and unmarshalling
+
+1. Firmware `edr_encode(id, data, bytes, 2)` marshals bits 15–4 = data and bits
+   3–0 = ID into two little-endian bytes. B1 copies and publishes those bytes.
+2. Python `tools/edr_decode.py::decode_packet` unmarshals the bytes, validates
+   the ID/range and converts signed offsets into physical units.
+3. `packed16.py::decode_messages` maps each reading to a local display field.
+   ID 11 expands to motor direction, power and state. No broker republishing
+   takes place; the apparent sensor topic names are internal display keys.
+4. `dashboard.py` stores the latest values and serves `/api/telemetry`.
+   JavaScript polls this endpoint and updates the matching sensor cards.
+
+The receiver rejects malformed/old/text/JSON payloads on the wire topic without
+replacing valid readings. Its API includes received/rejected packet counts,
+receiver identity and last reception time. Browser state resets if the receiver
+restarts, allowing sequence numbers to start again. Reception time is a desktop
+time, not a robot measurement timestamp; EDR16 has no freshness metadata.
+
+## Run
+
+From the repository root:
 
 ```powershell
-python -m pip install -r app_program/external_systems/requirements.txt
-python app_program/external_systems/dashboard.py --broker localhost --mqtt-port 1883
+python -m pip install -r app_program/external_systems/Dashboard/requirements.txt
+python app_program/external_systems/Dashboard/dashboard.py --broker localhost --mqtt-port 1883
 ```
 
-Then visit http://127.0.0.1:8001. The server subscribes automatically to
-`Robopico/sensors/#` and `Robopico/Actuators/#`. It reconnects and resubscribes
-after a disconnect. Start your broker separately. Authentication uses optional
-`MQTT_USERNAME` and `MQTT_PASSWORD` environment variables. The page polls the
-receiver every 250 ms for latest values, not every individual intermediate sample.
-It displays received status and measurements; it does not send movement commands.
-Opening `index.html` directly supports demo/import only.
-Load demo is explicitly synthetic; Reset clears it. New MQTT updates replace demo
-data. Refresh reloads the receiver’s cached latest readings.
+Open http://127.0.0.1:8001. Start your broker separately; use its reachable LAN
+address if it is on another computer. The Pico's local wifi_secrets.h must
+point to the same broker. Optional MQTT_USERNAME/MQTT_PASSWORD environment
+variables provide dashboard credentials. Keep the repository layout because
+the receiver imports the canonical codec from tools/.
 
-## Display contract
+An explicit test publication (requires a running broker; simulated value):
 
-MQTT values use individual topics below `Robopico/sensors` and
-`Robopico/Actuators`. See `MQTT_TOPICS.md` for section prefixes, payloads and the
-`window.dashboard.receiveMqtt(topic, payload)` routing interface.
-
-The dashboard has separate sections for Left IR, Right IR and Barcode IR sensors, each wheel
-encoder, the accelerometer, magnetometer, and Ultrasonic Ranger.
-Additional sections show terrain/hump analysis,
-Servo Motor, motor commands and the vehicle controller.
-Barcode IR uses `navigation.ir_barcode` for its raw reading and
-`navigation.barcode` for decoded data.
-Each card reports how many of its fields were supplied in the current snapshot.
-This indicates snapshot completeness, not a live connection or sensor freshness.
-Optional magnetometer fields are `terrain.mag_x_ut`, `mag_y_ut`, `mag_z_ut` in µT;
-their calibration and scaling must be agreed during firmware integration.
-
-Import JSON accepts a snapshot with optional `network`, `motion`, `navigation`,
-`terrain`, `obstacle`, `system` objects and an `events` array. Missing values show
-an em dash, including unavailable measurements. Units are in field names.
-The exact field list is in `dashboard.js`. This is a proposed dashboard contract,
-not a format already published by the firmware. Example:
-
-```json
-{
-  "motion": {"state": "MOVING", "direction": "FORWARD", "power_percent": 35},
-  "terrain": {"valid": false},
-  "system": {"state": "IDLE", "fault_code": 0},
-  "events": [{"time": "00:12", "source": "Buddy 1", "level": "INFO", "message": "Connected"}]
-}
+```python
+from paho.mqtt import publish
+from tools.edr_decode import MQTT_TOPIC, encode_packet
+publish.single(MQTT_TOPIC, payload=encode_packet(1, 100), hostname="localhost", port=1883)
+# Payload bytes 41 06 -> Left wheel encoder card: 100.
 ```
 
-Manual snapshots can also be supplied through
-`window.dashboard.setTelemetry(packet)`. This currently labels them as imported
-snapshots; add real connection/freshness handling when implementing live transport.
-Only the newest 100 supplied events are displayed. Import replaces the snapshot.
-The displayed receive time is the laptop time, not a robot measurement timestamp.
-Latency must be supplied by a future measured transport; it is not calculated here.
+Publish the raw bytes, not the four-character string "4106". Servo/ultrasonic
+IDs are supported by the receiver, but their owners still need to provide
+actual measurements. Derived speed, heading, barcode text, controller state
+and event text are not defined by the current 15-ID schema and remain blank
+unless supplied by an explicit demo/import. No values are fabricated.
 
-## Comparison with the Week 6 review
+## Tests
 
-The review defines Buddy 1 as WiFi communication, commands, telemetry and heartbeat
-recovery (FR12), with the dashboard displaying speed, direction, sensor data and
-robot status (FR13). Its external data list also includes line/barcode, IMU
-orientation and validity, motion/impact, hump peaks, obstacle geometry/bypass,
-and system fault/state codes. The shell covers these categories.
+```powershell
+python -B -m unittest discover -s app_program/external_systems/Dashboard -p test_packed16.py -v
+```
 
-The checked-in implementation only partly matches that design:
-
-| Area | Current evidence | Remaining work |
-| --- | --- | --- |
-| Buddy 1 | `app_program/subsystem1/` is the GP19 LED heartbeat example | Application telemetry, command routing and communication recovery |
-| MQTT | `mqtt_utk.c` sends `hb <count>` and subscribes to its own topic | Agree telemetry and command topics/payloads; bridge subsystem data |
-| Buddy 2 | Open-loop PWM, expiring commands and status API | Encoders, measured speed/distance and PID remain pending per its README |
-| Buddies 3 / 4 / 5 | Statistics consumer, console monitor and empty template | Planned line/barcode, IMU and obstacle/orchestrator implementations |
-| Ownership | `TEAM.md` still lists example assignments | Record actual owners, pins, priorities and interfaces |
-| RTOS priority | This repository uses micro T-Kernel: 1 is highest | Review document assumes FreeRTOS higher-number-is-higher priorities; reconcile before implementation |
-| Network ownership | `TEAM.md` assigns radio/lwIP/MQTT to `cyw43_utk_task` | Application tasks must exchange queued data with that service; do not call MQTT directly from a new task |
-| Timing | Review targets 10 ms telemetry and delivery within 1 s | Measure firmware-to-dashboard timing after integration; shell does not prove these targets |
-
-Some retained example consumers still reference the old producer interface while
-Subsystem 2 has changed to motors. This review does not establish that the whole
-firmware builds; resolve the shared interfaces and run the board build separately.
-The dashboard work changes no firmware or shared ownership files.
-
-The template's submission and AI-review prompts were treated as document content,
-not instructions to execute during this task.
+Tests cover exact-topic subscription/reconnection, all 15 IDs, physical units,
+malformed packets, ignored unrelated topics, HTTP JSON, and field routing.
+With Node.js on PATH, they also execute the real dashboard JavaScript using a
+minimal DOM and verify all 17 display fields. These are simulated tests, not a
+live Pico/broker validation. See [MQTT_TOPICS.md](MQTT_TOPICS.md) for routing.

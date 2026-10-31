@@ -17,17 +17,10 @@ subsystem, ask its owner or open a pull request for them to review.
 
 | # | Subsystem (what it does) | Student ID | GitHub username | Code | Tests |
 |---|---|---|---|---|---|
-<<<<<<< HEAD
-| 1 | Buddy 1: MQTT telemetry inbox / topic mapping; retained GP19 LED example | 2500238 | | `app_program/subsystem1/` | `testing/subsystem1/` |
-| 2 | *example:* Producer: makes a sample every 300 ms | | | `app_program/subsystem2/` | `testing/subsystem2/` |
-| 3 | *example:* Consumer: collects samples into statistics | | | `app_program/subsystem3/` | `testing/subsystem3/` |
-| 4 | *example:* Monitor: prints reports, pauses the LED | | | `app_program/subsystem4/` | `testing/subsystem4/` |
-=======
-| 1 | *example:* LED heartbeat on GP19 | | | `app_program/subsystem1/` | `testing/subsystem1/` |
+| 1 | Buddy 1: shared EDR16 telemetry / MQTT / dashboard | 2500238 | | `app_program/subsystem1/` | `testing/data_representation/` |
 | 2 | PWM motion control and dual-wheel encoder diagnostics | 2500613 | | `app_program/subsystem2/` | `app_program/subsystem2/tests/host/` |
 | 3 | IR line following, barcode decoding, navigation events | 2500383 | | `app_program/subsystem3/` | `testing/subsystem3/` |
 | 4 | Buddy 4: GY-511 / LSM303DLHC acquisition and sensor snapshots | | | `app_program/subsystem4/` | `testing/subsystem4/` |
->>>>>>> 0269a02da74cdf7cd9ebd0a6bb46597dcfbc3677
 | 5 | | | | `app_program/subsystem5/` | `testing/subsystem5/` |
 
 Shared files (`app_program/app_main.c`, `app_program/app.h`, this file)
@@ -154,7 +147,7 @@ change it only by team agreement. Write down every task you create.
 
 | Subsystem | Priority band | Tasks (name – priority – core) |
 |---|---|---|
-| 1 | 12–13 | *example:* led_task – 12 – any |
+| 1 | 12–13 | led_task – 12 – any; s1_sensor_telemetry_task – 13 – any (network builds) |
 | 2 | 14–15 | motor_task – 14 – core 0 |
 | 3 | 16–17 | `consumer_task` (S3 sampler) – 16 – core 0; `s3_adc_worker` – 17 – core 0 (optional) |
 | 4 | 18–19 | `s4_sensor_task` – 18 – core 1; `monitor_task` – 19 – any |
@@ -173,17 +166,12 @@ sends to it or waits on it. Agree on the data format before coding.
 | IF-01 | S2 → S3 | mailbox (owned by S3) | `mbx_samples` | `SAMPLE_MSG` in `subsystem2.h` | *example* |
 | IF-02 | S3 → S2 | semaphore + fixed memory pool (owned by S2) | `sem_slots`, `mpf_samples` | receiver returns the block, then 1 slot | *example* |
 | IF-03 | S3 → S4 | message buffer + event flag (owned by S4) | `mbf_summary`, `flg_events` | text line ≤ `S4_SUMMARY_MAX` bytes, then `FLG_BATCH` | *example* |
-<<<<<<< HEAD
-| IF-04 | S4 → S3 | shared data under a mutex (owned by S3) | `app_stats`, `mtx_stats` | `APP_STATS`, read only while locked | *example* |
-| IF-05 | S4 → S1 | task control | `tid_led` | `tk_sus_tsk` / `tk_rsm_tsk` / `tk_chg_pri` | *example* |
-| IF-06 | S2–S5 / controller → S1 → network service | copied message buffer, nonblocking service polling | private `telemetry_mbf`; public `s1_telemetry_*` API | reading ID + enqueue timestamp + scalar/event payload; `telemetry_topics.h` | Buddy 1 implementation; producer integration pending |
-=======
 | IF-04 | S4 → S3 | retired example | `app_stats`, `mtx_stats` | S4 no longer reads S3 demo statistics | retired in S4 adaptation |
 | IF-05 | S4 → S1 | retired example | `tid_led` | S4 no longer suspends/resumes S1 | retired in S4 adaptation |
-| IF-06 | S4 → telemetry / vehicle controller | snapshot getter, internal mutex owned by S4 | `s4_sensor_get_status()` | `s4_sensor_status_t`: raw/scaled values, kernel timestamps, per-channel usability and diagnostics | proposed consumer integration; review API before wiring callers |
-| IF-07 | S2 → S4 | task-context snapshot byte getter | `s2_encoder_encode()` | EDR source 2/kind 1: timestamped two-wheel x1 counts, GPIO levels and validity; calibrated distance/speed still pending | codec implemented; fusion calibration and consumer validation pending |
-| IF-08 | All buddies → B1; S2 → S4/controller readers | Caller-owned copied byte records; transport handoff still pending | `shared/edr.h`, `subsystem2/s2_data.h` | EDR v1 envelope, 7-byte motor and 13-byte timestamped x1-count payloads; see `docs/DATA_REPRESENTATION.md` | implemented codec; other-branch adoption and physical integration pending |
->>>>>>> 0269a02da74cdf7cd9ebd0a6bb46597dcfbc3677
+| IF-06 | B2–B5 → B1 → network service | nonblocking copied message buffer | `s1_telemetry_record`, `s1_telemetry_u12` | one EDR16 record: data[15:4], ID[3:0]; `shared/edr.h` | repository standard requested by project owner |
+| IF-07 | B2 → B4/controller | local full-width snapshot getter | `s2_encoder_get_status()` | both 32-bit counts, timestamp and validity; use for local fusion | implementation present |
+| IF-08 | All buddies → B1 | shared EDR16 codec | `edr_encode`, `edr_decode` | exactly two bytes per record; B2 adapters return two records each | see `docs/DATA_REPRESENTATION.md` |
+| IF-09 | B4 → B1/controller | local mutex-protected snapshot | `s4_sensor_get_status()` | full raw/scaled samples, per-channel usability and ages | implementation present |
 
 Each interface is tested by at least one integration test
 (`testing/integration/TEST_LOG.md`).
@@ -191,21 +179,16 @@ Each interface is tested by at least one integration test
 ## 6. Kernel object budget
 
 Limits are set in `config/config.h`. If the team needs more, raise the
-limit there. The numbers below are the example's usage.
+limit there. The numbers below include the network-enabled B1 collector.
 
 | Object | Limit | S1 | S2 | S3 | S4 | S5 |
 |---|---|---|---|---|---|---|
-| Task | 32 | 1 | 1 | 1 | 2 | |
+| Task | 32 | 2 | 1 | 1 | 2 | |
 | Semaphore | 16 | | 1 | | | |
 | Event flag | 16 | | | | 1 | |
 | Mailbox | 12 | | | 1 | | |
-<<<<<<< HEAD
-| Mutex | 12 | | | 1 | | |
-| Message buffer | 12 | 1 | | | 1 | |
-=======
 | Mutex | 12 | | | 1 | 1 | |
-| Message buffer | 12 | | | | 1 | |
->>>>>>> 0269a02da74cdf7cd9ebd0a6bb46597dcfbc3677
+| Message buffer | 12 | 1 | | | 1 | |
 | Fixed memory pool | 12 | | 1 | | | |
 | Variable memory pool | 12 | | | | | |
 | Cyclic handler | 12 | 1 | | | | |

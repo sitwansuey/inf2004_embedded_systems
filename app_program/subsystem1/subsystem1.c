@@ -48,5 +48,11 @@ EXPORT ER subsystem1_start(void)
 	if (tid_led < E_OK) {
 		return tid_led;
 	}
+#if defined(TM_NET_LWIP) && TM_NET_LWIP && defined(TM_MQTT) && TM_MQTT
+    {
+        ID telemetry_task = app_start_task(s1_sensor_telemetry_task, 13, 0, "s1_telemetry");
+        if (telemetry_task < E_OK) return telemetry_task;
+    }
+#endif
 	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
 }

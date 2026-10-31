@@ -1,273 +1,136 @@
-# Shared external data representation (EDR v1)
+# Repository external data representation: EDR16 v1
 
-Buddy 2 implements the motor and encoder records below. All five buddies can
-use the envelope and pure C codec in `app_program/shared/edr.h`. This is the
-implementation contract for this change; adoption by the other branches and
-physical integration still need verification.
-
-## Requirements and scope
-
-Source material: `Week8_Tribunal1_Template (2).docx` and
-`Change Requirement 1.docx`, supplied for this task. The relevant tribunal
-decisions are the 3/7/2-bit motor fields, a common binary contract, encoder
-decoding for Buddy 4, the existing kernel clock, and separate controller and
-telemetry paths. CR1 also asks for range, RAM, message-size and timing evidence.
-The source Word files are unchanged; meeting declarations and planned tests are
-not treated as completed engineering evidence.
-
-Implemented here:
-
-- Explicit masks/shifts for authoritative Buddy 2 motor storage and messages.
-- One portable byte format, checked encoders/decoders and snapshot adapters.
-- A common five-buddy envelope and shared fault-bit assignments.
-- A Python receiver and C/Python test vectors.
-
-This does not implement another buddy's algorithms, a Vehicle Controller,
-MQTT transport, PID, distance calibration, stall detection, or terrain fusion.
-Those features are absent or incomplete in this checkout. In particular, the
-full application still refers to retired `SAMPLE_MSG` demo interfaces.
-
-## Envelope: one record per MQTT payload
-
-All offsets are zero-based. Multibyte integers are **little-endian**. Bit zero
-is the least significant bit. Use byte APIs and explicit lengths, including
-embedded zero bytes; never `strlen`, `%s`, raw struct copies, C bit-field
-layout, `#pragma pack`, or enum memory layout as the transport format.
-
-| Byte | Bits | Meaning | Valid range |
-|---|---|---|---|
-| 0 | 0..2 | Source buddy | 1..5; 0, 6, 7 rejected |
-| 0 | 3..5 | Source-local record kind | 0..7 |
-| 0 | 6..7 | Protocol version | 1; all other versions rejected |
-| 1 | 0..7 | Payload length in bytes | 0..255 |
-| 2 onward | All | Owner-defined payload | Exactly the advertised length |
-
-The source needs three bits for five buddies. Kind is an eight-slot protocol
-namespace per owner; version is a four-slot protocol namespace. These are
-framing metadata rather than widened sensor values. The maximum payload is a
-protocol bound, not a requirement to allocate 255 bytes for every record.
-Use a 9-byte packet for motor status and a 15-byte packet for encoders.
-MQTT supplies the record boundary; the explicit length also detects a wrong
-record size or an accidental NUL-terminated transport. It is not a checksum.
-
-`edr_frame_decode()` checks only framing and returns a borrowed payload view.
-Its buffer must remain alive while the view is used. Route by **both** source
-and kind, then invoke the owner's checked decoder. Unknown record kinds must
-not be interpreted as motor commands or sensor values. No decoder actuates
-hardware or authorizes movement.
-
-| Buddy | Source | Implemented records | Integration responsibility |
-|---|---|---|---|
-| 1, networking | 1 | Payload definitions pending | Copy bounded byte records; publish actual length inside the network-owning task |
-| 2, motors | 2 | Kind 0 motion; kind 1 encoders | Produce records using `s2_data.h` |
-| 3, line/barcode | 3 | Payload definitions pending | Define actual sensor/state bounds and retain local freshness checks |
-| 4, IMU/terrain | 4 | Payload definitions pending | Consume kind 1 encoder samples; define sensor scale, validity and event formats |
-| 5, obstacles/controller | 5 | Payload definitions pending | Define actual controller/obstacle ranges; retain command arbitration |
-
-The codec accepts other sources without imposing guessed sensor ranges. Each
-owner must add a field table, checked payload codec and shared vectors before
-claiming that their application data satisfies CR1.
-
-## Buddy 2 field representation table
-
-| Application field | Valid values / units | Required bits | Stored / transmitted representation |
-|---|---|---:|---|
-| Movement command | Seven codes, 0..6 | 3 | Motor word bits 0..2; 7 rejected |
-| PWM power | Integer 0..100 percent | 7 | Motor word bits 3..9; 101..127 rejected |
-| Motion state | Three codes, 0..2 | 2 | Motor word bits 10..11; 3 rejected |
-| Motor-word padding | No application value | 0 | Container bits 12..15 must be zero |
-| Shared faults | Seven independent conditions | 7 | One byte, bits 0..6; bit 7 rejected |
-| Command timestamp | Boot milliseconds modulo 2^32 | 32 | `uint32_t`, four little-endian bytes |
-| Left/right position | Cumulative signed x1 count modulo 2^32 | 32 each | Two unsigned 32-bit containers; no narrowing or saturation |
-| Encoder timestamp | Boot milliseconds modulo 2^32 | 32 | `uint32_t`, four little-endian bytes |
-| Encoder usable flag | False/true | 1 | Flags bit 0 |
-| Four encoder GPIO levels | Low/high for left A/B and right A/B | 1 each | Flags bits 1..4 |
-| Encoder flags padding | No application value | 0 | Bits 5..7 must be zero |
-| Exact kernel error | Signed `ER` domain, not a bounded application state | 32 retained | Internal diagnostic; external status maps to fault bits |
-| Diagnostic positive/negative pulse and edge counters | 0..2^32-1, modulo cumulative counters | 32 each | Existing ISR-owned atomic counters; omitted from routine telemetry |
-| Encoder readiness / sequence | Cross-core atomic protocol metadata | 32 each | Existing aligned atomic words, not packed read-modify-write flags |
-
-Native `s2_motion_status_t` and `s2_encoder_status_t` remain compatibility views
-at the RTOS API boundary. Their `sizeof` is not the wire size. Kernel mailbox
-headers, pointers, object IDs, locks, allocator alignment, arithmetic
-intermediates and temporary decoded values are not serialized application
-fields. Public callers must rebuild because the internal movement-message
-layout and encoder snapshot declaration changed.
-
-Command codes: STOP=0, FORWARD=1, REVERSE=2, LEFT=3, RIGHT=4,
-PIVOT_RIGHT=5, PIVOT_LEFT=6. LEFT rotates counterclockwise; RIGHT rotates
-clockwise. Power is commanded PWM percentage, **not measured wheel speed**.
-Motion states: STOPPED=0, MOVING=1, FAULT=2. Codecs validate field ranges;
-the motor owner retains normalization and safety rules such as STOP/zero
-power, command renewal and expiry. A syntactically valid word alone is never
-movement authorization.
-
-## Motion record (source 2, kind 0): 7-byte payload
-
-| Payload offset | Size | Field |
-|---|---:|---|
-| 0 | 2 bytes | 12-bit motor word, little-endian |
-| 2 | 1 byte | Shared fault mask |
-| 3 | 4 bytes | Time the last command was issued, low kernel milliseconds |
-
-Fault allocation: bit 0 motor stall, 1 encoder fault, 2 IMU fault, 3 no echo,
-4 Wi-Fi loss, 5 motor command timeout, 6 other motor/driver error. Bit 7 is
-reserved and rejected. Buddy 2 currently emits only timeout or other motor
-error from its existing error status. A zero stall bit is **not** proof that
-stall detection exists. Other owners must explicitly report their own faults;
-this adapter does not manufacture a combined whole-vehicle health report.
-The exact `last_error` remains available through the native status getter.
-
-`command_ms` is not a periodic sample timestamp or a renewed authorization
-lease for the receiver. A stopped vehicle can legitimately have an old
-command time. Use packet arrival/connection health for dashboard liveness;
-do not equate receipt of telemetry with continued movement permission.
-
-## Encoder record (source 2, kind 1): 13-byte payload
-
-| Payload offset | Size | Field |
-|---|---:|---|
-| 0 | 4 bytes | Left wheel forward count, modulo 2^32 |
-| 4 | 4 bytes | Right wheel forward count, modulo 2^32 |
-| 8 | 4 bytes | Capture time, low kernel milliseconds |
-| 12 | 1 byte | valid, left A, left B, right A, right B in bits 0..4 |
-
-Left is motor 1: negative pulses minus positive pulses. Right is motor 2:
-positive pulses minus negative pulses, matching the current wiring signs.
-These are measured **x1 rising-A counts**, not four-times quadrature counts.
-The GPIO bits describe sampled levels; pulse counters remain authoritative.
-
-An invalid/startup record is exactly thirteen zero bytes. Invalid records
-with nonzero counts, time or GPIO flags are rejected. Timestamp zero with
-valid=1 is legitimate at boot or rollover. Disabled encoders return `E_NOSPT`
-from the adapter and leave the output unchanged; do not publish that old
-buffer as a new valid sample. Enabled-but-not-started acquisition returns
-`E_OK` with the all-zero invalid record.
-
-The getter samples `tk_get_tim().lo` inside the successful sequence-checked
-count/GPIO copy. Any intervening encoder IRQ causes a retry. A clock failure
-returns the kernel error and clears the native output; the byte adapter
-leaves its caller's output unchanged. This is a count-snapshot time, not an
-individual edge timestamp or a guaranteed periodic acquisition interval.
-
-## Time, signed counts and Buddy 4 consumption
-
-All local times use the existing kernel boot clock; there is no extra clock
-task. EDR stores its low 32 bits in milliseconds, wrapping every 49.71 days.
-Buddy 4 currently exposes kernel milliseconds scaled to microseconds in a
-64-bit value: convert units explicitly before comparing with an EDR sample.
-
-Compute age as unsigned `(now_ms - sampled_ms)`. Use
-`edr_age_is_fresh(now_ms, sampled_ms, maximum_ms)` only with an agreed maximum
-below 2^31 ms (24.85 days), and discard history on reset/reboot/reconnect.
-It accepts ages up to and including the configured limit. No timestamp-only
-scheme can identify a reboot or a sample retained for a whole clock wrap.
-Do not compare a PC wall clock or MQTT arrival time to the kernel boot clock.
-Consumers still need source validity, an agreed age limit, and alignment with
-their own sensor samples. The representation does not establish that limit.
-
-For interval position use `edr_count_delta(current, previous, &delta)`.
-It subtracts unsigned modulo-32 counts, then converts only a proven signed
-range. Exactly 2^31 ticks is ambiguous and rejected. Consumers must sample
-often enough that actual motion is less than 2^31 ticks per interval; a
-larger movement can alias to the opposite sign. Reject invalid/old samples,
-zero elapsed intervals and ambiguous deltas. Reinitialize after reboot or
-loss of history; do not compute an interval from an invalid startup sample.
-
-Only after measuring ticks per wheel revolution and wheel circumference can
-Buddy 4 calculate distance or speed. Combine **measured** wheel intervals
-with sensor intervals; never infer distance from PWM percentage. No such
-calibration or hump-height accuracy is claimed by these tests.
-
-## Integration and concurrency
-
-Include `../shared/edr.h` from any subsystem. Buddy 2 producers additionally
-include `../subsystem2/s2_data.h`. A telemetry producer calls the corresponding
-snapshot adapter, checks `E_OK`, wraps the exact payload with
-`edr_frame_encode()`, and hands a **copy plus actual byte length** to Buddy 1.
-Use source 2 and kind 0/1. The codec takes caller-owned storage, has no mutable
-globals, performs no allocation, and is reentrant for distinct buffers.
-Input/output storage must not overlap. A false/error result leaves outputs
-untouched, so callers must check it rather than transmit a previous packet.
-
-For example, the local construction of a motor telemetry packet is:
+EDR16 is the common binary telemetry standard for all buddies. Each record is
+one uint16_t: bits 0–3 identify the reading and bits 4–15 hold its unsigned data.
+Transmit exactly two bytes, least-significant byte first. No source/length
+header is prepended. Use explicit byte lengths, never strlen or native structs.
+The MQTT topic `Robopico/sensors/edr16/v1` identifies this protocol/version.
 
 ```c
-uint8_t payload[EDR_MOTION_SIZE];
-uint8_t packet[EDR_HEADER_SIZE + EDR_MOTION_SIZE];
-size_t packet_size = 0U;
-ER result = s2_motion_encode(payload, sizeof(payload));
+word = (data << 4) | id;
+id = word & 0x000f;
+data = word >> 4;
+```
 
-if (E_OK == result)
-{
-    if (edr_frame_encode(EDR_SOURCE_MOTOR, EDR_KIND_MOTION,
-                         payload, sizeof(payload), packet, sizeof(packet),
-                         &packet_size))
-    {
-        /* Copy packet_size bytes into Buddy 1's agreed telemetry handoff. */
-    }
+The canonical C definition is `app_program/shared/edr.h`; the canonical Python
+codec is `tools/edr_decode.py`. Buddy 1's packed16 header is a compatibility alias,
+and the dashboard adapter imports the common Python codec. Do not add another
+independent packing scheme in a buddy's folder.
+
+| ID | Binary | Owner / reading | Meaning of the 12-bit data |
+|---|---|---|---|
+| 1 | 0001 | B2 left encoder / motor 1 | cumulative forward count modulo 4096 |
+| 2 | 0010 | B2 right encoder / motor 2 | cumulative forward count modulo 4096 |
+| 3 | 0011 | B5 servo | whole degrees, 0–180 |
+| 4 | 0100 | B5 ultrasonic | whole centimetres, 0–4095 |
+| 5 | 0101 | B3 left IR | raw reading, 0–4095; digital mode 0/1 |
+| 6 | 0110 | B3 right IR | raw reading, 0–4095; digital mode 0/1 |
+| 7 | 0111 | B3 barcode IR | raw reading, not decoded text |
+| 8 | 1000 | B4 magnetometer X | milligauss + 2048 |
+| 9 | 1001 | B4 magnetometer Y | milligauss + 2048 |
+| 10 | 1010 | B4 magnetometer Z | milligauss + 2048 |
+| 11 | 1011 | B2 motor status | command[2:0], power[9:3], state[11:10] |
+| 12 | 1100 | B2 motor fault flags | fault bit mask, 0–127; bits 7–11 zero |
+| 13 | 1101 | B4 accelerometer X | milligravity (mg) + 2048 |
+| 14 | 1110 | B4 accelerometer Y | milligravity (mg) + 2048 |
+| 15 | 1111 | B4 accelerometer Z | milligravity (mg) + 2048 |
+
+ID zero is reserved and rejected. All fifteen nonzero IDs are assigned. A new
+reading type requires a versioned schema decision, not reuse of an existing ID.
+Out-of-range inputs are rejected without changing output buffers. Offset-binary
+magnetic/acceleration helpers accept -2048…2047. Magnetic display is (data-2048)/10
+uT; acceleration display is (data-2048)*9.80665/1000 m/s². The latter covers the
+current +/-2 g acquisition range to the stated integer bounds; clipped or
+out-of-range samples are skipped. No float printf is required on the Pico.
+
+## Buddy 2 motor and encoder distinction
+
+The physical encoder supplies GPIO transitions. Buddy 2's code counts those
+transitions into full-width counters. Its older uint16_t motor variable is
+software-packed COMMAND/POWER/STATE, not a hardware encoder packet.
+
+The existing motor variable is now the 12-bit DATA field of ID 11. Command
+codes 0–6 mean stop, forward, reverse, left, right, pivot-right, pivot-left.
+Power is 0–100; states 0–2 mean stopped, moving, fault. Other combinations are
+rejected. In the complete record, command occupies bits 4–6, power 7–13, state
+14–15, and the bottom four bits are 1011.
+
+ID 12 retains the shared fault bit assignments: stall 0x01, encoder 0x02,
+IMU 0x04, no-echo 0x08, Wi-Fi 0x10, timeout 0x20, motor 0x40. The current B2
+adapter populates timeout or motor error only; it does not invent sensor faults.
+
+Examples (wire bytes shown in transmission order):
+
+- Left count 100: word 0x0641, bytes `41 06`.
+- Left count 0: word 0x0001, bytes `01 00` (zero bytes are valid).
+- Forward, 30 percent, moving: data 0x04f1, record 0x4f1b, bytes `1b 4f`.
+- Timeout flag: word 0x020c, bytes `0c 02`.
+- Magnetic X zero: word 0x8008, bytes `08 80`.
+
+## APIs and handoff
+
+`edr_pack` / `edr_unpack` handle uint16_t words. `edr_encode` / `edr_decode`
+handle two-byte wire records and exact lengths. They return false on errors.
+`edr_motor_pack` produces only the 12-bit motor DATA, not a full record.
+
+`s2_motion_encode` returns four bytes: ID 11 followed by ID 12.
+`s2_encoder_encode` returns four bytes: ID 1 followed by ID 2.
+Each is a pair of independent two-byte records, NOT a 32-bit EDR packet.
+Their error returns leave the caller's output untouched. Encoder startup with
+no valid sample returns E_OBJ; disabled encoders return E_NOSPT.
+
+```c
+uint8_t records[EDR_ENCODER_SIZE];
+if (s2_encoder_encode(records, sizeof(records)) == E_OK) {
+    ER left = s1_telemetry_record(records, EDR_RECORD_SIZE);
+    ER right = s1_telemetry_record(records + EDR_RECORD_SIZE, EDR_RECORD_SIZE);
+    /* Check both results; queue-full means drop/retry later, never block control. */
 }
 ```
 
-Buddy 4 can obtain and decode `s2_encoder_encode()` locally without MQTT.
-First check the API result, then `edr_encoder_decode()`, then valid, age and
-alignment. Buddy 1's dashboard uses `tools/edr_decode.py` with the same field
-map. New owners can add source-local record kinds without touching Buddy 2.
+All buddies may include `../shared/edr.h`, encode their assigned reading, and
+call Buddy 1's `s1_telemetry_record(bytes, 2)` in task context. That validates and
+copies the record into the nonblocking RTOS queue. Convenience APIs accept an
+ID/raw value, magnetic mG, or acceleration mg. Servo/ultrasonic owners must
+supply real valid measurements; this checkout has no public getters for them.
 
-The motor task remains the sole PWM writer; packing adds no actuator owner.
-The motor command pool contains copied packed words and original issue times.
-The shared status semaphore protects the **entire** packed snapshot on both
-cores. Encoder counters retain single-ISR ownership and sequence-checked
-atomic loads. Never update one packed field through an unprotected
-read-modify-write, share a scratch packet buffer, or enqueue a pointer to a
-stack buffer without copying it. The pure codec does not synchronize a
-caller's shared buffer for them.
+B1's 250 ms task reads B2's adapters and fresh usable B3/B4 snapshots. It sends
+up to 13 records per pass. B1 alone bridges the queue into the existing network
+owner; only cyw43_utk_task calls lwIP/MQTT. MQTT drains at most four queued
+messages per visit. The 16-slot queue still accommodates legacy text/events,
+so its storage is not two bytes per slot. Binary wire payloads are two bytes.
 
-The existing controller bind/access check and command watchdog remain in
-force. Remote movement command ingestion is not implemented. A network
-receiver must validate a separately agreed command contract and hand it to
-the Vehicle Controller, which arbitrates before calling Buddy 2. Telemetry
-and MQTT reconnects must not renew a movement command.
+## Migration and limits
 
-Buddy 1 still needs a bounded copied telemetry queue, nonblocking consumption
-inside the network-owning task, explicit full-buffer handling, publication
-rate and disconnect policy. Application tasks must not call lwIP/MQTT/CYW43
-directly. No new shared RTOS object or network API is silently introduced by
-this change. A full movement pool can still reject STOP; retain result
-checking and validate the existing watchdog under concurrent load.
+This replaces the old source/kind/version/length envelope and its 9-byte motor
+and 15-byte encoder messages. Old frame/variable-payload APIs were removed;
+old packets are rejected by the current decoder. Firmware and dashboard must
+be updated together. The earlier B1-only packed16 MQTT topic is retired.
 
-## BARR-C and verification
+Full 32-bit encoder counters, local timestamps, validity, command leases and
+sensor freshness checks remain in local snapshot/control APIs. B3's local
+13-byte navigation-event queue also retains its sequence/time/generation; it
+is an internal control interface, not external EDR telemetry. Do not narrow
+those for control. EDR16 encoder counts wrap 4095 to 0; reverse count -1 becomes
+4095. Inferring a signed delta is ambiguous beyond 2047 counts between received
+observations, and reboot is indistinguishable from wrap. Telemetry is not an
+odometry or movement-command input.
 
-New codec and adapter code follows the relevant rules from
-[BARR-C:2018](https://barrgroup.com/sites/default/files/barr_c_coding_standard_2018.pdf):
-fixed-width wire integers, unsigned bit operations, documented conversions,
-module-prefixed lowercase names, const input buffers, include guards,
-private static helpers, explicit braces and four-space indentation.
-Serialization uses byte operations rather than compiler-specific packing.
-The shared codec supports C99; the firmware retains its existing GNU C11
-configuration. Existing RTOS/vendor code and unrelated legacy module style
-have not been certified or comprehensively reformatted.
+There is no wire timestamp, sequence number, validity bit or checksum in this
+layout. Skip invalid samples; never send a fake zero for no-echo/startup. The
+dashboard shows latest received values, not proof of fresh data. QoS 0 can drop
+records; older queued readings can arrive after reconnect. Motor status/fault
+and left/right readings are not delivered atomically. Keep control/safety on
+local interfaces. The firmware retains legacy text helper APIs, but the dashboard subscribes only
+to the EDR16 topic and ignores individual scalar/event topics. Free-text events
+and derived values need a future schema extension; they cannot fit unassigned
+readings into the current fully allocated ID table. Explicit browser imports
+and demo data remain separate from MQTT.
 
-Before and after integrating any buddy's part, run the common hardware-free
-gate from the repository root. It includes all-buddy framing, C/Python contract
-checks and the eight Buddy 2 adapter/watchdog profiles:
+## Verification
 
-```sh
-python -B testing/data_representation/run.py --report edr-check-report.json
-```
-
-Expect `EDR CHECK PASS`. See the [gate guide](../testing/data_representation/README.md)
-for prerequisites, reporting, CI and extending coverage to new payload schemas.
-Individual entry points remain available:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File testing/data_representation/run.ps1
-powershell -ExecutionPolicy Bypass -File app_program/subsystem2/tests/host/run.ps1
-python tools/edr_decode.py "42 07 f1 04 00 78 56 34 12"
-```
-
-See `testing/data_representation/TEST_LOG.md` for observed software results,
-RAM/message-size evidence and the remaining hardware acceptance work. Host
-test speed does not establish motor deadlines, MQTT latency, calibration,
-cross-core contention or physical stopping distance.
-
+`check_data.cmd` / `check_data.sh` run the Python codec/dashboard tests, C codec
+and B1 queue tests, then all eight B2 mock-hardware/watchdog profiles. They need
+a native GCC/Clang compiler. Python tests cover all 65,536 words plus malformed
+lengths, ranges, fixed byte vectors and receiver routing. See
+`testing/data_representation/TEST_LOG.md` for what was actually run.

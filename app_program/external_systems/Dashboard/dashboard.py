@@ -1,21 +1,28 @@
-"""Serve the dashboard and subscribe to MQTT on localhost:1883."""
+"""Unmarshal binary EDR16 from one MQTT topic and serve dashboard readings."""
 import argparse
 import json
 import os
 import threading
+import time
+import uuid
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-TOPICS = [("Robopico/sensors/#", 0), ("Robopico/Actuators/#", 0)]
+from packed16 import decode_messages, PACKED_TOPIC
+
+TOPICS = [(PACKED_TOPIC, 0)]
 
 class BrokerBridge:
     def __init__(self):
         self.lock = threading.Lock()
         self.status = "Connecting to MQTT broker"
         self.readings = {}
-        self.events = []
         self.sequence = 0
+        self.receiver_id = uuid.uuid4().hex
+        self.received_packets = 0
+        self.rejected_packets = 0
+        self.last_received_at = None
 
     def set_status(self, status):
         with self.lock:
@@ -41,24 +48,36 @@ class BrokerBridge:
         self.set_status("MQTT broker unavailable; retrying")
 
     def on_message(self, client, userdata, message):
-        if len(message.payload) > 16384:
+        # One wire topic. Names returned by decode_messages are local display
+        # keys, never additional subscriptions or broker republishes.
+        if message.topic != PACKED_TOPIC:
             return
         try:
-            payload = message.payload.decode("utf-8")
-        except UnicodeDecodeError:
+            messages = decode_messages(message.payload)
+        except (TypeError, ValueError):
+            with self.lock:
+                self.rejected_packets += 1
             return
         with self.lock:
-            self.sequence += 1
-            item = {"topic": message.topic, "payload": payload, "sequence": self.sequence}
-            if message.topic == "Robopico/Actuators/vehicle_controller/events":
-                self.events.append(item)
-                self.events = self.events[-100:]
-            elif message.topic in self.readings or len(self.readings) < 256:
-                self.readings[message.topic] = item
+            self.received_packets += 1
+            self.last_received_at = time.time()
+            for topic, payload in messages:
+                self.sequence += 1
+                self.readings[topic] = {
+                    "topic": topic, "payload": payload, "sequence": self.sequence
+                }
 
     def snapshot(self):
         with self.lock:
-            return {"status": self.status, "messages": sorted([*self.readings.values(), *self.events], key=lambda item: item["sequence"])}
+            return {
+                "status": self.status,
+                "mqtt_topic": PACKED_TOPIC,
+                "receiver_id": self.receiver_id,
+                "received_packets": self.received_packets,
+                "rejected_packets": self.rejected_packets,
+                "last_received_at": self.last_received_at,
+                "messages": sorted(self.readings.values(), key=lambda item: item["sequence"]),
+            }
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, bridge, **kwargs):
@@ -90,7 +109,7 @@ def main():
     try:
         import paho.mqtt.client as mqtt
     except ImportError:
-        parser.exit(1, "Install MQTT support with: python -m pip install -r app_program/external_systems/requirements.txt\n")
+        parser.exit(1, "Install MQTT support with: python -m pip install -r app_program/external_systems/Dashboard/requirements.txt\n")
     bridge = BrokerBridge()
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     if args.username:
@@ -106,7 +125,7 @@ def main():
         client.connect_async(args.broker, args.mqtt_port, keepalive=60)
         client.loop_start()
         print(f"Dashboard: http://127.0.0.1:{args.port}", flush=True)
-        print(f"Broker: {args.broker}:{args.mqtt_port}", flush=True)
+        print(f"Broker: {args.broker}:{args.mqtt_port}; topic: {PACKED_TOPIC}", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

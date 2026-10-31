@@ -1,9 +1,17 @@
+# Shared EDR16 integration
+
+B2 now uses the repository [EDR16 contract](../../docs/DATA_REPRESENTATION.md).
+`s2_motion_encode` returns IDs 11 and 12; `s2_encoder_encode` returns IDs 1 and 2.
+Each adapter writes four bytes containing two independent two-byte records.
+Full-width counters and timestamps remain in local snapshot APIs. B1's collector
+uses these adapters directly. No external variable-length EDR envelope remains.
+
 # Buddy 2 Motion Control
 
 Student ID: 2500613
 
 The shared [external data representation](../../docs/DATA_REPRESENTATION.md)
-defines Buddy 2's compact motor/encoder records, the five-buddy envelope,
+defines Buddy 2's two-byte records and shared ID/data layout,
 Python decoding, field ranges and integration rules. Task-context byte adapters
 are declared in `s2_data.h`; they preserve the existing controller and watchdog
 boundaries. See [verification evidence](../../testing/data_representation/TEST_LOG.md).

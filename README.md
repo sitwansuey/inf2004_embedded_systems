@@ -1,3 +1,12 @@
+# Repository-wide EDR16
+
+All binary telemetry uses the shared [16-bit EDR contract](docs/DATA_REPRESENTATION.md):
+4-bit reading ID plus 12-bit data, exactly two little-endian bytes per record.
+Buddy 2's adapters, Buddy 1's MQTT collector and the desktop decoder use this
+contract. The old variable-length EDR envelope has been replaced. Local control
+snapshots keep their full-width counters/timestamps. Run `check_data.cmd` or
+`check_data.sh` with a native compiler; see the test log for actual verification.
+
 # micro T-Kernel 3.0 project for Raspberry Pi Pico W
 
 A starting point for your project: micro T-Kernel 3.0 running on **both cores**

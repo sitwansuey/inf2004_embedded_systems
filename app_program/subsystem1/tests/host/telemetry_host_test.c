@@ -51,6 +51,10 @@ static INT tm_sprintf(UB *p, const UB *format, ...) {
     va_end(args); return result;
 }
 #include "../../telemetry.c"
+static int take_text(char *topic, char *payload) {
+    unsigned int length;
+    return s1_telemetry_take_bytes(topic, (unsigned char *)payload, &length);
+}
 
 int main(void) {
     char topic[S1_TOPIC_MAX], payload[S1_PAYLOAD_MAX], input[] = "650";
@@ -66,24 +70,55 @@ int main(void) {
     assert(s1_telemetry_send(S1_LEFT_IR_IR_LEFT, oversized) == E_PAR);
     assert(s1_telemetry_send(S1_LEFT_IR_IR_LEFT, input) == E_OK);
     input[0] = '9';
-    assert(s1_telemetry_take(topic, payload) == 1);
+    assert(take_text(topic, payload) == 1);
     assert(strcmp(topic, "Robopico/sensors/left_ir/ir_left") == 0);
     assert(strcmp(payload, "650") == 0); /* copied, not dangling caller memory */
     assert(s1_telemetry_text(S1_BARCODE_IR_BARCODE, "001\"\\") == E_OK);
-    assert(s1_telemetry_take(topic, payload) == 1);
+    assert(take_text(topic, payload) == 1);
     assert(strcmp(payload, "\"001\\\"\\\\\"") == 0);
     assert(s1_telemetry_boolean(S1_TERRAIN_VALID, 0) == E_OK);
-    assert(s1_telemetry_take(topic, payload) == 1 && strcmp(payload, "false") == 0);
+    assert(take_text(topic, payload) == 1 && strcmp(payload, "false") == 0);
     for (i = 0; i < S1_TELEMETRY_CAPACITY; ++i)
         assert(s1_telemetry_integer(S1_MOTORS_POWER_PERCENT, (INT)i) == E_OK);
     assert(s1_telemetry_integer(S1_MOTORS_POWER_PERCENT, 99) == E_TMOUT);
     for (i = 0; i < S1_TELEMETRY_CAPACITY; ++i) {
         char expected[32]; sprintf(expected, "%u", i);
-        assert(s1_telemetry_take(topic, payload) == 1);
+        assert(take_text(topic, payload) == 1);
         assert(strcmp(topic, "Robopico/Actuators/motors/power_percent") == 0);
         assert(strcmp(payload, expected) == 0);
     }
-    assert(s1_telemetry_take(topic, payload) == 0);
+    assert(take_text(topic, payload) == 0);
+    {
+        unsigned char binary[S1_PAYLOAD_MAX]; unsigned int length;
+        assert(s1_telemetry_u12(0, 1) == E_PAR);
+        assert(s1_telemetry_u12(1, 4096) == E_PAR);
+        assert(s1_telemetry_u12(3, 181) == E_PAR);
+        assert(s1_telemetry_magnetic(8, -2049) == E_PAR);
+        assert(s1_telemetry_u12(1, 0) == E_OK);
+        assert(s1_telemetry_take_bytes(topic, binary, &length) == 1);
+        assert(length == 2 && binary[0] == 1 && binary[1] == 0);
+        assert(strcmp(topic, S1_PACKED16_TOPIC) == 0);
+        assert(s1_telemetry_magnetic(8, -2048) == E_OK);
+        assert(s1_telemetry_take_bytes(topic, binary, &length) == 1);
+        assert(length == 2 && binary[0] == 8 && binary[1] == 0);
+    }
+    {
+        uint8_t bytes[2] = {0x1bU,0x4fU};
+        unsigned char result[S1_PAYLOAD_MAX]; unsigned int length;
+        assert(s1_telemetry_record(bytes,1U) == E_PAR);
+        assert(s1_telemetry_record(NULL,2U) == E_PAR);
+        assert(s1_telemetry_record(bytes,2U) == E_OK);
+        bytes[0]=0; bytes[1]=0;
+        assert(s1_telemetry_take_bytes(topic,result,&length)==1);
+        assert(length==2U && result[0]==0x1bU && result[1]==0x4fU);
+        assert(s1_telemetry_record(bytes,2U)==E_PAR);
+        assert(s1_telemetry_acceleration(EDR_ACCEL_X,-2049)==E_PAR);
+        assert(s1_telemetry_acceleration(EDR_ACCEL_Z,2048)==E_PAR);
+        assert(s1_telemetry_acceleration(EDR_MAG_X,0)==E_PAR);
+        assert(s1_telemetry_acceleration(EDR_ACCEL_X,0)==E_OK);
+        assert(s1_telemetry_take_bytes(topic,result,&length)==1);
+        assert(length==2U && result[0]==0x0dU && result[1]==0x80U);
+    }
     puts("S1 telemetry: validation, copying, escaping, FIFO and backpressure passed");
     return 0;
 }

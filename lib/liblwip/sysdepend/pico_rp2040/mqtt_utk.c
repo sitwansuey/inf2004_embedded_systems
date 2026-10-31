@@ -53,13 +53,15 @@ static u16_t		rx_len;
 static u8_t		rx_truncated;
 
 static void heartbeat_timeout(void *arg);
+static void publish_done_cb(void *arg, err_t result);
 
 void mqtt_utk_poll_telemetry(void)
 {
     static char topic[S1_TOPIC_MAX];
-    static char payload[S1_PAYLOAD_MAX];
+    static unsigned char payload[S1_PAYLOAD_MAX];
+    static unsigned int length;
     static int pending;
-    unsigned int budget, length;
+    unsigned int budget;
     err_t error;
     if (client == NULL || !mqtt_client_is_connected(client)) return;
     /* Bound each visit so network maintenance cannot be starved by producers.
@@ -67,11 +69,10 @@ void mqtt_utk_poll_telemetry(void)
      */
     for (budget = 0; budget < 4; ++budget) {
         if (!pending) {
-            int result = s1_telemetry_take(topic, payload);
+            int result = s1_telemetry_take_bytes(topic, payload, &length);
             if (result <= 0) return;
             pending = 1;
         }
-        for (length = 0; payload[length] != 0; ++length) { }
         error = mqtt_publish(client, topic, payload, (u16_t)length,
                              0 /* QoS 0 */, 0 /* not retained */,
                              publish_done_cb, NULL);
