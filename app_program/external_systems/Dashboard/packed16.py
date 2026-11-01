@@ -20,6 +20,33 @@ READINGS = {
     14: "Robopico/sensors/accelerometer/accel_y_mps2",
     15: "Robopico/sensors/accelerometer/accel_z_mps2",
 }
+PHASES = ("Disarmed", "Line tracking", "Acquisition", "Turn out", "Approach", "Align",
+          "Pass obstacle", "Turn in", "Return", "Restore heading", "Line reacquisition", "Navigation turn", "Fault")
+TERRAIN = ("Flat", "Ascent", "Crest", "Descent", "Shock", "Invalid")
+def status_messages(subtype, value):
+    sensor="Robopico/sensors/"
+    actuator="Robopico/Actuators/"
+    def one(section, field, v, motor=False):
+        return [((actuator if motor else sensor)+section+"/"+field, v)]
+    if subtype==0:
+        phase=value&15
+        return one("vehicle_controller","state",PHASES[phase] if phase<len(PHASES) else "Unknown",True)+one("vehicle_controller","fault_code",value>>4,True)
+    if subtype==1:
+        return one("barcode_ir","barcode",("—","A","B","C","D","Z")[value&7] if (value&7)<6 else "Unknown")+one("barcode_ir","navigation",("None","Left","Right","Straight","U-turn")[value>>3] if value>>3<5 else "Unknown")
+    if subtype==2: return one("left_ir","line_state",value&7)+one("left_ir","black_mask",value>>3)
+    if subtype==3: return one("magnetometer","pitch_deg",value-128)
+    if subtype==4: return one("magnetometer","roll_deg",(value-128)*2)
+    if subtype==5: return one("terrain","hump_state",TERRAIN[value] if value<len(TERRAIN) else "Unknown")
+    if subtype in (6,7): return one("terrain","hump_height_cm" if subtype==6 else "run_max_height_cm",value/2)
+    if subtype==8: return one("ultrasonic_ranger","width_cm",value/2)
+    if subtype==9: return one("vehicle_controller","quality",value,True)+one("vehicle_controller","safety_state","Armed" if value&4 else "Stopped",True)+one("accelerometer","impact",bool(value&2))
+    if subtype==10: return one("vehicle_controller","available",value,True)+one("terrain","valid",bool(value&64))
+    if subtype==11: return one("vehicle_controller","sequence",value,True)
+    if subtype==12: return one("vehicle_controller","dropped",value,True)
+    if subtype==13: return one("motors","speed_mps",(value-128)/50,True)
+    if subtype==14: return one("left_ir","line_error",(value-128)*10)
+    return one("servo_motor","scan_state",value,True)
+
 def decode_messages(payload):
     """Unmarshal one little-endian EDR16 record into local display fields.
 
@@ -27,6 +54,8 @@ def decode_messages(payload):
     Exact size, ID, and value ranges are validated before returning any fields.
     """
     record = decode_record(payload)
+    if record["id"] == 0:
+        return status_messages(record["subtype"], record["status_value"])
     if record["id"] == 11:
         motor=record["motor"]
         directions=("STOP","FORWARD","REVERSE","LEFT","RIGHT","PIVOT_RIGHT","PIVOT_LEFT")

@@ -28,9 +28,9 @@ static void vehicle_task(INT code,void *context) {
         SYSTIM now;
         odom_config_t calibration={0}; /* short-lived calculation/API view */
         (void)odom_calibration_unpack(&calibration_record,&calibration);
-        s2_motion_status_t motor={0};uint8_t encoder_payload[EDR_ENCODER_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
+        s2_motion_status_t motor={0};uint8_t encoder_payload[ENCODER_SNAPSHOT_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
         BOOL mo=s2_motion_get_status(&motor)==E_OK;
-        BOOL en=s2_encoder_encode(encoder_payload,sizeof(encoder_payload))==E_OK;
+        BOOL en=s2_encoder_snapshot(encoder_payload,sizeof(encoder_payload))==E_OK;
         BOOL li=s3_status_get(&line)==E_OK;
         BOOL so=s5_get_status(&scan)==E_OK;
         s4_sensor_cache_t imu_record={0};
@@ -74,14 +74,20 @@ static void vehicle_task(INT code,void *context) {
                 result=cleared;
                 result_ok=s4_result_encode(&cleared,state.s4_result,sizeof(state.s4_result));continue;
             }
-            if(c.wire[1]==1) {
+            if(c.wire[1]==1 || c.wire[1]==3) {
                 if(BOARD_MOTORS_DISABLED) {vc_stop(&state.vehicle,VC_MOTOR);continue;}
+                if(c.wire[1]==3 && (!BOARD_PID_ENABLED || !BOARD_PID_CALIBRATED || !BOARD_BYPASS_VALIDATED)) {
+                    vc_stop(&state.vehicle,VC_UNCALIBRATED);continue;
+                }
                 BOOL fresh_arm=!state.vehicle.armed;
                 if(!odom_config_valid(&calibration) || !BOARD_TERRAIN_CALIBRATED || !line.configured) {
                     vc_stop(&state.vehicle,VC_UNCALIBRATED);continue;
                 }
-                if(vc_arm(&state.vehicle,now.lo,(unsigned)c.wire[3]|((unsigned)c.wire[4]<<8),c.wire[2]) && fresh_arm) {
+                if((c.wire[1]==3 ? vc_start(&state.vehicle,now.lo,c.wire[2]) :
+                    vc_arm(&state.vehicle,now.lo,(unsigned)c.wire[3]|((unsigned)c.wire[4]<<8),c.wire[2])) && fresh_arm) {
                     state.vehicle.phase=VC_REACQUIRE;state.vehicle.entered_ms=now.lo;
+                    state.vehicle.origin_yaw=odom_turn_mdeg(odom);
+                    state.vehicle.origin_um=odom->distance_um;state.vehicle.turn_progress=0;
                     requested_sensor_mode=FALSE;
                 }
             }
@@ -98,11 +104,13 @@ static void vehicle_task(INT code,void *context) {
             .bypass_enabled=BOARD_BYPASS_VALIDATED,.transport_ok=1};
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
         input.steering=input.line_fresh && line.output.steering_allowed;
+        input.line_detected=input.line_fresh && line.output.line.state==S3_LINE_TRACKING;
         input.sensor_fresh=so && scan.state!=S5_FAULT &&
             (!scan.valid || (scan.distance_mm>0 && scan.distance_mm<=5000U)) &&
             now.lo-scan.time_ms<(scan.valid?S5_STALE_MS:1500U);
         input.front_clear=input.sensor_fresh && scan.valid && scan.angle_deg==0 && scan.sample_angle_deg==0 &&
-            scan.distance_mm>(state.vehicle.phase==VC_TRACK?S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM);
+            scan.distance_mm>((state.vehicle.phase==VC_TRACK || state.vehicle.phase==VC_ACQUIRE)?
+                S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM);
         input.obstacle=input.sensor_fresh && ((scan.valid && scan.angle_deg==0 && scan.distance_mm<=S5_OBSTACLE_MM) ||
             s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION);
         input.scan_ready=input.sensor_fresh && scan.state==S5_READY && plan_usable && scan.approach_plan_valid && scan.object_width_valid;
@@ -115,17 +123,22 @@ static void vehicle_task(INT code,void *context) {
             if(er<0) {input.transport_ok=0;break;}
             if(e.event.kind==S3_EVENT_NAVIGATION) {
                 input.navigation_event=1;input.nav=(uint8_t)e.event.command;
-                state.navigation=(uint8_t)e.event.command;state.barcode=e.event.symbol=='A'?1:e.event.symbol=='Z'?2:0;
-            } else input.safety_event=1;
+                state.navigation=(uint8_t)e.event.command;state.barcode=(e.event.symbol>='A' && e.event.symbol<='D')?(uint8_t)(e.event.symbol-'A'+1):e.event.symbol=='Z'?5:0;
+            } else if(e.event.kind==S3_EVENT_RECOVERY_REQUEST) input.recovery_event=1;
+            else input.safety_event=1;
         }
         vc_step(&state.vehicle,&input);
         s3_mode_t wanted=!state.vehicle.armed?S3_MODE_PAUSED:
-            (state.vehicle.phase==VC_TRACK || state.vehicle.phase==VC_REACQUIRE)?S3_MODE_TRACK:S3_MODE_OVERRIDE;
+            state.vehicle.phase==VC_TRACK?S3_MODE_TRACK:S3_MODE_OVERRIDE;
         ER control=E_OK;
-        BOOL acknowledge_straight=input.navigation_event && input.nav==S3_NAV_STRAIGHT &&
+        BOOL acknowledge_straight=state.vehicle.navigation_ack &&
             state.vehicle.armed && state.vehicle.phase==VC_TRACK;
         if(wanted!=mode || acknowledge_straight) {
-            control=s3_controller_control(wanted,wanted==S3_MODE_TRACK,wanted==S3_MODE_TRACK?100:0);mode=wanted;
+            control=s3_controller_control(wanted,wanted==S3_MODE_TRACK,wanted==S3_MODE_TRACK?100:0);
+            if(control>=E_OK) {
+                mode=wanted;
+                if(wanted==S3_MODE_TRACK)vc_track_requested(&state.vehicle,now.lo);
+            }
         } else if(wanted==S3_MODE_TRACK)control=s3_controller_renew(100);
         if(control<0)vc_stop(&state.vehicle,VC_TRANSPORT);
         /* STOP on each phase transition before moving the range sensor. */

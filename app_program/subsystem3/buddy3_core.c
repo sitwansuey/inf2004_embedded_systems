@@ -41,7 +41,9 @@ bool s3_config_valid(const s3_config_t *p_config)
         (p_config->barcode_sensor > S3_NO_BARCODE) ||
         (p_config->max_sample_gap_ms == 0U) ||
         (p_config->max_sample_gap_ms > INT32_MAX) ||
-        !navigation_valid(p_config->map_a) || !navigation_valid(p_config->map_z))
+        !navigation_valid(p_config->map_a) || !navigation_valid(p_config->map_z) ||
+        !navigation_valid(p_config->map_b) || !navigation_valid(p_config->map_c) ||
+        !navigation_valid(p_config->map_d))
     {
         return false;
     }
@@ -99,7 +101,7 @@ void s3_core_fault(s3_core_t *p_core, s3_error_t error)
 {
     if (p_core != NULL)
     {
-        p_core->latched_error = error;
+        p_core->latched_error = (unsigned)error <= S3_ERROR_TRANSPORT ? error : S3_ERROR_CONFIG;
         p_core->awaiting_controller = true;
         s3_barcode_abort(&p_core->barcode);
     }
@@ -108,7 +110,7 @@ void s3_core_fault(s3_core_t *p_core, s3_error_t error)
 static void event(s3_core_t *p_core, s3_output_t *p_output,
                     s3_event_kind_t kind, uint32_t now_ms)
 {
-    p_output->event.kind = kind;
+    p_output->event.kind = (uint8_t)((unsigned)kind & 7U);
     p_output->event.time_ms = now_ms;
     p_output->event.sequence = ++p_core->sequence;
 }
@@ -122,7 +124,7 @@ static void fault(s3_core_t *p_core, s3_output_t *p_output,
         event(p_core, p_output, S3_EVENT_FAULT, now_ms);
     }
     s3_core_fault(p_core, error);
-    p_output->error = error;
+    p_output->error = (uint8_t)((unsigned)error & 7U);
     p_output->awaiting_controller = true;
 }
 
@@ -204,7 +206,7 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
     if (p_core->mode != S3_MODE_TRACK)
     {
         s3_barcode_abort(&p_core->barcode);
-        p_output->error = p_core->latched_error;
+        p_output->error = (uint8_t)((unsigned)p_core->latched_error & 7U);
         p_output->awaiting_controller = p_core->awaiting_controller;
         return;
     }
@@ -233,19 +235,26 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
     }
     else if (barcode_sensor != S3_NO_BARCODE)
     {
-        p_output->barcode_status = s3_barcode_feed(&p_core->barcode,
+        p_output->barcode_status = (uint8_t)((unsigned)s3_barcode_feed(&p_core->barcode,
                                                   &p_core->config.barcode,
                                                   p_core->barcode_black,
                                                   p_sample->time_ms,
-                                                  &p_output->decoded);
+                                                  &p_output->decoded) & 7U);
         if (p_output->barcode_status == S3_BARCODE_OK)
         {
-            s3_navigation_t command = (p_output->decoded.symbol == 'A') ?
-                                      p_core->config.map_a : p_core->config.map_z;
+            s3_navigation_t command = S3_NAV_NONE;
+            switch (p_output->decoded.symbol) {
+                case 'A': command=p_core->config.map_a; break;
+                case 'B': command=p_core->config.map_b; break;
+                case 'C': command=p_core->config.map_c; break;
+                case 'D': command=p_core->config.map_d; break;
+                case 'Z': command=p_core->config.map_z; break;
+                default: break;
+            }
             if (command != S3_NAV_NONE)
             {
                 event(p_core, p_output, S3_EVENT_NAVIGATION, p_sample->time_ms);
-                p_output->event.command = command;
+                p_output->event.command = (uint8_t)((unsigned)command & 7U);
                 p_output->event.symbol = p_output->decoded.symbol;
                 p_core->awaiting_controller = true;
             }
@@ -265,6 +274,6 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
     p_output->awaiting_controller = p_core->awaiting_controller;
     if (p_core->latched_error != S3_ERROR_NONE)
     {
-        p_output->error = p_core->latched_error;
+        p_output->error = (uint8_t)((unsigned)p_core->latched_error & 7U);
     }
 }

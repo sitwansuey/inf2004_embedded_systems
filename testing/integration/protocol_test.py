@@ -2,10 +2,11 @@
 import importlib.util
 import json
 import random
+import os
 import subprocess
 from pathlib import Path
 R = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("decoder", R/"app_program/external_systems/Dashboard/decoder.py")
+spec = importlib.util.spec_from_file_location("decoder", R/"testing/integration/snapshot_decoder.py")
 decoder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(decoder)
 random.seed(2004)
@@ -20,7 +21,7 @@ for f in fields:
         case[f["name"]] = value
         invalid.append(case)
 all_cases = cases + invalid
-run = subprocess.run([str(R/"testing/integration/.build/protocol")], input="\n".join(" ".join(str(c[f["name"]]) for f in fields) for c in all_cases), text=True, capture_output=True, check=True)
+run = subprocess.run([str(R/("testing/integration/.build/protocol.exe" if os.name=="nt" else "testing/integration/.build/protocol"))], input="\n".join(" ".join(str(c[f["name"]]) for f in fields) for c in all_cases), text=True, capture_output=True, check=True)
 lines = run.stdout.splitlines()
 assert len(lines) == len(all_cases)
 for case, output in zip(cases, lines):

@@ -35,13 +35,58 @@ independent packing scheme in a buddy's folder.
 | 14 | 1110 | B4 accelerometer Y | milligravity (mg) + 2048 |
 | 15 | 1111 | B4 accelerometer Z | milligravity (mg) + 2048 |
 
-ID zero is reserved and rejected. All fifteen nonzero IDs are assigned. A new
-reading type requires a versioned schema decision, not reuse of an existing ID.
+ID zero identifies mission-status observations. Its 12-bit data contains a
+4-bit subtype in bits 11-8 and an 8-bit value in bits 7-0. This extension uses
+no sensor ID twice. Each record remains independently decodable; no selector
+state, envelope, multi-record MQTT payload or atomic snapshot is assumed.
+Older receivers that reject ID zero must be updated with this repository.
 Out-of-range inputs are rejected without changing output buffers. Offset-binary
 magnetic/acceleration helpers accept -2048…2047. Magnetic display is (data-2048)/10
 uT; acceleration display is (data-2048)*9.80665/1000 m/s². The latter covers the
-current +/-2 g acquisition range to the stated integer bounds; clipped or
-out-of-range samples are skipped. No float printf is required on the Pico.
+current +/-2 g acquisition range to the stated integer bounds. The internal
+snapshot bounds signed observations to this range before the EDR adapter. No float printf is required on the Pico.
+
+## Mission-status ID 0
+
+`data = (subtype << 8) | value`, then `word = data << 4` (ID zero).
+Angles/speed/line error truncate toward zero; height/width round to nearest
+5 mm. Quantisation is telemetry-only: control uses full internal precision.
+
+| Subtype | Meaning of value |
+|---|---|
+| 0 | phase in low nibble, controller fault in high nibble |
+| 1 | barcode in bits 2:0 (0 none, 1 A, 2 B, 3 C, 4 D, 5 Z); navigation in bits 5:3 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
+| 2 | line state bits 2:0; physical IR black mask bits 5:3 |
+| 3 | pitch in whole degrees + 128 |
+| 4 | roll in two-degree units + 128 |
+| 5 | terrain: 0 flat, 1 ascent, 2 crest, 3 descent, 4 shock, 5 invalid |
+| 6 | current completed hump height, in 5 mm units |
+| 7 | highest completed hump this run, in 5 mm units |
+| 8 | obstacle width, in 5 mm units |
+| 9 | quality bits: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5) |
+| 10 | availability bits: motor, encoder, IR, acceleration, sonar, tilt, height, magnetic field |
+| 11 | observation sequence modulo 256 |
+| 12 | dropped internal observations, saturated at 255 |
+| 13 | signed vehicle speed in 20 mm/s units + 128 |
+| 14 | signed line error in 10-unit increments + 128 |
+| 15 | scan state, matching the subsystem5 enum |
+
+Controller phases and faults match `vehicle_policy.h`. Sensor values are sent
+only when their source is usable; mission availability/quality records clear
+invalid dashboard values. Each desktop reading expires after one second,
+independently of traffic from other sensors. Arrival time is not source time.
+
+The telemetry task samples at 5 Hz. The network task sends at most four
+records per poll, retries the same record on backpressure, and discards an
+unfinished observation once its internal timestamp reaches 500 ms. Up to 31
+messages describe one observation; MQTT QoS 0 does not guarantee all arrive.
+The sequence field is diagnostic, not an atomic-frame assembly protocol.
+
+The 50-byte `telemetry_codec` record is a private RTOS mailbox format; its
+schema is in `tools/telemetry_schema.json`. It never crosses MQTT. Similarly,
+`encoder_snapshot.h` retains 32-bit counts, monotonic time and validity for
+odometry/terrain. These internal codecs prevent loss of control precision;
+they are not alternate external telemetry formats.
 
 ## Buddy 2 motor and encoder distinction
 
@@ -69,68 +114,54 @@ Examples (wire bytes shown in transmission order):
 
 ## APIs and handoff
 
-`edr_pack` / `edr_unpack` handle uint16_t words. `edr_encode` / `edr_decode`
-handle two-byte wire records and exact lengths. They return false on errors.
-`edr_motor_pack` produces only the 12-bit motor DATA, not a full record.
+`subsystem1/task_telemetry.c` reads bounded snapshots from all five owners and
+produces the private mailbox record with `telemetry_encode`. `s1_binary_send`
+copies that record into a two-entry RTOS queue. The network owner alone calls
+MQTT, using `telemetry_edr_record` to convert it into independent two-byte
+observations. Producers never call lwIP or publish text/JSON sensor topics.
 
-`s2_motion_encode` returns four bytes: ID 11 followed by ID 12.
-`s2_encoder_encode` returns four bytes: ID 1 followed by ID 2.
-Each is a pair of independent two-byte records, NOT a 32-bit EDR packet.
-Their error returns leave the caller's output untouched. Encoder startup with
-no valid sample returns E_OBJ; disabled encoders return E_NOSPT.
-
-```c
-uint8_t records[EDR_ENCODER_SIZE];
-if (s2_encoder_encode(records, sizeof(records)) == E_OK) {
-    ER left = s1_telemetry_record(records, EDR_RECORD_SIZE);
-    ER right = s1_telemetry_record(records + EDR_RECORD_SIZE, EDR_RECORD_SIZE);
-    /* Check both results; queue-full means drop/retry later, never block control. */
-}
-```
-
-All buddies may include `../shared/edr.h`, encode their assigned reading, and
-call Buddy 1's `s1_telemetry_record(bytes, 2)` in task context. That validates and
-copies the record into the nonblocking RTOS queue. Convenience APIs accept an
-ID/raw value, magnetic mG, or acceleration mg. Servo/ultrasonic owners must
-supply real valid measurements; this checkout has no public getters for them.
-
-B1's 250 ms task reads B2's adapters and fresh usable B3/B4 snapshots. It sends
-up to 13 records per pass. B1 alone bridges the queue into the existing network
-owner; only cyw43_utk_task calls lwIP/MQTT. MQTT drains at most four queued
-messages per visit. The 16-slot queue still accommodates legacy text/events,
-so its storage is not two bytes per slot. Binary wire payloads are two bytes.
+B2 retains `s2_motion_encode` and `s2_encoder_encode` as EDR16 adapter APIs;
+each returns two independent two-byte readings. `s2_encoder_snapshot` is the
+separate full-precision 13-byte internal handoff used by terrain/odometry.
+The former multi-topic text queue and `s1_telemetry_record` API are retired.
 
 ## Migration and limits
 
-This replaces the old source/kind/version/length envelope and its 9-byte motor
-and 15-byte encoder messages. Old frame/variable-payload APIs were removed;
-old packets are rejected by the current decoder. Firmware and dashboard must
-be updated together. The earlier B1-only packed16 MQTT topic is retired.
+Update firmware and Python/dashboard together. The old source/kind/length
+frames and 50-byte MQTT aggregate are rejected. Sensor IDs 1-15 are unchanged;
+ID 0 adds the independently decodable mission status fields above.
 
-Full 32-bit encoder counters, local timestamps, validity, command leases and
-sensor freshness checks remain in local snapshot/control APIs. B3's local
-13-byte navigation-event queue also retains its sequence/time/generation; it
-is an internal control interface, not external EDR telemetry. Do not narrow
-those for control. EDR16 encoder counts wrap 4095 to 0; reverse count -1 becomes
-4095. Inferring a signed delta is ambiguous beyond 2047 counts between received
-observations, and reboot is indistinguishable from wrap. Telemetry is not an
-odometry or movement-command input.
+Full 32-bit encoder counts, local timestamps, validity, leases and freshness
+remain in local control APIs. B3's internal navigation event now uses 14 bytes:
+kind/command, symbol code (0 none, 1-4 A-D, 5 Z), then sequence, operating time
+and generation as three little-endian uint32 values. The former two-bit symbol
+field could not carry all four commands. Native structures are never copied
+onto MQTT or the event queue.
 
-There is no wire timestamp, sequence number, validity bit or checksum in this
-layout. Skip invalid samples; never send a fake zero for no-echo/startup. The
-dashboard shows latest received values, not proof of fresh data. QoS 0 can drop
-records; older queued readings can arrive after reconnect. Motor status/fault
-and left/right readings are not delivered atomically. Keep control/safety on
-local interfaces. The firmware retains legacy text helper APIs, but the dashboard subscribes only
-to the EDR16 topic and ignores individual scalar/event topics. Free-text events
-and derived values need a future schema extension; they cannot fit unassigned
-readings into the current fully allocated ID table. Explicit browser imports
-and demo data remain separate from MQTT.
+EDR16 encoder counts wrap 4095 to 0; reverse count -1 becomes 4095. Inferring a
+signed delta is ambiguous beyond 2047 counts between received observations,
+and reboot is indistinguishable from wrap. Telemetry is not a control input.
+No per-reading source timestamp or checksum is transmitted. QoS 0 can drop
+records; related readings are not atomic. The publisher bounds internal age
+and the receiver expires each field. Keep all control/safety decisions onboard.
+Free-text events and heading are not transmitted; demo/import data remain
+explicitly separate from live MQTT.
 
 ## Verification
 
-`check_data.cmd` / `check_data.sh` run the Python codec/dashboard tests, C codec
-and B1 queue tests, then all eight B2 mock-hardware/watchdog profiles. They need
-a native GCC/Clang compiler. Python tests cover all 65,536 words plus malformed
-lengths, ranges, fixed byte vectors and receiver routing. See
-`testing/data_representation/TEST_LOG.md` for what was actually run.
+`check_data.cmd` / `check_data.sh` run the Python codec/dashboard tests, exhaustive
+C codec, current B1 queue and B2 mock-hardware profiles using native GCC/Clang.
+`python -B testing/integration/run.py --compiler clang` also verifies the real
+snapshot-to-EDR adapter through Python and browser field routing, mission
+policy, barcode decoding, queues, sonar and MQTT port. These are software
+checks; they do not establish physical performance or a live broker link.
+
+Mission status values are validated by both shared codecs; reserved enum values,
+unused flag bits and values outside the documented source ranges are rejected.
+Servo ID 3 is emitted only with quality bit 5 set (successful, non-fault B5
+status copy). This is the commanded angle, not measured position feedback.
+Motor ID 12 is emitted only with motor availability and preserves timeout (32)
+versus other motor errors (64), using the same mapping as B2's direct adapter.
+Dashboard and audio ignore retained records and clear observations on disconnect
+and reconnect. The private snapshot now uses 398 bits, still 50 bytes; its
+schema includes a two-bit motor error class. Rebuild firmware components together.

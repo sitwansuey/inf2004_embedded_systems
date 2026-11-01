@@ -17,8 +17,7 @@ ER s2_motion_encode(uint8_t * const output, const size_t capacity)
         (unsigned int)status.state > 2U) return E_SYS;
     if (!edr_motor_pack((uint8_t)status.command, (uint8_t)status.power_percent,
                         (uint8_t)status.state, &motor)) return E_SYS;
-    if (status.last_error == E_TMOUT) faults = EDR_FAULT_TIMEOUT;
-    else if (status.last_error < E_OK) faults = EDR_FAULT_MOTOR;
+    faults = edr_motor_fault_flags(s2_motor_error_code(status.last_error));
     if (!edr_encode(EDR_MOTOR_STATUS, motor, bytes, 2U) ||
         !edr_encode(EDR_MOTOR_FAULTS, faults, bytes + 2, 2U)) return E_SYS;
     for (size_t i = 0U; i < sizeof(bytes); ++i) output[i] = bytes[i];
@@ -41,4 +40,16 @@ ER s2_encoder_encode(uint8_t * const output, const size_t capacity)
         !edr_encode(EDR_ENCODER_RIGHT, right & EDR_DATA_MAX, bytes + 2, 2U)) return E_SYS;
     for (size_t i = 0U; i < sizeof(bytes); ++i) output[i] = bytes[i];
     return E_OK;
+}
+
+ER s2_encoder_snapshot(uint8_t *output, size_t capacity)
+{
+    s2_encoder_status_t status;
+    if (!output || capacity < ENCODER_SNAPSHOT_SIZE) return E_PAR;
+    ER er=s2_encoder_get_status(&status);
+    if (er < E_OK) return er;
+    if (!status.valid) return E_OBJ;
+    encoder_snapshot_t sample={(uint32_t)status.motor1_forward_counts,
+        (uint32_t)status.motor2_forward_counts,status.sampled_ms,ENCODER_SNAPSHOT_VALID};
+    return encoder_snapshot_encode(&sample,output,capacity)?E_OK:E_SYS;
 }

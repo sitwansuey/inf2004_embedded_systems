@@ -59,10 +59,11 @@ static void test_exhaustive_symbols_and_framing(void)
         for (unsigned i=0U;i<29U;++i) runs[i]=a[i]*40U;
         set_character(runs,10U,pattern);
         s3_barcode_status_t status=s3_barcode_decode(runs,29U,&symbol);
-        bool known=pattern==0x109U || pattern==0x0D0U;
+        char expected=pattern==0x109U?'A':pattern==0x049U?'B':pattern==0x148U?'C':pattern==0x019U?'D':pattern==0x0D0U?'Z':0;
+        bool known=expected!=0;
         CHECK((status==S3_BARCODE_OK)==known);
         if (status==S3_BARCODE_OK) {
-            ++accepted;CHECK(symbol.symbol==(pattern==0x109U?'A':'Z'));
+            ++accepted;CHECK(symbol.symbol==expected);
         } else CHECK(symbol.symbol==0);
         for (unsigned frame=0U;frame<2U;++frame) {
             for (unsigned i=0U;i<29U;++i) runs[i]=a[i]*40U;
@@ -72,7 +73,7 @@ static void test_exhaustive_symbols_and_framing(void)
             if (status!=S3_BARCODE_OK) CHECK(symbol.symbol==0);
         }
     }
-    CHECK(accepted==2U);
+    CHECK(accepted==5U);
 }
 static void test_invalid_shapes(void)
 {

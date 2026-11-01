@@ -361,6 +361,8 @@ static uint32_t core_time;
 static unsigned int navigation_events;
 static unsigned int fault_events;
 static unsigned int decoded_symbols;
+static s3_navigation_t expected_navigation = S3_NAV_LEFT;
+static char observed_symbol;
 static s3_output_t latest;
 
 static void core_feed(s3_core_t *p_core, bool black)
@@ -374,7 +376,8 @@ static void core_feed(s3_core_t *p_core, bool black)
     {
         ++navigation_events;
         CHECK(!latest.steering_allowed && latest.awaiting_controller);
-        CHECK(latest.event.command == S3_NAV_LEFT); /* Test-only mapping. */
+        CHECK(latest.event.command == expected_navigation);
+        observed_symbol=latest.event.symbol;
     }
     if (latest.event.kind == S3_EVENT_FAULT) { ++fault_events; }
     if (latest.barcode_status == S3_BARCODE_OK) { ++decoded_symbols; }
@@ -448,6 +451,26 @@ static void test_navigation_handoff_override(void)
     CHECK(s3_core_control(&core, S3_MODE_TRACK, false));
     core_fixture(&core, runs);
     CHECK(navigation_events == 0U);
+}
+
+static void test_four_navigation_commands(void)
+{
+    const unsigned patterns[4]={0x109U,0x049U,0x148U,0x019U};
+    for(unsigned letter=0;letter<4;++letter) {
+        s3_core_t core;uint32_t runs[29];setup_core(&core,true);
+        core.config.map_a=S3_NAV_LEFT;core.config.map_b=S3_NAV_RIGHT;
+        core.config.map_c=S3_NAV_STRAIGHT;core.config.map_d=S3_NAV_UTURN;
+        expected_navigation=(s3_navigation_t)(letter+1U);observed_symbol=0;
+        for(unsigned ch=0;ch<3;++ch) {
+            unsigned pattern=ch==1?patterns[letter]:0x094U;
+            for(unsigned n=0;n<9;++n)runs[ch*10U+n]=(pattern&(1U<<(8U-n)))?120U:40U;
+            if(ch<2)runs[ch*10U+9U]=40U;
+        }
+        core_fixture(&core,runs);
+        CHECK(navigation_events==1U && decoded_symbols==1U);
+        CHECK(observed_symbol==(char)('A'+letter));
+    }
+    expected_navigation=S3_NAV_LEFT;
 }
 
 static void test_unmapped_corrupt_and_fault(void)
@@ -564,6 +587,7 @@ int main(int argc, char **argv)
     RUN("S3-U05 line positions", test_line_positions);
     RUN("S3-U06 hysteresis/loss/rollover", test_hysteresis_loss_rollover);
     RUN("S3-U07 configuration bounds", test_config_boundaries);
+    RUN("S3 four-command navigation handoff", test_four_navigation_commands);
     RUN("S3-U08 barcode scales/speed/direction", test_barcode_scale_direction_speed);
     RUN("S3-U09 barcode corruption", test_barcode_corruption);
     RUN("S3-U10 capture/rearm/duplicates", test_capture_duplicate_rearm);

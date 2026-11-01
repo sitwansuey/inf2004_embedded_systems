@@ -1,6 +1,6 @@
 /*
  * subsystem2.c
- * Buddy 2 -- Open-loop motor command consumer. Student ID: 2500613.
+ * Buddy 2 -- Motor owner with optional calibrated wheel-speed PID. Student ID: 2500613.
  */
 
 #include "subsystem2.h"
@@ -8,6 +8,17 @@
 #include "../shared/edr.h"
 #include "../robot_config.h"
 #include <tk/syslib.h>
+#include "speed_pid.h"
+#if BOARD_PID_ENABLED && !S2_ENCODER_ENABLED
+#error Speed regulation requires both encoders
+#endif
+#if BOARD_PID_ENABLED
+static speed_pid_t wheel_pid[2];
+static uint32_t pid_counts[2], pid_time, pid_progress[2];
+static int32_t pid_speed[2];
+static BOOL pid_initialized;
+static UINT pid_command;
+#endif
 
 /* Persistent state uses the same motor word as the external representation.
  * Native enum fields exist only in temporary compatibility snapshots. */
@@ -347,6 +358,9 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
 {
     INT left = 0;
     INT right = 0;
+#if BOARD_PID_ENABLED
+    if(power_percent>BOARD_PID_MAX_POWER)power_percent=BOARD_PID_MAX_POWER;
+#endif
     UW duty = (MOTOR_PWM_WRAP + 1U) * power_percent;
     UW left_duty = (duty * S2_MOTOR1_TRIM_PERCENT) / 10000U;
     UW right_duty = (duty * S2_MOTOR2_TRIM_PERCENT) / 10000U;
@@ -413,6 +427,63 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
     }
     return er;
 }
+
+#if BOARD_PID_ENABLED
+static ER motor_regulate(uint16_t word)
+{
+    uint8_t command, power, state;
+    s2_encoder_status_t e;
+    if (!edr_motor_unpack(word,&command,&power,&state)) return E_SYS;
+    if (state!=S2_MOTION_MOVING || !power) {pid_initialized=FALSE;return E_OK;}
+    ER er=s2_encoder_get_status(&e);
+    if (er<E_OK || !e.valid) return er<E_OK?er:E_OBJ;
+    uint32_t counts[2]={(uint32_t)e.motor1_forward_counts,(uint32_t)e.motor2_forward_counts};
+    int direction[2]={0,0};
+    switch(command) {
+    case S2_MOVE_FORWARD:direction[0]=1;direction[1]=1;break;
+    case S2_MOVE_REVERSE:direction[0]=-1;direction[1]=-1;break;
+    case S2_MOVE_LEFT:direction[0]=-1;direction[1]=1;break;
+    case S2_MOVE_RIGHT:direction[0]=1;direction[1]=-1;break;
+    case S2_MOVE_PIVOT_RIGHT:direction[0]=1;break;
+    case S2_MOVE_PIVOT_LEFT:direction[1]=1;break;
+    default:return E_PAR;
+    }
+    if (!pid_initialized || pid_command!=command) {
+        for(unsigned n=0;n<2;++n) {
+            wheel_pid[n]=(speed_pid_t){0};pid_counts[n]=counts[n];
+            pid_progress[n]=e.sampled_ms;pid_speed[n]=0;
+        }
+        pid_time=e.sampled_ms;pid_command=command;pid_initialized=TRUE;return E_OK;
+    }
+    uint32_t dt=e.sampled_ms-pid_time;
+    if(dt<10U)return E_OK;
+    if(dt>100U)return E_TMOUT;
+    unsigned output[2]={0,0};
+    for(unsigned n=0;n<2;++n) {
+        int32_t delta;
+        if(!edr_count_delta(counts[n],pid_counts[n],&delta) || delta>10000 || delta< -10000)return E_SYS;
+        if(direction[n]) {
+            if(delta*direction[n]>0)pid_progress[n]=e.sampled_ms;
+            if(e.sampled_ms-pid_progress[n]>500U)return E_TMOUT;
+            int32_t instant=(int32_t)((int64_t)delta*direction[n]*1000/dt);
+            pid_speed[n]=(3*pid_speed[n]+instant)/4;
+            int32_t target=(int32_t)((uint32_t)power*BOARD_PID_MAX_CPS/100U);
+            unsigned trim=n==0?S2_MOTOR1_TRIM_PERCENT:S2_MOTOR2_TRIM_PERCENT;
+            output[n]=speed_pid_step(&wheel_pid[n],target,pid_speed[n],dt,
+                (unsigned)power*trim/100U,BOARD_PID_MAX_POWER,
+                BOARD_PID_KP_MILLI,BOARD_PID_KI_MILLI,BOARD_PID_KD_MILLI);
+        }
+        pid_counts[n]=counts[n];
+    }
+    pid_time=e.sampled_ms;
+    if(__atomic_load_n(&stop_epoch,__ATOMIC_ACQUIRE)!=__atomic_load_n(&stopped_epoch,__ATOMIC_ACQUIRE))return E_OBJ;
+    motor_set_pair(BOARD_MOTOR1_A_GPIO,BOARD_MOTOR1_B_GPIO,direction[0]*MOTOR1_FORWARD_SIGN,
+                   (MOTOR_PWM_WRAP+1U)*output[0]/100U);
+    motor_set_pair(BOARD_MOTOR2_A_GPIO,BOARD_MOTOR2_B_GPIO,direction[1]*MOTOR2_FORWARD_SIGN,
+                   (MOTOR_PWM_WRAP+1U)*output[1]/100U);
+    return E_OK;
+}
+#endif
 
 static BOOL movement_valid(s2_move_command_t command, UINT power_percent)
 {
@@ -579,6 +650,11 @@ static void motor_task(INT stacd, void *p_exinf)
             continue;
         }
 
+#if BOARD_PID_ENABLED
+        er=motor_regulate(current.motor);
+        if(er<E_OK) {er=motion_fault(&current,er);continue;}
+        if(wait>10 || wait==TMO_FEVR)wait=10;
+#endif
         er = tk_rcv_mbx(h_movement_mailbox, &p_raw, wait);
         if (er == E_TMOUT) { er = E_OK; continue; }
         if (er < E_OK)

@@ -29,9 +29,35 @@ enum {
 #define EDR_MOTION_SIZE (2U * EDR_RECORD_SIZE)
 #define EDR_ENCODER_SIZE (2U * EDR_RECORD_SIZE)
 
+/* Compact private motor error class, shared by both telemetry adapters. */
+enum { EDR_MOTOR_OK, EDR_MOTOR_TIMEOUT, EDR_MOTOR_ERROR };
+static inline unsigned edr_motor_fault_flags(unsigned error)
+{
+    return error == EDR_MOTOR_TIMEOUT ? EDR_FAULT_TIMEOUT :
+           error == EDR_MOTOR_ERROR ? EDR_FAULT_MOTOR : 0U;
+}
+static inline bool edr_status_valid(unsigned data)
+{
+    unsigned subtype=data>>8U, value=data&255U;
+    switch(subtype) {
+    case 0: return (value&15U)<=12U && (value>>4U)<=7U;
+    case 1: return (value&7U)<=5U && (value>>3U)<=4U;
+    case 2: return value<=63U && (value&7U)<=4U;
+    case 3: case 4: return value>=38U && value<=218U;
+    case 5: return value<=5U;
+    case 6: case 7: return value<=200U;
+    case 8: return value<=100U;
+    case 9: return value<=63U; /* bit 5: valid servo command/status */
+    case 10: case 11: case 12: return true;
+    case 13: case 14: return value>=28U && value<=228U;
+    case 15: return value<=14U;
+    default: return false;
+    }
+}
 static inline bool edr_value_valid(unsigned int id, unsigned int data)
 {
-    if (id < 1U || id > 15U || data > EDR_DATA_MAX) return false;
+    if (id > 15U || data > EDR_DATA_MAX) return false;
+    if (id == 0U && !edr_status_valid(data)) return false;
     if (id == EDR_SERVO_ANGLE && data > 180U) return false;
     if (id == EDR_MOTOR_FAULTS && data > EDR_FAULT_MASK) return false;
     if (id == EDR_MOTOR_STATUS &&

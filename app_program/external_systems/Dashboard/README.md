@@ -20,7 +20,8 @@ The receiver rejects malformed/old/text/JSON payloads on the wire topic without
 replacing valid readings. Its API includes received/rejected packet counts,
 receiver identity and last reception time. Browser state resets if the receiver
 restarts, allowing sequence numbers to start again. Reception time is a desktop
-time, not a robot measurement timestamp; EDR16 has no freshness metadata.
+time, not a robot measurement timestamp. Every reading expires independently
+after one second; status availability/quality records also clear invalid data.
 
 ## Run
 
@@ -46,11 +47,11 @@ publish.single(MQTT_TOPIC, payload=encode_packet(1, 100), hostname="localhost", 
 # Payload bytes 41 06 -> Left wheel encoder card: 100.
 ```
 
-Publish the raw bytes, not the four-character string "4106". Servo/ultrasonic
-IDs are supported by the receiver, but their owners still need to provide
-actual measurements. Derived speed, heading, barcode text, controller state
-and event text are not defined by the current 15-ID schema and remain blank
-unless supplied by an explicit demo/import. No values are fabricated.
+Publish the raw bytes, not the four-character string "4106". Firmware reads
+servo/ultrasonic and other owner snapshots. ID 0 adds decoded barcode/navigation,
+controller state, speed, tilt, scan state and hump/current-run maximum to their
+cards. Heading, event text and other untransmitted fields remain blank.
+See `docs/DATA_REPRESENTATION.md` for the ID 0 subtype table and units.
 
 ## Tests
 

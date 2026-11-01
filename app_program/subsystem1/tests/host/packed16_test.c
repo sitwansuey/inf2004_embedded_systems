@@ -6,7 +6,7 @@ int main(void) {
     unsigned char bytes[2];
     for (id = 0; id < 16; ++id) {
         for (value = 0; value < 4096; ++value) {
-            int valid = id >= 1 && id <= 15 && (id != 3 || value <= 180) &&
+            int valid = id <= 15 && (id != 0 || edr_status_valid(value)) && (id != 3 || value <= 180) &&
                 (id != 12 || value <= 127) && (id != 11 ||
                 ((value & 7U) <= 6 && ((value >> 3) & 127U) <= 100 && (value >> 10) <= 2));
             word = 0xbeef;
@@ -20,6 +20,6 @@ int main(void) {
     }
     assert(!s1_pack16(1, 4096, &word));
     assert(!s1_pack16(1, 1, 0));
-    assert(!s1_unpack16(0, &got_id, &got_value));
+    assert(s1_unpack16(0, &got_id, &got_value) && got_id==0 && got_value==0);
     return 0;
 }

@@ -8,15 +8,15 @@ static const odom_config_t config = {100, 200, 100}; /* synthetic only */
 static const int32_t flat[3] = {0, 0, 1000};
 static const int32_t up[3] = {-500, 0, 866};
 static const int32_t down[3] = {500, 0, 866};
-static uint8_t payload[EDR_ENCODER_SIZE];
+static uint8_t payload[ENCODER_SNAPSHOT_SIZE];
 static s4_encoder_input_t input;
 static terrain_t terrain;
 static uint32_t now, counts;
 
 static void encode(uint32_t ms, uint32_t count)
 {
-    edr_encoder_t e = {count, count, ms, EDR_ENCODER_VALID};
-    assert(edr_encoder_encode(&e, payload, sizeof(payload)));
+    encoder_snapshot_t e = {count, count, ms, ENCODER_SNAPSHOT_VALID};
+    assert(encoder_snapshot_encode(&e, payload, sizeof(payload)));
 }
 static void tick(const int32_t a[3], uint32_t ticks)
 {
@@ -52,7 +52,7 @@ static void invalid_records(void)
 {
     reset(); baseline(); hump();
     for (size_t size = 0; size < 17U; ++size) {
-        if (size == EDR_ENCODER_SIZE) continue;
+        if (size == ENCODER_SNAPSHOT_SIZE) continue;
         apply(size, true, (uint64_t)now * 1000U);
         assert(input.fault == S4_INPUT_FORMAT && !terrain.height_valid);
         assert(terrain.maximum_mm == 50U);

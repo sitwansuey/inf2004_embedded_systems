@@ -19,6 +19,17 @@ import time
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 INPUTS = (
+    "app_program/app_state.h",
+    "tools/robot_audio.py",
+    "testing/audio/test_robot_audio.py",
+    "tools/telemetry_schema.json",
+    "testing/integration/telemetry_queue_test.c",
+    "app_program/shared/encoder_snapshot.h",
+    "app_program/subsystem1/telemetry_edr.h",
+    "app_program/subsystem1/telemetry_codec.h",
+    "app_program/subsystem1/telemetry_codec.c",
+    "app_program/subsystem3/event_codec.h",
+    "app_program/robot_config.h",
     "app_program/shared/edr.h",
     "app_program/shared/edr.c",
     "app_program/subsystem5/s5_data.c",
@@ -134,13 +145,15 @@ def run_codec_tests(compiler: str) -> None:
             executable = Path(directory) / (name + (".exe" if os.name == "nt" else ""))
             subprocess.run([compiler,"-std=c99","-Wall","-Wextra","-Werror",
                 str(ROOT / "app_program/subsystem1/tests/host" / (name+".c")),
+                str(ROOT / "app_program/subsystem1/telemetry_codec.c"),
                 "-o",str(executable)],check=True)
             subprocess.run([str(executable)],check=True)
 
 
 def run_python_tests():
     for directory, pattern in ((HERE,"test_*.py"),
-            (ROOT / "app_program/external_systems/Dashboard", "test_packed16.py")):
+            (ROOT / "app_program/external_systems/Dashboard", "test_packed16.py"),
+            (ROOT / "testing/audio", "test_robot_audio.py")):
         subprocess.run([sys.executable,"-B","-m","unittest","discover",
                         "-s",str(directory),"-p",pattern,"-v"],cwd=ROOT,check=True)
 
@@ -176,6 +189,7 @@ def main() -> int:
                                  text=True, check=True)
         report["compiler"] = {"name": Path(compiler).name,
                               "version": version.stdout.splitlines()[0]}
+        os.environ["CC"] = compiler
         report["inputs"] = input_fingerprint()
         print("EDR pre-integration check (no Pico, SDK or broker required)", flush=True)
         run_stage("Python wire contract and dashboard decoder",

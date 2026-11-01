@@ -12,7 +12,7 @@
 #define S5_SETTLE_MS 150
 #define S5_SAMPLE_MS 65 /* datasheet: measurement cycle over 60 ms */
 #define S5_MAX_ANGLE 50
-#define S5_SCAN_STEP_DEG 10
+#define S5_SCAN_STEP_DEG 30
 #define S5_REFINE_STEP_DEG 1
 #define S5_TARGET_DEPTH_TOLERANCE_MM 20U
 #define S5_SERVO_MS_PER_DEG 10U

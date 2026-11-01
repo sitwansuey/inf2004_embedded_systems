@@ -35,6 +35,32 @@ class DashboardTests(unittest.TestCase):
         bridge.on_subscribe(None,None,1,[ok],None)
         self.assertEqual(bridge.snapshot()['status'],'MQTT subscribed')
 
+    def test_retained_disconnect_and_reconnect_clear(self):
+        bridge=populated_bridge()
+        count=bridge.received_packets
+        bridge.on_message(None,None,SimpleNamespace(topic=PACKED_TOPIC,
+            payload=encode_packet(4,10),retain=True))
+        self.assertEqual(bridge.received_packets,count)
+        self.assertEqual(bridge.readings[READINGS[4]]['payload'],'32')
+        before=bridge.sequence
+        bridge.on_disconnect(None,None,None,None,None)
+        self.assertTrue(all(m['payload'] is None for m in bridge.snapshot()['messages']))
+        self.assertGreater(bridge.sequence,before)
+        self.assertIsNone(bridge.last_received_at)
+        feed(bridge,PACKED_TOPIC,encode_packet(4,10))
+        client=SimpleNamespace(subscribe=lambda topics:(0,1))
+        bridge.on_connect(client,None,None,SimpleNamespace(is_failure=False),None)
+        self.assertIsNone(bridge.readings[READINGS[4]]['payload'])
+
+    def test_servo_validity_and_invalid_status(self):
+        bridge=populated_bridge()
+        feed(bridge,PACKED_TOPIC,encode_packet(0,0x93f))
+        self.assertEqual(bridge.readings[READINGS[3]]['payload'],'90')
+        feed(bridge,PACKED_TOPIC,encode_packet(0,0x91f))
+        self.assertIsNone(bridge.readings[READINGS[3]]['payload'])
+        feed(bridge,PACKED_TOPIC,(0x2070).to_bytes(2,'little'))
+        self.assertEqual(bridge.rejected_packets,1)
+
     def test_all_ids_and_units(self):
         bridge=populated_bridge();snapshot=bridge.snapshot()
         self.assertEqual(snapshot['mqtt_topic'],PACKED_TOPIC)
@@ -52,7 +78,7 @@ class DashboardTests(unittest.TestCase):
 
     def test_invalid_packets_and_other_topics(self):
         bridge=populated_bridge();before=bridge.snapshot()
-        invalid=(b'',b'\x01',b'\x00\x00',b'\x01\x00\x02\x00',
+        invalid=(b'',b'\x01',b'\x01\x00\x02\x00',
                  bytes.fromhex('530b'),bytes.fromhex('7b00'),bytes.fromhex('0c08'),b'4106')
         for payload in invalid: feed(bridge,PACKED_TOPIC,payload)
         for topic in (READINGS[1],'Robopico/sensors/packed16/v1','other'):
@@ -66,6 +92,20 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(bridge.readings),17)
         self.assertEqual(bridge.readings[READINGS[1]]['payload'],'101')
         self.assertNotEqual(bridge.receiver_id,BrokerBridge().receiver_id)
+
+    def test_status_and_expiry(self):
+        from unittest.mock import patch
+        bridge=populated_bridge()
+        feed(bridge,PACKED_TOPIC,encode_packet(0,(7<<8)|91))
+        peak='Robopico/sensors/terrain/run_max_height_cm'
+        self.assertEqual(bridge.readings[peak]['payload'],45.5)
+        feed(bridge,PACKED_TOPIC,encode_packet(0,(1<<8)|4|(4<<3)))
+        self.assertEqual(bridge.readings['Robopico/sensors/barcode_ir/navigation']['payload'],'U-turn')
+        feed(bridge,PACKED_TOPIC,encode_packet(0,10<<8))
+        self.assertIsNone(bridge.readings[READINGS[1]]['payload'])
+        with patch('dashboard.time.monotonic',return_value=10**12):
+            snapshot=bridge.snapshot()
+        self.assertTrue(all(m['payload'] is None for m in snapshot['messages']))
 
     def test_http_snapshot_and_browser_display(self):
         bridge=populated_bridge()

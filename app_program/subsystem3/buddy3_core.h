@@ -59,6 +59,7 @@ typedef struct
     uint32_t max_sample_gap_ms;
     s3_navigation_t map_a;
     s3_navigation_t map_z;
+    s3_navigation_t map_b, map_c, map_d;
 } s3_config_t;
 
 typedef struct

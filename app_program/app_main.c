@@ -90,7 +90,7 @@ EXPORT INT usermain(void) {
     tm_printf((UB *)"IRSCAN barcode: min_run=20ms sample=10ms bias<=half_narrow\n");
     tm_printf((UB *)"IRSCAN limits: PWM<=20%% run<=6000ms heartbeat<250ms motor-watchdog<=150ms\n");
 #else
-    tm_printf((UB *)"Boot DISARMED; USB s=STOP, r=reset fault, a=500 ms track lease. Binary telemetry=%u bytes.\n",TELEMETRY_BYTES);
+    tm_printf((UB *)"Boot DISARMED; USB s=STOP, r=reset fault, a=500 ms track lease, g=autonomous mission START. MQTT EDR=%u bytes.\n",EDR_RECORD_SIZE);
 #endif
     if(BOARD_MOTORS_DISABLED)tm_printf((UB *)"MOTOR LOCK ON: drive GPIOs held low; all movement/ARM commands rejected.\n");
     tm_printf((UB *)"Clock: kernel operating time (monotonic uptime)\n");

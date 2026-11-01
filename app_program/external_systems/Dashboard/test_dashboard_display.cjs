@@ -26,8 +26,9 @@ const rows=walk(elements.get('panels'));
 for(const m of snapshot.messages){
   const row=rows.find(n=>n.title===`Display field: ${m.topic}`);
   assert.ok(row,`Missing field for ${m.topic}`);
-  let value;try{value=JSON.parse(m.payload);}catch{value=m.payload;}
-  assert.equal(row.children[1]._text,String(value),m.topic);
+  let value=m.payload;if(typeof value==='string'){try{value=JSON.parse(value);}catch{}}
+  const expected=value===null?'—':typeof value==='boolean'?(value?'Yes':'No'):String(value);
+  assert.equal(row.children[1]._text,expected,m.topic);
 }
 const heading=rows.find(n=>n.title==='Display field: Robopico/sensors/magnetometer/heading_deg');
 assert.equal(heading.children[1]._text,'—','untransmitted fields must remain unavailable');

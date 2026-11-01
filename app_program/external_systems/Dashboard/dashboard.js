@@ -1,18 +1,18 @@
 /* Display fields populated by the shared EDR16 receiver or explicit imports. */
 'use strict';
 const groups = [
-  ['navigation','Left IR','03','Raw left sensor reading.',['ir_left']],
+  ['navigation','Left IR','03','Raw left sensor reading.',['ir_left','line_state','black_mask','line_error']],
   ['navigation','Right IR','03','Raw right sensor reading.',['ir_right']],
-  ['navigation','Barcode IR','03','Barcode sensor reading and decoded data.',['ir_barcode','barcode']],
+  ['navigation','Barcode IR','03','Barcode sensor reading and decoded data.',['ir_barcode','barcode','navigation']],
   ['motion','Left wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_left','left_speed_mps']],
   ['motion','Right wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_right','right_speed_mps']],
   ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact','imu_status']],
   ['terrain','Magnetometer','04','Heading uses the magnetometer. Pitch, roll and turn rate are derived estimates; the GY-511 has no gyroscope.',['mag_x_ut','mag_y_ut','mag_z_ut','heading_deg','pitch_deg','roll_deg','turn_rate_dps','valid']],
   ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','depth_cm','left_clearance_cm','right_clearance_cm']],
   ['terrain','Terrain & hump analysis','04','Derived motion and hump estimates.',['motion_class','hump_state','hump_height_cm','run_max_height_cm','valid']],
-  ['obstacle','Servo Motor','05','Scan actuator position and avoidance decisions.',['state','servo_angle_deg','bypass_side','route']],
-  ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','fault_flags','distance_m','last_error','last_command_ms']],
-  ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence']]
+  ['obstacle','Servo Motor','05','Scan actuator position and avoidance decisions.',['state','servo_angle_deg','scan_state','bypass_side','route']],
+  ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','fault_flags','speed_mps','distance_m','last_error','last_command_ms']],
+  ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence','quality','available','dropped']]
 ];
 // Topic names are case-sensitive. Keep the two roots exactly as agreed.
 const wireTopic = 'Robopico/sensors/edr16/v1';
@@ -141,7 +141,7 @@ if(location.protocol==='http:' || location.protocol==='https:') {
         ? `Last packet received: ${new Date(snapshot.last_received_at*1000).toLocaleTimeString()}`
         : 'Last packet received: —';
       el('notice').textContent=snapshot.status==='MQTT subscribed'
-        ? `Subscribed to ${snapshot.mqtt_topic} · ${snapshot.received_packets} packets decoded · ${snapshot.rejected_packets} rejected · Latest received values; sensor freshness is not encoded.`
+        ? `Subscribed to ${snapshot.mqtt_topic} · ${snapshot.received_packets} packets decoded · ${snapshot.rejected_packets} rejected · Readings expire after 1 second; mission availability flags indicate sensor validity.`
         : `${snapshot.status} · Displayed values may be from earlier messages.`;
     } catch(error) {
       el('connection').textContent='Dashboard receiver unavailable';

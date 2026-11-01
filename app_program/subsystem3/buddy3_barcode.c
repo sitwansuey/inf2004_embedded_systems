@@ -7,6 +7,9 @@
 #define S3_FRAME_PATTERN 0x094U
 #define S3_A_PATTERN 0x109U
 #define S3_Z_PATTERN 0x0D0U
+#define S3_B_PATTERN 0x049U
+#define S3_C_PATTERN 0x148U
+#define S3_D_PATTERN 0x019U
 
 /* A reflective threshold can shorten black pulses and lengthen white gaps.
  * First require three clearly separated wide elements, then intersect the
@@ -98,6 +101,9 @@ static s3_barcode_status_t decode_forward(const uint32_t *p_runs,
     {
         p_symbol->symbol = 'A';
     }
+    else if (pattern[1] == S3_B_PATTERN) { p_symbol->symbol = 'B'; }
+    else if (pattern[1] == S3_C_PATTERN) { p_symbol->symbol = 'C'; }
+    else if (pattern[1] == S3_D_PATTERN) { p_symbol->symbol = 'D'; }
     else if (pattern[1] == S3_Z_PATTERN)
     {
         p_symbol->symbol = 'Z';

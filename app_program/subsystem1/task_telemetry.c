@@ -1,67 +1,9 @@
-<<<<<<< HEAD
-/* Read public snapshots only. Sensors and actuators retain their owners. */
-#include "subsystem1.h"
-#if defined(TM_NET_LWIP) && TM_NET_LWIP && defined(TM_MQTT) && TM_MQTT
-#include "../subsystem2/subsystem2.h"
-#include "../subsystem2/s2_data.h"
-#include "../subsystem3/subsystem3.h"
-#include "../subsystem4/subsystem4.h"
-
-/* Counts wrap explicitly; do not present these as distance or speed. */
-void s1_sensor_telemetry_task(INT stacd, void *exinf)
-{
-    const int16_t positions[S3_SENSOR_COUNT] = BOARD_IR_POSITIONS;
-    uint8_t motor_records[EDR_MOTION_SIZE], encoder_records[EDR_ENCODER_SIZE];
-    s3_status_t ir;
-    s4_sensor_status_t imu;
-    UINT i;
-    (void)stacd; (void)exinf;
-    for (;;) {
-        /* Startup lets other owners start. Sampling is bounded at 4 Hz.
-         * Queue-full drops this observation; next pass sends latest snapshots.
-         * Thirteen readings/pass fit the 16-message inbox while connected. */
-        tk_dly_tsk(250);
-        if (s2_encoder_encode(encoder_records, sizeof(encoder_records)) == E_OK) {
-            for (i = 0; i < sizeof(encoder_records); i += EDR_RECORD_SIZE)
-                (void)s1_telemetry_record(encoder_records + i, EDR_RECORD_SIZE);
-        }
-        if (s2_motion_encode(motor_records, sizeof(motor_records)) == E_OK) {
-            for (i = 0; i < sizeof(motor_records); i += EDR_RECORD_SIZE)
-                (void)s1_telemetry_record(motor_records + i, EDR_RECORD_SIZE);
-        }
-        if (s3_status_get(&ir) == E_OK && ir.configured &&
-            ir.acquisition_error == E_OK) {
-            SYSTIM now;
-            if (tk_get_tim(&now) == E_OK &&
-                (uint32_t)(now.lo - ir.sample_time_ms) <= S3_STATUS_MAX_AGE_MS) {
-                for (i = 0; i < S3_SENSOR_COUNT; ++i) {
-                    UINT id;
-                    if (!(ir.sample.valid_mask & (1U << i))) continue;
-                    if (i == BOARD_BARCODE_SENSOR) id = S1_SENSOR_IR_BARCODE;
-                    else if (positions[i] < 0) id = S1_SENSOR_IR_LEFT;
-                    else if (positions[i] > 0) id = S1_SENSOR_IR_RIGHT;
-                    else continue;
-                    (void)s1_telemetry_u12(id, ir.sample.raw[i]);
-                }
-            }
-        }
-        if (s4_sensor_get_status(&imu) == E_OK && imu.configured) {
-            if (imu.mag_usable)
-                for (i = 0; i < 3; ++i)
-                    (void)s1_telemetry_magnetic(EDR_MAG_X + i, imu.latest.mag.milli_units[i]);
-            if (imu.accel_usable)
-                for (i = 0; i < 3; ++i)
-                    (void)s1_telemetry_acceleration(EDR_ACCEL_X + i, imu.latest.accel.milli_units[i]);
-        }
-    }
-}
-#endif
-=======
 #include "subsystem1.h"
 #include "control.h"
 #include "../app_state.h"
 #include "../app_logging.h"
 #include "../subsystem2/subsystem2.h"
+#include "../subsystem2/s2_data.h"
 #include "../subsystem3/subsystem3.h"
 #include "../subsystem4/subsystem4.h"
 #include "../subsystem5/subsystem5.h"
@@ -96,22 +38,29 @@ void telemetry_task(INT code,void *context) {
                 (terrain_fresh&&(terrain.flags&S4_RESULT_HEIGHT)?64:0)|(im&&a.mag_usable?128:0);
             v[TEL_LEFT_COUNTS]=e.motor1_forward_counts;v[TEL_RIGHT_COUNTS]=e.motor2_forward_counts;
             v[TEL_SPEED_MM_S]=bounded(app_speed_mm_s(&s),-2000,2000);v[TEL_LINE_STATE]=li?l.output.line.state:0;
-            v[TEL_IR0]=li?l.sample.raw[0]:0;v[TEL_IR1]=li?l.sample.raw[1]:0;v[TEL_IR2]=li?l.sample.raw[2]:0;
+            const int16_t positions[S3_SENSOR_COUNT]=BOARD_IR_POSITIONS;
+            if(li) for(unsigned channel=0;channel<S3_SENSOR_COUNT;++channel) {
+                unsigned field=channel==BOARD_BARCODE_SENSOR?TEL_IR2:
+                    positions[channel]<0?TEL_IR1:TEL_IR0;
+                v[field]=l.sample.raw[channel];
+            }
             v[TEL_BLACK_MASK]=li?l.output.line.black_mask:0;v[TEL_LINE_ERROR]=li?l.output.line.error:0;
             v[TEL_BARCODE]=s.barcode;v[TEL_NAVIGATION]=s.navigation;
             v[TEL_AX_MG]=bounded(a.latest.accel.milli_units[0],-2048,2047);
             v[TEL_AY_MG]=bounded(a.latest.accel.milli_units[1],-2048,2047);
             v[TEL_AZ_MG]=bounded(a.latest.accel.milli_units[2],-2048,2047);
-            v[TEL_MX_RAW]=im&&a.mag_usable?a.latest.mag.raw[0]:0;
-            v[TEL_MY_RAW]=im&&a.mag_usable?a.latest.mag.raw[1]:0;
-            v[TEL_MZ_RAW]=im&&a.mag_usable?a.latest.mag.raw[2]:0;
+            v[TEL_MX_MG]=bounded(a.latest.mag.milli_units[0],-2048,2047);
+            v[TEL_MY_MG]=bounded(a.latest.mag.milli_units[1],-2048,2047);
+            v[TEL_MZ_MG]=bounded(a.latest.mag.milli_units[2],-2048,2047);
             v[TEL_PITCH_CDEG]=terrain.pitch_cdeg;v[TEL_ROLL_CDEG]=terrain.roll_cdeg;v[TEL_TERRAIN]=terrain.terrain;
             v[TEL_HEIGHT_MM]=terrain.height_mm;v[TEL_HIGHEST_MM]=terrain.maximum_mm;
             v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=width_valid?o.object_width_mm:0;
             v[TEL_SERVO_DEG]=o.angle_deg;v[TEL_SCAN_STATE]=o.state;
             v[TEL_QUALITY]=(width_valid?1:0)|((terrain.flags&S4_RESULT_SHOCK)?2:0)|(s.vehicle.armed?4:0)|
-                (BOARD_BYPASS_VALIDATED?8:0)|(s.odometry_valid?16:0);
+                (BOARD_BYPASS_VALIDATED?8:0)|(s.odometry_valid?16:0)|
+                (so && o.state!=S5_FAULT?32:0);
             v[TEL_DROPPED]=s1_drop_count();
+            v[TEL_MOTOR_ERROR]=s2_motor_error_code(mo?m.last_error:E_SYS);
             if(telemetry_encode(out,v)) {
 #if TM_MQTT
                 (void)s1_binary_send(out);
@@ -180,4 +129,3 @@ void telemetry_task(INT code,void *context) {
         tk_dly_tsk(10);
     }
 }
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e

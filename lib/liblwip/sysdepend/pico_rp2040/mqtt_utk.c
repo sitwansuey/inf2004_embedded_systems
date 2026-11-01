@@ -20,15 +20,10 @@
 #include "lwip/timeouts.h"
 #include "wifi_secrets.h"
 #include "mqtt_utk.h"
-<<<<<<< HEAD
-#include "../../../../app_program/subsystem1/telemetry_topics.h"
-=======
 #include "../../../../app_program/subsystem1/network_bridge.h"
 #include <string.h>
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 #include <tm/tmonitor.h>
 
-#define MQTT_UTK_HEARTBEAT_MS   5000
 #define MQTT_UTK_KEEPALIVE_S    60
 #define MQTT_UTK_RETRY_MS       3000
 
@@ -40,14 +35,8 @@
 #define MQTT_PASSWORD NULL
 #endif
 
-/* Inbound message staging. A publish arrives as one topic callback followed by
- * one or more data callbacks, so the topic has to be kept until the fragment
- * carrying MQTT_DATA_FLAG_LAST shows up. Both buffers are sized well past the
- * heartbeat this demo publishes; anything longer is truncated and flagged
- * rather than being allowed to run off the end. */
-#define MQTT_UTK_RX_TOPIC_MAX   64
-#define MQTT_UTK_RX_DATA_MAX    128
-
+/* Commands arrive in fragments; accept exactly one six-byte command on the
+ * command topic. Observations are independently framed by MQTT at two bytes. */
 static mqtt_client_t	*client;
 static ip_addr_t	broker_addr;
 static u8_t		connecting;
@@ -61,37 +50,6 @@ static unsigned command_enabled;
 static void publish_done_cb(void *arg,err_t result);
 static void retry_timeout(void *arg);
 
-<<<<<<< HEAD
-static void heartbeat_timeout(void *arg);
-static void publish_done_cb(void *arg, err_t result);
-
-void mqtt_utk_poll_telemetry(void)
-{
-    static char topic[S1_TOPIC_MAX];
-    static unsigned char payload[S1_PAYLOAD_MAX];
-    static unsigned int length;
-    static int pending;
-    unsigned int budget;
-    err_t error;
-    if (client == NULL || !mqtt_client_is_connected(client)) return;
-    /* Bound each visit so network maintenance cannot be starved by producers.
-     * Keep a message staged on lwIP backpressure rather than losing it.
-     */
-    for (budget = 0; budget < 4; ++budget) {
-        if (!pending) {
-            int result = s1_telemetry_take_bytes(topic, payload, &length);
-            if (result <= 0) return;
-            pending = 1;
-        }
-        error = mqtt_publish(client, topic, payload, (u16_t)length,
-                             0 /* QoS 0 */, 0 /* not retained */,
-                             publish_done_cb, NULL);
-        if (error != ERR_OK) return;
-        pending = 0;
-    }
-}
-=======
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 /* All callbacks and publishing remain on cyw43_utk_task. Binary-safe and
  * length-delimited: a NUL is a payload byte, never a terminator. */
@@ -110,7 +68,7 @@ static void incoming_data_cb(void *arg,const u8_t *data,u16_t length,u8_t flags)
              * alone must never restart a vehicle after boot or link loss. */
             if(incoming[1]==0)command_enabled=0;
             if(incoming[1]==2 && s1_command_offer(incoming,incoming_used)==0)command_enabled=1;
-            else if(incoming[1]!=1 || command_enabled)(void)s1_command_offer(incoming,incoming_used);
+            else if((incoming[1]!=1 && incoming[1]!=3) || command_enabled)(void)s1_command_offer(incoming,incoming_used);
         }
         incoming_valid=0;
     }
@@ -136,20 +94,24 @@ static void publish_done_cb(void *arg, err_t result)
 
 
 void mqtt_utk_poll_telemetry(void) {
-    unsigned char payload[TELEMETRY_BYTES];
+    static unsigned char snapshot[TELEMETRY_BYTES];
+    static int64_t values[TEL_FIELD_COUNT];
+    static unsigned next=TELEMETRY_EDR_RECORDS;
     if(!client || !mqtt_client_is_connected(client))return;
-    /* Latest snapshot wins across backpressure/reconnection; never replay
-     * a stale dashboard backlog as if it were current sensor evidence. */
-    static unsigned char pending_payload[TELEMETRY_BYTES];
-    static unsigned pending;
-    for(unsigned n=0;n<2;++n) {
-        int length=s1_telemetry_take(payload);
-        if(length<0)break;
-        if(length==TELEMETRY_BYTES) {memcpy(pending_payload,payload,TELEMETRY_BYTES);pending=1;}
+    if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot))next=TELEMETRY_EDR_RECORDS;
+    if(next==TELEMETRY_EDR_RECORDS) {
+        if(s1_telemetry_take(snapshot)!=TELEMETRY_BYTES || !telemetry_decode(snapshot,values))return;
+        next=0;
     }
-    if(pending && !s1_telemetry_current(pending_payload))pending=0;
-    if(pending && mqtt_publish(client,CSC02_TELEMETRY_TOPIC,pending_payload,
-            TELEMETRY_BYTES,0,0,publish_done_cb,NULL)==ERR_OK)pending=0;
+    /* Four two-byte messages per poll; retain the exact record on backpressure.
+     * Finish a snapshot before taking another, so later fields cannot starve. */
+    for(unsigned budget=0;budget<4 && next<TELEMETRY_EDR_RECORDS;) {
+        uint8_t record[EDR_RECORD_SIZE];
+        if(!telemetry_edr_record(values,next,record)) {++next;continue;}
+        if(mqtt_publish(client,CSC02_TELEMETRY_TOPIC,record,EDR_RECORD_SIZE,
+                        0,0,publish_done_cb,NULL)!=ERR_OK)return;
+        ++next;++budget;
+    }
 }
 
 static void retry_timeout(void *arg)
@@ -179,12 +141,7 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 
 		tm_printf((UB*)"mqtt: connected to " MQTT_BROKER_IP "\n");
 
-		/* Subscribe to the same topic this client publishes to, so every
-		 * heartbeat comes back from the broker and is printed by
-		 * incoming_data_cb(). A matching RX for each TX is end-to-end
-		 * proof of the round trip without needing mosquitto_sub on the
-		 * broker host. Callbacks must be registered before subscribing,
-		 * or the first delivery has nowhere to go. */
+		/* Commands use a separate inbound topic; observations use EDR16 only. */
 		mqtt_set_inpub_callback(client, incoming_publish_cb,
 					incoming_data_cb, NULL);
 
@@ -202,8 +159,7 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 		/* The application snapshot is the heartbeat; no extra text publication. */
 	} else {
 		command_enabled=0;
-		const unsigned char stop[CSC02_COMMAND_BYTES]={0xC1,0,0,0,0,0};
-		(void)s1_command_offer(stop,sizeof(stop));
+		/* Timed ARM expires locally. Autonomous START continues onboard. */
 		/* mqtt_client_connect() reconnects on its own for a dropped
 		 * keepalive; a rejected/never-established connection does not
 		 * retry itself, so do that here -- on a delay, so a broker
@@ -242,17 +198,12 @@ void mqtt_utk_start(void)
 
 	client_info.client_id = MQTT_CLIENT_ID;
 	client_info.keep_alive = MQTT_UTK_KEEPALIVE_S;
-<<<<<<< HEAD
-	client_info.client_user = MQTT_USERNAME;
-	client_info.client_pass = MQTT_PASSWORD;
-=======
 #ifdef MQTT_USERNAME
     client_info.client_user=MQTT_USERNAME;
 #endif
 #ifdef MQTT_PASSWORD
     client_info.client_pass=MQTT_PASSWORD;
 #endif
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 	connecting = 1;
 	err = mqtt_client_connect(client, &broker_addr, MQTT_BROKER_PORT,

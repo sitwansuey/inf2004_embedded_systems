@@ -14,6 +14,9 @@ static inline void robot_ir_apply_layout(s3_config_t *p_config)
     p_config->barcode_sensor = BOARD_BARCODE_SENSOR;
     p_config->map_a = BOARD_MAP_A;
     p_config->map_z = BOARD_MAP_Z;
+    p_config->map_b = BOARD_MAP_B;
+    p_config->map_c = BOARD_MAP_C;
+    p_config->map_d = BOARD_MAP_D;
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
         p_config->line.position[i] = positions[i];
 }

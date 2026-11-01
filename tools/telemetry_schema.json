@@ -110,8 +110,8 @@
   {
     "name": "barcode",
     "min": 0,
-    "max": 2,
-    "bits": 2
+    "max": 5,
+    "bits": 3
   },
   {
     "name": "navigation",
@@ -138,19 +138,19 @@
     "bits": 12
   },
   {
-    "name": "mx_raw",
+    "name": "mx_mg",
     "min": -2048,
     "max": 2047,
     "bits": 12
   },
   {
-    "name": "my_raw",
+    "name": "my_mg",
     "min": -2048,
     "max": 2047,
     "bits": 12
   },
   {
-    "name": "mz_raw",
+    "name": "mz_mg",
     "min": -2048,
     "max": 2047,
     "bits": 12
@@ -212,13 +212,19 @@
   {
     "name": "quality",
     "min": 0,
-    "max": 31,
-    "bits": 5
+    "max": 63,
+    "bits": 6
   },
   {
     "name": "dropped",
     "min": 0,
     "max": 65535,
     "bits": 16
+  },
+  {
+    "name": "motor_error",
+    "min": 0,
+    "max": 2,
+    "bits": 2
   }
 ]

@@ -1,11 +1,9 @@
-/* Shared with the dashboard MQTT contract. Values are stable enum IDs. */
+/* Legacy local display-key names only; these are NOT MQTT subscriptions.
+ * Firmware publishes EDR_MQTT_TOPIC through network_bridge.h. */
 #ifndef S1_TELEMETRY_TOPICS_H
 #define S1_TELEMETRY_TOPICS_H
 
 #include "packed16.h"
-#define S1_TOPIC_MAX 96
-#define S1_PAYLOAD_MAX 128
-#define S1_TELEMETRY_CAPACITY 16
 
 /* X-macro keeps IDs and topic strings in one place. */
 #define S1_TOPIC_LIST(X) \
@@ -67,9 +65,4 @@ typedef enum {
 } S1_READING_ID;
 #undef S1_TOPIC_ENUM
 
-/* Service bridge: no T-Kernel/lwIP includes, avoiding namespace conflicts.
- * Called ONLY by the network service. 1 = message, 0 = empty/not ready,
- * negative = error. Output arrays need the capacities above.
- */
-int s1_telemetry_take_bytes(char *topic, unsigned char *payload, unsigned int *length);
 #endif

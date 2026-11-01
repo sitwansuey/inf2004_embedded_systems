@@ -1,4 +1,4 @@
-/* Observed A/Z sample profile, not an invented navigation codebook. */
+/* Code39 A-D navigation plus legacy A/Z samples; board maps select commands. */
 #ifndef BUDDY3_BARCODE_H
 #define BUDDY3_BARCODE_H
 
@@ -36,7 +36,7 @@ typedef enum
 
 typedef struct
 {
-    char symbol; /* Only A or Z on success; zero on any failure. */
+    char symbol; /* A/B/C/D or legacy Z on success; zero on any failure. */
     bool reverse;
 } s3_symbol_t;
 

@@ -42,7 +42,8 @@ edr-check-report.json
 
 # Supplementary documentation, evidence and session records remain local.
 # Promote selected final-submission evidence explicitly when ready.
-/docs/
+/docs/*
+!/docs/MISSION_SETUP.md
 /testing/evidence/
 /testing/**/logs/
 /testing/**/*.md

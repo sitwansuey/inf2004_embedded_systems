@@ -66,9 +66,12 @@ EXPORT void acquisition_left_test(void)
             if (sample.state == S5_FAULT || sample.state == S5_BLOCKED) break;
         }
         if (target != sample.angle_deg) {
+            INT travelled = target - sample.angle_deg;
+            if (travelled < 0) travelled = -travelled;
             sample.angle_deg = target;
             s5_hw_servo(target);
-            tk_dly_tsk(S5_SETTLE_MS); /* Every left scan move is at most 10 deg. */
+            UW settle = (UW)travelled * S5_SERVO_MS_PER_DEG;
+            tk_dly_tsk(settle < S5_SETTLE_MS ? S5_SETTLE_MS : settle);
         } else tk_dly_tsk(S5_SAMPLE_MS);
     }
     CHECK(s2_movement_send(S2_MOVE_STOP, 0), "left test stop");

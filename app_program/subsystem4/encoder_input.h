@@ -1,6 +1,6 @@
 #ifndef S4_ENCODER_INPUT_H
 #define S4_ENCODER_INPUT_H
-#include "../shared/edr.h"
+#include "../shared/encoder_snapshot.h"
 #include "../subsystem2/odometry.h"
 #include "terrain.h"
 
@@ -27,7 +27,7 @@ typedef struct {
     uint8_t fault : 3;
 } s4_encoder_input_t;
 
-/* Controller-owned state. Exact 13-byte EDR payload, not a 15-byte envelope
+/* Controller-owned state. Exact 13-byte INTERNAL snapshot, not MQTT telemetry
  * or native struct. Both source timestamps MUST be operating milliseconds.
  * Call once per controller tick, including errors. Invalid input abandons
  * the active traversal and interval history but retains the run maximum.

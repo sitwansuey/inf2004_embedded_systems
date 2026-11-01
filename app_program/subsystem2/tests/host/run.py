@@ -69,10 +69,10 @@ def run_tests(compiler: str) -> None:
         shutil.copy2(HERE / "tk/syslib.h", temporary / "tk/syslib.h")
         for filename in (
             "subsystem2.c", "subsystem2.h", "subsystem2_test.c",
-            "s2_data.c", "s2_data.h",
+            "s2_data.c", "s2_data.h", "speed_pid.h",
         ):
             shutil.copy2(SUBSYSTEM / filename, subsystem / filename)
-        for filename in ("edr.c", "edr.h"):
+        for filename in ("edr.c", "edr.h", "encoder_snapshot.h"):
             shutil.copy2(SHARED / filename, shared / filename)
         # Exercise the integrated motor implementation with explicit test-only
         # drive permission; real firmware retains its default motor lock.

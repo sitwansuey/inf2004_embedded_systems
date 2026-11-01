@@ -147,7 +147,16 @@
 #define BOARD_IR_POSITIONS {1000,-1000,0} /* Logical right/left; not millimetres. */
 #endif
 #ifndef BOARD_MAP_A
-#define BOARD_MAP_A 0 /* no unverified navigation codebook */
+#define BOARD_MAP_A 1 /* Code 39 A=left, B=right, C=straight, D=U-turn. */
+#endif
+#ifndef BOARD_MAP_B
+#define BOARD_MAP_B 2
+#endif
+#ifndef BOARD_MAP_C
+#define BOARD_MAP_C 3
+#endif
+#ifndef BOARD_MAP_D
+#define BOARD_MAP_D 4
 #endif
 #ifndef BOARD_MAP_Z
 #define BOARD_MAP_Z 0
@@ -172,6 +181,36 @@
 #endif
 #ifndef BOARD_BYPASS_VALIDATED
 #define BOARD_BYPASS_VALIDATED 0 /* enable only after raised-wheel/track tests */
+#endif
+#ifndef BOARD_PID_ENABLED
+#define BOARD_PID_ENABLED 0
+#endif
+#ifndef BOARD_PID_CALIBRATED
+#define BOARD_PID_CALIBRATED 0
+#endif
+#ifndef BOARD_PID_MAX_CPS
+#define BOARD_PID_MAX_CPS 0 /* measured wheel counts/s at the reference full scale */
+#endif
+#ifndef BOARD_PID_KP_MILLI
+#define BOARD_PID_KP_MILLI 20
+#endif
+#ifndef BOARD_PID_KI_MILLI
+#define BOARD_PID_KI_MILLI 5
+#endif
+#ifndef BOARD_PID_KD_MILLI
+#define BOARD_PID_KD_MILLI 0
+#endif
+#ifndef BOARD_PID_MAX_POWER
+#define BOARD_PID_MAX_POWER 50
+#endif
+#if BOARD_PID_ENABLED != 0 && BOARD_PID_ENABLED != 1
+#error BOARD_PID_ENABLED must be 0 or 1
+#endif
+#if BOARD_PID_ENABLED && (BOARD_PID_KP_MILLI < 0 || BOARD_PID_KP_MILLI > 10000 || BOARD_PID_KI_MILLI < 0 || BOARD_PID_KI_MILLI > 10000 || BOARD_PID_KD_MILLI < 0 || BOARD_PID_KD_MILLI > 10000 || (BOARD_PID_KP_MILLI + BOARD_PID_KI_MILLI + BOARD_PID_KD_MILLI) == 0)
+#error PID gains must be in 0..10000 with at least one nonzero feedback gain
+#endif
+#if BOARD_PID_ENABLED && (BOARD_PID_MAX_CPS < 1 || BOARD_PID_MAX_CPS > 100000 || BOARD_PID_MAX_POWER < 1 || BOARD_PID_MAX_POWER > 50)
+#error PID requires a measured speed scale and an output cap of 1..50 percent
 #endif
 /* Preserve Buddy 5's existing Grove wiring (subsystem5 branch, app.h).
  * The Week 6 document lists these roles in the opposite order. */

@@ -34,7 +34,8 @@ static void controller(void) {
     s=armed();i=healthy();i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);
     i.scan_ready=1;i.turn_deg=30;i.approach_mm=200;i.return_mm=100;vc_step(&s,&i);
     assert(s.phase==VC_FAULT && s.fault==VC_UNCALIBRATED);
-    s=armed();i=healthy();i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
+    s=armed();i=healthy();i.obstacle=1;i.front_clear=0;i.navigation_event=1;i.nav=2;vc_step(&s,&i);
+    assert(s.pending_nav==2);i.navigation_event=0;
     i.scan_ready=1;i.bypass_enabled=1;i.turn_deg=30;i.approach_mm=200;i.return_mm=100;
     vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command);
     vc_step(&s,&i);assert(!s.command); /* needs a fresh, forward-facing reading */
@@ -51,8 +52,13 @@ static void controller(void) {
     i.yaw_mdeg=-90000;vc_step(&s,&i);assert(s.phase==VC_RETURN && !s.command);
     i.distance_um+=100000;vc_step(&s,&i);assert(s.phase==VC_RESTORE && !s.command);
     i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command);
-    i.steering=0;vc_step(&s,&i);assert(!s.command);
+    i.steering=0;vc_step(&s,&i);assert(s.command==3);
     i.steering=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
+    assert(s.pending_nav==2);i.obstacle=0;
+    vc_track_requested(&s,i.now_ms);i.steering=0;vc_step(&s,&i);
+    assert(!s.command && s.armed && s.pending_nav==2);
+    i.steering=1;vc_step(&s,&i);
+    assert(s.phase==VC_NAV_TURN && s.turn_deg==-90 && !s.pending_nav && !s.command);
     /* Never resume expired or interrupted open-loop maneuvers. */
     s=armed();s.phase=VC_TURN_OUT;s.entered_ms=100;i=healthy();i.now_ms=6000;
     s.armed_ms=6000;vc_step(&s,&i);assert(s.phase==VC_FAULT);

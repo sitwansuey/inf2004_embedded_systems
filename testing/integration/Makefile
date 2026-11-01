@@ -6,6 +6,10 @@ SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_po
 .PHONY: test sanitize
 test:
 	mkdir -p .build
+	$(CC) $(CFLAGS) edr_stream_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/edr_stream
+	python3 edr_stream_test.py
+	$(CC) $(CFLAGS) mission_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o .build/mission
+	./.build/mission
 	$(CC) $(CFLAGS) buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle
 	./.build/buddy4_vehicle
 	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/continuous_line
@@ -36,7 +40,7 @@ test:
 	python3 protocol_test.py
 	$(CC) $(CFLAGS) telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/queue
 	./.build/queue
-	$(CC) $(CFLAGS) -Imocks mqtt_test.c $(LDFLAGS) -o .build/mqtt
+	$(CC) $(CFLAGS) -Imocks mqtt_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/mqtt
 	./.build/mqtt
 sanitize:
 	$(MAKE) test CFLAGS='$(CFLAGS) -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='-fsanitize=address,undefined'

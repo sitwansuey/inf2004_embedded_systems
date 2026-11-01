@@ -643,7 +643,7 @@ EXPORT ER s3_service_once(void)
         {
             s3_core_fault(&core, S3_ERROR_STALE);
         }
-        output.error = core.latched_error;
+        output.error = (uint8_t)((unsigned)core.latched_error & 7U);
         output.awaiting_controller = core.awaiting_controller;
     }
     er = lock_sample();

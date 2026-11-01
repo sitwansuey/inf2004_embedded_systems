@@ -7,8 +7,14 @@ int main(void) {
     assert(s5_assess_path(&s,TRUE,20).state==S5_PATH_FORWARD);
     s.sample_angle_deg=10;assert(s5_assess_path(&s,TRUE,20).state!=S5_PATH_FORWARD);
     s.sample_angle_deg=0;s.distance_mm=200;assert(s5_assess_path(&s,TRUE,20).state==S5_PATH_STOP);
-    s5_scan_context_t c={0};assert(s5_scan_step(&s,&c)==0);assert(s5_scan_step(&s,&c)==10);
+    s5_scan_context_t c={0};assert(s5_scan_step(&s,&c)==0);assert(s5_scan_step(&s,&c)==30);
     assert(s.state==S5_SCAN_LEFT);
+    /* Coarse steps clamp at the search limits rather than commanding +/-60. */
+    s.angle_deg=s.sample_angle_deg=30;s.obstacle_distance_mm=200;
+    assert(s5_scan_step(&s,&c)==50);
+    s.angle_deg=s.sample_angle_deg=-30;s.state=S5_SCAN_RIGHT;
+    assert(s5_scan_step(&s,&c)==-50);
+    s.state=S5_SCAN_LEFT;
     s.valid=0;s.echo_result=S5_ECHO_NO_RISE;s.angle_deg=s.sample_angle_deg=10;
     for(unsigned n=0;n<3;++n)(void)s5_scan_step(&s,&c);
     assert(s.state==S5_FAULT && !s.acquisition_clear && !s.approach_plan_valid);

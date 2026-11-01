@@ -24,8 +24,7 @@ void subsystem5_test(void) {}
 int main(void)
 {
     s5_status_t v = {0}, decoded;
-    uint8_t data[S5_DATA_SIZE], again[S5_DATA_SIZE], packet[S5_DATA_SIZE + 2];
-    size_t length;
+    uint8_t data[S5_DATA_SIZE], again[S5_DATA_SIZE];
     assert(s5_get_status(&v)==E_OBJ);
     assert(subsystem5_init()==E_OK && s5_controller_bind()==E_OK);
     assert(s5_get_status(&v) == E_OK && v.state == S5_CENTERING && v.angle_deg == 0);
@@ -76,9 +75,7 @@ int main(void)
     assert(s5_data_decode(data, sizeof(data), &decoded));
     assert(decoded.motor1_counts_start == INT32_MIN && decoded.motor2_counts_end == INT32_MAX);
     assert(decoded.time_ms == UINT32_MAX);
-    assert(edr_frame_encode(5, 0, data, sizeof(data), packet, sizeof(packet), &length));
-    assert(length == 86 && packet[0] == 0x45 && packet[1] == 84);
-    for (size_t i=0; i<length; ++i) printf("%02x", packet[i]);
+    for (size_t i=0; i<sizeof(data); ++i) printf("%02x", data[i]);
     puts("");
     memcpy(again, data, sizeof(data));
     v.angle_deg = 91;

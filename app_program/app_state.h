@@ -10,7 +10,7 @@ typedef struct {
     uint32_t time_ms, sequence;
     uint16_t speed_bits : 12; /* odometry's -2000..2000 mm/s, same low bits */
     uint8_t navigation : 3;
-    uint8_t barcode : 2;
+    uint8_t barcode : 3; /* 0 none, 1..4 A..D, 5 Z */
     uint8_t odometry_valid : 1;
 } app_state_t;
 static inline int32_t app_speed_mm_s(const app_state_t *s) {

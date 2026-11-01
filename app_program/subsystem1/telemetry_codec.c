@@ -1,4 +1,4 @@
-/* Generated from tools/telemetry_schema.json. LSB-first, offset binary. */
+/* PRIVATE queue snapshot, generated from tools/telemetry_schema.json. Never MQTT. */
 #include "telemetry_codec.h"
 #include <string.h>
 typedef struct { int64_t min,max; uint8_t bits; } field_t;
@@ -21,7 +21,7 @@ static const field_t fields[TEL_FIELD_COUNT]={
     {0LL,4095LL,12},
     {0LL,7LL,3},
     {-1000LL,1000LL,11},
-    {0LL,2LL,2},
+    {0LL,5LL,3},
     {0LL,4LL,3},
     {-2048LL,2047LL,12},
     {-2048LL,2047LL,12},
@@ -38,8 +38,9 @@ static const field_t fields[TEL_FIELD_COUNT]={
     {0LL,500LL,9},
     {-90LL,90LL,8},
     {0LL,14LL,4},
-    {0LL,31LL,5},
-    {0LL,65535LL,16}
+    {0LL,63LL,6},
+    {0LL,65535LL,16},
+    {0LL,2LL,2}
 };
 bool telemetry_encode(uint8_t out[TELEMETRY_BYTES],const int64_t v[TEL_FIELD_COUNT]) {
     if(!out || !v)return false;

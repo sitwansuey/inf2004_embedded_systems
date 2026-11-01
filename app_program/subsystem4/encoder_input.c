@@ -11,7 +11,7 @@ void s4_encoder_terrain_step(s4_encoder_input_t *s, terrain_t *t,
     size_t length, bool available, uint64_t imu_us, const int32_t a[3],
     bool av, bool calibrated, int pzero, int rzero)
 {
-    edr_encoder_t encoder;
+    encoder_snapshot_t encoder;
     uint32_t imu_ms = (uint32_t)(imu_us / 1000U);
     bool accepted = false;
     bool priming = false;
@@ -19,9 +19,9 @@ void s4_encoder_terrain_step(s4_encoder_input_t *s, terrain_t *t,
     if (!s || !t || !a) return;
     s->fault = S4_INPUT_OK;
     if (!available) s->fault = S4_INPUT_UNAVAILABLE;
-    else if (!edr_encoder_decode(payload, length, &encoder))
+    else if (!encoder_snapshot_decode(payload, length, &encoder))
         s->fault = S4_INPUT_FORMAT;
-    else if (!(encoder.flags & EDR_ENCODER_VALID))
+    else if (!(encoder.flags & ENCODER_SNAPSHOT_VALID))
         s->fault = S4_INPUT_UNAVAILABLE;
     else if (!edr_age_is_fresh(now, encoder.sampled_ms, S4_ENCODER_MAX_AGE_MS))
         s->fault = S4_INPUT_STALE;

@@ -9,6 +9,7 @@ not additional MQTT subscriptions or publications.
 
 | ID | Dashboard card | Display fields / conversion |
 |---|---|---|
+| 0 | Mission/terrain/navigation cards | subtype-specific status; see wire contract |
 | 1 | Left wheel encoder | encoder_left, count modulo 4096 |
 | 2 | Right wheel encoder | encoder_right, count modulo 4096 |
 | 3 | Servo Motor | servo_angle_deg, 0–180 degrees |
@@ -27,11 +28,12 @@ fields in existing cards. The Python receiver does not subscribe to those keys.
 
 ID 11 extracts command = data & 7, power = (data >> 3) & 127, state = data >> 10.
 Validation rejects command >6, power >100 and state >2. Zero bytes are valid.
-ID zero, wrong lengths, invalid servo angles and invalid fault masks are rejected.
+Wrong lengths, invalid servo angles and invalid fault masks are rejected.
+ID zero carries the mission-status subtype and value.
 
 The prior packed16/v1 topic, individual sensor topics and JSON/event topics
 are not consumed. Demo/JSON import remain explicit browser-only features.
-Supported physical sensors not yet connected remain blank. Additional derived
-fields/events require a future schema change; all nonzero IDs are currently used.
+Supported physical sensors not yet connected remain blank. ID zero supplies decoded navigation, height/maximum, controller state and
+other documented derived fields. Free-text events are not transmitted.
 
 Full bit layout: [DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md).

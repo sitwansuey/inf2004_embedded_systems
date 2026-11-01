@@ -2,7 +2,7 @@
 #define CSC02_TELEMETRY_CODEC_H
 #include <stdint.h>
 #include <stdbool.h>
-#define TELEMETRY_BITS 394U
+#define TELEMETRY_BITS 398U
 #define TELEMETRY_BYTES 50U
 enum {
     TEL_VERSION,
@@ -28,9 +28,9 @@ enum {
     TEL_AX_MG,
     TEL_AY_MG,
     TEL_AZ_MG,
-    TEL_MX_RAW,
-    TEL_MY_RAW,
-    TEL_MZ_RAW,
+    TEL_MX_MG,
+    TEL_MY_MG,
+    TEL_MZ_MG,
     TEL_PITCH_CDEG,
     TEL_ROLL_CDEG,
     TEL_TERRAIN,
@@ -42,6 +42,7 @@ enum {
     TEL_SCAN_STATE,
     TEL_QUALITY,
     TEL_DROPPED,
+    TEL_MOTOR_ERROR,
     TEL_FIELD_COUNT
 };
 bool telemetry_encode(uint8_t out[TELEMETRY_BYTES], const int64_t values[TEL_FIELD_COUNT]);

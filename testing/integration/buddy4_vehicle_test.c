@@ -34,12 +34,12 @@ ER s2_movement_send(s2_move_command_t command,UINT power)
 { (void)command;(void)power;++positive_requests;return E_OK; }
 ER s2_motion_get_status(s2_motion_status_t *s)
 { *s=(s2_motion_status_t){0};return E_OK; }
-ER s2_encoder_encode(uint8_t *p,size_t capacity)
+ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
 {
     uint32_t stamp=clock_ms;
     if(failure_mode==1U && iteration>=8U)stamp+=100U;
-    edr_encoder_t e={0,0,stamp,EDR_ENCODER_VALID};
-    assert(edr_encoder_encode(&e,p,capacity));
+    encoder_snapshot_t e={0,0,stamp,ENCODER_SNAPSHOT_VALID};
+    assert(encoder_snapshot_encode(&e,p,capacity));
     /* A failed provider deliberately leaves old-looking data behind. */
     return failure_mode==2U && iteration>=8U?E_SYS:E_OK;
 }

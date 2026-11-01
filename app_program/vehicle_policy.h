@@ -5,6 +5,7 @@
 enum { VC_DISARMED,VC_TRACK,VC_ACQUIRE,VC_TURN_OUT,VC_DIAGONAL,VC_ALIGN,
        VC_PASS,VC_TURN_IN,VC_RETURN,VC_RESTORE,VC_REACQUIRE,VC_NAV_TURN,VC_FAULT };
 enum { VC_OK,VC_SENSOR,VC_LINE,VC_SHOCK,VC_TRANSPORT,VC_TIMEOUT,VC_UNCALIBRATED,VC_MOTOR };
+#define VC_TRACK_HANDOFF_MS 100U
 typedef struct {
     uint32_t now_ms, scan_id;
     int32_t distance_um, yaw_mdeg;
@@ -30,9 +31,12 @@ typedef struct {
     uint8_t navigation_event : 1;
     uint8_t safety_event : 1;
     uint8_t transport_ok : 1;
+    uint8_t recovery_event : 1;
+    uint8_t line_detected : 1;
 } vc_input_t;
 typedef struct {
     uint32_t entered_ms, armed_ms, lease_ms, scan_id;
+    uint32_t track_requested_ms;
     int32_t origin_um, origin_yaw, turn_progress;
     uint16_t approach_mm, return_mm;
     int16_t turn_deg;
@@ -44,8 +48,13 @@ typedef struct {
     uint8_t look_side : 1;
     uint8_t armed : 1;
     uint8_t side : 1; /* 0 left, 1 right */
+    uint8_t pending_nav : 3; /* retained until execution, STOP or fault */
+    uint8_t navigation_ack : 1; /* one-tick STRAIGHT acknowledgement */
+    uint8_t track_wait : 1;
 } vc_state_t;
+void vc_track_requested(vc_state_t *s, uint32_t now);
 bool vc_arm(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power);
+bool vc_start(vc_state_t *s, uint32_t now, unsigned power);
 void vc_stop(vc_state_t *s,unsigned reason);
 void vc_step(vc_state_t *s,const vc_input_t *i);
 #endif

@@ -34,18 +34,14 @@ class Subsystem5Tests(unittest.TestCase):
                                 "-o", str(exe)], check=True)
                 result = subprocess.run([str(exe)], check=True, capture_output=True, text=True)
                 print(result.stdout.strip())
-                record = decode_packet(bytes.fromhex(result.stdout.splitlines()[0]))
-                self.assertEqual(record["record_type"], "obstacle")
-                self.assertEqual(record["payload"]["scan_id"], 0x12345678)
-                self.assertEqual(record["payload"]["angle_deg"], -90)
-                self.assertEqual(record["payload"]["motor1_counts_start"], -2147483648)
-                self.assertEqual(record["payload"]["time_ms"], 0xffffffff)
-                packet = bytearray.fromhex(result.stdout.splitlines()[0])
-                for offset, invalid in ((2, 15), (2, 0x50), (2, 128), (3, 128), (4, 181)):
-                    bad = bytearray(packet)
-                    bad[offset] = invalid
-                    with self.assertRaises(ValueError):
-                        decode_packet(bad)
+                # This is a private full-resolution snapshot, NOT MQTT EDR16.
+                raw=bytes.fromhex(result.stdout.splitlines()[0])
+                self.assertEqual(len(raw),84)
+                self.assertEqual(int.from_bytes(raw[8:12],"little"),0x12345678)
+                self.assertEqual(raw[2]-90,-90)
+                self.assertEqual(int.from_bytes(raw[40:44],"little",signed=True),-2147483648)
+                self.assertEqual(int.from_bytes(raw[36:40],"little"),0xffffffff)
+
 
 
 if __name__ == "__main__":
