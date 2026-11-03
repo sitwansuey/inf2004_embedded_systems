@@ -29,8 +29,11 @@ config/wifi_secrets.h
 # Buddy 4 host-test build output
 app_program/subsystem4/tests/host/.build/
 
-# Local board calibration and generated test files
-app_program/robot_config.local.h
+# Ignore per-checkout board settings; track the reviewed calibration snapshot.
+**/robot_config.local.h
+!/calibration/robot_config.local.h
+
+# Generated test files
 testing/integration/.build/
 **/__pycache__/
 

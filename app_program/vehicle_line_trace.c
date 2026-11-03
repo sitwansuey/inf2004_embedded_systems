@@ -53,7 +53,7 @@ static void line_trace_task(INT code,void *context) {
         bool adc_ok=ir_line_observe(&line,&cfg.line,ir.sample.raw,ir.sample.valid_mask,
                                    ir.sample_time_ms,now.lo,source_ok);
         bool actual_front_clear=sonar_ok && sonar.valid && sonar.angle_deg==0 && sonar.sample_angle_deg==0 &&
-            now.lo-sonar.time_ms<S5_STALE_MS && sonar.distance_mm>250U;
+            now.lo-sonar.time_ms<S5_STALE_MS && sonar.distance_mm>BOARD_BENCH_CLEARANCE_MM;
 #if BOARD_IR_LINE_ONLY_BENCH
         /* This named profile explicitly has no obstacle protection. The
          * actual unavailable range is never published as a clear reading. */

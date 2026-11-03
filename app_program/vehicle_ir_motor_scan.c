@@ -37,7 +37,7 @@ static void motor_scan_task(INT code,void *context) {
               s3_normalize(ir.sample.raw[2],cfg.line.white[2],cfg.line.black[2],4095U,&darkness);
         ir_scan_input_t input={now.lo,motor_ok,ir_ok,ir_ok && darkness<=cfg.line.threshold_low,
             sonar_ok && sonar.valid && sonar.angle_deg==0 && sonar.sample_angle_deg==0 &&
-            now.lo-sonar.time_ms<S5_STALE_MS && sonar.distance_mm>250U};
+            now.lo-sonar.time_ms<S5_STALE_MS && sonar.distance_mm>BOARD_BENCH_CLEARANCE_MM};
         bool was_active=scan.active;
         ir_scan_step(&scan,&input);
         if(was_active && !scan.active) stopped_ms=now.lo;

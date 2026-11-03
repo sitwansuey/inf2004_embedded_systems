@@ -343,6 +343,13 @@ static ER motor_init(void)
 
 static void motor_set_pair(UINT pin_a, UINT pin_b, INT direction, UW duty)
 {
+#if BOARD_IR_LINE_TRACE_BENCH && defined(BOARD_RIGHT_PWM_PERMILLE)
+    /* Scale PWM ticks after PID rounding to allow sub-percent trim changes. */
+    if (pin_a == BOARD_MOTOR2_A_GPIO)
+    {
+        duty = (duty * BOARD_RIGHT_PWM_PERMILLE + 500U) / 1000U;
+    }
+#endif
     if (direction > 0)
     {
         pwm_set_cc(pin_a, duty);

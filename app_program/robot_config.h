@@ -182,6 +182,9 @@
 #ifndef BOARD_BYPASS_VALIDATED
 #define BOARD_BYPASS_VALIDATED 0 /* enable only after raised-wheel/track tests */
 #endif
+#ifndef BOARD_BENCH_CLEARANCE_MM
+#define BOARD_BENCH_CLEARANCE_MM 250U
+#endif
 #ifndef BOARD_PID_ENABLED
 #define BOARD_PID_ENABLED 0
 #endif
