@@ -24,3 +24,8 @@ main{max-width:1920px;padding:24px 2%}
 @media(max-width:850px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.grid .panel{padding:10px}main{padding:20px 12px}}
 @media(max-width:380px){.grid{grid-template-columns:1fr}}
+
+.robot-controls{margin:12px 0 20px;padding:16px;border:1px solid #38536d;border-radius:12px;background:#13283a}
+.robot-controls p{margin:8px 0;font-size:13px}.robot-buttons{display:flex;gap:10px;flex-wrap:wrap}
+#robot-start{background:#176b4b;color:white}#robot-stop{background:#ac2634;color:white;font-weight:bold}
+.robot-buttons button:disabled{opacity:.5}

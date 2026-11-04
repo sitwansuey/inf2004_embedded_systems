@@ -268,7 +268,12 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
             fault(p_core, p_output, S3_ERROR_BARCODE, p_sample->time_ms);
         }
     }
-    p_output->steering_allowed = (p_output->line.state == S3_LINE_TRACKING) &&
+    /* Both front sensors on black is a traversable junction. Keep the
+     * junction status for telemetry while permitting controller steering. */
+    p_output->steering_allowed = ((p_output->line.state == S3_LINE_TRACKING) ||
+                                 (p_core->config.line.line_mask == 3U &&
+                                  p_output->line.state == S3_LINE_JUNCTION &&
+                                  p_output->line.black_mask == 3U)) &&
                                  !p_core->awaiting_controller &&
                                  (p_core->latched_error == S3_ERROR_NONE);
     p_output->awaiting_controller = p_core->awaiting_controller;

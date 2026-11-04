@@ -18,6 +18,8 @@ void vc_stop(vc_state_t *s,unsigned reason) {
     if (!s) return;
     s->command=0;s->power=0;s->armed=0;s->look_side=0;
     s->pending_nav=0;s->navigation_ack=0;s->track_wait=0;
+    s->last_line_side=0;s->search_right_first=0;
+    s->search_command=0;s->line_settling=0;s->line_found_ms=0;
     s->fault=(uint8_t)(reason&15U);s->phase=reason?VC_FAULT:VC_DISARMED;
 }
 void vc_track_requested(vc_state_t *s,uint32_t now) {
@@ -27,10 +29,12 @@ void vc_track_requested(vc_state_t *s,uint32_t now) {
 }
 static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     s->phase=(uint8_t)phase;s->entered_ms=i->now_ms;
+    if (phase==VC_REACQUIRE) s->search_right_first=s->last_line_side==1U;
     s->origin_um=i->distance_um;s->origin_yaw=i->yaw_mdeg;
     s->turn_progress=0;
     s->command=0;s->power=0;
     s->track_wait=0;
+    s->search_command=0;s->line_settling=0;s->line_found_ms=0;
 }
 static int yaw_delta(int32_t now,int32_t origin) {
     int d=now-origin; if(d>180000)d-=360000;if(d< -180000)d+=360000;return d;
@@ -40,6 +44,9 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     s->command=0;s->power=0;
     s->navigation_ack=0;
     if (!s->armed) return;
+    /* Preserve the last unambiguous side across both-black/white readings. */
+    if (i->line_fresh && (i->line_black_mask==1U || i->line_black_mask==2U))
+        s->last_line_side=i->line_black_mask & 3U;
     if (s->lease_ms && i->now_ms-s->armed_ms>=s->lease_ms) { vc_stop(s,VC_TIMEOUT);return; }
     if (i->shock || i->safety_event) { vc_stop(s,i->shock?VC_SHOCK:VC_LINE);return; }
     if (!i->transport_ok) { vc_stop(s,VC_TRANSPORT);return; }
@@ -65,7 +72,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             }
         }
         if (!i->front_clear) return;
-        if (i->recovery_event) { enter(s,i,VC_REACQUIRE);return; }
+        if (i->recovery_event && !i->curve_hold) { enter(s,i,VC_REACQUIRE);return; }
         if (s->pending_nav) {
             unsigned nav=s->pending_nav;s->pending_nav=0;
             if (nav==3) {s->navigation_ack=1;return;}
@@ -74,11 +81,20 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         /* S3 reports SEARCHING (2) before LOST (3); begin recovery then,
          * rather than faulting before its recovery event can be delivered. */
-        if (i->line_fresh && !i->steering && (i->line_state==2 || i->line_state==3)) {
+        if (i->line_fresh && i->curve_hold) {
+            s->command=1;s->power=s->maximum_power;return;
+        }
+        if (i->line_fresh && !i->steering && i->line_state==2U) {
+            /* SEARCHING is the short pre-LOST window; bridge brief dropouts. */
+            s->command=1;s->power=s->maximum_power;
+            return;
+        }
+        if (i->line_fresh && !i->steering && i->line_state==3U) {
             enter(s,i,VC_REACQUIRE);return;
         }
         if (!i->line_fresh || !i->steering) { vc_stop(s,VC_LINE);return; }
-        s->command=i->line_error< -150?6:i->line_error>150?5:1;
+        /* Either front sensor on black is sufficient to keep following forward. */
+        s->command=1;
     } else if (s->phase==VC_ACQUIRE) {
         if (i->front_clear && !i->obstacle && !i->scan_ready) { enter(s,i,VC_REACQUIRE);return; }
         if (!i->scan_ready) return;
@@ -92,7 +108,22 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     } else if (s->phase==VC_REACQUIRE) {
         if (!i->front_clear) return;
         if (!i->line_fresh) { vc_stop(s,VC_LINE);return; }
-        if (i->line_detected || i->steering) { enter(s,i,VC_TRACK);return; }
+        if (s->line_settling) {
+            if (i->now_ms-s->line_found_ms<20U) {
+                s->command=s->search_command;
+                s->power=s->maximum_power>15?15:s->maximum_power;
+                return;
+            }
+            s->line_settling=0;
+            if (i->line_detected || i->steering) { enter(s,i,VC_TRACK);return; }
+        } else if (i->line_detected || i->steering) {
+            /* No extra turn when starting already on the line. */
+            if (!s->search_command) { enter(s,i,VC_TRACK);return; }
+            s->line_settling=1;s->line_found_ms=i->now_ms;
+            s->command=s->search_command;
+            s->power=s->maximum_power>15?15:s->maximum_power;
+            return;
+        }
         /* Bounded encoder-controlled sweep: +30, -30, +60, -60 degrees.
          * Fresh forward clearance and sensor checks above gate every step. */
         const int targets[4]={30000,-30000,60000,-60000};
@@ -101,8 +132,10 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         int progress=yaw_delta(i->yaw_mdeg,s->origin_yaw);
         int target=targets[s->turn_progress];
+        if (s->search_right_first) target=-target;
         if (abs(target-progress)<=3000) { ++s->turn_progress;return; }
         s->command=target>progress?3:4;
+        s->search_command=s->command;
         s->power=s->maximum_power>15?15:s->maximum_power;
         return;
     } else {

@@ -9,6 +9,8 @@
 #include "../robot_config.h"
 #include <tk/syslib.h>
 #include "speed_pid.h"
+#include "wheel_steering.h"
+static INT requested_steering;
 #if BOARD_PID_ENABLED && !S2_ENCODER_ENABLED
 #error Speed regulation requires both encoders
 #endif
@@ -18,6 +20,7 @@ static uint32_t pid_counts[2], pid_time, pid_progress[2];
 static int32_t pid_speed[2];
 static BOOL pid_initialized;
 static UINT pid_command;
+static int32_t filtered_steering;
 #endif
 
 /* Persistent state uses the same motor word as the external representation.
@@ -441,7 +444,9 @@ static ER motor_regulate(uint16_t word)
     uint8_t command, power, state;
     s2_encoder_status_t e;
     if (!edr_motor_unpack(word,&command,&power,&state)) return E_SYS;
-    if (state!=S2_MOTION_MOVING || !power) {pid_initialized=FALSE;return E_OK;}
+    if (state!=S2_MOTION_MOVING || !power) {
+        pid_initialized=FALSE;filtered_steering=0;requested_steering=0;return E_OK;
+    }
     ER er=s2_encoder_get_status(&e);
     if (er<E_OK || !e.valid) return er<E_OK?er:E_OBJ;
     uint32_t counts[2]={(uint32_t)e.motor1_forward_counts,(uint32_t)e.motor2_forward_counts};
@@ -460,11 +465,14 @@ static ER motor_regulate(uint16_t word)
             wheel_pid[n]=(speed_pid_t){0};pid_counts[n]=counts[n];
             pid_progress[n]=e.sampled_ms;pid_speed[n]=0;
         }
-        pid_time=e.sampled_ms;pid_command=command;pid_initialized=TRUE;return E_OK;
+        pid_time=e.sampled_ms;pid_command=command;pid_initialized=TRUE;
+        filtered_steering=0;return E_OK;
     }
     uint32_t dt=e.sampled_ms-pid_time;
     if(dt<10U)return E_OK;
     if(dt>100U)return E_TMOUT;
+    filtered_steering=s2_steering_step(filtered_steering,
+        command==S2_MOVE_FORWARD?requested_steering:0,dt);
     unsigned output[2]={0,0};
     for(unsigned n=0;n<2;++n) {
         int32_t delta;
@@ -474,10 +482,11 @@ static ER motor_regulate(uint16_t word)
             if(e.sampled_ms-pid_progress[n]>500U)return E_TMOUT;
             int32_t instant=(int32_t)((int64_t)delta*direction[n]*1000/dt);
             pid_speed[n]=(3*pid_speed[n]+instant)/4;
-            int32_t target=(int32_t)((uint32_t)power*BOARD_PID_MAX_CPS/100U);
+            unsigned scale=s2_steering_scale(filtered_steering,n);
+            int32_t target=(int32_t)((uint64_t)power*BOARD_PID_MAX_CPS*scale/100000U);
             unsigned trim=n==0?S2_MOTOR1_TRIM_PERCENT:S2_MOTOR2_TRIM_PERCENT;
             output[n]=speed_pid_step(&wheel_pid[n],target,pid_speed[n],dt,
-                (unsigned)power*trim/100U,BOARD_PID_MAX_POWER,
+                (unsigned)((uint64_t)power*trim*scale/100000U),BOARD_PID_MAX_POWER,
                 BOARD_PID_KP_MILLI,BOARD_PID_KI_MILLI,BOARD_PID_KD_MILLI);
         }
         pid_counts[n]=counts[n];
@@ -679,6 +688,7 @@ static void motor_task(INT stacd, void *p_exinf)
         /* The mailbox header is the first member of the pooled message. */
         s2_movement_msg_t *p_msg = (s2_movement_msg_t *)p_raw;
         uint16_t motor = p_msg->motor;
+        INT steering=p_msg->steering;
         uint8_t packed_command;
         uint8_t packed_power;
         uint8_t packed_state;
@@ -708,6 +718,10 @@ static void motor_task(INT stacd, void *p_exinf)
         /* Unpack validates the command and power before widening. */
         command = (s2_move_command_t)packed_command;
         power = packed_power;
+        if(steering< -400 || steering>400 || (command!=S2_MOVE_FORWARD && steering!=0)) {
+            er=motion_fault(&current,E_PAR);continue;
+        }
+        requested_steering=steering;
 
         if ((command == S2_MOVE_STOP) || (power == 0U))
         {
@@ -854,12 +868,17 @@ EXPORT ER subsystem2_start(void)
     return er;
 }
 
-EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
+static ER movement_send(s2_move_command_t command, UINT power_percent, INT steering)
 {
     void *p_block = NULL;
     SYSTIM now = {0};
     uint16_t motor;
     ER er = E_OK;
+    if(steering< -400 || steering>400 || (command!=S2_MOVE_FORWARD && steering!=0))
+        return E_PAR;
+#if !BOARD_PID_ENABLED
+    if(steering!=0)return E_NOSPT;
+#endif
 
 #if !APP_S2_ONLY
     if ((h_controller_task == 0) || (tk_get_tid() != h_controller_task))
@@ -922,6 +941,7 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
 
         p_msg->hdr.msgque[0] = NULL;
         p_msg->motor = motor;
+        p_msg->steering = (int16_t)steering;
         p_msg->issued_at_ms = now.lo;
         p_msg->stop_epoch = __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE);
         /* The mailbox header is the first member of the message. */
@@ -932,4 +952,13 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
         }
     }
     return er;
+}
+
+EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
+{
+    return movement_send(command,power_percent,0);
+}
+EXPORT ER s2_follow_send(UINT power_percent, INT steering)
+{
+    return movement_send(S2_MOVE_FORWARD,power_percent,steering);
 }

@@ -30,8 +30,8 @@ class DashboardTests(unittest.TestCase):
         bridge=BrokerBridge()
         ok=SimpleNamespace(is_failure=False)
         for _ in range(2): bridge.on_connect(client,None,None,ok,None)
-        self.assertEqual(calls,[[(PACKED_TOPIC,0)],[(PACKED_TOPIC,0)]])
-        self.assertEqual(TOPICS,[(PACKED_TOPIC,0)])
+        self.assertEqual(calls,[TOPICS,TOPICS])
+        self.assertEqual(TOPICS,[(PACKED_TOPIC,0),("csc02/command/ack",0)])
         bridge.on_subscribe(None,None,1,[ok],None)
         self.assertEqual(bridge.snapshot()['status'],'MQTT subscribed')
 

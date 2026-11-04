@@ -65,6 +65,7 @@ typedef struct
 {
     T_MSG hdr; /* Kernel mailbox header must be first. */
     uint16_t motor; /* EDR motor word; no native enum layout in queued data. */
+    int16_t steering; /* Internal signed permille correction; never published as EDR. */
     UW issued_at_ms;
     UW stop_epoch;
 } s2_movement_msg_t;
@@ -117,6 +118,7 @@ IMPORT ER app_vehicle_request(UINT subsystem, s2_move_command_t command,
 
 /* Task context only; moving commands need periodic renewal. */
 IMPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent);
+IMPORT ER s2_follow_send(UINT power_percent, INT steering);
 /* Reports commanded output, not measured wheel motion. Task context only. */
 IMPORT ER s2_motion_get_status(s2_motion_status_t *p_status);
 /* E_NOSPT and zeroed output when encoder diagnostics are disabled.

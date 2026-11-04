@@ -150,3 +150,27 @@ if(location.protocol==='http:' || location.protocol==='https:') {
   }
   pollBroker();
 }
+
+// Explicit button presses are the only source of robot command requests.
+for (const action of ['reset', 'start', 'stop']) {
+  document.getElementById('robot-' + action).addEventListener('click', async () => {
+    const status = document.getElementById('command-status');
+    const button = document.getElementById('robot-' + action);
+    button.disabled = true;
+    status.textContent = 'Sending ' + action + '?';
+    try {
+      const response = await fetch('/api/command', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action})
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Command failed.');
+      status.textContent = result.message;
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}

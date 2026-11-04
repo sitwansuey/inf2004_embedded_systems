@@ -1,5 +1,6 @@
 #include "app_state.h"
 #include "board_pins.h"
+#include "vehicle_curve_memory.h"
 #include "subsystem1/control.h"
 #include "subsystem2/subsystem2.h"
 #include "subsystem2/odometry.h"
@@ -22,6 +23,8 @@ static void vehicle_task(INT code,void *context) {
         (void)odom_calibration_pack(&measured,&calibration_record);
     }
     s3_mode_t mode=S3_MODE_PAUSED;
+    INT line_curve=0;
+    curve_memory_t curve_memory={0};
     uint32_t next_tick=0;unsigned previous_phase=VC_DISARMED,previous_look=0;
     BOOL requested_sensor_mode=FALSE;
     for(;;) {
@@ -66,22 +69,35 @@ static void vehicle_task(INT code,void *context) {
         /* At most four copied command records per tick; STOP bypasses that queue. */
         for(unsigned n=0;n<4;++n) {
             control_message_t c;ER er=s1_command_take(&c);if(er<0)break;
-            if(c.wire[1]==0) {vc_stop(&state.vehicle,VC_OK);break;}
-            if(now.lo-c.time_ms>=100U)continue;
+            if(c.wire[1]==0) {vc_stop(&state.vehicle,VC_OK);
+                s1_command_ack(c.wire[5],0,0,state.vehicle.phase,state.vehicle.fault);break;}
+            if(now.lo-c.time_ms>=100U) {
+                s1_command_ack(c.wire[5],c.wire[1],3,state.vehicle.phase,state.vehicle.fault);continue;
+            }
             if(c.wire[1]==2 && !state.vehicle.armed && mo && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
                 s4_result_t cleared={.calculated_ms=now.lo};
                 result=cleared;
-                result_ok=s4_result_encode(&cleared,state.s4_result,sizeof(state.s4_result));continue;
+                result_ok=s4_result_encode(&cleared,state.s4_result,sizeof(state.s4_result));
+                s1_command_ack(c.wire[5],2,0,state.vehicle.phase,state.vehicle.fault);continue;
+            }
+            if(c.wire[1]==2) {
+                s1_command_ack(c.wire[5],2,1,state.vehicle.phase,state.vehicle.fault);continue;
             }
             if(c.wire[1]==1 || c.wire[1]==3) {
-                if(BOARD_MOTORS_DISABLED) {vc_stop(&state.vehicle,VC_MOTOR);continue;}
+                if(state.vehicle.armed) {
+                    s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
+                }
+                if(BOARD_MOTORS_DISABLED) {vc_stop(&state.vehicle,VC_MOTOR);
+                    s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;}
                 if(c.wire[1]==3 && (!BOARD_PID_ENABLED || !BOARD_PID_CALIBRATED || !BOARD_BYPASS_VALIDATED)) {
-                    vc_stop(&state.vehicle,VC_UNCALIBRATED);continue;
+                    vc_stop(&state.vehicle,VC_UNCALIBRATED);
+                    s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
                 }
                 BOOL fresh_arm=!state.vehicle.armed;
                 if(!odom_config_valid(&calibration) || !BOARD_TERRAIN_CALIBRATED || !line.configured) {
-                    vc_stop(&state.vehicle,VC_UNCALIBRATED);continue;
+                    vc_stop(&state.vehicle,VC_UNCALIBRATED);
+                    s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
                 }
                 if((c.wire[1]==3 ? vc_start(&state.vehicle,now.lo,c.wire[2]) :
                     vc_arm(&state.vehicle,now.lo,(unsigned)c.wire[3]|((unsigned)c.wire[4]<<8),c.wire[2])) && fresh_arm) {
@@ -90,11 +106,14 @@ static void vehicle_task(INT code,void *context) {
                     state.vehicle.origin_um=odom->distance_um;state.vehicle.turn_progress=0;
                     requested_sensor_mode=FALSE;
                 }
+                s1_command_ack(c.wire[5],c.wire[1],state.vehicle.armed?0U:1U,
+                    state.vehicle.phase,state.vehicle.fault);
             }
         }
         vc_input_t input={.now_ms=now.lo,.scan_id=scan.scan_id,
             .distance_um=odom->distance_um,.yaw_mdeg=odom_turn_mdeg(odom),
             .line_error=line.output.line.error,.line_state=(uint8_t)line.output.line.state,
+            .line_black_mask=(uint8_t)(line.output.line.black_mask & 3U),
             .turn_deg=plan_usable?(int16_t)scan.planned_rotate_deg:0,
             .approach_mm=plan_usable?(uint16_t)scan.planned_approach_mm:0,
             .return_mm=plan_usable?(uint16_t)scan.planned_return_mm:0,
@@ -104,7 +123,9 @@ static void vehicle_task(INT code,void *context) {
             .bypass_enabled=BOARD_BYPASS_VALIDATED,.transport_ok=1};
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
         input.steering=input.line_fresh && line.output.steering_allowed;
-        input.line_detected=input.line_fresh && line.output.line.state==S3_LINE_TRACKING;
+        input.line_detected=input.line_fresh &&
+            (line.output.line.state==S3_LINE_TRACKING ||
+             (line.output.line.state==S3_LINE_JUNCTION && line.output.line.black_mask==3U));
         input.sensor_fresh=so && scan.state!=S5_FAULT &&
             (!scan.valid || (scan.distance_mm>0 && scan.distance_mm<=5000U)) &&
             now.lo-scan.time_ms<(scan.valid?S5_STALE_MS:1500U);
@@ -118,6 +139,11 @@ static void vehicle_task(INT code,void *context) {
         input.side_ready=input.sensor_fresh && scan.valid && scan.sample_angle_deg==side_angle &&
             scan.angle_deg==side_angle;
         input.side_clear=input.side_ready && scan.distance_mm>200U;
+        line_curve=curve_memory_update(&curve_memory,now.lo,
+            state.vehicle.armed && state.vehicle.phase==VC_TRACK,
+            input.line_fresh && line.output.error==S3_ERROR_NONE,
+            line.output.line.black_mask & 3U,line.output.line.error);
+        input.curve_hold=curve_memory.turning && input.line_fresh;
         for(unsigned n=0;n<S3_EVENT_CAPACITY;++n) {
             s3_event_record_t e;ER er=s3_event_receive(&e);if(er==E_TMOUT)break;
             if(er<0) {input.transport_ok=0;break;}
@@ -126,6 +152,10 @@ static void vehicle_task(INT code,void *context) {
                 state.navigation=(uint8_t)e.event.command;state.barcode=(e.event.symbol>='A' && e.event.symbol<='D')?(uint8_t)(e.event.symbol-'A'+1):e.event.symbol=='Z'?5:0;
             } else if(e.event.kind==S3_EVENT_RECOVERY_REQUEST) input.recovery_event=1;
             else input.safety_event=1;
+        }
+        if(input.curve_hold && input.recovery_event) {
+            /* Acknowledge the short dropout so S3 can resume normal observations. */
+            if(s3_controller_control(S3_MODE_TRACK,true,100)<E_OK)input.transport_ok=0;
         }
         vc_step(&state.vehicle,&input);
         s3_mode_t wanted=!state.vehicle.armed?S3_MODE_PAUSED:
@@ -161,7 +191,14 @@ static void vehicle_task(INT code,void *context) {
             /* An epoch per stopped tick invalidates every old queued movement. */
             s2_emergency_stop();
         } else {
-            ER er=s2_movement_send((s2_move_command_t)state.vehicle.command,state.vehicle.power);
+            ER er;
+            if(BOARD_PID_ENABLED && state.vehicle.phase==VC_TRACK &&
+               state.vehicle.command==S2_MOVE_FORWARD && input.line_fresh) {
+                er=s2_follow_send(state.vehicle.power,line_curve);
+            } else {
+                line_curve=0;
+                er=s2_movement_send((s2_move_command_t)state.vehicle.command,state.vehicle.power);
+            }
             /* Motor may still be acknowledging the previous STOP. Retry next tick. */
             if(er<0 && er!=E_OBJ) {s2_emergency_stop();vc_stop(&state.vehicle,VC_TRANSPORT);}
         }

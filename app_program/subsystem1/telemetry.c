@@ -1,7 +1,8 @@
 /* Copied nonblocking handoff, derived from Buddy 1's telemetry inbox design. */
 #include "subsystem1.h"
 #include "control.h"
-static ID telemetry_buffer, command_buffer;
+static ID telemetry_buffer, command_buffer, ack_buffer;
+static UW stop_sequence;
 static UW drops, stop_epoch, seen_stop;
 static void dropped(void) { UW n=__atomic_load_n(&drops,__ATOMIC_RELAXED);
     __atomic_store_n(&drops,n<65535?n+1:n,__ATOMIC_RELAXED); }
@@ -14,7 +15,22 @@ ER s1_binary_init(void) {
     c.maxmsz=sizeof(control_message_t);c.bufsz=4*(sizeof(control_message_t)+4);
     command_buffer=tk_cre_mbf(&c);
     if(command_buffer<0) { ER er=command_buffer;tk_del_mbf(telemetry_buffer);telemetry_buffer=0;command_buffer=0;return er; }
+    c.maxmsz=CSC02_ACK_BYTES;c.bufsz=8*(CSC02_ACK_BYTES+8U);
+    ack_buffer=tk_cre_mbf(&c);
+    if(ack_buffer<0) {
+        ER er=ack_buffer;tk_del_mbf(command_buffer);tk_del_mbf(telemetry_buffer);
+        command_buffer=telemetry_buffer=ack_buffer=0;return er;
+    }
     return E_OK;
+}
+void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault) {
+    unsigned char ack[CSC02_ACK_BYTES]={0xC2,(unsigned char)seq,(unsigned char)opcode,
+        (unsigned char)result,(unsigned char)phase,(unsigned char)fault};
+    if(ack_buffer>0)(void)tk_snd_mbf(ack_buffer,ack,sizeof(ack),TMO_POL);
+}
+int s1_command_ack_take(unsigned char *out) {
+    if(!out || ack_buffer<=0)return E_OBJ;
+    return tk_rcv_mbf(ack_buffer,out,TMO_POL);
 }
 ER s1_binary_send(const uint8_t data[TELEMETRY_BYTES]) {
     if(!data)return E_PAR;
@@ -43,7 +59,7 @@ int s1_telemetry_current(const unsigned char *data) {
 }
 int s1_command_offer(const unsigned char *data,unsigned length) {
     if(!data || length!=CSC02_COMMAND_BYTES || data[0]!=0xC1 || data[1]>3)return E_PAR;
-    if(data[1]==0) { /* STOP survives a full queue and is handled before ARM. */
+    if(data[1]==0) { __atomic_store_n(&stop_sequence,data[5],__ATOMIC_RELEASE); /* STOP survives a full queue and is handled before ARM. */
         UW n=__atomic_load_n(&stop_epoch,__ATOMIC_RELAXED);
         __atomic_store_n(&stop_epoch,n+1U,__ATOMIC_RELEASE);return E_OK;
     }
@@ -61,7 +77,7 @@ ER s1_command_take(control_message_t *p) {
     if(!p)return E_PAR;
     *p=(control_message_t){0};
     UW epoch=__atomic_load_n(&stop_epoch,__ATOMIC_ACQUIRE);
-    if(epoch!=seen_stop) { seen_stop=epoch;p->wire[0]=0xC1;return E_OK; }
+    if(epoch!=seen_stop) { seen_stop=epoch;p->wire[0]=0xC1;p->wire[5]=(uint8_t)__atomic_load_n(&stop_sequence,__ATOMIC_ACQUIRE);return E_OK; }
     if(command_buffer<=0)return E_OBJ;
     for(unsigned n=0;n<4;++n) {
         INT size=tk_rcv_mbf(command_buffer,p,TMO_POL);if(size<0)return size;

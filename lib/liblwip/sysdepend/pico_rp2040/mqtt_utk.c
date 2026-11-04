@@ -67,8 +67,13 @@ static void incoming_data_cb(void *arg,const u8_t *data,u16_t length,u8_t flags)
             /* Reconnect requires a fresh RESET before ARM. A retained ARM
              * alone must never restart a vehicle after boot or link loss. */
             if(incoming[1]==0)command_enabled=0;
-            if(incoming[1]==2 && s1_command_offer(incoming,incoming_used)==0)command_enabled=1;
-            else if((incoming[1]!=1 && incoming[1]!=3) || command_enabled)(void)s1_command_offer(incoming,incoming_used);
+            if((incoming[1]==1 || incoming[1]==3) && !command_enabled) {
+                s1_command_ack(incoming[5],incoming[1],2,0,0);
+            } else {
+                int offered=s1_command_offer(incoming,incoming_used);
+                if(offered==0 && incoming[1]==2)command_enabled=1;
+                if(offered!=0)s1_command_ack(incoming[5],incoming[1],1,0,0);
+            }
         }
         incoming_valid=0;
     }
@@ -98,6 +103,13 @@ void mqtt_utk_poll_telemetry(void) {
     static int64_t values[TEL_FIELD_COUNT];
     static unsigned next=TELEMETRY_EDR_RECORDS;
     if(!client || !mqtt_client_is_connected(client))return;
+    /* Command replies take priority over the sensor stream. */
+    static unsigned char ack[CSC02_ACK_BYTES];
+    static unsigned ack_pending;
+    if(!ack_pending && s1_command_ack_take(ack)==CSC02_ACK_BYTES)ack_pending=1;
+    if(ack_pending && mqtt_publish(client,CSC02_ACK_TOPIC,ack,CSC02_ACK_BYTES,
+                                  0,0,publish_done_cb,NULL)==ERR_OK)ack_pending=0;
+
     if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot))next=TELEMETRY_EDR_RECORDS;
     if(next==TELEMETRY_EDR_RECORDS) {
         if(s1_telemetry_take(snapshot)!=TELEMETRY_BYTES || !telemetry_decode(snapshot,values))return;
