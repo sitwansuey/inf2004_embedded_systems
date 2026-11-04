@@ -12,8 +12,10 @@ static vc_input_t healthy(void) {
 static vc_state_t armed(void) {vc_state_t s={0};assert(vc_arm(&s,100,1000,30));return s;}
 static void controller(void) {
     vc_input_t i=healthy();vc_state_t s=armed();vc_step(&s,&i);assert(s.command==1 && s.power==30);
-    i.line_error=-500;vc_step(&s,&i);assert(s.command==6);
-    i.line_error=500;vc_step(&s,&i);assert(s.command==5);
+    /* TRACK now keeps forward motion; the motor owner's separate steering
+     * correction varies wheel demand rather than selecting pivot commands. */
+    i.line_error=-500;vc_step(&s,&i);assert(s.command==1);
+    i.line_error=500;vc_step(&s,&i);assert(s.command==1);
     i.slope=1;vc_step(&s,&i);assert(s.power==20);
     for(unsigned n=0;n<8;++n) {
         s=armed();i=healthy();
@@ -53,7 +55,8 @@ static void controller(void) {
     i.distance_um+=100000;vc_step(&s,&i);assert(s.phase==VC_RESTORE && !s.command);
     i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command);
     i.steering=0;vc_step(&s,&i);assert(s.command==3);
-    i.steering=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
+    i.steering=1;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && s.line_settling);
+    i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
     assert(s.pending_nav==2);i.obstacle=0;
     vc_track_requested(&s,i.now_ms);i.steering=0;vc_step(&s,&i);
     assert(!s.command && s.armed && s.pending_nav==2);
@@ -83,11 +86,11 @@ static void terrain(void) {
     for(uint32_t ms=20;ms<=80;ms+=20)terrain_step(&s,ms,a,true,0,true,true,0,0);
     assert(s.state==TERRAIN_FLAT);
     int distance=0;uint32_t time=80;
-    a[0]=-500;a[2]=866;
+    a[0]=500;a[2]=866;
     for(unsigned n=0;n<5;++n) {distance+=20000;time+=20;terrain_step(&s,time,a,true,distance,true,true,0,0);}
     assert(s.state==TERRAIN_ASCENT && s.peak_um>49000);
     a[0]=0;a[2]=1000;time+=20;terrain_step(&s,time,a,true,distance,true,true,0,0);assert(s.state==TERRAIN_CREST);
-    a[0]=500;a[2]=866;
+    a[0]=-500;a[2]=866;
     for(unsigned n=0;n<5;++n) {distance+=20000;time+=20;terrain_step(&s,time,a,true,distance,true,true,0,0);}
     assert(s.state==TERRAIN_DESCENT && !s.height_valid);
     a[0]=0;a[2]=1000;

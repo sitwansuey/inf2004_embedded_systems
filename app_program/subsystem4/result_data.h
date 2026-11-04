@@ -16,7 +16,7 @@
  * All encoder errors leave output untouched, and decode requires exact length. */
 typedef struct {
     uint32_t calculated_ms;
-    int32_t pitch_cdeg, roll_cdeg;
+    int32_t pitch_cdeg, roll_cdeg; /* body: nose-up / left-side-up positive */
     uint16_t height_mm, maximum_mm;
     uint8_t terrain, flags, faults; /* faults use shared EDR bit meanings */
 } s4_result_t;

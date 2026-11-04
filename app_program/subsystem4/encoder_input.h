@@ -38,4 +38,9 @@ void s4_encoder_terrain_step(s4_encoder_input_t *input, terrain_t *terrain,
     const uint8_t *payload, size_t length, bool available,
     uint64_t imu_time_us, const int32_t acceleration_mg[3], bool accel_valid,
     bool mounting_calibrated, int pitch_zero, int roll_zero);
+void s4_encoder_terrain_step_model(s4_encoder_input_t *input,terrain_t *terrain,
+    const odom_config_t *calibration,uint32_t now_ms,const uint8_t *payload,
+    size_t length,bool available,uint64_t imu_time_us,const int32_t acceleration_mg[3],
+    bool accel_valid,bool calibrated,int pitch_zero,int roll_zero,
+    const terrain_geometry_t *geometry);
 #endif

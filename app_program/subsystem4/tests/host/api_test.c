@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define REQUIRE(c) do { if (!(c)) { \
     fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #c); \
@@ -10,10 +11,18 @@
 
 static int fail_flag_create;
 static int fail_buffer_create;
+static int fail_cycle_create;
+static unsigned int fail_task_at;
+static ER cycle_start_result;
+static T_CCYC cycle_config;
+static unsigned int cycles_started;
+static unsigned int wake_requests;
+static ID last_woken_task;
 static ER lock_result;
 static ER unlock_result;
 static unsigned int deleted_mutexes;
 static unsigned int deleted_flags;
+static unsigned int deleted_buffers;
 static unsigned int tasks_started;
 static uint64_t clock_ms;
 static int64_t wall_clock_ms = -INT64_C(473385600000);
@@ -72,6 +81,35 @@ ER tk_del_flg(ID id)
     deleted_flags++;
     return E_OK;
 }
+ER tk_del_mbf(ID id)
+{
+    REQUIRE(id == 12);
+    ++deleted_buffers;
+    return E_OK;
+}
+ID tk_cre_cyc(const T_CCYC *p_config)
+{
+    REQUIRE(p_config->cycatr == TA_HLNG);
+    REQUIRE(p_config->cyctim == 10 && p_config->cycphs == 10);
+    REQUIRE(p_config->cychdr == (FP)s4_sensor_cyclic_handler);
+    cycle_config = *p_config;
+    return fail_cycle_create ? E_NOMEM : 13;
+}
+ER tk_sta_cyc(ID id)
+{
+    REQUIRE(id == 13 && tasks_started == 2);
+    ++cycles_started;
+    if (cycle_start_result == E_OK)
+        ((void (*)(void *))cycle_config.cychdr)(cycle_config.exinf);
+    return cycle_start_result;
+}
+ER tk_wup_tsk(ID id)
+{
+    REQUIRE(id == tid_s4_sensor && id > E_OK);
+    ++wake_requests;
+    last_woken_task = id;
+    return E_OK;
+}
 void s4_sensor_task(INT code, void *p_context)
 {
     (void)code;
@@ -94,13 +132,36 @@ ID app_start_task(FP entry, PRI pri, UW affinity, const char *p_name)
         REQUIRE(entry == monitor_task && pri == 19 && affinity == 0);
     }
     tasks_started++;
+    if (fail_task_at == tasks_started) return E_NOMEM;
     return (ID)(20u + tasks_started);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     s4_sensor_cache_t state;
     s4_sensor_status_t output;
+
+    if (argc == 2) {
+        REQUIRE(subsystem4_init() == E_OK);
+        if (strcmp(argv[1], "cycle-start-fail") == 0) {
+            cycle_start_result = E_SYS;
+            REQUIRE(subsystem4_start() == E_SYS);
+            REQUIRE(tasks_started == 2 && cycles_started == 1 && wake_requests == 0);
+            REQUIRE(subsystem4_start() == E_OBJ);
+        } else if (strcmp(argv[1], "sensor-start-fail") == 0) {
+            fail_task_at = 1;
+            REQUIRE(subsystem4_start() == E_NOMEM);
+            REQUIRE(tasks_started == 1 && cycles_started == 0 && wake_requests == 0);
+        } else {
+            REQUIRE(strcmp(argv[1], "monitor-start-fail") == 0);
+            fail_task_at = 2;
+            REQUIRE(subsystem4_start() == E_NOMEM);
+            REQUIRE(tasks_started == 2 && cycles_started == 0 && wake_requests == 0);
+            REQUIRE(subsystem4_start() == E_OBJ);
+        }
+        puts("S4-U33 PASS cyclic/task start failures propagate without enabling polling");
+        return EXIT_SUCCESS;
+    }
 
     REQUIRE(subsystem4_start() == E_OBJ);
     REQUIRE(s4_sensor_get_status(NULL) == E_PAR);
@@ -111,7 +172,13 @@ int main(void)
     fail_buffer_create = 1;
     REQUIRE(subsystem4_init() == E_NOMEM && deleted_mutexes == 2 && deleted_flags == 1);
     fail_buffer_create = 0;
+    fail_cycle_create = 1;
+    REQUIRE(subsystem4_init() == E_NOMEM);
+    REQUIRE(deleted_mutexes == 3 && deleted_flags == 2 && deleted_buffers == 1);
+    fail_cycle_create = 0;
     REQUIRE(subsystem4_init() == E_OK);
+    ((void (*)(void *))cycle_config.cychdr)(cycle_config.exinf);
+    REQUIRE(wake_requests == 0 && cycles_started == 0);
     REQUIRE(subsystem4_init() == E_OBJ);
     REQUIRE(s4_sensor_get_status(&output) == E_OK && !output.configured);
     puts("[TEST] S4-U19 PASS  two-phase lifecycle, object cleanup and argument checks");
@@ -166,7 +233,11 @@ int main(void)
     puts("[TEST] S4-U27 PASS  clock errors cannot publish a fresh sample or replace caller output");
 
     REQUIRE(subsystem4_start() == E_OK && tasks_started == 2);
+    REQUIRE(cycles_started == 1 && wake_requests == 1 && last_woken_task == tid_s4_sensor);
+    ((void (*)(void *))cycle_config.cychdr)(cycle_config.exinf);
+    REQUIRE(wake_requests == 2);
     REQUIRE(subsystem4_start() == E_OBJ);
+    puts("S4-U33 PASS stopped cycle creation/cleanup, 10ms period and task-only wake callback");
     puts("[TEST] S4-U21 PASS  task priorities/affinity and duplicate-start rejection");
     return EXIT_SUCCESS;
 }

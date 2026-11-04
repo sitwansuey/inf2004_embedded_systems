@@ -24,6 +24,24 @@ enum { TERRAIN_FLAT,TERRAIN_ASCENT,TERRAIN_CREST,TERRAIN_DESCENT,TERRAIN_SHOCK,T
 #ifndef TERRAIN_MIN_HUMP_UM
 #define TERRAIN_MIN_HUMP_UM 5000
 #endif
+#ifndef TERRAIN_ONE_SIDE_FLAT_UM
+#define TERRAIN_ONE_SIDE_FLAT_UM 1000
+#endif
+#ifndef TERRAIN_ONE_SIDE_ENTER_UM
+#define TERRAIN_ONE_SIDE_ENTER_UM 2000
+#endif
+#ifndef TERRAIN_ONE_SIDE_DESCENT_UM
+#define TERRAIN_ONE_SIDE_DESCENT_UM 1000
+#endif
+#ifndef TERRAIN_ONE_SIDE_MIN_TRAVEL_UM
+#define TERRAIN_ONE_SIDE_MIN_TRAVEL_UM 20000
+#endif
+#if TERRAIN_ONE_SIDE_FLAT_UM < 0 || TERRAIN_ONE_SIDE_ENTER_UM <= TERRAIN_ONE_SIDE_FLAT_UM || \
+    TERRAIN_ONE_SIDE_ENTER_UM > 1000000 || TERRAIN_ONE_SIDE_DESCENT_UM < 1 || \
+    TERRAIN_ONE_SIDE_DESCENT_UM > 1000000 || TERRAIN_ONE_SIDE_MIN_TRAVEL_UM < 1 || \
+    TERRAIN_ONE_SIDE_MIN_TRAVEL_UM > 1000000
+#error Invalid one-sided traversal thresholds
+#endif
 #if TERRAIN_FLAT_CONFIRM_SAMPLES < 1 || TERRAIN_FLAT_CONFIRM_SAMPLES > 255
 #error Invalid flat confirmation sample count
 #endif
@@ -38,6 +56,7 @@ typedef struct __attribute__((packed)) {
     int32_t previous_distance_um;
     uint32_t height_code : 20; /* height_um + 20000: 0..1020000 */
     uint32_t peak_um : 20; /* 0..1000000 */
+    uint32_t traversal_um : 20; /* saturates at 1000000 um */
     uint32_t sample_ms;
     uint32_t pitch_code : 15; /* pitch_cdeg + 9000 */
     uint32_t roll_code : 16; /* roll_cdeg + 18000 */
@@ -58,6 +77,21 @@ static inline int32_t terrain_height_um(const terrain_t *s) {
 void terrain_step(terrain_t *s,uint32_t sample_ms,const int32_t accel_mg[3],
                   bool accel_valid,int32_t distance_um,bool odometry_valid,
                   bool calibrated,int pitch_zero,int roll_zero);
+/* accel_mg is body forward/left/up, not raw chip XYZ. Nose-up pitch and
+ * left-side-up roll are positive; zero offsets use this same convention. */
 /* Traversal continuity can fail while gravity-derived tilt remains usable. */
 void terrain_invalidate_height(terrain_t *s);
+/* Sensor position relative to drive-axle centre: forward/left/up, in mm.
+ * One-sided model assumes one drive wheel remains on the original level
+ * floor, rigid mounting and negligible slip. It reports IMU rise, not ramp
+ * surface height. Geometry must be measured, never inferred from a photo. */
+typedef struct __attribute__((packed)) {
+    uint16_t track_mm:10;
+    int16_t forward_mm:10, left_mm:10, up_mm:10;
+    uint8_t one_sided:1, configured:1;
+} terrain_geometry_t;
+bool terrain_geometry_valid(const terrain_geometry_t *g);
+void terrain_step_model(terrain_t *s,uint32_t sample_ms,const int32_t accel_mg[3],
+    bool accel_valid,int32_t distance_um,bool odometry_valid,bool calibrated,
+    int pitch_zero,int roll_zero,const terrain_geometry_t *geometry);
 #endif

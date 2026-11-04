@@ -3,10 +3,12 @@
 #include "app.h"
 #include "vehicle_policy.h"
 #include "subsystem4/result_data.h"
+#include "subsystem4/motion.h"
 #include "subsystem2/odometry.h"
 typedef struct {
     vc_state_t vehicle;
     uint8_t s4_result[S4_RESULT_SIZE];
+    uint8_t s4_motion[S4_MOTION_BYTES];
     uint32_t time_ms, sequence;
     uint16_t speed_bits : 12; /* odometry's -2000..2000 mm/s, same low bits */
     uint8_t navigation : 3;

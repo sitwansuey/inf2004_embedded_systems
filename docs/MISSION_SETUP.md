@@ -12,8 +12,25 @@ Use ignored `app_program/robot_config.local.h`. An autonomous mission requires:
 - Build with `S2_ENCODER_ENABLED=1` (the Makefile default), after checking wiring.
 - Measured `BOARD_TICKS_PER_REV` (x1 counts), `BOARD_WHEEL_CIRCUMFERENCE_MM`
   and `BOARD_TRACK_WIDTH_MM`.
-- `BOARD_TERRAIN_CALIBRATED=1` only after verifying sensor mounting and
-  `BOARD_PITCH_ZERO_CDEG` / `BOARD_ROLL_ZERO_CDEG` on level ground.
+- Select `BOARD_S4_MOUNTING`: 0 means forward=X,left=Y,up=Z; 1 means
+  forward=-Y,left=X,up=Z. Raw telemetry stays in sensor XYZ. Body pitch is
+  positive nose-up and roll positive left-side-up. Establish new zero offsets
+  in that convention; earlier opposite-sign pitch zeros must not be reused.
+- `BOARD_TERRAIN_CALIBRATED=1` only after verifying the selected mounting and
+  `BOARD_PITCH_ZERO_CDEG` / `BOARD_ROLL_ZERO_CDEG` on level ground. This flag
+  records the mounting reference, not independently proven sensor scale accuracy.
+- Optional measured accelerometer corrections use `BOARD_ACCEL_CALIBRATED`,
+  `BOARD_ACCEL_BIAS_{X,Y,Z}_MG` (-500..500 mg) and
+  `BOARD_ACCEL_GAIN_{X,Y,Z}_MILLI` (500..1500; 1000 is unity).
+  Obtain bias/gain from multiple known orientations, not one flat reading.
+- The default `BOARD_TERRAIN_ONE_SIDED=1` reports IMU rise assuming one drive
+  wheel remains on level floor. Measure `BOARD_IMU_FORWARD_MM`,
+  `BOARD_IMU_LEFT_MM` and `BOARD_IMU_UP_MM` from the drive-axle centre (signed
+  forward/left/up, -500..500 mm), and `BOARD_TRACK_WIDTH_MM`. Enable
+  `BOARD_IMU_GEOMETRY_CALIBRATED` only after checking these dimensions. Missing
+  geometry invalidates height while usable tilt remains available. Model 0
+  explicitly selects the older pitch/distance estimate; it does not model
+  one-sided lift. Neither model proves ramp-surface height accuracy.
 - `BOARD_PID_ENABLED=1`, measured `BOARD_PID_MAX_CPS`, and tuned
   `BOARD_PID_KP_MILLI`, `BOARD_PID_KI_MILLI`, `BOARD_PID_KD_MILLI`.
   `BOARD_PID_CALIBRATED=1` confirms the tuning run. Gains are milli-percent PWM
@@ -71,6 +88,23 @@ Run `python -B testing/data_representation/run.py --compiler clang` and
 `python -B testing/integration/run.py --compiler clang` (or GCC), plus the
 Buddy 3/Buddy 4 test targets in README. `--compile-only` on the integration
 runner is explicitly a build check, not a passed execution suite.
+
+Buddy 4 motion outputs are an additive binary topic
+`Robopico/sensors/buddy4/motion/v1`: 73 information bits / 10 bytes. Existing
+EDR16 height messages retain their 5 mm steps. The updated dashboard decodes
+both. Motion classes are unknown, stationary, moving, accelerating, decelerating
+and turning. Turn rate is encoder-estimated degrees/s, positive left turn;
+missing/ambiguous intervals invalidate it. Events are sticky since RESET,
+revision is modulo 256 and completed-hump count saturates at 255. Impact is a
+high-g candidate latched by the controller until stopped RESET; it is not
+proof of contact. The acquisition revision occupies the cache's former four
+padding bits; the cache remains 63 bytes. No new sensor owner or task is added.
+
+Compile-time processing thresholds (`S4_IMPACT_THRESHOLD_MG`,
+`S4_MOTION_CONFIRM_MS`, `S4_MOTION_ACCEL_MM_S2`, `S4_MOTION_TURN_DPS` and
+`TERRAIN_ONE_SIDE_*`) are engineering defaults, not calibrated acceptance
+limits. When changing these, apply the same compiler definitions to every
+translation unit and rerun the software and physical checks.
 
 Before the demonstration, record line/barcode success rates (all four commands),
 hump maximum versus measured height, obstacle profiles and bypass/reacquisition,

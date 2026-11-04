@@ -6,10 +6,10 @@ static bool aligned(uint32_t a, uint32_t b)
            b - a <= S4_ENCODER_MAX_SKEW_MS;
 }
 
-void s4_encoder_terrain_step(s4_encoder_input_t *s, terrain_t *t,
+void s4_encoder_terrain_step_model(s4_encoder_input_t *s, terrain_t *t,
     const odom_config_t *c, uint32_t now, const uint8_t *payload,
     size_t length, bool available, uint64_t imu_us, const int32_t a[3],
-    bool av, bool calibrated, int pzero, int rzero)
+    bool av, bool calibrated, int pzero, int rzero,const terrain_geometry_t *geometry)
 {
     encoder_snapshot_t encoder;
     uint32_t imu_ms = (uint32_t)(imu_us / 1000U);
@@ -62,10 +62,17 @@ void s4_encoder_terrain_step(s4_encoder_input_t *s, terrain_t *t,
         /* odom_step's first usable record already establishes its baseline. */
         if (!priming) s->odometry.initialized = 0;
     }
-    terrain_step(t, imu_ms, a,
+    terrain_step_model(t, imu_ms, a,
         av && s->fault == S4_INPUT_OK, s->odometry.distance_um,
-        s->odometry.valid, calibrated, pzero, rzero);
+        s->odometry.valid, calibrated, pzero, rzero,geometry);
     /* Includes reversing between two polls of the same cached IMU sample.
      * Navigation may still use valid odometry and tilt while height recovers. */
     if (!forward) terrain_invalidate_height(t);
+}
+void s4_encoder_terrain_step(s4_encoder_input_t *s,terrain_t *t,
+    const odom_config_t *c,uint32_t now,const uint8_t *payload,size_t length,
+    bool available,uint64_t imu_us,const int32_t a[3],bool av,bool calibrated,
+    int pzero,int rzero) {
+    s4_encoder_terrain_step_model(s,t,c,now,payload,length,available,imu_us,a,av,
+        calibrated,pzero,rzero,NULL);
 }

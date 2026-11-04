@@ -13,11 +13,12 @@ typedef int32_t PRI;
 typedef uint32_t UW;
 typedef uint32_t UINT;
 typedef uint8_t UB;
-typedef void (*FP)(INT, void *);
+typedef void (*FP)(); /* Same generic function-address type as tk/typedef.h. */
 typedef struct { int32_t hi; UW lo; } SYSTIM;
 typedef struct { UW mtxatr; } T_CMTX;
 typedef struct { UW flgatr; UW iflgptn; } T_CFLG;
 typedef struct { UW mbfatr; INT bufsz; INT maxmsz; } T_CMBF;
+typedef struct { void *exinf; UW cycatr; FP cychdr; UW cyctim; UW cycphs; } T_CCYC;
 
 #define E_OK 0
 #define E_SYS (-5)
@@ -29,6 +30,9 @@ typedef struct { UW mbfatr; INT bufsz; INT maxmsz; } T_CMBF;
 #define TA_TFIFO 0u
 #define TA_WMUL 8u
 #define TP_PRC2 2u
+#define TA_HLNG 1u
+#define TMO_FEVR (-1)
+#define TSK_SELF 0
 
 ER tk_get_otm(SYSTIM *p_time);
 ER tk_get_tim(SYSTIM *p_time); /* Poisoned wall-clock source for the regression test. */
@@ -39,6 +43,13 @@ ER tk_loc_mtx(ID id, INT timeout);
 ER tk_unl_mtx(ID id);
 ER tk_del_mtx(ID id);
 ER tk_del_flg(ID id);
+ER tk_del_mbf(ID id);
+ID tk_cre_cyc(const T_CCYC *p_config);
+ER tk_sta_cyc(ID id);
+ER tk_wup_tsk(ID id);
+ER tk_slp_tsk(INT timeout);
+INT tk_can_wup(ID id);
+void tk_ext_tsk(void);
 ID app_start_task(FP entry, PRI pri, UW affinity, const char *p_name);
 ER subsystem4_init(void);
 ER subsystem4_start(void);

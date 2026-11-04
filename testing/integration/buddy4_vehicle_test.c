@@ -14,7 +14,7 @@ ID app_start_task(FP task, PRI priority, UW core, const char *name);
 static jmp_buf done;
 static app_state_t saved;
 static uint32_t clock_ms, iteration;
-static unsigned failure_mode, stops, positive_requests;
+static unsigned failure_mode, stops, positive_requests, acks;
 static bool reset_offered;
 
 ER tk_get_otm(SYSTIM *t) { t->hi=0;t->lo=clock_ms;return E_OK; }
@@ -32,6 +32,13 @@ ER s5_controller_bind(void) { return E_OK; }
 ER s2_emergency_stop(void) { ++stops; return E_OK; }
 ER s2_movement_send(s2_move_command_t command,UINT power)
 { (void)command;(void)power;++positive_requests;return E_OK; }
+ER s2_follow_send(UINT power,INT steering)
+{ assert(steering>=-400 && steering<=400);return s2_movement_send(S2_MOVE_FORWARD,power); }
+void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault)
+{
+    assert(seq<=255 && opcode<=3 && result<=3 && phase<=VC_FAULT && fault<=VC_MOTOR);
+    ++acks;
+}
 ER s2_motion_get_status(s2_motion_status_t *s)
 { *s=(s2_motion_status_t){0};return E_OK; }
 ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
@@ -64,10 +71,17 @@ ER s4_sensor_get_record(s4_sensor_cache_t *s)
 {
     s4_data_reset(s);s4_data_init_result(s,LSM303_OK);
     lsm303_frame_t frame={0};frame.accel.fresh=frame.accel.valid=1;
+    frame.accel.status=LSM303_DATA_OK;
     frame.accel.read_time_us=(uint64_t)(clock_ms-(failure_mode==3U?40U:0U))*1000U;
     frame.accel.raw[2]=1000;
     frame.accel.overrun=failure_mode==5U;
     if(failure_mode==6U)frame.accel.raw[0]=1900;
+    if(failure_mode==10U && iteration>=8U) {
+        /* A high-g sample was acquired and replaced by quiet data before the
+         * controller snapshot: retain its acquisition revision. */
+        frame.accel.raw[0]=1900;s4_data_update(s,&frame,LSM303_OK);
+        frame.accel.raw[0]=0;
+    }
     s4_data_update(s,&frame,LSM303_OK);return E_OK;
 }
 
@@ -97,8 +111,8 @@ ID app_start_task(FP task,PRI priority,UW core,const char *name)
 { (void)task;(void)priority;(void)core;(void)name;return 1; }
 int main(void)
 {
-    for(failure_mode=0;failure_mode<10;++failure_mode) {
-        iteration=stops=positive_requests=0;clock_ms=100;reset_offered=false;
+    for(failure_mode=0;failure_mode<11;++failure_mode) {
+        iteration=stops=positive_requests=acks=0;clock_ms=100;reset_offered=false;
         if(setjmp(done)==0)vehicle_task(0,NULL);
         s4_result_t result={0};assert(s4_result_decode(saved.s4_result,sizeof(saved.s4_result),&result));
         if(failure_mode==0)assert((result.flags&S4_RESULT_TILT) && saved.odometry_valid);
@@ -107,14 +121,18 @@ int main(void)
                    (result.faults&EDR_FAULT_ENCODER));
         if(failure_mode==3)assert(!(result.flags&S4_RESULT_TILT) && saved.odometry_valid &&
                                   (result.faults&EDR_FAULT_IMU));
-        if(failure_mode==4)assert(reset_offered && !result.maximum_mm);
+        if(failure_mode==4)assert(reset_offered && !result.maximum_mm && acks==1);
         if(failure_mode==5)assert(!(result.flags&S4_RESULT_TILT) && saved.odometry_valid);
         if(failure_mode==6)assert((result.flags&S4_RESULT_SHOCK) &&
                                   (result.faults&EDR_FAULT_IMU) && !(result.flags&S4_RESULT_TILT));
+        s4_motion_result_t motion;
+        assert(s4_motion_decode(saved.s4_motion,sizeof(saved.s4_motion),&motion));
+        if(failure_mode==10U)assert((motion.events&S4_EVENT_IMPACT) && saved.vehicle.fault==VC_SHOCK);
         assert(stops);
         if(failure_mode==9U)assert(positive_requests>0);
-        else assert(!positive_requests);
+        else if(failure_mode!=10U)assert(!positive_requests);
         if(failure_mode==7U)assert(saved.vehicle.phase==VC_FAULT && saved.vehicle.fault==VC_SENSOR);
+        if(failure_mode>=7U)assert(acks==1);
     }
     puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");
     return 0;

@@ -1,4 +1,5 @@
 #include "../../app_program/subsystem2/speed_pid.h"
+#include "../../app_program/subsystem2/wheel_steering.h"
 #include "../../app_program/subsystem3/buddy3_barcode.h"
 #include "../../app_program/vehicle_policy.h"
 #include <assert.h>
@@ -55,7 +56,10 @@ int main(void) {
     i.front_clear=0;vc_step(&s,&i);assert(!s.command);
     i.front_clear=1;i.yaw_mdeg=30000;vc_step(&s,&i);assert(!s.command);
     vc_step(&s,&i);assert(s.command==4); /* sweep across, not endless turn */
-    i.line_detected=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
+    i.line_detected=1;vc_step(&s,&i);
+    assert(s.phase==VC_REACQUIRE && s.line_settling && s.command==4);
+    i.now_ms+=19;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && s.command==4);
+    i.now_ms+=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
     i.line_detected=0;i.steering=1;i.recovery_event=1;vc_step(&s,&i);
     i.recovery_event=0;i.steering=0;i.now_ms+=4000;vc_step(&s,&i);
     assert(s.phase==VC_FAULT && !s.armed && !s.command);
@@ -67,6 +71,10 @@ int main(void) {
     assert(p.integral==0); /* anti-windup */
     assert(speed_pid_step(&p,0,1000,20,0,50,100,100,0)==0);
     assert(speed_pid_step(&p,100,0,101,20,50,100,10,0)==0);
+    assert(s2_steering_step(0,250,20)==40);
+    assert(s2_steering_step(40,-250,20)==0);
+    assert(s2_steering_scale(250,0)==1250 && s2_steering_scale(250,1)==750);
+    assert(s2_steering_scale(-250,0)==750 && s2_steering_scale(-250,1)==1250);
     /* Known Code39 A/B/C/D patterns, framed by '*', in both directions. */
     const unsigned patterns[4]={0x109,0x049,0x148,0x019};
     for(unsigned letter=0;letter<4;++letter) {

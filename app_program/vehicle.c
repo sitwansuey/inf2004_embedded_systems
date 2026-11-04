@@ -7,6 +7,8 @@
 #include "subsystem3/subsystem3.h"
 #include "subsystem4/subsystem4.h"
 #include "subsystem4/encoder_input.h"
+#include "subsystem4/mounting.h"
+#include "subsystem4/accel_calibration.h"
 #include "subsystem2/s2_data.h"
 #include "subsystem5/subsystem5.h"
 #if !BOARD_IR_MOTOR_SCAN_BENCH
@@ -16,6 +18,11 @@ static void vehicle_task(INT code,void *context) {
     if(s3_controller_bind()<E_OK) {s2_emergency_stop();tk_ext_tsk();return;}
     if(APP_S5_ENABLED && s5_controller_bind()<E_OK) {s2_emergency_stop();tk_ext_tsk();return;}
     app_state_t state={0};s4_encoder_input_t encoder_input={0};terrain_t terrain={0};
+    s4_motion_t motion={0};
+    const s4_accel_calibration_t accel_calibration=S4_BOARD_ACCEL_CALIBRATION;
+    const terrain_geometry_t geometry={.track_mm=BOARD_TRACK_WIDTH_MM,
+        .forward_mm=BOARD_IMU_FORWARD_MM,.left_mm=BOARD_IMU_LEFT_MM,.up_mm=BOARD_IMU_UP_MM,
+        .one_sided=BOARD_TERRAIN_ONE_SIDED,.configured=BOARD_IMU_GEOMETRY_CALIBRATED};
     odom_t *odom=&encoder_input.odometry;
     odom_calibration_t calibration_record={0};
     {
@@ -43,21 +50,30 @@ static void vehicle_task(INT code,void *context) {
         if(tk_get_otm(&now)<0) {vc_stop(&state.vehicle,VC_TRANSPORT);s2_emergency_stop();tk_dly_tsk(10);continue;}
         if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&imu);
         state.time_ms=now.lo;++state.sequence;
-        s4_encoder_terrain_step(&encoder_input,&terrain,&calibration,now.lo,
+        int32_t body_accel[3]={0}; /* temporary view; raw telemetry is unchanged */
+        BOOL mounting_ok=s4_calibrated_body(imu.latest.accel.milli_units,
+            BOARD_S4_MOUNTING,&accel_calibration,body_accel);
+        s4_encoder_terrain_step_model(&encoder_input,&terrain,&calibration,now.lo,
             encoder_payload,sizeof(encoder_payload),en,imu.latest.accel.read_time_us,
-            imu.latest.accel.milli_units,im && imu.accel_usable && !imu.latest.accel.overrun,BOARD_TERRAIN_CALIBRATED,
-            BOARD_PITCH_ZERO_CDEG,BOARD_ROLL_ZERO_CDEG);
+            body_accel,im && imu.accel_usable && !imu.latest.accel.overrun && mounting_ok,BOARD_TERRAIN_CALIBRATED,
+            BOARD_PITCH_ZERO_CDEG,BOARD_ROLL_ZERO_CDEG,&geometry);
+        s4_motion_step(&motion,now.lo,odom,(uint8_t)terrain.state,
+            terrain.height_valid,im?imu.impact_sequence:motion.impact_sequence);
+        s4_motion_result_t motion_result;
+        s4_motion_snapshot(&motion,now.lo,&motion_result);
+        BOOL motion_ok=s4_motion_encode(&motion_result,state.s4_motion,sizeof(state.s4_motion));
         s4_result_t result={.calculated_ms=now.lo,
             .pitch_cdeg=terrain_pitch_cdeg(&terrain),.roll_cdeg=terrain_roll_cdeg(&terrain),
             .height_mm=(uint16_t)terrain.height_mm,.maximum_mm=(uint16_t)terrain.maximum_mm,
             .terrain=(uint8_t)terrain.state,
             .flags=(uint8_t)((terrain.tilt_valid?S4_RESULT_TILT:0U)|
-                (terrain.height_valid?S4_RESULT_HEIGHT:0U)|(terrain.shock?S4_RESULT_SHOCK:0U)|
+                (terrain.height_valid && !s4_motion_impact(&motion)?S4_RESULT_HEIGHT:0U)|((terrain.shock || s4_motion_impact(&motion))?S4_RESULT_SHOCK:0U)|
                 (BOARD_TERRAIN_CALIBRATED?S4_RESULT_CALIBRATED:0U)|(odom->valid?S4_RESULT_ODOMETRY:0U)),
             .faults=(uint8_t)((!odom->valid?EDR_FAULT_ENCODER:0U)|
-                ((!im || !imu.accel_usable || imu.latest.accel.overrun ||
-                   terrain.shock || encoder_input.fault==S4_INPUT_SKEW)?EDR_FAULT_IMU:0U))};
-        BOOL result_ok=s4_result_encode(&result,state.s4_result,sizeof(state.s4_result)) &&
+                ((!im || !imu.accel_usable || !mounting_ok || imu.latest.accel.overrun ||
+                   terrain.shock || s4_motion_impact(&motion) || encoder_input.fault==S4_INPUT_SKEW)?EDR_FAULT_IMU:0U))};
+        if(s4_motion_impact(&motion))result.flags&=(uint8_t)~S4_RESULT_TILT;
+        BOOL result_ok=motion_ok && s4_result_encode(&result,state.s4_result,sizeof(state.s4_result)) &&
             s4_result_decode(state.s4_result,sizeof(state.s4_result),&result);
         if(!result_ok) {vc_stop(&state.vehicle,VC_SENSOR);s2_emergency_stop();}
         state.speed_bits=(uint16_t)odom->speed_bits;
@@ -76,6 +92,9 @@ static void vehicle_task(INT code,void *context) {
             }
             if(c.wire[1]==2 && !state.vehicle.armed && mo && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
+                motion=(s4_motion_t){0};motion.impact_sequence=imu.impact_sequence;
+                s4_motion_snapshot(&motion,now.lo,&motion_result);
+                (void)s4_motion_encode(&motion_result,state.s4_motion,sizeof(state.s4_motion));
                 s4_result_t cleared={.calculated_ms=now.lo};
                 result=cleared;
                 result_ok=s4_result_encode(&cleared,state.s4_result,sizeof(state.s4_result));

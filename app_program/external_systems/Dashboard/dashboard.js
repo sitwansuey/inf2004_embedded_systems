@@ -9,7 +9,7 @@ const groups = [
   ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact','imu_status']],
   ['terrain','Magnetometer','04','Heading uses the magnetometer. Pitch, roll and turn rate are derived estimates; the GY-511 has no gyroscope.',['mag_x_ut','mag_y_ut','mag_z_ut','heading_deg','pitch_deg','roll_deg','turn_rate_dps','valid']],
   ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','depth_cm','left_clearance_cm','right_clearance_cm']],
-  ['terrain','Terrain & hump analysis','04','Derived motion and hump estimates.',['motion_class','hump_state','hump_height_cm','run_max_height_cm','valid']],
+  ['terrain','Terrain & hump analysis','04','IMU-rise estimate requires measured mounting geometry. Turn rate uses wheel encoders; events persist until robot reset.',['motion_class','turn_rate_dps','motion_valid','impact_latched','observed_events','event_revision','hump_count','hump_state','hump_height_cm','run_max_height_cm','valid']],
   ['obstacle','Servo Motor','05','Scan actuator position and avoidance decisions.',['state','servo_angle_deg','scan_state','bypass_side','route']],
   ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','fault_flags','speed_mps','distance_m','last_error','last_command_ms']],
   ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence','quality','available','dropped']]

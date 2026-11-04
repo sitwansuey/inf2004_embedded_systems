@@ -7,6 +7,24 @@ static mqtt_client_t fake_client;
 static unsigned connects,timers,publishes,offers,queued,publish_size;
 static int publish_error, fresh=1;
 static unsigned char sent[TELEMETRY_BYTES], offered[6];
+static unsigned acknowledgements, ack_queued, ack_publishes;
+static unsigned char ack_bytes[CSC02_ACK_BYTES];
+static unsigned motion_queued,motion_publishes;
+int s1_motion_current(const unsigned char *data) {(void)data;return fresh;}
+int s1_motion_take(unsigned char *out) {
+    if(!motion_queued)return -50;
+    memset(out,0,S4_MOTION_BYTES);--motion_queued;return S4_MOTION_BYTES;
+}
+void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault) {
+    assert(seq<=255 && opcode<=3 && result<=2 && phase<=15 && fault<=255);
+    ack_bytes[0]=0xA1;ack_bytes[1]=(unsigned char)seq;ack_bytes[2]=(unsigned char)opcode;
+    ack_bytes[3]=(unsigned char)result;ack_bytes[4]=(unsigned char)phase;ack_bytes[5]=(unsigned char)fault;
+    ++acknowledgements;ack_queued=1;
+}
+int s1_command_ack_take(unsigned char *out) {
+    if(!ack_queued)return -50;
+    memcpy(out,ack_bytes,sizeof(ack_bytes));ack_queued=0;return CSC02_ACK_BYTES;
+}
 int tm_printf(const UB *format,...) {(void)format;return 0;}
 mqtt_client_t *mqtt_client_new(void) {return &fake_client;}
 int mqtt_client_is_connected(mqtt_client_t *c) {return c->connected;}
@@ -15,7 +33,15 @@ err_t mqtt_client_connect(mqtt_client_t *c,const void *ip,unsigned port,void (*c
     (void)c;(void)ip;(void)port;(void)cb;(void)arg;assert(info->keep_alive==60);++connects;return ERR_OK;
 }
 err_t mqtt_publish(mqtt_client_t *c,const char *topic,const void *data,u16_t size,unsigned qos,unsigned retain,done_t cb,void *arg) {
-    (void)c;(void)cb;(void)arg;assert(!strcmp(topic,EDR_MQTT_TOPIC) && qos==0 && retain==0);
+    (void)c;(void)cb;(void)arg;assert(qos==0 && retain==0);
+    if(!strcmp(topic,CSC02_ACK_TOPIC)) {
+        assert(size==CSC02_ACK_BYTES && !memcmp(data,ack_bytes,size));
+        ++ack_publishes;return publish_error;
+    }
+    if(!strcmp(topic,S4_MOTION_TOPIC)) {
+        assert(size==S4_MOTION_BYTES);++motion_publishes;return publish_error;
+    }
+    assert(!strcmp(topic,EDR_MQTT_TOPIC));
     unsigned id,value;assert(size==2 && edr_decode(data,size,&id,&value));
     ++publishes;publish_size=size;memcpy(sent,data,size);return publish_error;
 }
@@ -40,19 +66,27 @@ int main(void) {
     mqtt_utk_start();mqtt_utk_start();assert(connects==1);
     fake_client.connected=1;connection_cb(client,NULL,MQTT_CONNECT_ACCEPTED);
     unsigned char arm[6]={0xC1,1,30,0xF4,1,0},reset[6]={0xC1,2,0,0,0,0};
-    deliver(arm);assert(offers==0); /* retained ARM alone cannot start after reconnect */
+    deliver(arm);assert(offers==0 && acknowledgements==1); /* retained ARM alone cannot start after reconnect */
     deliver(reset);assert(offers==1);deliver(arm);assert(offers==2 && offered[1]==1);
     incoming_publish_cb(NULL,CSC02_COMMAND_TOPIC,7);incoming_data_cb(NULL,arm,6,MQTT_DATA_FLAG_LAST);assert(offers==2);
     incoming_publish_cb(NULL,CSC02_COMMAND_TOPIC,6);incoming_data_cb(NULL,arm,2,MQTT_DATA_FLAG_LAST);assert(offers==2);
     incoming_publish_cb(NULL,"unrelated",6);incoming_data_cb(NULL,arm,6,MQTT_DATA_FLAG_LAST);assert(offers==2);
-    queued=1;
+    queued=1;motion_queued=1;
     for(unsigned n=0;n<8;++n)mqtt_utk_poll_telemetry();
+    assert(ack_publishes==1 && motion_publishes==1);
     assert(publishes==31 && publish_size==2); /* every sensor and status, no aggregate */
     queued=1;publish_error=ERR_MEM;mqtt_utk_poll_telemetry();assert(publishes==32);
     unsigned char blocked[2];memcpy(blocked,sent,2);
     publish_error=0;mqtt_utk_poll_telemetry();assert(publishes==36);
     /* The pending snapshot expires before later records can be sent. */
     fresh=0;unsigned before=publishes;mqtt_utk_poll_telemetry();assert(publishes==before);
+    fresh=1;motion_queued=1;publish_error=ERR_MEM;
+    unsigned motion_before=motion_publishes;
+    mqtt_utk_poll_telemetry();assert(motion_publishes==motion_before+1);
+    publish_error=0;mqtt_utk_poll_telemetry();assert(motion_publishes==motion_before+2);
+    motion_queued=1;publish_error=ERR_MEM;mqtt_utk_poll_telemetry();
+    motion_before=motion_publishes;fresh=0;publish_error=0;
+    mqtt_utk_poll_telemetry();assert(motion_publishes==motion_before);
     (void)blocked;
     fake_client.connected=0;connection_cb(client,NULL,2);assert(offers==2 && timers==1);
     for(unsigned n=0;n<20;++n)mqtt_utk_start();

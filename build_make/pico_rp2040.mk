@@ -277,7 +277,7 @@ LFLAGS := -mcpu=cortex-m0plus -mthumb -ffreestanding \
     -O2 -g3 \
     -mfloat-abi=soft \
 
-LNKFILE := "../etc/linker/pico_rp2040/tkernel_map.ld"
+LNKFILE := "../include/etc/linker/pico_rp2040/tkernel_map.ld"
 
 # Applied here, after CFLAGS/ASFLAGS are assigned with ':=', which would
 # otherwise discard anything appended above.

@@ -16,8 +16,21 @@
 #define BOARD_TICKS_PER_REV 0
 #define BOARD_WHEEL_CIRCUMFERENCE_MM 0
 #define BOARD_TRACK_WIDTH_MM 0
-#define BOARD_TERRAIN_CALIBRATED 0 /* must establish X forward, Y left, Z up */
+#define BOARD_S4_MOUNTING 0 /* 1 for this car's forward=-Y,left=X,up=Z mounting */
+#define BOARD_TERRAIN_CALIBRATED 0 /* verify selected mounting and flat zero first */
 #define BOARD_PITCH_ZERO_CDEG 0
 #define BOARD_ROLL_ZERO_CDEG 0
+#define BOARD_ACCEL_CALIBRATED 0 /* multi-orientation bias/gain measurements pending */
+#define BOARD_ACCEL_BIAS_X_MG 0
+#define BOARD_ACCEL_BIAS_Y_MG 0
+#define BOARD_ACCEL_BIAS_Z_MG 0
+#define BOARD_ACCEL_GAIN_X_MILLI 1000
+#define BOARD_ACCEL_GAIN_Y_MILLI 1000
+#define BOARD_ACCEL_GAIN_Z_MILLI 1000
+#define BOARD_TERRAIN_ONE_SIDED 1 /* reports IMU rise while one drive wheel stays on floor */
+#define BOARD_IMU_GEOMETRY_CALIBRATED 0
+#define BOARD_IMU_FORWARD_MM 0 /* sensor centre relative to drive-axle centre */
+#define BOARD_IMU_LEFT_MM 0
+#define BOARD_IMU_UP_MM 0 /* above wheel axle, not above floor */
 #define BOARD_BYPASS_VALIDATED 0
 #endif

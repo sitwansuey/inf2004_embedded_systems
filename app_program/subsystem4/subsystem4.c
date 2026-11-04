@@ -7,7 +7,16 @@ EXPORT ID tid_s4_sensor;
 EXPORT ID tid_s4_monitor;
 
 static ID status_lock;
+static ID sensor_cycle;
 static s4_sensor_cache_t published_status;
+
+void s4_sensor_cyclic_handler(void *p_exinf)
+{
+    (void)p_exinf;
+    /* Interrupt context: never perform I2C, log, or wait here. The task ID is
+     * established before this cycle starts and is immutable afterwards. */
+    if (tid_s4_sensor > E_OK) (void)tk_wup_tsk(tid_s4_sensor);
+}
 
 uint64_t s4_kernel_now_us(void *p_context)
 {
@@ -87,9 +96,11 @@ ER subsystem4_init(void)
     T_CMTX mutex = { 0 };
     T_CMBF buffer = { 0 };
     T_CFLG flags = { 0 };
+    T_CCYC cycle = { 0 };
     ER result;
 
-    if ((status_lock > E_OK) || (mbf_summary > E_OK) || (flg_events > E_OK))
+    if ((status_lock > E_OK) || (mbf_summary > E_OK) ||
+        (flg_events > E_OK) || (sensor_cycle > E_OK))
     {
         return E_OBJ; /* Lifecycle is init once, then start once. */
     }
@@ -122,12 +133,30 @@ ER subsystem4_init(void)
         status_lock = 0;
         return result;
     }
+    /* Created stopped: no callbacks until both task IDs exist. */
+    cycle.cycatr = TA_HLNG;
+    cycle.cychdr = (FP)s4_sensor_cyclic_handler;
+    cycle.cyctim = S4_SERVICE_MS;
+    cycle.cycphs = S4_SERVICE_MS;
+    sensor_cycle = tk_cre_cyc(&cycle);
+    if (sensor_cycle <= E_OK)
+    {
+        result = sensor_cycle;
+        (void)tk_del_mbf(mbf_summary);
+        (void)tk_del_flg(flg_events);
+        (void)tk_del_mtx(status_lock);
+        sensor_cycle = 0;
+        mbf_summary = 0;
+        flg_events = 0;
+        status_lock = 0;
+        return result;
+    }
     return E_OK;
 }
 
 ER subsystem4_start(void)
 {
-    if (status_lock <= E_OK)
+    if ((status_lock <= E_OK) || (sensor_cycle <= E_OK))
     {
         return E_OBJ;
     }
@@ -145,5 +174,8 @@ ER subsystem4_start(void)
     }
     tid_s4_monitor = app_start_task(monitor_task, S4_PRI_MONITOR,
                                      0, "s4_monitor_task");
-    return (tid_s4_monitor <= E_OK) ? tid_s4_monitor : E_OK;
+    if (tid_s4_monitor <= E_OK) return tid_s4_monitor;
+    /* A start failure is propagated; the sensor stays asleep and cannot
+     * publish new samples. Existing partial-start task IDs prevent retries. */
+    return tk_sta_cyc(sensor_cycle);
 }

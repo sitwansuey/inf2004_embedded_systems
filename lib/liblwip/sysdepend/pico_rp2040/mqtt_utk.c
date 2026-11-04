@@ -109,6 +109,14 @@ void mqtt_utk_poll_telemetry(void) {
     if(!ack_pending && s1_command_ack_take(ack)==CSC02_ACK_BYTES)ack_pending=1;
     if(ack_pending && mqtt_publish(client,CSC02_ACK_TOPIC,ack,CSC02_ACK_BYTES,
                                   0,0,publish_done_cb,NULL)==ERR_OK)ack_pending=0;
+    /* Additive versioned B4 motion topic; existing EDR16 contract is unchanged.
+     * A pending packet is retained on backpressure and expires independently. */
+    static unsigned char motion[S4_MOTION_BYTES];
+    static unsigned motion_pending;
+    if(motion_pending && !s1_motion_current(motion))motion_pending=0;
+    if(!motion_pending && s1_motion_take(motion)==S4_MOTION_BYTES)motion_pending=1;
+    if(motion_pending && mqtt_publish(client,S4_MOTION_TOPIC,motion,S4_MOTION_BYTES,
+                                     0,0,publish_done_cb,NULL)==ERR_OK)motion_pending=0;
 
     if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot))next=TELEMETRY_EDR_RECORDS;
     if(next==TELEMETRY_EDR_RECORDS) {

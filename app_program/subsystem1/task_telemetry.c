@@ -29,6 +29,17 @@ void telemetry_task(INT code,void *context) {
             s4_result_t terrain={0};
             BOOL terrain_copy=st && s4_result_decode(s.s4_result,sizeof(s.s4_result),&terrain);
             BOOL terrain_fresh=terrain_copy && now.lo-terrain.calculated_ms<=60U && im && a.accel_usable;
+            s4_motion_result_t motion;
+            BOOL motion_current=s4_motion_decode(s.s4_motion,sizeof(s.s4_motion),&motion) &&
+                now.lo-motion.sampled_ms<=60U;
+            if(motion_current) {
+#if TM_MQTT
+                (void)s1_motion_send(s.s4_motion);
+#endif
+                if((count%5)==0)tm_printf((UB *)"[S4MOTION] t=%u class=%u turn_dps=%d flags=%u events=%u revision=%u humps=%u\n",
+                    motion.sampled_ms,motion.motion,(INT)motion.turn_rate_dps,
+                    motion.flags,motion.events,motion.revision,motion.humps);
+            }
             int64_t v[TEL_FIELD_COUNT]={0};uint8_t out[TELEMETRY_BYTES];
             v[TEL_VERSION]=1;v[TEL_SEQUENCE]=(uint16_t)count++;
             v[TEL_TIME_MS]=now.lo;v[TEL_PHASE]=s.vehicle.phase;v[TEL_FAULT]=s.vehicle.fault;

@@ -6,8 +6,8 @@
 
 static const odom_config_t config = {100, 200, 100}; /* synthetic only */
 static const int32_t flat[3] = {0, 0, 1000};
-static const int32_t up[3] = {-500, 0, 866};
-static const int32_t down[3] = {500, 0, 866};
+static const int32_t up[3] = {500, 0, 866};
+static const int32_t down[3] = {-500, 0, 866};
 static uint8_t payload[ENCODER_SNAPSHOT_SIZE];
 static s4_encoder_input_t input;
 static terrain_t terrain;

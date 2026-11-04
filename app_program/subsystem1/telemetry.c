@@ -1,7 +1,7 @@
 /* Copied nonblocking handoff, derived from Buddy 1's telemetry inbox design. */
 #include "subsystem1.h"
 #include "control.h"
-static ID telemetry_buffer, command_buffer, ack_buffer;
+static ID telemetry_buffer, command_buffer, ack_buffer, motion_buffer;
 static UW stop_sequence;
 static UW drops, stop_epoch, seen_stop;
 static void dropped(void) { UW n=__atomic_load_n(&drops,__ATOMIC_RELAXED);
@@ -21,7 +21,35 @@ ER s1_binary_init(void) {
         ER er=ack_buffer;tk_del_mbf(command_buffer);tk_del_mbf(telemetry_buffer);
         command_buffer=telemetry_buffer=ack_buffer=0;return er;
     }
+    c.maxmsz=S4_MOTION_BYTES;c.bufsz=2*((S4_MOTION_BYTES+3U)/4U*4U+4U);
+    motion_buffer=tk_cre_mbf(&c);
+    if(motion_buffer<0) {
+        ER er=motion_buffer;tk_del_mbf(ack_buffer);tk_del_mbf(command_buffer);tk_del_mbf(telemetry_buffer);
+        command_buffer=telemetry_buffer=ack_buffer=motion_buffer=0;return er;
+    }
     return E_OK;
+}
+int s1_motion_current(const unsigned char *data) {
+    s4_motion_result_t v;SYSTIM now;
+    return s4_motion_decode(data,S4_MOTION_BYTES,&v) && tk_get_otm(&now)==E_OK && now.lo-v.sampled_ms<500U;
+}
+int s1_motion_send(const unsigned char *data) {
+    if(!data)return E_PAR;
+    if(motion_buffer<=0)return E_OBJ;
+    if(!s1_motion_current(data))return E_PAR;
+    ER er=tk_snd_mbf(motion_buffer,data,S4_MOTION_BYTES,TMO_POL);
+    if(er<0)dropped();
+    return er;
+}
+int s1_motion_take(unsigned char *out) {
+    if(!out || motion_buffer<=0)return E_OBJ;
+    for(unsigned n=0;n<2;++n) {
+        INT size=tk_rcv_mbf(motion_buffer,out,TMO_POL);
+        if(size<0)return size;
+        if(size==S4_MOTION_BYTES && s1_motion_current(out))return size;
+        dropped();
+    }
+    return E_TMOUT;
 }
 void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault) {
     unsigned char ack[CSC02_ACK_BYTES]={0xC2,(unsigned char)seq,(unsigned char)opcode,

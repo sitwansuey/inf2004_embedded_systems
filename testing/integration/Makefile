@@ -1,7 +1,7 @@
 CC ?= gcc
 CFLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic
-S4_RESULT = ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c
-CORE = $(S4_RESULT) ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/shared/edr.c
+S4_RESULT = ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c ../../app_program/subsystem4/motion.c
+CORE = $(S4_RESULT) ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/subsystem4/geometry.c ../../app_program/shared/edr.c
 SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_width.c
 .PHONY: test sanitize
 test:
@@ -26,7 +26,7 @@ test:
 	./.build/ir_motor_scan
 	$(CC) $(CFLAGS) ir_scan_usb_test.c ../../app_program/ir_motor_scan.c $(LDFLAGS) -o .build/ir_scan_usb
 	./.build/ir_scan_usb
-	$(CC) $(CFLAGS) -DBOARD_IR_MOTOR_SCAN_BENCH=1 ir_scan_queue_test.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/ir_scan_queue
+	$(CC) $(CFLAGS) -DBOARD_IR_MOTOR_SCAN_BENCH=1 ir_scan_queue_test.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem1/telemetry_codec.c ../../app_program/subsystem4/motion.c $(LDFLAGS) -o .build/ir_scan_queue
 	./.build/ir_scan_queue
 	$(CC) $(CFLAGS) -include host.h scan_test.c $(SCAN) $(LDFLAGS) -o .build/scan
 	./.build/scan
@@ -38,7 +38,7 @@ test:
 	./.build/snapshot_time
 	$(CC) $(CFLAGS) protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/protocol
 	python3 protocol_test.py
-	$(CC) $(CFLAGS) telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/queue
+	$(CC) $(CFLAGS) telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c ../../app_program/subsystem4/motion.c $(LDFLAGS) -o .build/queue
 	./.build/queue
 	$(CC) $(CFLAGS) -Imocks mqtt_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/mqtt
 	./.build/mqtt

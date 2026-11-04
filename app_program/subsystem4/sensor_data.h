@@ -6,6 +6,12 @@
 
 #define S4_STALE_AFTER_US UINT64_C(100000)
 #define S4_NO_SAMPLE_AGE UINT32_MAX
+#ifndef S4_IMPACT_THRESHOLD_MG
+#define S4_IMPACT_THRESHOLD_MG 1800
+#endif
+#if S4_IMPACT_THRESHOLD_MG < 1200 || S4_IMPACT_THRESHOLD_MG > 3500
+#error Invalid high-g impact candidate threshold
+#endif
 
 /* Latest values, not a lossless stream. Other subsystems must use the
  * *_usable flags and ages, not simply the most recent numbers. Timestamps
@@ -21,6 +27,7 @@ typedef struct
     uint8_t configured : 1;
     uint8_t accel_usable : 1;
     uint8_t mag_usable : 1;
+    uint8_t impact_sequence : 4; /* modulo-16 high-g sample revision */
     uint32_t accel_age_ms;
     uint32_t mag_age_ms;
     uint32_t init_attempts;
@@ -35,14 +42,14 @@ typedef struct
     uint64_t observed_time_us;
 } s4_sensor_status_t;
 
-/* Persistent storage: 500 information bits, rounded to 63 bytes. Derived
+/* Persistent storage: 504 information bits, exactly 63 bytes. Derived
  * scaled values and ages exist only in transient calculation/API views. */
 enum {
     S4_COUNT_INIT, S4_COUNT_HEARTBEAT, S4_COUNT_ACCEL, S4_COUNT_MAG,
     S4_COUNT_ACCEL_ERROR, S4_COUNT_MAG_ERROR, S4_COUNT_OVERRUN,
     S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY, S4_COUNT_TOTAL
 };
-#define S4_CACHE_BITS (212U + 32U * S4_COUNT_TOTAL)
+#define S4_CACHE_BITS (212U + 32U * S4_COUNT_TOTAL + 4U)
 #define S4_CACHE_BYTES ((S4_CACHE_BITS + 7U) / 8U)
 typedef struct { uint8_t bytes[S4_CACHE_BYTES]; } s4_sensor_cache_t;
 static inline uint64_t s4_operating_ms_to_us(uint64_t ms) {

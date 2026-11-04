@@ -171,10 +171,69 @@
 #define BOARD_TRACK_WIDTH_MM 0
 #endif
 #ifndef BOARD_TERRAIN_CALIBRATED
-#define BOARD_TERRAIN_CALIBRATED 0 /* sensor X forward, Y left, Z up */
+#define BOARD_TERRAIN_CALIBRATED 0 /* verified mounting and flat reference; not a scale-accuracy claim */
+#endif
+#ifndef BOARD_S4_MOUNTING
+#define BOARD_S4_MOUNTING 0 /* 0: forward=X,left=Y,up=Z; 1: forward=-Y,left=X,up=Z */
+#endif
+#if BOARD_S4_MOUNTING < 0 || BOARD_S4_MOUNTING > 1
+#error Unsupported Buddy 4 mounting profile
+#endif
+#ifndef BOARD_ACCEL_CALIBRATED
+#define BOARD_ACCEL_CALIBRATED 0
+#endif
+#ifndef BOARD_ACCEL_BIAS_X_MG
+#define BOARD_ACCEL_BIAS_X_MG 0
+#endif
+#ifndef BOARD_ACCEL_BIAS_Y_MG
+#define BOARD_ACCEL_BIAS_Y_MG 0
+#endif
+#ifndef BOARD_ACCEL_BIAS_Z_MG
+#define BOARD_ACCEL_BIAS_Z_MG 0
+#endif
+#ifndef BOARD_ACCEL_GAIN_X_MILLI
+#define BOARD_ACCEL_GAIN_X_MILLI 1000
+#endif
+#ifndef BOARD_ACCEL_GAIN_Y_MILLI
+#define BOARD_ACCEL_GAIN_Y_MILLI 1000
+#endif
+#ifndef BOARD_ACCEL_GAIN_Z_MILLI
+#define BOARD_ACCEL_GAIN_Z_MILLI 1000
+#endif
+#if BOARD_ACCEL_CALIBRATED < 0 || BOARD_ACCEL_CALIBRATED > 1 || \
+    BOARD_ACCEL_BIAS_X_MG < -500 || BOARD_ACCEL_BIAS_X_MG > 500 || \
+    BOARD_ACCEL_BIAS_Y_MG < -500 || BOARD_ACCEL_BIAS_Y_MG > 500 || \
+    BOARD_ACCEL_BIAS_Z_MG < -500 || BOARD_ACCEL_BIAS_Z_MG > 500 || \
+    BOARD_ACCEL_GAIN_X_MILLI < 500 || BOARD_ACCEL_GAIN_X_MILLI > 1500 || \
+    BOARD_ACCEL_GAIN_Y_MILLI < 500 || BOARD_ACCEL_GAIN_Y_MILLI > 1500 || \
+    BOARD_ACCEL_GAIN_Z_MILLI < 500 || BOARD_ACCEL_GAIN_Z_MILLI > 1500
+#error Invalid accelerometer calibration coefficients
 #endif
 #ifndef BOARD_PITCH_ZERO_CDEG
 #define BOARD_PITCH_ZERO_CDEG 0
+#endif
+#ifndef BOARD_TERRAIN_ONE_SIDED
+#define BOARD_TERRAIN_ONE_SIDED 1
+#endif
+#ifndef BOARD_IMU_GEOMETRY_CALIBRATED
+#define BOARD_IMU_GEOMETRY_CALIBRATED 0
+#endif
+#ifndef BOARD_IMU_FORWARD_MM
+#define BOARD_IMU_FORWARD_MM 0
+#endif
+#ifndef BOARD_IMU_LEFT_MM
+#define BOARD_IMU_LEFT_MM 0
+#endif
+#ifndef BOARD_IMU_UP_MM
+#define BOARD_IMU_UP_MM 0
+#endif
+#if BOARD_TRACK_WIDTH_MM < 0 || BOARD_TRACK_WIDTH_MM > 1000 || \
+    BOARD_IMU_FORWARD_MM < -500 || BOARD_IMU_FORWARD_MM > 500 || \
+    BOARD_IMU_LEFT_MM < -500 || BOARD_IMU_LEFT_MM > 500 || \
+    BOARD_IMU_UP_MM < -500 || BOARD_IMU_UP_MM > 500 || \
+    BOARD_TERRAIN_ONE_SIDED < 0 || BOARD_TERRAIN_ONE_SIDED > 1 || \
+    BOARD_IMU_GEOMETRY_CALIBRATED < 0 || BOARD_IMU_GEOMETRY_CALIBRATED > 1
+#error Invalid Buddy 4 height geometry
 #endif
 #ifndef BOARD_ROLL_ZERO_CDEG
 #define BOARD_ROLL_ZERO_CDEG 0

@@ -8,7 +8,9 @@
 
 #define S4_PRI_SENSOR     18 /* Existing TEAM.md priority band 18-19. */
 #define S4_PRI_MONITOR    19
-#define S4_POLL_MS        20
+/* Cyclic service is faster than the 50 Hz accelerometer. Relative task sleeps
+ * add a kernel tick and cannot supply this cadence with a positive delay. */
+#define S4_SERVICE_MS     10
 #define S4_REPORT_MS      200
 #define S4_RETRY_US       UINT64_C(1000000)
 #define S4_LOCK_WAIT_MS   5
@@ -33,6 +35,7 @@ IMPORT ER s4_sensor_get_status(s4_sensor_status_t *p_status);
 IMPORT ID tid_s4_sensor;
 IMPORT ID tid_s4_monitor;
 IMPORT void s4_sensor_task(INT start_code, void *p_exinf);
+IMPORT void s4_sensor_cyclic_handler(void *p_exinf);
 IMPORT void monitor_task(INT start_code, void *p_exinf);
 IMPORT uint64_t s4_kernel_now_us(void *p_context);
 IMPORT ER s4_status_publish(const s4_sensor_cache_t *p_status);

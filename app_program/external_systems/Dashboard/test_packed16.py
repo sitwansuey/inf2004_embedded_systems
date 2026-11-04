@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from packed16 import decode_messages, PACKED_TOPIC, READINGS
 from dashboard import BrokerBridge, DashboardHandler, ThreadingHTTPServer, TOPICS
 from edr_decode import encode_packet, pack_motor
+from buddy4_motion import MOTION_TOPIC, FIELDS as MOTION_FIELDS
 
 # Values cover both wheels, every sensor axis, signed scaling, zero and limits.
 SAMPLES={1:100,2:200,3:90,4:32,5:0,6:4095,7:2048,8:1948,9:2048,10:2148,
@@ -24,6 +25,31 @@ def populated_bridge():
     return bridge
 
 class DashboardTests(unittest.TestCase):
+    def test_motion_topic_validity_events_padding_and_expiry(self):
+        from unittest.mock import patch
+        bridge=BrokerBridge()
+        values=(1234,-30,5,3,36,255,2)
+        word=offset=0
+        for value,(_,bits,minimum,_) in zip(values,MOTION_FIELDS):
+            word|=(value-minimum)<<offset;offset+=bits
+        payload=word.to_bytes(10,'little')
+        feed(bridge,MOTION_TOPIC,payload)
+        root='Robopico/sensors/terrain/'
+        self.assertEqual(bridge.readings[root+'motion_class']['payload'],'Turning')
+        self.assertEqual(bridge.readings[root+'turn_rate_dps']['payload'],-30)
+        self.assertTrue(bridge.readings[root+'impact_latched']['payload'])
+        self.assertIn('Impact candidate',bridge.readings[root+'observed_events']['payload'])
+        node=shutil.which('node')
+        if node:
+            result=subprocess.run([node,str(Path(__file__).with_name('test_dashboard_display.cjs'))],
+                input=json.dumps(bridge.snapshot()),capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            print(result.stdout.strip())
+        feed(bridge,MOTION_TOPIC,(word|(1<<73)).to_bytes(10,'little'))
+        self.assertEqual(bridge.rejected_packets,1)
+        with patch('dashboard.time.monotonic',return_value=10**12):
+            self.assertTrue(all(m['payload'] is None for m in bridge.snapshot()['messages']))
+
     def test_exact_subscription_and_reconnect(self):
         calls=[]
         client=SimpleNamespace(subscribe=lambda topics: (calls.append(topics.copy()) or (0,1)))
@@ -31,7 +57,7 @@ class DashboardTests(unittest.TestCase):
         ok=SimpleNamespace(is_failure=False)
         for _ in range(2): bridge.on_connect(client,None,None,ok,None)
         self.assertEqual(calls,[TOPICS,TOPICS])
-        self.assertEqual(TOPICS,[(PACKED_TOPIC,0),("csc02/command/ack",0)])
+        self.assertEqual(TOPICS,[(PACKED_TOPIC,0),("csc02/command/ack",0),(MOTION_TOPIC,0)])
         bridge.on_subscribe(None,None,1,[ok],None)
         self.assertEqual(bridge.snapshot()['status'],'MQTT subscribed')
 

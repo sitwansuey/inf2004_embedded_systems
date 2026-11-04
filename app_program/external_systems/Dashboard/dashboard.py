@@ -10,9 +10,10 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from packed16 import decode_messages, PACKED_TOPIC
+from buddy4_motion import decode_messages as decode_motion_messages, MOTION_TOPIC
 
 ACK_TOPIC = "csc02/command/ack"
-TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0)]
+TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0), (MOTION_TOPIC, 0)]
 COMMAND_TOPIC = "csc02/command"
 
 def availability_mask(topic):
@@ -92,10 +93,10 @@ class BrokerBridge:
             return
         # One wire topic. Names returned by decode_messages are local display
         # keys, never additional subscriptions or broker republishes.
-        if message.topic != PACKED_TOPIC or getattr(message, "retain", False):
+        if message.topic not in (PACKED_TOPIC,MOTION_TOPIC) or getattr(message, "retain", False):
             return
         try:
-            messages = decode_messages(message.payload)
+            messages = (decode_motion_messages if message.topic==MOTION_TOPIC else decode_messages)(message.payload)
         except (TypeError, ValueError):
             with self.lock:
                 self.rejected_packets += 1
@@ -178,6 +179,7 @@ class BrokerBridge:
             return {
                 "status": self.status,
                 "mqtt_topic": PACKED_TOPIC,
+                "motion_topic": MOTION_TOPIC,
                 "receiver_id": self.receiver_id,
                 "received_packets": self.received_packets,
                 "rejected_packets": self.rejected_packets,

@@ -4,7 +4,7 @@
 /* init(3),poll(3),configured(1); accel XYZ(36),ms(55),flags/status(6);
  * mag XYZ(48),ms(55),flags/status(5); nine modulo-32 counters. */
 enum { ACCEL_BIT=7, MAG_BIT=104, COUNTER_BIT=212 };
-_Static_assert(S4_CACHE_BITS==500U && S4_CACHE_BYTES==63U,"cache schema");
+_Static_assert(S4_CACHE_BITS==504U && S4_CACHE_BYTES==63U,"cache schema");
 uint32_t s4_cache_count(const s4_sensor_cache_t *s,unsigned n) {
     return s && n<S4_COUNT_TOTAL?(uint32_t)s4_bits_get(s->bytes,COUNTER_BIT+n*32U,32):0;
 }
@@ -61,6 +61,23 @@ void s4_data_update(s4_sensor_cache_t *s,const lsm303_frame_t *f,lsm303_result_t
     if(f->mag.status==LSM303_DATA_IO_ERROR)s4_cache_increment(s,S4_COUNT_MAG_ERROR);
     if(f->accel.overrun)s4_cache_increment(s,S4_COUNT_OVERRUN);
     update_sample(s,&f->accel,false);update_sample(s,&f->mag,true);
+    /* Acquisition-rate impact candidate, independent of mounting zero. A
+     * revision survives subsequent quiet samples until the controller reads.
+     * At 50Hz, <100ms accepted age permits <16 revisions between consumers;
+     * this is not a lossless history across an arbitrarily stalled controller. */
+    const lsm303_sample_t *a=&f->accel;
+    if(a->fresh && !a->overrun && ((a->valid && a->status==LSM303_DATA_OK) || a->status==LSM303_DATA_CLIPPED) &&
+       a->read_time_us!=UINT64_MAX && a->read_time_us%1000U==0U) {
+        int64_t norm=0;bool fits=true;
+        for(unsigned n=0;n<3;++n) {
+            if(a->raw[n]<-2048 || a->raw[n]>2047)fits=false;
+            norm+=(int64_t)a->raw[n]*a->raw[n];
+        }
+        if(fits && norm>(int64_t)S4_IMPACT_THRESHOLD_MG*S4_IMPACT_THRESHOLD_MG) {
+            unsigned revision=(unsigned)s4_bits_get(s->bytes,500,4);
+            s4_bits_put(s->bytes,500,4,(revision+1U)&15U);
+        }
+    }
 }
 static lsm303_sample_t decode_sample(const s4_sensor_cache_t *s,bool mag) {
     lsm303_sample_t v={0};
@@ -102,6 +119,7 @@ void s4_data_snapshot(const s4_sensor_cache_t *s,uint64_t now,s4_sensor_status_t
     out->accel_age_ms=age(&out->latest.accel,now);out->mag_age_ms=age(&out->latest.mag,now);
     out->accel_usable=out->configured && usable(&out->latest.accel,now);
     out->mag_usable=out->configured && usable(&out->latest.mag,now);
+    out->impact_sequence=(uint8_t)s4_bits_get(s->bytes,500,4)&15U;
     out->init_attempts=s4_cache_count(s,S4_COUNT_INIT);out->task_heartbeat=s4_cache_count(s,S4_COUNT_HEARTBEAT);
     out->accel_samples=s4_cache_count(s,S4_COUNT_ACCEL);out->mag_samples=s4_cache_count(s,S4_COUNT_MAG);
     out->accel_io_errors=s4_cache_count(s,S4_COUNT_ACCEL_ERROR);out->mag_io_errors=s4_cache_count(s,S4_COUNT_MAG_ERROR);

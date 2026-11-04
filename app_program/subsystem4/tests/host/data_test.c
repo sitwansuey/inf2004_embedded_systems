@@ -140,7 +140,7 @@ int main(void)
     REQUIRE(view.latest.accel.read_time_us==ms*1000U && !view.mag_usable);
     frame=good_frame(12345);s4_data_update(&state,&frame,LSM303_OK);
     s4_data_snapshot(&state,13000,&view);REQUIRE(!view.accel_usable && !view.mag_usable);
-    REQUIRE((state.bytes[S4_CACHE_BYTES-1U]&0xf0U)==0);
+    REQUIRE(view.impact_sequence<=15U);
     printf("S4-U29 compact cache: %u bits/%u bytes, raw/time boundaries, exact units, counter isolation/wrap PASS\n",
         (unsigned)S4_CACHE_BITS,(unsigned)S4_CACHE_BYTES);
     return EXIT_SUCCESS;

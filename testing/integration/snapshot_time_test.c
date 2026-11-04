@@ -11,12 +11,17 @@ INT tm_printf(UB *format, ...);
 #include "../../app_program/subsystem1/task_telemetry.c"
 static jmp_buf finished;
 static UW clock_ms, read_delay, sample_age, line_stamp;
-static unsigned clock_reads, packets;
+static unsigned clock_reads, packets, motion_packets;
 static BOOL copy_failure, clock_failure;
 static BOOL bad_s4_record;
 static BOOL bad_s5_fields;
 static int32_t test_speed;
 static int64_t decoded[TEL_FIELD_COUNT];
+int s1_motion_send(const unsigned char *data) {
+    s4_motion_result_t v;REQUIRE(s4_motion_decode(data,S4_MOTION_BYTES,&v));
+    REQUIRE(v.motion==S4_MOTION_STATIONARY && v.flags==S4_MOTION_ODOMETRY);
+    ++motion_packets;return E_OK;
+}
 
 ER tk_get_otm(SYSTIM *time)
 {
@@ -32,6 +37,9 @@ ER app_get_state(app_state_t *state) {
     s4_result_t result={.calculated_ms=clock_ms,.pitch_cdeg=1234,.roll_cdeg=-5678,
         .height_mm=123,.maximum_mm=456,.terrain=0,.flags=27};
     REQUIRE(s4_result_encode(&result,state->s4_result,sizeof(state->s4_result)));
+    s4_motion_result_t motion={.sampled_ms=clock_ms,.motion=S4_MOTION_STATIONARY,
+        .flags=S4_MOTION_ODOMETRY};
+    REQUIRE(s4_motion_encode(&motion,state->s4_motion,sizeof(state->s4_motion)));
     if(bad_s4_record)state->s4_result[11]|=0x80;
     return E_OK;
 }
@@ -65,14 +73,14 @@ ER s1_binary_send(const uint8_t data[TELEMETRY_BYTES])
 }
 static void capture(void)
 {
-    clock_ms=1000;clock_reads=packets=0;memset(decoded,0,sizeof(decoded));
+    clock_ms=1000;clock_reads=packets=motion_packets=0;memset(decoded,0,sizeof(decoded));
     if(setjmp(finished)==0)telemetry_task(0,NULL);
 }
 int main(void)
 {
     read_delay=10;sample_age=0;line_stamp=1000;
     capture();
-    REQUIRE(packets==1 && decoded[TEL_TIME_MS]==1010);
+    REQUIRE(packets==1 && motion_packets==1 && decoded[TEL_TIME_MS]==1010);
     REQUIRE((decoded[TEL_AVAILABLE]&16)!=0 && decoded[TEL_DISTANCE_MM]==400);
     REQUIRE((decoded[TEL_AVAILABLE]&96)==96 && decoded[TEL_PITCH_CDEG]==1234 &&
         decoded[TEL_ROLL_CDEG]==-5678 && decoded[TEL_HEIGHT_MM]==123 && decoded[TEL_HIGHEST_MM]==456);
@@ -87,6 +95,7 @@ int main(void)
     bad_s5_fields=FALSE;
     bad_s4_record=TRUE;capture();REQUIRE((decoded[TEL_AVAILABLE]&96)==0);
     bad_s4_record=FALSE;read_delay=61;capture();
+    REQUIRE(motion_packets==0);
     REQUIRE((decoded[TEL_AVAILABLE]&96)==0 && decoded[TEL_HIGHEST_MM]==456);
     read_delay=20;line_stamp=990;
     capture();
