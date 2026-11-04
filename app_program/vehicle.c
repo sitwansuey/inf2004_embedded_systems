@@ -76,6 +76,7 @@ static void vehicle_task(INT code,void *context) {
             }
             if(c.wire[1]==2 && !state.vehicle.armed && mo && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
+                requested_sensor_mode=FALSE; /* RESET also restarts a latched S5 scan. */
                 s4_result_t cleared={.calculated_ms=now.lo};
                 result=cleared;
                 result_ok=s4_result_encode(&cleared,state.s4_result,sizeof(state.s4_result));
@@ -120,7 +121,8 @@ static void vehicle_task(INT code,void *context) {
             .sensor_state=scan.state,.odom_valid=result_ok && (result.flags&S4_RESULT_ODOMETRY),.motor_ok=mo && motor.state!=S2_MOTION_FAULT,
             .terrain_valid=result_ok && (result.flags&S4_RESULT_TILT),.shock=(result.flags&S4_RESULT_SHOCK)!=0U,
             .slope=result.terrain==TERRAIN_ASCENT || result.terrain==TERRAIN_DESCENT,
-            .bypass_enabled=BOARD_BYPASS_VALIDATED,.transport_ok=1};
+            .bypass_steering=(uint16_t)(BOARD_TRACK_WIDTH_MM*1000U/(2U*S5_BYPASS_ARC_RADIUS_MM)),
+            .bypass_enabled=BOARD_PID_ENABLED && BOARD_BYPASS_VALIDATED,.transport_ok=1};
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
         input.steering=input.line_fresh && line.output.steering_allowed;
         input.line_detected=input.line_fresh &&
@@ -128,17 +130,17 @@ static void vehicle_task(INT code,void *context) {
              (line.output.line.state==S3_LINE_JUNCTION && line.output.line.black_mask==3U));
         input.sensor_fresh=so && scan.state!=S5_FAULT &&
             (!scan.valid || (scan.distance_mm>0 && scan.distance_mm<=5000U)) &&
-            now.lo-scan.time_ms<(scan.valid?S5_STALE_MS:1500U);
-        input.front_clear=input.sensor_fresh && scan.valid && scan.angle_deg==0 && scan.sample_angle_deg==0 &&
-            scan.distance_mm>((state.vehicle.phase==VC_TRACK || state.vehicle.phase==VC_ACQUIRE)?
+            now.lo-scan.time_ms<(scan.valid?S5_STALE_MS:S5_INVALID_STALE_MS);
+        input.front_clear=input.sensor_fresh && scan.angle_deg==0 &&
+            s5_direction_clear(&scan,(state.vehicle.phase==VC_TRACK || state.vehicle.phase==VC_ACQUIRE)?
                 S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM);
         input.obstacle=input.sensor_fresh && ((scan.valid && scan.angle_deg==0 && scan.distance_mm<=S5_OBSTACLE_MM) ||
             s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION);
-        input.scan_ready=input.sensor_fresh && scan.state==S5_READY && plan_usable && scan.approach_plan_valid && scan.object_width_valid;
+        input.scan_ready=input.sensor_fresh && scan.state==S5_READY && plan_usable && scan.approach_plan_valid;
         int side_angle=state.vehicle.side?90:-90;
-        input.side_ready=input.sensor_fresh && scan.valid && scan.sample_angle_deg==side_angle &&
+        input.side_ready=input.sensor_fresh && (scan.valid || s5_sample_is_open(&scan)) && scan.sample_angle_deg==side_angle &&
             scan.angle_deg==side_angle;
-        input.side_clear=input.side_ready && scan.distance_mm>200U;
+        input.side_clear=input.side_ready && s5_direction_clear(&scan,200U);
         line_curve=curve_memory_update(&curve_memory,now.lo,
             state.vehicle.armed && state.vehicle.phase==VC_TRACK,
             input.line_fresh && line.output.error==S3_ERROR_NONE,
@@ -194,6 +196,10 @@ static void vehicle_task(INT code,void *context) {
             ER er;
             if(BOARD_PID_ENABLED && state.vehicle.phase==VC_TRACK &&
                state.vehicle.command==S2_MOVE_FORWARD && input.line_fresh) {
+                er=s2_follow_send(state.vehicle.power,line_curve);
+            } else if (BOARD_PID_ENABLED && state.vehicle.command==S2_MOVE_FORWARD &&
+                       state.vehicle.phase>=VC_TURN_OUT && state.vehicle.phase<=VC_RESTORE) {
+                line_curve=state.vehicle.steering;
                 er=s2_follow_send(state.vehicle.power,line_curve);
             } else {
                 line_curve=0;

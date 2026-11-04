@@ -184,7 +184,19 @@ static void scan_task(INT stacd, void *exinf)
         next.distance_mm = distance;
         next.sample_angle_deg = next.angle_deg;
         next.time_ms = now.lo;
+        s5_state_t sampled_state=next.state;
+        UINT old_restarts=scan.motion_restarts;
         INT target = s5_scan_step(&next, &scan);
+        if(scan.motion_restarts>old_restarts)
+            tm_printf((UB *)"[S5MOTION] restart=%u limit=%u tolerance=%d start=%d,%d end=%d,%d next_state=%u\n",
+                scan.motion_restarts,S5_SCAN_MOTION_RESTARTS,S5_SCAN_MOTION_TOLERANCE_COUNTS,
+                next.motor1_counts_start,next.motor2_counts_start,
+                next.motor1_counts_end,next.motor2_counts_end,next.state);
+        if(sampled_state!=next.state || target!=next.angle_deg ||
+           (s5_stage_for_state(sampled_state)==S5_STAGE_ACQUISITION && !next.valid))
+            tm_printf((UB *)"[S5SCAN] scan=%u state=%u->%u angle=%d target=%d valid=%u mm=%u echo=%u retries=%u\n",
+                next.scan_id,sampled_state,next.state,next.angle_deg,target,
+                next.valid,next.distance_mm,next.echo_result,scan.echo_failures);
         INT travelled;
         if(tk_loc_mtx(status_mutex,TMO_FEVR)<E_OK) {tk_ext_tsk();return;}
         if (turn_requested)
@@ -205,6 +217,12 @@ static void scan_task(INT stacd, void *exinf)
         {
             navigation_requested = FALSE;
             next.state = navigation_state;
+            if(navigation_state==S5_MONITOR) {
+                scan=(s5_scan_context_t){0};
+                next.approach_plan_valid=FALSE;next.acquisition_clear=FALSE;
+                next.left_bound_valid=next.right_bound_valid=FALSE;
+                next.object_width_valid=FALSE;
+            }
             target = navigation_look;
             next.valid = FALSE;
         }

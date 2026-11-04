@@ -16,7 +16,7 @@ bool vc_start(vc_state_t *s, uint32_t now, unsigned power) {
 }
 void vc_stop(vc_state_t *s,unsigned reason) {
     if (!s) return;
-    s->command=0;s->power=0;s->armed=0;s->look_side=0;
+    s->command=0;s->power=0;s->steering=0;s->armed=0;s->look_side=0;
     s->pending_nav=0;s->navigation_ack=0;s->track_wait=0;
     s->last_line_side=0;s->search_right_first=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
@@ -25,14 +25,14 @@ void vc_stop(vc_state_t *s,unsigned reason) {
 void vc_track_requested(vc_state_t *s,uint32_t now) {
     if (!s) return;
     s->track_requested_ms=now;s->track_wait=1;
-    s->command=0;s->power=0;
+    s->command=0;s->power=0;s->steering=0;
 }
 static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     s->phase=(uint8_t)phase;s->entered_ms=i->now_ms;
     if (phase==VC_REACQUIRE) s->search_right_first=s->last_line_side==1U;
     s->origin_um=i->distance_um;s->origin_yaw=i->yaw_mdeg;
-    s->turn_progress=0;
-    s->command=0;s->power=0;
+    s->turn_progress=0;s->bypass_drive_ms=0;s->last_step_ms=i->now_ms;
+    s->command=0;s->power=0;s->steering=0;
     s->track_wait=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
 }
@@ -41,12 +41,17 @@ static int yaw_delta(int32_t now,int32_t origin) {
 }
 void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (!s || !i) return;
-    s->command=0;s->power=0;
+    unsigned was_driving=s->command==1 && s->power!=0;
+    uint32_t elapsed=i->now_ms-s->last_step_ms;
+    s->last_step_ms=i->now_ms;
+    s->command=0;s->power=0;s->steering=0;
     s->navigation_ack=0;
+    if(s->phase==VC_DIAGONAL && was_driving && elapsed<=100U)
+        s->bypass_drive_ms+=elapsed;
     if (!s->armed) return;
-    /* Preserve the last unambiguous side across both-black/white readings. */
+    /* Both-black is straight; retain the last unambiguous search direction. */
     if (i->line_fresh && (i->line_black_mask==1U || i->line_black_mask==2U))
-        s->last_line_side=i->line_black_mask & 3U;
+        s->last_line_side=i->line_black_mask;
     if (s->lease_ms && i->now_ms-s->armed_ms>=s->lease_ms) { vc_stop(s,VC_TIMEOUT);return; }
     if (i->shock || i->safety_event) { vc_stop(s,i->shock?VC_SHOCK:VC_LINE);return; }
     if (!i->transport_ok) { vc_stop(s,VC_TRANSPORT);return; }
@@ -61,7 +66,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         s->pending_nav=i->nav;
     }
     if (s->phase!=VC_TRACK && i->now_ms-s->entered_ms>
-        ((s->phase==VC_ACQUIRE || s->phase==VC_PASS)?20000U:5000U)) { vc_stop(s,VC_TIMEOUT);return; }
+        ((s->phase==VC_ACQUIRE)?30000U:(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE)?10000U:5000U)) { vc_stop(s,VC_TIMEOUT);return; }
     if (s->phase==VC_TRACK) {
         if (i->obstacle) { enter(s,i,VC_ACQUIRE);return; }
         if (s->track_wait) {
@@ -98,12 +103,14 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     } else if (s->phase==VC_ACQUIRE) {
         if (i->front_clear && !i->obstacle && !i->scan_ready) { enter(s,i,VC_REACQUIRE);return; }
         if (!i->scan_ready) return;
-        if (!i->bypass_enabled) { vc_stop(s,VC_UNCALIBRATED);return; }
+        if (!i->bypass_enabled || !i->bypass_steering || i->bypass_steering>400U) { vc_stop(s,VC_UNCALIBRATED);return; }
         if (!i->turn_deg || abs(i->turn_deg)>80 || !i->approach_mm || i->return_mm>1000) {
             vc_stop(s,VC_SENSOR);return;
         }
         s->scan_id=i->scan_id;s->turn_deg=i->turn_deg;s->side=i->turn_deg<0;
-        s->approach_mm=i->approach_mm;s->return_mm=i->return_mm;
+        /* Mirror the outbound diagonal and arcs to recover the original lateral area. */
+        s->approach_mm=i->approach_mm;s->return_mm=i->approach_mm;
+        s->bypass_steering=i->bypass_steering;
         enter(s,i,VC_TURN_OUT);return;
     } else if (s->phase==VC_REACQUIRE) {
         if (!i->front_clear) return;
@@ -140,18 +147,25 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         return;
     } else {
         if (!i->front_clear && !s->look_side) return;
-        int direction=s->side?-1:1;
         int target=0;unsigned next=VC_FAULT;
         switch(s->phase) {
         case VC_TURN_OUT: target=s->turn_deg*1000;next=VC_DIAGONAL;break;
-        case VC_ALIGN: target=-s->turn_deg*1000;next=VC_PASS;break;
-        case VC_TURN_IN: target=-direction*90000;next=VC_RETURN;break;
-        case VC_RESTORE: target=direction*90000;next=VC_REACQUIRE;break;
+        case VC_ALIGN: target=-s->turn_deg*2000;next=VC_RETURN;break;
+        case VC_TURN_IN: target=-s->turn_deg*1000;next=VC_RETURN;break;
+        case VC_RESTORE: target=s->turn_deg*1000;next=VC_REACQUIRE;break;
         case VC_NAV_TURN: target=s->turn_deg*1000;next=VC_REACQUIRE;break;
-        case VC_DIAGONAL: case VC_RETURN: {
-            int64_t goal=(int64_t)(s->phase==VC_DIAGONAL?s->approach_mm:s->return_mm)*1000;
-            if ((int64_t)i->distance_um-s->origin_um>=goal) {
-                enter(s,i,s->phase==VC_DIAGONAL?VC_ALIGN:VC_RESTORE);return;
+        case VC_DIAGONAL: {
+            if (s->bypass_drive_ms>=3000U) {
+                int64_t travel=(int64_t)i->distance_um-s->origin_um;
+                if(travel<=0 || travel>1000000) {vc_stop(s,VC_SENSOR);return;}
+                s->return_mm=(uint16_t)((travel+999)/1000);
+                enter(s,i,VC_ALIGN);return;
+            }
+            s->command=1;break;
+        }
+        case VC_RETURN: {
+            if ((int64_t)i->distance_um-s->origin_um>=(int64_t)s->return_mm*1000) {
+                enter(s,i,VC_RESTORE);return;
             }
             s->command=1;break;
         }
@@ -176,8 +190,18 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             if ((target>0 && d>=target) || (target<0 && d<=target)) {
                 enter(s,i,next);if(next==VC_PASS)s->look_side=1;return;
             }
-            s->command=target>0?3:4;
+            if (s->phase==VC_NAV_TURN) s->command=target>0?3:4;
+            else {
+                s->command=1;
+                s->steering=(int16_t)(target>0?-(int)s->bypass_steering:(int)s->bypass_steering);
+            }
         }
     }
-    if (s->command) s->power=i->slope && s->maximum_power>20?20:s->maximum_power;
+    if (s->command) {
+        unsigned demand=s->maximum_power;
+        /* A small three-second boost after the outward bend; hardware PWM cap remains. */
+        if (s->phase==VC_DIAGONAL && s->bypass_drive_ms<3000U)
+            demand=demand<=48U?demand+2U:50U;
+        s->power=(uint8_t)(i->slope && demand>20U?20U:demand);
+    }
 }

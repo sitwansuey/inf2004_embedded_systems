@@ -17,7 +17,7 @@ class Commands(unittest.TestCase):
   b.command_client=c;return b,c
  def test_wire(self):
   b,c=self.bridge()
-  for action,frame in [('reset',bytes([193,2,0,0,0,0])),('start',bytes([193,3,16,0,0,1])),('stop',bytes([193,0,0,0,0,2]))]:
+  for action,frame in [('reset',bytes([193,2,0,0,0,0])),('start',bytes([193,3,30,0,0,1])),('stop',bytes([193,0,0,0,0,2]))]:
    b.send_command(action);c.publish.assert_called_with('csc02/command',frame,qos=0,retain=False)
  def test_disconnect_and_invalid(self):
   b,c=self.bridge();c.is_connected.return_value=False

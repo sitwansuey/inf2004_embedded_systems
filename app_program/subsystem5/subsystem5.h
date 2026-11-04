@@ -6,12 +6,15 @@
 #define S5_LOCK_WAIT_MS 5
 #define S5_OBSTACLE_MM 200U /* acquisition at 20 cm, inclusive */
 #define S5_ACQUISITION_SAMPLES 2U
+#define S5_SCAN_MOTION_TOLERANCE_COUNTS 3 /* about 1 mm with measured 631 counts / 220 mm */
+#define S5_SCAN_MOTION_RESTARTS 2U
 #define S5_SCAN_ECHO_FAILURES 3U /* retry at the same angle before resetting */
 #define S5_STALE_MS 500U
+#define S5_INVALID_STALE_MS 2250U /* max 180-degree servo travel plus scheduling margin */
 #define S5_STARTUP_CENTER_MS 1000U /* allow travel from any initial position */
 #define S5_SETTLE_MS 150
 #define S5_SAMPLE_MS 65 /* datasheet: measurement cycle over 60 ms */
-#define S5_MAX_ANGLE 50
+#define S5_MAX_ANGLE 90 /* three 30-degree coarse checks per side */
 #define S5_SCAN_STEP_DEG 30
 #define S5_REFINE_STEP_DEG 1
 #define S5_TARGET_DEPTH_TOLERANCE_MM 20U
@@ -84,7 +87,7 @@ typedef struct
     INT sample_angle_deg; /* actual angle associated with distance_mm */
     INT avoidance_deg;    /* selected heading: positive left, negative right */
     UW scan_id;
-    BOOL acquisition_clear;   /* confirmed no-echo opening, not a valid distance */
+    BOOL acquisition_clear;   /* directional clearance; repeated no-return may establish assumed open space */
     BOOL approach_plan_valid; /* acquisition finished and verified */
     INT planned_rotate_deg;
     UW planned_rotate_ms, planned_approach_mm, planned_return_mm;
@@ -109,6 +112,20 @@ typedef struct
     UW object_width_min_mm;
     UW object_width_max_mm;
 } s5_status_t;
+/* User-selected policy: three no-return samples at one settled angle imply
+ * open space. valid stays FALSE and distance stays unknown on the wire. */
+static inline BOOL s5_sample_is_open(const s5_status_t *s)
+{
+    return s && !s->valid && s->acquisition_clear &&
+        s->sample_angle_deg==s->angle_deg &&
+        (s->echo_result==S5_ECHO_NO_RISE || s->echo_result==S5_ECHO_NO_FALL);
+}
+static inline BOOL s5_direction_clear(const s5_status_t *s, UW threshold)
+{
+    return s && s->sample_angle_deg==s->angle_deg &&
+        (s5_sample_is_open(s) || (s->valid && s->distance_mm>threshold));
+}
+
 IMPORT ER s5_controller_bind(void);
 IMPORT ER s5_get_status(s5_status_t *status);
 /* Legacy single-rotation handshake. S5 centres the sensor and
@@ -127,6 +144,7 @@ IMPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg);
 #define S5_ROTATE_MS_PER_DEG 5U
 #define S5_SENSOR_OFFSET_MM 90U
 #define S5_CLEARANCE_RADIUS_MM 75U
+#define S5_BYPASS_ARC_RADIUS_MM 150U /* center path; steering derives from measured axle width */
 #define S5_CRUISE_MM_PER_SECOND 245U /* measured 1.20 rev/s with 65 mm wheels at 30% power */
 #define S5_OVERCOME_CLEARANCE_MM 200U
 #define S5_OBJECT_RANGE_MM 50U

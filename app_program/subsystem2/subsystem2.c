@@ -482,11 +482,11 @@ static ER motor_regulate(uint16_t word)
             if(e.sampled_ms-pid_progress[n]>500U)return E_TMOUT;
             int32_t instant=(int32_t)((int64_t)delta*direction[n]*1000/dt);
             pid_speed[n]=(3*pid_speed[n]+instant)/4;
-            unsigned scale=s2_steering_scale(filtered_steering,n);
-            int32_t target=(int32_t)((uint64_t)power*BOARD_PID_MAX_CPS*scale/100000U);
+            unsigned wheel_demand=s2_steered_demand_milli(power,filtered_steering,n,BOARD_PID_MAX_POWER);
+            int32_t target=(int32_t)((uint64_t)wheel_demand*BOARD_PID_MAX_CPS/100000U);
             unsigned trim=n==0?S2_MOTOR1_TRIM_PERCENT:S2_MOTOR2_TRIM_PERCENT;
             output[n]=speed_pid_step(&wheel_pid[n],target,pid_speed[n],dt,
-                (unsigned)((uint64_t)power*trim*scale/100000U),BOARD_PID_MAX_POWER,
+                (unsigned)((uint64_t)wheel_demand*trim/100000U),BOARD_PID_MAX_POWER,
                 BOARD_PID_KP_MILLI,BOARD_PID_KI_MILLI,BOARD_PID_KD_MILLI);
         }
         pid_counts[n]=counts[n];

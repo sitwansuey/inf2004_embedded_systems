@@ -1,6 +1,6 @@
 /* Width from one-degree angular bounds and the saved forward target depth. */
 #include "s5_width.h"
-_Static_assert(S5_MAX_ANGLE <= 80 && S5_REFINE_STEP_DEG == 1,
+_Static_assert(S5_MAX_ANGLE <= 90 && S5_REFINE_STEP_DEG == 1,
                "One-degree bound geometry supports angles through 80 degrees");
 static const UW cosine_q[] = {
     10000U, 9998U, 9994U, 9986U, 9976U, 9962U, 9945U, 9925U, 9903U, 9877U,
@@ -11,7 +11,7 @@ static const UW cosine_q[] = {
     6428U, 6293U, 6157U, 6018U, 5878U, 5736U, 5592U, 5446U, 5299U, 5150U,
     5000U, 4848U, 4695U, 4540U, 4384U, 4226U, 4067U, 3907U, 3746U, 3584U,
     3420U, 3256U, 3090U, 2924U, 2756U, 2588U, 2419U, 2250U, 2079U, 1908U,
-    1736U
+    1736U, 1564U, 1392U, 1219U, 1045U, 872U, 698U, 523U, 349U, 175U, 0U
 };
 static const INT tangent_q[] = {
     0, 175, 349, 524, 699, 875, 1051, 1228, 1405, 1584,
@@ -31,7 +31,9 @@ EXPORT BOOL s5_target_detected(const s5_status_t *sample)
         sample->distance_mm > 5000U || sample->obstacle_distance_mm == 0U)
         return FALSE;
     INT magnitude = sample->angle_deg < 0 ? -sample->angle_deg : sample->angle_deg;
-    if (magnitude > 80) return FALSE;
+    if (magnitude > 90) return FALSE;
+    /* At a perpendicular side look, forward projection is always zero. */
+    if (magnitude==90) return sample->distance_mm<=S5_OVERCOME_CLEARANCE_MM;
     /* A closer foreground surface also obstructs this scan direction. */
     UW forward = sample->distance_mm * cosine_q[magnitude] / 10000U;
     return forward <= sample->obstacle_distance_mm + S5_TARGET_DEPTH_TOLERANCE_MM;
@@ -43,8 +45,8 @@ EXPORT void s5_width_from_bounds(s5_status_t *result)
     result->object_width_valid = FALSE;
     result->object_width_mm = result->object_width_min_mm = result->object_width_max_mm = 0U;
     if (!result->left_bound_valid || !result->right_bound_valid ||
-        result->left_bound_deg < 0 || result->left_bound_deg >= S5_MAX_ANGLE ||
-        result->right_bound_deg > 0 || result->right_bound_deg <= -S5_MAX_ANGLE ||
+        result->left_bound_deg < 0 || result->left_bound_deg >= 80 ||
+        result->right_bound_deg > 0 || result->right_bound_deg <= -80 ||
         result->obstacle_distance_mm == 0U || result->obstacle_distance_mm > S5_OBSTACLE_MM)
         return;
     UINT left = (UINT)result->left_bound_deg;

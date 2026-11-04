@@ -15,6 +15,7 @@ typedef struct {
     uint8_t line_state;
     uint8_t line_black_mask; /* bit 0 right, bit 1 left */
     uint8_t nav;
+    uint16_t bypass_steering; /* track width / (2 * planned arc radius), permille */
     uint8_t line_fresh : 1;
     uint8_t steering : 1;
     uint8_t front_clear : 1;
@@ -40,9 +41,12 @@ typedef struct {
     uint32_t entered_ms, armed_ms, lease_ms, scan_id;
     uint32_t track_requested_ms;
     uint32_t line_found_ms;
+    uint32_t bypass_drive_ms, last_step_ms;
     int32_t origin_um, origin_yaw, turn_progress;
     uint16_t approach_mm, return_mm;
+    uint16_t bypass_steering;
     int16_t turn_deg;
+    int16_t steering; /* forward bend, negative left / positive right */
     uint8_t phase : 4;
     uint8_t fault : 4;
     uint8_t command : 3;

@@ -11,7 +11,7 @@
 #define BOARD_PID_KP_MILLI 30
 #define BOARD_PID_KI_MILLI 10
 #define BOARD_PID_KD_MILLI 0
-#define BOARD_PID_MAX_POWER 20
+#define BOARD_PID_MAX_POWER 30
 #define S2_MOTOR1_TRIM_PERCENT 73U
 #define S2_MOTOR2_TRIM_PERCENT 98U
 #define BOARD_RIGHT_PWM_PERMILLE 990U /* Provisional; line-following trial only. */

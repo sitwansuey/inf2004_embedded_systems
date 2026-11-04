@@ -139,7 +139,7 @@ class BrokerBridge:
                 self.command_sequence = (sequence + 1) & 255
                 entry = {"opcode": opcodes[action], "reply": None}
                 self.pending_commands[sequence] = entry
-            frame = bytes((0xC1, opcodes[action], 16 if action == "start" else 0,
+            frame = bytes((0xC1, opcodes[action], 30 if action == "start" else 0,
                            0, 0, sequence))
             # QoS 0 avoids retrying a stale START after a reconnect.
             info = client.publish(COMMAND_TOPIC, frame, qos=0, retain=False)

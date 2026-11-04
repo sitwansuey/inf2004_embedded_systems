@@ -8,12 +8,18 @@ static inline int16_t curve_memory_update(curve_memory_t *m,uint32_t now,
     bool active,bool fresh,unsigned mask,int error)
 {
     if(!active || !fresh) { *m=(curve_memory_t){0};return 0; }
-    if(mask==1U || mask==2U) {
-        int correction=error*250/1000;
-        if(correction>250)correction=250;
-        if(correction< -250)correction=-250;
-        m->steering=(int16_t)correction;m->last_black_ms=now;m->turning=true;
+    (void)error;
+    mask &= 3U; /* GP28 barcode is never a steering input. */
+    if(mask == 3U) {
+        *m=(curve_memory_t){0}; /* Both black means straight, cancel bend memory. */
+        return 0;
     }
+    if(mask == 1U) {
+        /* Only right-only black initiates a right bend. */
+        m->steering=250;m->last_black_ms=now;m->turning=true;
+    }
+    /* Left-only is the normal straight path. A pending right bend can settle
+     * for the remaining hold time before its correction ramps back to zero. */
     if(m->turning && now-m->last_black_ms>=300U)m->turning=false;
     return m->turning?m->steering:0;
 }

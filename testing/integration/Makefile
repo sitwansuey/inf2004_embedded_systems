@@ -6,6 +6,10 @@ SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_po
 .PHONY: test sanitize
 test:
 	mkdir -p .build
+	$(CC) $(CFLAGS) speed30_test.c $(LDFLAGS) -o .build/speed30
+	.build/speed30
+	$(CC) $(CFLAGS) obstacle_bend_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/obstacle_bend
+	.build/obstacle_bend
 	$(CC) $(CFLAGS) edr_stream_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/edr_stream
 	python3 edr_stream_test.py
 	$(CC) $(CFLAGS) mission_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o .build/mission
@@ -28,6 +32,12 @@ test:
 	./.build/ir_scan_usb
 	$(CC) $(CFLAGS) -DBOARD_IR_MOTOR_SCAN_BENCH=1 ir_scan_queue_test.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/ir_scan_queue
 	./.build/ir_scan_queue
+	$(CC) $(CFLAGS) -include host.h obstacle_motion_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_motion
+	.build/obstacle_motion
+	$(CC) $(CFLAGS) -include host.h obstacle_open_space_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_open_space
+	.build/obstacle_open_space
+	$(CC) $(CFLAGS) -include host.h obstacle_scan_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_scan
+	.build/obstacle_scan
 	$(CC) $(CFLAGS) -include host.h scan_test.c $(SCAN) $(LDFLAGS) -o .build/scan
 	./.build/scan
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar

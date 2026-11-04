@@ -27,15 +27,18 @@ static INT edge_clearance_heading(INT angle, UW range_mm)
     for (INT degree = 1; degree < 90; ++degree) {
         long long clearance = (long long)(y * cosine_q10000[90-degree]) -
                               (long long)(x * cosine_q10000[degree]);
-        if (clearance >= (long long)S5_CLEARANCE_RADIUS_MM * 100000000LL) return degree;
+        long long arc = (long long)S5_BYPASS_ARC_RADIUS_MM *
+                        (10000U-cosine_q10000[degree]) * 10000LL;
+        if (clearance-arc >= (long long)S5_CLEARANCE_RADIUS_MM * 100000000LL) return degree;
     }
     return 0;
 }
 
 static void approach_geometry(s5_path_t *path, UW depth, UINT degree)
 {
+    (void)degree;
     path->approach_mm = depth;
-    path->return_mm = (UW)(((unsigned long long)depth * cosine_q10000[90U-degree] + 9999U) / 10000U);
+    path->return_mm = depth; /* Symmetric diagonal and arc sequence. */
 }
 
 /* Use both averaged edge ranges to choose the smaller feasible tangent. */
@@ -45,19 +48,21 @@ EXPORT BOOL s5_acquisition_plan(s5_status_t *sensor)
     sensor->approach_plan_valid = FALSE;
     sensor->planned_rotate_deg = 0;
     sensor->planned_rotate_ms = sensor->planned_approach_mm = sensor->planned_return_mm = 0;
-    if (!sensor->object_width_valid || !sensor->left_bound_valid ||
-        !sensor->right_bound_valid || sensor->obstacle_distance_mm == 0U ||
+    if ((!sensor->left_bound_valid && !sensor->right_bound_valid) ||
+        sensor->obstacle_distance_mm == 0U ||
         sensor->obstacle_distance_mm > S5_OBSTACLE_MM ||
         sensor->avoidance_deg < -S5_MAX_ANGLE || sensor->avoidance_deg > S5_MAX_ANGLE)
         return FALSE;
-    INT left = edge_clearance_heading(sensor->left_bound_deg, sensor->left_bound_distance_mm);
-    INT right = edge_clearance_heading(sensor->right_bound_deg, sensor->right_bound_distance_mm);
+    INT left = sensor->left_bound_valid ? edge_clearance_heading(sensor->left_bound_deg, sensor->left_bound_distance_mm) : 0;
+    INT right = sensor->right_bound_valid ? edge_clearance_heading(sensor->right_bound_deg, sensor->right_bound_distance_mm) : 0;
+    if(left>80)left=0;
+    if(right>80)right=0;
     if (!left && !right) return FALSE;
     BOOL choose_left = left && (!right || left <= right);
     INT magnitude = choose_left ? left : right;
     sensor->avoidance_deg = choose_left ? sensor->left_bound_deg + 1 : sensor->right_bound_deg - 1;
     s5_path_t plan = {0};
-    approach_geometry(&plan, sensor->obstacle_distance_mm, (UINT)magnitude);
+    approach_geometry(&plan, sensor->obstacle_distance_mm + S5_BYPASS_ARC_RADIUS_MM, (UINT)magnitude);
     sensor->planned_rotate_deg = choose_left ? magnitude : -magnitude;
     sensor->planned_rotate_ms = (UW)magnitude * S5_ROTATE_MS_PER_DEG;
     sensor->planned_approach_mm = plan.approach_mm;
@@ -79,16 +84,16 @@ EXPORT s5_path_t s5_assess_path(const s5_status_t *sensor, BOOL available, UW no
              sensor->state == S5_SCAN_RIGHT || sensor->state == S5_REFINE_RIGHT ||
              sensor->state == S5_VERIFY_CLEAR || sensor->state == S5_BLOCKED)
         path.state = S5_PATH_IDENTIFY;
-    else if (sensor->valid || (sensor->state == S5_READY && sensor->acquisition_clear))
+    else if (sensor->valid || s5_sample_is_open(sensor))
     {
         if (sensor->state == S5_MONITOR && sensor->angle_deg == 0 && sensor->sample_angle_deg == 0 &&
-            sensor->distance_mm > S5_OBSTACLE_MM)
+            s5_direction_clear(sensor,S5_OBSTACLE_MM))
             path.state = S5_PATH_FORWARD;
         else if (sensor->state == S5_GUIDING && sensor->angle_deg == 0 &&
-                 sensor->distance_mm > S5_GUIDANCE_OBSTACLE_MM)
-            path.state = sensor->distance_mm > S5_OBSTACLE_MM ? S5_PATH_FORWARD : S5_PATH_GUIDE_FORWARD;
+                 s5_direction_clear(sensor,S5_GUIDANCE_OBSTACLE_MM))
+            path.state = s5_direction_clear(sensor,S5_OBSTACLE_MM) ? S5_PATH_FORWARD : S5_PATH_GUIDE_FORWARD;
         else if (sensor->state == S5_READY && sensor->approach_plan_valid &&
-                 sensor->object_width_valid && sensor->left_bound_valid && sensor->right_bound_valid)
+                 (sensor->left_bound_valid || sensor->right_bound_valid))
         {
             path.state = S5_PATH_READY;
             path.turn_deg = sensor->planned_rotate_deg;
@@ -98,15 +103,15 @@ EXPORT s5_path_t s5_assess_path(const s5_status_t *sensor, BOOL available, UW no
         }
         else if ((sensor->state == S5_APPROACH || sensor->state == S5_REORG) &&
                  sensor->angle_deg == 0 && sensor->sample_angle_deg == 0 &&
-                 sensor->distance_mm > S5_GUIDANCE_OBSTACLE_MM)
+                 s5_direction_clear(sensor,S5_GUIDANCE_OBSTACLE_MM))
             path.state = S5_PATH_GUIDE_FORWARD;
         else if (sensor->state == S5_OVERCOME &&
                  ((sensor->angle_deg == -90 || sensor->angle_deg == 90) ||
-                  (sensor->angle_deg == 0 && sensor->distance_mm > S5_GUIDANCE_OBSTACLE_MM)) &&
+                  (sensor->angle_deg == 0 && s5_direction_clear(sensor,S5_GUIDANCE_OBSTACLE_MM))) &&
                  sensor->sample_angle_deg == sensor->angle_deg)
             path.state = S5_PATH_GUIDE_FORWARD;
         else if (sensor->state == S5_ROTATING && sensor->angle_deg == 0 &&
-                 sensor->distance_mm > S5_ROTATE_STOP_MM)
+                 s5_direction_clear(sensor,S5_ROTATE_STOP_MM))
             path.state = S5_PATH_ROTATE_CLEAR;
     }
     return path;

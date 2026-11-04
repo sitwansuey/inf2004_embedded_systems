@@ -9,23 +9,23 @@ int main(void) {
     s.sample_angle_deg=0;s.distance_mm=200;assert(s5_assess_path(&s,TRUE,20).state==S5_PATH_STOP);
     s5_scan_context_t c={0};assert(s5_scan_step(&s,&c)==0);assert(s5_scan_step(&s,&c)==30);
     assert(s.state==S5_SCAN_LEFT);
-    /* Coarse steps clamp at the search limits rather than commanding +/-60. */
+    /* Three coarse positions: 30, 60, 90 before refinement. */
     s.angle_deg=s.sample_angle_deg=30;s.obstacle_distance_mm=200;
-    assert(s5_scan_step(&s,&c)==50);
+    assert(s5_scan_step(&s,&c)==60);
     s.angle_deg=s.sample_angle_deg=-30;s.state=S5_SCAN_RIGHT;
-    assert(s5_scan_step(&s,&c)==-50);
+    assert(s5_scan_step(&s,&c)==-60);
     s.state=S5_SCAN_LEFT;
-    s.valid=0;s.echo_result=S5_ECHO_NO_RISE;s.angle_deg=s.sample_angle_deg=10;
+    s.valid=0;s.echo_result=S5_ECHO_STUCK_HIGH;s.angle_deg=s.sample_angle_deg=10;
     for(unsigned n=0;n<3;++n)(void)s5_scan_step(&s,&c);
-    assert(s.state==S5_FAULT && !s.acquisition_clear && !s.approach_plan_valid);
+    assert(s.state==S5_SCAN_LEFT && !s.acquisition_clear && !s.approach_plan_valid);
     s=(s5_status_t){.state=S5_SCAN_LEFT,.valid=1,.distance_mm=150,.angle_deg=10,.sample_angle_deg=10,
-        .encoder_valid=1,.motor1_counts_start=0,.motor1_counts_end=1};
-    (void)s5_scan_step(&s,&c);assert(s.state==S5_FAULT);
+        .encoder_valid=1,.motor1_counts_start=0,.motor1_counts_end=4};
+    (void)s5_scan_step(&s,&c);assert(s.state==S5_CENTERING && !s.approach_plan_valid);
     s=(s5_status_t){.obstacle_distance_mm=150,.left_bound_valid=1,.right_bound_valid=1,
         .left_bound_deg=20,.right_bound_deg=-20};
     s5_width_from_bounds(&s);assert(s.object_width_valid && s.object_width_mm>=109 && s.object_width_mm<=110);
     assert(s.object_width_min_mm<=s.object_width_mm && s.object_width_max_mm>s.object_width_mm);
-    s.left_bound_deg=50;s5_width_from_bounds(&s);assert(!s.object_width_valid);
+    s.left_bound_deg=80;s5_width_from_bounds(&s);assert(!s.object_width_valid);
     /* Complete acquisition in a synthetic scene with real finite background
      * returns; verify the computed tangent is sampled before READY. */
     s=(s5_status_t){.state=S5_MONITOR,.valid=1,.encoder_valid=1};
@@ -39,5 +39,14 @@ int main(void) {
     assert(s.state==S5_READY && s.approach_plan_valid && s.object_width_valid && verified_plan);
     assert(s.object_width_mm>=109 && s.object_width_mm<=110);
     puts("INT-CR1-04 scan: wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS");
+    s=(s5_status_t){.object_width_valid=1,.left_bound_valid=1,.right_bound_valid=1,
+        .obstacle_distance_mm=150,.left_bound_deg=20,.right_bound_deg=-10,
+        .left_bound_distance_mm=160,.right_bound_distance_mm=160};
+    assert(s5_acquisition_plan(&s) && s.planned_rotate_deg<0);
+    assert(s.planned_approach_mm==300 && s.planned_return_mm==300);
+    s.left_bound_deg=10;s.right_bound_deg=-20;
+    assert(s5_acquisition_plan(&s) && s.planned_rotate_deg>0);
+    s.left_bound_deg=20;s.right_bound_deg=-20;
+    assert(s5_acquisition_plan(&s) && s.planned_rotate_deg>0);
     return 0;
 }
