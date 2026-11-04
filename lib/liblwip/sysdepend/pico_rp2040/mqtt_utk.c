@@ -6,7 +6,7 @@
  *	the CYW43439 and the rest of lwIP (docs/RELEASE.md safety rule 6):
  *	cyw43_utk_task() (cyw43_utk.c) calls mqtt_utk_start() once, the first
  *	time it observes CYW43_LINK_UP. mqtt.c's own keepalive/ping/retry
- *	timers, and the heartbeat below, both ride the same sys_check_timeouts()
+ *	timers ride the same sys_check_timeouts()
  *	polling that task already does for DHCP and TCP -- nothing extra runs
  *	on any other task or core.
  *
@@ -20,15 +20,11 @@
 #include "lwip/timeouts.h"
 #include "wifi_secrets.h"
 #include "mqtt_utk.h"
-<<<<<<< HEAD
 #include "../../../../app_program/subsystem1/telemetry_topics.h"
-=======
 #include "../../../../app_program/subsystem1/network_bridge.h"
 #include <string.h>
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 #include <tm/tmonitor.h>
 
-#define MQTT_UTK_HEARTBEAT_MS   5000
 #define MQTT_UTK_KEEPALIVE_S    60
 #define MQTT_UTK_RETRY_MS       3000
 
@@ -40,14 +36,7 @@
 #define MQTT_PASSWORD NULL
 #endif
 
-/* Inbound message staging. A publish arrives as one topic callback followed by
- * one or more data callbacks, so the topic has to be kept until the fragment
- * carrying MQTT_DATA_FLAG_LAST shows up. Both buffers are sized well past the
- * heartbeat this demo publishes; anything longer is truncated and flagged
- * rather than being allowed to run off the end. */
-#define MQTT_UTK_RX_TOPIC_MAX   64
-#define MQTT_UTK_RX_DATA_MAX    128
-
+/* Inbound commands are staged across callbacks with an exact length bound. */
 static mqtt_client_t	*client;
 static ip_addr_t	broker_addr;
 static u8_t		connecting;
@@ -61,11 +50,7 @@ static unsigned command_enabled;
 static void publish_done_cb(void *arg,err_t result);
 static void retry_timeout(void *arg);
 
-<<<<<<< HEAD
-static void heartbeat_timeout(void *arg);
-static void publish_done_cb(void *arg, err_t result);
-
-void mqtt_utk_poll_telemetry(void)
+static void mqtt_poll_records(void)
 {
     static char topic[S1_TOPIC_MAX];
     static unsigned char payload[S1_PAYLOAD_MAX];
@@ -90,8 +75,6 @@ void mqtt_utk_poll_telemetry(void)
         pending = 0;
     }
 }
-=======
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 /* All callbacks and publishing remain on cyw43_utk_task. Binary-safe and
  * length-delimited: a NUL is a payload byte, never a terminator. */
@@ -138,6 +121,9 @@ static void publish_done_cb(void *arg, err_t result)
 void mqtt_utk_poll_telemetry(void) {
     unsigned char payload[TELEMETRY_BYTES];
     if(!client || !mqtt_client_is_connected(client))return;
+    /* Independent topics keep the EDR16 dashboard and controller diagnostic
+     * consumers compatible. At most four records and one snapshot per visit. */
+    mqtt_poll_records();
     /* Latest snapshot wins across backpressure/reconnection; never replay
      * a stale dashboard backlog as if it were current sensor evidence. */
     static unsigned char pending_payload[TELEMETRY_BYTES];
@@ -179,12 +165,8 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 
 		tm_printf((UB*)"mqtt: connected to " MQTT_BROKER_IP "\n");
 
-		/* Subscribe to the same topic this client publishes to, so every
-		 * heartbeat comes back from the broker and is printed by
-		 * incoming_data_cb(). A matching RX for each TX is end-to-end
-		 * proof of the round trip without needing mosquitto_sub on the
-		 * broker host. Callbacks must be registered before subscribing,
-		 * or the first delivery has nowhere to go. */
+		/* Register command callbacks before subscribing so the first
+		 * fragmented delivery has a valid staging destination. */
 		mqtt_set_inpub_callback(client, incoming_publish_cb,
 					incoming_data_cb, NULL);
 
@@ -242,17 +224,8 @@ void mqtt_utk_start(void)
 
 	client_info.client_id = MQTT_CLIENT_ID;
 	client_info.keep_alive = MQTT_UTK_KEEPALIVE_S;
-<<<<<<< HEAD
 	client_info.client_user = MQTT_USERNAME;
 	client_info.client_pass = MQTT_PASSWORD;
-=======
-#ifdef MQTT_USERNAME
-    client_info.client_user=MQTT_USERNAME;
-#endif
-#ifdef MQTT_PASSWORD
-    client_info.client_pass=MQTT_PASSWORD;
-#endif
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 	connecting = 1;
 	err = mqtt_client_connect(client, &broker_addr, MQTT_BROKER_PORT,

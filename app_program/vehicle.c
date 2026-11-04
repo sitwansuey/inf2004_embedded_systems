@@ -30,7 +30,7 @@ static void vehicle_task(INT code,void *context) {
         (void)odom_calibration_unpack(&calibration_record,&calibration);
         s2_motion_status_t motor={0};uint8_t encoder_payload[EDR_ENCODER_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
         BOOL mo=s2_motion_get_status(&motor)==E_OK;
-        BOOL en=s2_encoder_encode(encoder_payload,sizeof(encoder_payload))==E_OK;
+        BOOL en=s2_encoder_snapshot_encode(encoder_payload,sizeof(encoder_payload))==E_OK;
         BOOL li=s3_status_get(&line)==E_OK;
         BOOL so=s5_get_status(&scan)==E_OK;
         s4_sensor_cache_t imu_record={0};

@@ -17,13 +17,10 @@ EXPORT ID	cyc_led;
 EXPORT ER subsystem1_init(void)
 {
 	T_CCYC	ccyc = {0};
-<<<<<<< HEAD
 	ER er = s1_telemetry_init();
 	if (er < E_OK) return er;
-=======
-	ER er=s1_binary_init();
+	er=s1_binary_init();
 	if(er<0)return er;
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 
 	/* Cyclic handler: once started, the kernel calls led_cyclic_handler
 	   every S1_TICK_MS.  Without TA_STA it is created stopped; it is
@@ -38,7 +35,6 @@ EXPORT ER subsystem1_init(void)
 
 EXPORT ER subsystem1_start(void)
 {
-<<<<<<< HEAD
 #if defined(TM_NET_LWIP) && TM_NET_LWIP && defined(TM_MQTT) && TM_MQTT
 	/* The built-in service connects after Wi-Fi gets an IP. Do not call
 	 * mqtt_utk_start() here: lwIP belongs to cyw43_utk_task, on its core.
@@ -50,23 +46,17 @@ EXPORT ER subsystem1_start(void)
 #else
 	tm_printf((UB*)"S1: MQTT disabled; build with NET=lwip MQTT=1\n");
 #endif
-	tid_led = app_start_task(led_task, S1_PRI_LED, 0, "led_task");
+	tid_led = app_start_task((FP)led_task, S1_PRI_LED, 0, "led_task");
 	if (tid_led < E_OK) {
 		return tid_led;
 	}
 #if defined(TM_NET_LWIP) && TM_NET_LWIP && defined(TM_MQTT) && TM_MQTT
     {
-        ID telemetry_task = app_start_task(s1_sensor_telemetry_task, 13, 0, "s1_telemetry");
-        if (telemetry_task < E_OK) return telemetry_task;
+        ID sensor_task = app_start_task((FP)s1_sensor_telemetry_task, 13, 0, "s1_edr16");
+        if (sensor_task < E_OK) return sensor_task;
     }
 #endif
-=======
-	tid_led = app_start_task((FP)led_task, S1_PRI_LED, 0, "led_task");
-	if (tid_led < E_OK) {
-		return tid_led;
-	}
 	ID telemetry=app_start_task((FP)telemetry_task,13,TP_PRC2,"telemetry");
 	if(telemetry<0)return telemetry;
->>>>>>> 54a371fcc23b8e6c657b60791f4818656bc0053e
 	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
 }

@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../../app_program/subsystem1/telemetry.c"
+#include "../../app_program/subsystem1/binary_transport.c"
 #include "../../app_program/subsystem3/event_codec.h"
 static unsigned now_ms, created;
 static unsigned counts[3],sizes[3][4];static unsigned char queue[3][4][256];

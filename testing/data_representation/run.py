@@ -39,11 +39,14 @@ INPUTS = (
     "app_program/external_systems/Dashboard/src/telemetry.js",
     "app_program/external_systems/Dashboard/package.json",
     "app_program/subsystem1/telemetry.c",
+    "app_program/subsystem1/binary_transport.c",
     "app_program/subsystem1/task_telemetry.c",
+    "app_program/subsystem1/task_edr16.c",
     "app_program/external_systems/Dashboard/packed16.py",
     "app_program/external_systems/Dashboard/dashboard.py",
     "testing/data_representation/vectors.json",
     "testing/data_representation/test_edr.c",
+    "testing/data_representation/test_internal_codec.c",
     "testing/data_representation/run.py",
     "app_program/subsystem2/subsystem2.c",
     "app_program/subsystem2/subsystem2.h",
@@ -119,15 +122,16 @@ def run_codec_tests(compiler: str) -> None:
     with tempfile.TemporaryDirectory(prefix="edr-tests-") as directory:
         temporary = Path(directory)
         write_c_vectors(temporary / "edr_test_vectors.h")
-        executable = temporary / ("edr_test.exe" if os.name == "nt" else "edr_test")
-        command = [compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror",
-                   "-Wconversion", "-Wsign-conversion", "-Wshadow", "-Wstrict-prototypes",
-                   "-pedantic", "-I", str(ROOT / "app_program/shared"), "-I", str(temporary),
-                   str(ROOT / "app_program/shared/edr.c"), str(HERE / "test_edr.c"),
-                   "-o", str(executable)]
         print("C compiler:", compiler, flush=True)
-        subprocess.run(command, cwd=ROOT, check=True)
-        subprocess.run([str(executable)], cwd=ROOT, check=True)
+        for name in ("test_edr", "test_internal_codec"):
+            executable = temporary / (name + (".exe" if os.name == "nt" else ""))
+            command = [compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror",
+                       "-Wconversion", "-Wsign-conversion", "-Wshadow", "-Wstrict-prototypes",
+                       "-pedantic", "-I", str(ROOT / "app_program/shared"), "-I", str(temporary),
+                       str(ROOT / "app_program/shared/edr.c"), str(HERE / (name + ".c")),
+                       "-o", str(executable)]
+            subprocess.run(command, cwd=ROOT, check=True)
+            subprocess.run([str(executable)], cwd=ROOT, check=True)
 
     # S1 queue/binary-length regression tests use the same shared header.
     with tempfile.TemporaryDirectory(prefix="s1-edr-tests-") as directory:

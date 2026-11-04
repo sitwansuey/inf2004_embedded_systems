@@ -5,8 +5,10 @@
 #include "../../lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.c"
 static mqtt_client_t fake_client;
 static unsigned connects,timers,publishes,offers,queued,publish_size;
+static unsigned record_queued,record_publishes,record_size;
 static int publish_error, fresh=1;
 static unsigned char sent[TELEMETRY_BYTES], offered[6];
+static unsigned char sent_record[2];
 int tm_printf(const UB *format,...) {(void)format;return 0;}
 mqtt_client_t *mqtt_client_new(void) {return &fake_client;}
 int mqtt_client_is_connected(mqtt_client_t *c) {return c->connected;}
@@ -15,7 +17,11 @@ err_t mqtt_client_connect(mqtt_client_t *c,const void *ip,unsigned port,void (*c
     (void)c;(void)ip;(void)port;(void)cb;(void)arg;assert(info->keep_alive==60);++connects;return ERR_OK;
 }
 err_t mqtt_publish(mqtt_client_t *c,const char *topic,const void *data,u16_t size,unsigned qos,unsigned retain,done_t cb,void *arg) {
-    (void)c;(void)cb;(void)arg;assert(!strcmp(topic,"csc02/telemetry") && qos==0 && retain==0);
+    (void)c;(void)cb;(void)arg;assert(qos==0 && retain==0);
+    if(!strcmp(topic,EDR_MQTT_TOPIC)) {
+        assert(size==2);++record_publishes;record_size=size;memcpy(sent_record,data,size);return publish_error;
+    }
+    assert(!strcmp(topic,"csc02/telemetry"));
     ++publishes;publish_size=size;memcpy(sent,data,size);return publish_error;
 }
 err_t mqtt_subscribe(mqtt_client_t *c,const char *topic,unsigned qos,done_t cb,void *arg) {
@@ -27,6 +33,10 @@ void sys_untimeout(void (*cb)(void *),void *arg) {(void)cb;(void)arg;timers=0;}
 int s1_command_offer(const unsigned char *data,unsigned size) {assert(size==6);memcpy(offered,data,6);++offers;return 0;}
 int s1_telemetry_take(unsigned char *data) {if(!queued)return -50;memset(data,0,TELEMETRY_BYTES);data[TELEMETRY_BYTES-1]=0x12;--queued;return TELEMETRY_BYTES;}
 int s1_telemetry_current(const unsigned char *data) {(void)data;return fresh;}
+int s1_telemetry_take_bytes(char *topic,unsigned char *data,unsigned *length) {
+    if(!record_queued)return 0;
+    strcpy(topic,EDR_MQTT_TOPIC);data[0]=1;data[1]=0;*length=2;--record_queued;return 1;
+}
 static void deliver(const unsigned char *cmd) {
     incoming_publish_cb(NULL,CSC02_COMMAND_TOPIC,6);
     incoming_data_cb(NULL,cmd,2,0);incoming_data_cb(NULL,cmd+2,4,MQTT_DATA_FLAG_LAST);
@@ -45,6 +55,14 @@ int main(void) {
     publish_error=0;mqtt_utk_poll_telemetry();assert(publishes==3);
     queued=1;publish_error=ERR_MEM;mqtt_utk_poll_telemetry();unsigned before=publishes;
     fresh=0;publish_error=0;mqtt_utk_poll_telemetry();assert(publishes==before); /* stale pending frame discarded */
+    /* Dashboard records use their own exact topic and length, including zero
+     * bytes. A visit is bounded even when the queue has a backlog. */
+    record_queued=6;mqtt_utk_poll_telemetry();
+    assert(record_publishes==4 && record_queued==2 && record_size==2 && sent_record[0]==1 && sent_record[1]==0);
+    mqtt_utk_poll_telemetry();assert(record_publishes==6 && record_queued==0);
+    record_queued=1;publish_error=ERR_MEM;mqtt_utk_poll_telemetry();
+    assert(record_publishes==7 && record_queued==0);
+    publish_error=0;mqtt_utk_poll_telemetry();assert(record_publishes==8); /* staged record retried */
     fake_client.connected=0;connection_cb(client,NULL,2);assert(offers==3 && offered[1]==0 && timers==1);
     for(unsigned n=0;n<20;++n)mqtt_utk_start();
     assert(connects==1 && timers==1);

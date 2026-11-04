@@ -5,11 +5,28 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools"))
-from edr_decode import decode_packet
+
+
+def decode_internal_obstacle(packet):
+    """Independent reader for the C fixture's internal snapshot envelope.
+
+    This is not an MQTT decoder: the dashboard only accepts two-byte EDR16
+    readings. The full-width S5 status codec remains a local firmware API.
+    """
+    if len(packet) != 86 or packet[:2] != bytes((0x45, 84)):
+        raise ValueError("invalid internal obstacle envelope")
+    data = packet[2:]
+    if (data[0] & 128 or data[1] & 128 or (data[0] & 15) > 14
+            or ((data[0] >> 4) & 7) > 4 or any(angle > 180 for angle in data[2:8])):
+        raise ValueError("invalid internal obstacle fields")
+    return {"record_type": "obstacle", "payload": {
+        "scan_id": int.from_bytes(data[8:12], "little"),
+        "angle_deg": data[2] - 90,
+        "motor1_counts_start": int.from_bytes(data[40:44], "little", signed=True),
+        "time_ms": int.from_bytes(data[36:40], "little"),
+    }}
 
 
 class Subsystem5Tests(unittest.TestCase):
@@ -34,7 +51,7 @@ class Subsystem5Tests(unittest.TestCase):
                                 "-o", str(exe)], check=True)
                 result = subprocess.run([str(exe)], check=True, capture_output=True, text=True)
                 print(result.stdout.strip())
-                record = decode_packet(bytes.fromhex(result.stdout.splitlines()[0]))
+                record = decode_internal_obstacle(bytes.fromhex(result.stdout.splitlines()[0]))
                 self.assertEqual(record["record_type"], "obstacle")
                 self.assertEqual(record["payload"]["scan_id"], 0x12345678)
                 self.assertEqual(record["payload"]["angle_deg"], -90)
@@ -45,7 +62,7 @@ class Subsystem5Tests(unittest.TestCase):
                     bad = bytearray(packet)
                     bad[offset] = invalid
                     with self.assertRaises(ValueError):
-                        decode_packet(bad)
+                        decode_internal_obstacle(bad)
 
 
 if __name__ == "__main__":
