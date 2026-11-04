@@ -7,6 +7,7 @@ import threading
 import unittest
 from functools import partial
 from types import SimpleNamespace
+from unittest.mock import patch
 from packed16 import decode_messages, PACKED_TOPIC, READINGS
 from dashboard import BrokerBridge, DashboardHandler, ThreadingHTTPServer, TOPICS
 from edr_decode import encode_packet, pack_motor
@@ -66,6 +67,24 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(bridge.readings),17)
         self.assertEqual(bridge.readings[READINGS[1]]['payload'],'101')
         self.assertNotEqual(bridge.receiver_id,BrokerBridge().receiver_id)
+
+    def test_field_reception_times_and_receiver_restart(self):
+        bridge=BrokerBridge()
+        with patch('dashboard.time.time', return_value=1000.25):
+            feed(bridge,PACKED_TOPIC,encode_packet(1,100))
+        with patch('dashboard.time.time', return_value=1003.5):
+            feed(bridge,PACKED_TOPIC,encode_packet(11,pack_motor(1,30,1)))
+        snapshot=bridge.snapshot()
+        self.assertEqual(snapshot['last_received_at'],1003.5)
+        self.assertEqual(bridge.readings[READINGS[1]]['received_at'],1000.25)
+        for name in ('direction','state','power_percent'):
+            self.assertEqual(bridge.readings['Robopico/Actuators/motors/'+name]['received_at'],1003.5)
+        self.assertEqual([message['sequence'] for message in snapshot['messages']],[1,2,3,4])
+        restarted=BrokerBridge()
+        self.assertNotEqual(restarted.receiver_id,bridge.receiver_id)
+        self.assertEqual(restarted.snapshot()['messages'],[])
+        self.assertEqual(restarted.snapshot()['received_packets'],0)
+        self.assertEqual(restarted.sequence,0)
 
     def test_http_snapshot_and_browser_display(self):
         bridge=populated_bridge()

@@ -1,34 +1,36 @@
-/* Exercise the real dashboard script with a minimal DOM, without dependencies. */
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const vm=require('node:vm');
-const path=require('node:path');
-class Element {
-  constructor(tag='div'){this.tag=tag;this.children=[];this._text='';}
-  set textContent(value){this._text=String(value);this.children=[];}
-  get textContent(){return this._text+this.children.map(n=>n.textContent).join('');}
-  append(node){this.children.push(node);}
-  replaceChildren(...nodes){this.children=nodes;this._text='';}
-  addEventListener(){}
+/* Validate the real frontend model against an actual Python receiver snapshot. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+
+async function main() {
+  const snapshot = JSON.parse(fs.readFileSync(0, 'utf8'));
+  const { createTelemetryStore, topicBindings, WIRE_TOPIC } = await import(pathToFileURL(path.join(__dirname, 'src', 'telemetry.js')).href);
+  const store = createTelemetryStore();
+  assert.equal(WIRE_TOPIC, snapshot.mqtt_topic);
+  store.ingestSnapshot(snapshot);
+  const state = store.getSnapshot();
+  for (const message of snapshot.messages) {
+    const binding = topicBindings.find(item => item.topic === message.topic);
+    assert.ok(binding, `Missing field binding for ${message.topic}`);
+    const group = binding.key ?? binding.group;
+    let expected;
+    try { expected = JSON.parse(message.payload); } catch { expected = message.payload; }
+    assert.equal(state.packet[group][binding.field], expected, message.topic);
+    if (typeof expected === 'number') {
+      const history = store.getSource(group, binding.field).getHistory();
+      assert.equal(history.at(-1).value, expected, `Missing numeric source for ${message.topic}`);
+      assert.equal(history.at(-1).channel, `${group}.${binding.field}`);
+    }
+  }
+  assert.equal(state.packet.terrain?.heading_deg, undefined, 'Untransmitted fields remain unavailable');
+  assert.equal(state.packet.motion?.left_speed_mps, undefined, 'Counts must not invent calibrated speed');
+  const source = store.getSource('motion', 'encoder_left');
+  const before = source.getHistory().length;
+  store.ingestSnapshot(snapshot);
+  assert.equal(source.getHistory().length, before, 'Polling an unchanged snapshot must not duplicate readings');
+  console.log(`PASS: ${snapshot.messages.length} decoded fields mapped to the correct cards and NexusUI sources`);
 }
-const elements=new Map();
-const document={createElement:tag=>new Element(tag),getElementById:id=>{
-  if(!elements.has(id))elements.set(id,new Element());return elements.get(id);
-}};
-const context={document,window:{},location:{protocol:'file:'},console,Date};
-vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(__dirname,'dashboard.js'),'utf8'),context);
-const snapshot=JSON.parse(fs.readFileSync(0,'utf8'));
-assert.equal(JSON.stringify(context.window.dashboard.subscriptions),JSON.stringify([snapshot.mqtt_topic]));
-for(const m of snapshot.messages) assert.equal(context.window.dashboard.receiveMqtt(m.topic,m.payload),true);
-function walk(node){return [node,...node.children.flatMap(walk)];}
-const rows=walk(elements.get('panels'));
-for(const m of snapshot.messages){
-  const row=rows.find(n=>n.title===`Display field: ${m.topic}`);
-  assert.ok(row,`Missing field for ${m.topic}`);
-  let value;try{value=JSON.parse(m.payload);}catch{value=m.payload;}
-  assert.equal(row.children[1]._text,String(value),m.topic);
-}
-const heading=rows.find(n=>n.title==='Display field: Robopico/sensors/magnetometer/heading_deg');
-assert.equal(heading.children[1]._text,'—','untransmitted fields must remain unavailable');
-console.log(`PASS: ${snapshot.messages.length} decoded fields displayed on the correct cards`);
+
+main().catch(error => { console.error(error); process.exitCode = 1; });
