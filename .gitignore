@@ -55,3 +55,10 @@ edr-check-report.json
 
 # Temporary clean-tree verification export
 /.slim-validation/
+
+# PicoCar dashboard dependencies and generated browser bundles
+app_program/external_systems/Dashboard/node_modules/
+app_program/external_systems/Dashboard/.venv/
+app_program/external_systems/Dashboard/assets/
+app_program/external_systems/Dashboard/test-results/
+app_program/external_systems/Dashboard/playwright-report/

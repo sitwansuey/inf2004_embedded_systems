@@ -24,10 +24,52 @@ enum {
 #define EDR_FAULT_MOTOR         0x40U
 #define EDR_FAULT_MASK          0x7fU
 
-/* Each adapter returns a pair of independent EDR16 records, not one 32-bit
- * record. Publish each two-byte slice as its own MQTT payload. */
-#define EDR_MOTION_SIZE (2U * EDR_RECORD_SIZE)
-#define EDR_ENCODER_SIZE (2U * EDR_RECORD_SIZE)
+/* External adapters return pairs of independent EDR16 records, not one
+ * four-byte record. Publish each two-byte slice as its own MQTT payload. */
+#define EDR16_MOTION_SIZE (2U * EDR_RECORD_SIZE)
+#define EDR16_ENCODER_SIZE (2U * EDR_RECORD_SIZE)
+
+/* Internal firmware snapshot codecs retain full-width counts and sample
+ * times for odometry. These payloads and their compatibility frame envelope
+ * are distinct from EDR16 and must never be published on EDR_MQTT_TOPIC. */
+#define EDR_VERSION             1U
+#define EDR_HEADER_SIZE         2U
+#define EDR_PAYLOAD_MAX         255U
+#define EDR_MOTION_SIZE         7U
+#define EDR_ENCODER_SIZE        13U
+#define EDR_SOURCE_MOTOR        2U
+#define EDR_KIND_MOTION         0U
+#define EDR_KIND_ENCODER        1U
+#define EDR_ENCODER_VALID       0x01U
+#define EDR_ENCODER_LEFT_A      0x02U
+#define EDR_ENCODER_LEFT_B      0x04U
+#define EDR_ENCODER_RIGHT_A     0x08U
+#define EDR_ENCODER_RIGHT_B     0x10U
+#define EDR_ENCODER_MASK        0x1fU
+
+/* Transient local codec views; never copy native structs onto a transport. */
+typedef struct
+{
+    uint16_t motor;
+    uint8_t faults;
+    uint32_t command_ms;
+} edr_motion_t;
+
+typedef struct
+{
+    uint32_t left_counts;
+    uint32_t right_counts;
+    uint32_t sampled_ms;
+    uint8_t flags;
+} edr_encoder_t;
+
+typedef struct
+{
+    uint8_t source;
+    uint8_t kind;
+    size_t payload_size;
+    const uint8_t *p_payload;
+} edr_frame_t;
 
 static inline bool edr_value_valid(unsigned int id, unsigned int data)
 {
@@ -74,6 +116,25 @@ static inline bool edr_decode(const uint8_t *bytes, size_t size,
  * This is DATA for ID 11, not a complete EDR16 record. */
 bool edr_motor_pack(uint8_t command, uint8_t power, uint8_t state, uint16_t *word);
 bool edr_motor_unpack(uint16_t word, uint8_t *command, uint8_t *power, uint8_t *state);
+
+/* Internal little-endian payloads, not external EDR16 records. Encoders
+ * accept capacity >= the fixed size; decoders require the exact size.
+ * Buffers and codec objects must be distinct. False leaves outputs untouched.
+ * An unavailable encoder snapshot has one canonical representation: all zero. */
+bool edr_motion_encode(const edr_motion_t *motion, uint8_t *payload, size_t capacity);
+bool edr_motion_decode(const uint8_t *payload, size_t size, edr_motion_t *motion);
+bool edr_encoder_encode(const edr_encoder_t *encoder, uint8_t *payload, size_t capacity);
+bool edr_encoder_decode(const uint8_t *payload, size_t size, edr_encoder_t *encoder);
+
+/* Compatibility envelope for local snapshots and owner-specific codecs.
+ * This is not an MQTT EDR16 frame. Source 1..5, kind 0..7, size 0..255.
+ * Frame validation checks the envelope only; use the owner's payload decoder.
+ * Decoding borrows the input payload; encoding payload and packet cannot
+ * overlap. False leaves every output untouched. */
+bool edr_frame_encode(uint8_t source, uint8_t kind,
+                      const uint8_t *payload, size_t payload_size,
+                      uint8_t *packet, size_t capacity, size_t *size);
+bool edr_frame_decode(const uint8_t *packet, size_t size, edr_frame_t *frame);
 /* Local controller arithmetic uses full-width snapshots, not EDR16 counts. */
 bool edr_count_delta(uint32_t current, uint32_t previous, int32_t *delta);
 bool edr_age_is_fresh(uint32_t now_ms, uint32_t sampled_ms, uint32_t maximum_ms);

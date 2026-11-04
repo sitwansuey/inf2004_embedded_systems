@@ -34,7 +34,7 @@ ER s2_movement_send(s2_move_command_t command,UINT power)
 { (void)command;(void)power;++positive_requests;return E_OK; }
 ER s2_motion_get_status(s2_motion_status_t *s)
 { *s=(s2_motion_status_t){0};return E_OK; }
-ER s2_encoder_encode(uint8_t *p,size_t capacity)
+ER s2_encoder_snapshot_encode(uint8_t *p,size_t capacity)
 {
     uint32_t stamp=clock_ms;
     if(failure_mode==1U && iteration>=8U)stamp+=100U;

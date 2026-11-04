@@ -32,6 +32,8 @@ test:
 	./.build/sonar_status
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time
 	./.build/snapshot_time
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 edr16_producer_test.c $(LDFLAGS) -o .build/edr16_producer
+	./.build/edr16_producer
 	$(CC) $(CFLAGS) protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/protocol
 	python3 protocol_test.py
 	$(CC) $(CFLAGS) telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/queue
