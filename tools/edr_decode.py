@@ -2,7 +2,7 @@
 import argparse
 import json
 
-MQTT_TOPIC = "Robopico/sensors/edr16/v1"
+MQTT_TOPIC = "Robopico/sensors/edr16/v2"
 NAMES = {0:"mission_status", 1:"encoder_left", 2:"encoder_right", 3:"servo_angle_deg",
          4:"distance_cm", 5:"ir_left", 6:"ir_right", 7:"ir_barcode",
          8:"mag_x_ut", 9:"mag_y_ut", 10:"mag_z_ut", 11:"motor_status",
@@ -26,7 +26,7 @@ def unpack_motor(data):
 def status_valid(data):
     subtype, value = data >> 8, data & 255
     if subtype == 0: return (value & 15) <= 12 and (value >> 4) <= 7
-    if subtype == 1: return (value & 7) <= 5 and (value >> 3) <= 4
+    if subtype == 1: return (value & 31) <= 26 and (value >> 5) <= 4
     if subtype == 2: return value <= 63 and (value & 7) <= 4
     if subtype in (3, 4): return 38 <= value <= 218
     if subtype == 5: return value <= 5

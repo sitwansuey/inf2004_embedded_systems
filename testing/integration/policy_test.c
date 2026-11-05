@@ -12,8 +12,8 @@ static vc_input_t healthy(void) {
 static vc_state_t armed(void) {vc_state_t s={0};assert(vc_arm(&s,100,1000,30));return s;}
 static void controller(void) {
     vc_input_t i=healthy();vc_state_t s=armed();vc_step(&s,&i);assert(s.command==1 && s.power==30);
-    i.line_error=-500;vc_step(&s,&i);assert(s.command==6);
-    i.line_error=500;vc_step(&s,&i);assert(s.command==5);
+    i.line_error=-500;vc_step(&s,&i);assert(s.command==1); /* motor owner applies forward bend */
+    i.line_error=500;vc_step(&s,&i);assert(s.command==1);
     i.slope=1;vc_step(&s,&i);assert(s.power==20);
     for(unsigned n=0;n<8;++n) {
         s=armed();i=healthy();
@@ -34,34 +34,31 @@ static void controller(void) {
     s=armed();i=healthy();i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);
     i.scan_ready=1;i.turn_deg=30;i.approach_mm=200;i.return_mm=100;vc_step(&s,&i);
     assert(s.phase==VC_FAULT && s.fault==VC_UNCALIBRATED);
-    s=armed();i=healthy();i.obstacle=1;i.front_clear=0;i.navigation_event=1;i.nav=2;vc_step(&s,&i);
+    s=(vc_state_t){0};assert(vc_start(&s,100,30));i=healthy();i.obstacle=1;i.front_clear=0;i.navigation_event=1;i.nav=2;vc_step(&s,&i);
     assert(s.pending_nav==2);i.navigation_event=0;
-    i.scan_ready=1;i.bypass_enabled=1;i.turn_deg=30;i.approach_mm=200;i.return_mm=100;
+    i.scan_ready=1;i.bypass_enabled=1;i.bypass_steering=200;i.turn_deg=30;i.approach_mm=200;i.return_mm=100;
     vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command);
     vc_step(&s,&i);assert(!s.command); /* needs a fresh, forward-facing reading */
-    i.front_clear=1;vc_step(&s,&i);assert(s.command==3);
+    i.front_clear=1;vc_step(&s,&i);assert(s.command==1 && s.steering==-200);
     i.yaw_mdeg=30000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && !s.command);
-    i.distance_um=200000;vc_step(&s,&i);assert(s.phase==VC_ALIGN && !s.command);
-    i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_PASS && s.look_side && !s.command);
-    i.side_clear=0;vc_step(&s,&i);assert(!s.command && s.look_side);
-    i.side_ready=1;vc_step(&s,&i);assert(!s.command && !s.look_side);
-    i.front_clear=0;vc_step(&s,&i);assert(!s.command);
-    i.front_clear=1;vc_step(&s,&i);assert(s.command==1);
-    i.distance_um+=50000;vc_step(&s,&i);assert(!s.command && s.look_side);
-    i.side_clear=1;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && !s.command);
-    i.yaw_mdeg=-90000;vc_step(&s,&i);assert(s.phase==VC_RETURN && !s.command);
-    i.distance_um+=100000;vc_step(&s,&i);assert(s.phase==VC_RESTORE && !s.command);
+    i.distance_um=200000;vc_step(&s,&i);assert(s.command==1);
+    for(unsigned tick=0;tick<30;++tick){i.now_ms+=100;vc_step(&s,&i);}
+    assert(s.phase==VC_ALIGN && !s.command);
+    i.yaw_mdeg=0;vc_step(&s,&i);assert(s.command==1 && s.steering==200);
+    i.yaw_mdeg=-30000;vc_step(&s,&i);assert(s.phase==VC_RETURN && !s.command);
+    i.distance_um+=200000;vc_step(&s,&i);assert(s.phase==VC_RESTORE && !s.command);
     i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command);
     i.steering=0;vc_step(&s,&i);assert(s.command==3);
-    i.steering=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
+    i.steering=1;vc_step(&s,&i);assert(s.line_settling);
+    i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
     assert(s.pending_nav==2);i.obstacle=0;
     vc_track_requested(&s,i.now_ms);i.steering=0;vc_step(&s,&i);
     assert(!s.command && s.armed && s.pending_nav==2);
     i.steering=1;vc_step(&s,&i);
     assert(s.phase==VC_NAV_TURN && s.turn_deg==-90 && !s.pending_nav && !s.command);
     /* Never resume expired or interrupted open-loop maneuvers. */
-    s=armed();s.phase=VC_TURN_OUT;s.entered_ms=100;i=healthy();i.now_ms=6000;
-    s.armed_ms=6000;vc_step(&s,&i);assert(s.phase==VC_FAULT);
+    s=armed();s.phase=VC_TURN_OUT;s.entered_ms=100;i=healthy();i.now_ms=11001;
+    s.armed_ms=11001;vc_step(&s,&i);assert(s.phase==VC_FAULT);
     puts("INT-CR1-01 controller: priority, expiry, stale data, complete bounded bypass, STOP handoffs PASS");
 }
 static void odometry(void) {

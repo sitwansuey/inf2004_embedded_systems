@@ -1,6 +1,6 @@
 # Single-topic EDR16 dashboard
 
-The dashboard subscribes only to `Robopico/sensors/edr16/v1` (QoS 0). Every MQTT
+The dashboard subscribes only to `Robopico/sensors/edr16/v2` (QoS 0). Every MQTT
 payload is exactly two binary bytes. There are no wildcard subscriptions and
 no per-sensor MQTT subscriptions. Messages on other topics are ignored.
 
@@ -64,3 +64,16 @@ malformed packets, ignored unrelated topics, HTTP JSON, and field routing.
 With Node.js on PATH, they also execute the real dashboard JavaScript using a
 minimal DOM and verify all 17 display fields. These are simulated tests, not a
 live Pico/broker validation. See [MQTT_TOPICS.md](MQTT_TOPICS.md) for routing.
+# Saved movement mapping
+
+Launch with `--mapping-file path/to/movement-map.json` to preserve the last
+accepted MQTT mapping on the PC. The file has `forward`, `uturn`, `left`, and
+`right` keys with four distinct letters A–Z. There is no built-in letter mapping.
+Accepted map ACKs from the Pico update this file, including mappings sent by
+another PC tool. Retained, malformed or rejected ACKs do not replace the map.
+
+With this option, **Reset robot** sends STOP, reapplies the saved mapping over
+MQTT, waits for the Pico's map ACK, and sends RESET last. STOP cancels pending boot
+auto-start before the map is sent. No START is generated. Missing or rejected
+maps leave the robot stopped. This restores configuration lost when the Pico
+restarts; use **Reset robot → Start test** after a restart or STOP.

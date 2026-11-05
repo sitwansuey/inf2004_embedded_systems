@@ -4,6 +4,54 @@
 #if __has_include("robot_config.local.h")
 #include "robot_config.local.h"
 #endif
+#ifndef BOARD_BARCODE_DEMO
+#define BOARD_BARCODE_DEMO 0
+#endif
+#ifndef BOARD_WHEEL_CAL_BENCH
+#define BOARD_WHEEL_CAL_BENCH 0
+#endif
+#if BOARD_WHEEL_CAL_BENCH
+#if BOARD_BARCODE_DEMO || APP_TEST || APP_S2_ONLY || APP_S4_ONLY || !TM_MQTT || S2_ENCODER_ENABLED != 1
+#error Wheel calibration requires standalone MQTT bench ownership and encoders
+#endif
+#if !defined(S2_COMMAND_TIMEOUT_MS) || S2_COMMAND_TIMEOUT_MS == 0 || S2_COMMAND_TIMEOUT_MS > 150
+#error Wheel calibration requires a motor watchdog of at most 150ms
+#endif
+#include "../calibration/wheel_calibration.h"
+#endif
+#if BOARD_BARCODE_DEMO != 0 && BOARD_BARCODE_DEMO != 1
+#error BOARD_BARCODE_DEMO must be zero or one
+#endif
+#if BOARD_BARCODE_DEMO
+#include "../calibration/barcode_demo30.h"
+#if BOARD_IR_MOTOR_SCAN_BENCH || APP_TEST || APP_S2_ONLY || APP_S4_ONLY || !TM_MQTT || S2_ENCODER_ENABLED != 1
+#error BarcodeDemo requires the integrated MQTT build, encoders and no motor bench/startup tests
+#endif
+#if !defined(S2_COMMAND_TIMEOUT_MS) || S2_COMMAND_TIMEOUT_MS == 0 || S2_COMMAND_TIMEOUT_MS > 150
+#error BarcodeDemo requires a motor watchdog of at most 150ms
+#endif
+#endif
+#ifndef BOARD_BARCODE_SCAN_STEERING
+#define BOARD_BARCODE_SCAN_STEERING 0
+#endif
+#if BOARD_BARCODE_SCAN_STEERING && (!BOARD_BARCODE_DEMO || !BOARD_PID_ENABLED)
+#error Barcode scan steering requires the wheel-PI barcode profile
+#endif
+#ifndef BOARD_IR_CENTER_WHITE
+#define BOARD_IR_CENTER_WHITE 0
+#endif
+#ifndef BOARD_BARCODE_MIN_RUN_MS
+#define BOARD_BARCODE_MIN_RUN_MS 20U
+#endif
+#ifndef BOARD_BARCODE_RETRY
+#define BOARD_BARCODE_RETRY 0
+#endif
+#ifndef BOARD_BARCODE_DEFAULT_FORWARD
+#define BOARD_BARCODE_DEFAULT_FORWARD 0
+#endif
+#ifndef BOARD_DRIVE_POWER_CAP
+#define BOARD_DRIVE_POWER_CAP 100U
+#endif
 /* S5 hardware diagnostics are explicit builds, separate from passive TEST=1. */
 #ifndef APP_S5_MASTER_TEST
 #define APP_S5_MASTER_TEST 0
@@ -34,7 +82,7 @@
 #define APP_S5_ENABLED BOARD_UART0_FREE
 #endif
 #ifndef BOARD_IR_MODE
-#define BOARD_IR_MODE 0 /* 0 disabled, 1 digital, 2 ADC; confirm AO/DO first. */
+#define BOARD_IR_MODE 0 /* 0 disabled, 1 digital, 2 ADC, 3 ADC line + digital GP28. */
 #endif
 #ifndef BOARD_IR_RAW_BENCH
 #define BOARD_IR_RAW_BENCH 0 /* Input-only bring-up; never calibrated steering. */
@@ -146,21 +194,7 @@
 #ifndef BOARD_IR_POSITIONS
 #define BOARD_IR_POSITIONS {1000,-1000,0} /* Logical right/left; not millimetres. */
 #endif
-#ifndef BOARD_MAP_A
-#define BOARD_MAP_A 1 /* Code 39 A=left, B=right, C=straight, D=U-turn. */
-#endif
-#ifndef BOARD_MAP_B
-#define BOARD_MAP_B 2
-#endif
-#ifndef BOARD_MAP_C
-#define BOARD_MAP_C 3
-#endif
-#ifndef BOARD_MAP_D
-#define BOARD_MAP_D 4
-#endif
-#ifndef BOARD_MAP_Z
-#define BOARD_MAP_Z 0
-#endif
+
 #ifndef BOARD_TICKS_PER_REV
 #define BOARD_TICKS_PER_REV 0 /* measured x1 counts, not quadrature x4 */
 #endif
@@ -205,6 +239,15 @@
 #endif
 #ifndef BOARD_PID_MAX_POWER
 #define BOARD_PID_MAX_POWER 50
+#endif
+#ifndef BOARD_PID_LEFT_FF_OFFSET
+#define BOARD_PID_LEFT_FF_OFFSET 0U
+#endif
+#ifndef BOARD_PID_RIGHT_FF_OFFSET
+#define BOARD_PID_RIGHT_FF_OFFSET 0U
+#endif
+#if BOARD_PID_LEFT_FF_OFFSET < 0 || BOARD_PID_LEFT_FF_OFFSET > 30 || BOARD_PID_RIGHT_FF_OFFSET < 0 || BOARD_PID_RIGHT_FF_OFFSET > 30
+#error Wheel feedforward offsets must be in 0..30 percent
 #endif
 #if BOARD_PID_ENABLED != 0 && BOARD_PID_ENABLED != 1
 #error BOARD_PID_ENABLED must be 0 or 1

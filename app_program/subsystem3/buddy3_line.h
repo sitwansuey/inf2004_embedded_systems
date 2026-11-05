@@ -21,6 +21,7 @@ typedef struct
     uint16_t threshold_high;
     uint32_t lost_ms;
     uint32_t recovery_ms;
+    bool center_white; /* Explicit two-sensor straddling-line layout only. */
 } s3_line_config_t;
 
 typedef enum

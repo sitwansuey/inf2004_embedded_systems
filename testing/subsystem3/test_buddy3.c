@@ -191,8 +191,6 @@ static void test_config_boundaries(void)
     CHECK(!s3_config_valid(&cfg)); /* One sensor cannot serve both tracks. */
     cfg.line.line_mask = 3U;
     CHECK(s3_config_valid(&cfg));
-    cfg.map_a = (s3_navigation_t)99;
-    CHECK(!s3_config_valid(&cfg));
     cfg = config(); cfg.line.recovery_ms = UINT32_MAX;
     CHECK(!s3_config_valid(&cfg));
     cfg = config(); cfg.line.threshold_low = cfg.line.threshold_high;
@@ -200,7 +198,7 @@ static void test_config_boundaries(void)
     cfg = config(); cfg.line.position[0] = 0;
     CHECK(!s3_config_valid(&cfg));
     cfg = config(); cfg.barcode.min_run_ms = 0U;
-    CHECK(!s3_config_valid(&cfg));
+    CHECK(s3_config_valid(&cfg)); /* Zero explicitly disables the duration floor. */
     cfg = config(); cfg.max_sample_gap_ms = 0U;
     CHECK(!s3_config_valid(&cfg));
     CHECK(!s3_core_init(NULL, &cfg));
@@ -254,7 +252,7 @@ static void test_barcode_corruption(void)
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_BAD_PATTERN);
     scale(sample_a, runs, 40U);
     for (i = 10U; i < 19U; ++i) { runs[i] = 40U; }
-    runs[10] = 120U; runs[11] = 120U; runs[12] = 120U;
+    runs[13] = 120U; runs[14] = 120U; runs[16] = 120U; /* Code 39 digit 0 is outside A-Z. */
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_UNKNOWN);
     CHECK(symbol.symbol == 0);
     for (i = 0U; i < 29U; ++i) { runs[i] = UINT32_MAX; }
@@ -361,7 +359,7 @@ static uint32_t core_time;
 static unsigned int navigation_events;
 static unsigned int fault_events;
 static unsigned int decoded_symbols;
-static s3_navigation_t expected_navigation = S3_NAV_LEFT;
+
 static char observed_symbol;
 static s3_output_t latest;
 
@@ -372,11 +370,11 @@ static void core_feed(s3_core_t *p_core, bool black)
     sample.time_ms = core_time;
     sample.raw[2] = black ? 1000U : 0U;
     s3_core_step(p_core, &sample, &latest);
-    if (latest.event.kind == S3_EVENT_NAVIGATION)
+    if (latest.event.kind == S3_EVENT_BARCODE)
     {
         ++navigation_events;
-        CHECK(!latest.steering_allowed && latest.awaiting_controller);
-        CHECK(latest.event.command == expected_navigation);
+        CHECK(latest.steering_allowed && !latest.awaiting_controller);
+        CHECK(latest.event.command == S3_NAV_NONE);
         observed_symbol=latest.event.symbol;
     }
     if (latest.event.kind == S3_EVENT_FAULT) { ++fault_events; }
@@ -405,7 +403,7 @@ static void setup_core(s3_core_t *p_core, bool mapped)
     unsigned int i;
     cfg.line.line_mask = 3U;
     cfg.barcode_sensor = 2U;
-    cfg.map_a = mapped ? S3_NAV_LEFT : S3_NAV_NONE;
+    (void)mapped; /* All decoded symbols are reported, irrespective of route mapping. */
     CHECK(s3_core_init(p_core, &cfg));
     CHECK(s3_core_control(p_core, S3_MODE_TRACK, false));
     core_time = 0U; navigation_events = 0U; fault_events = 0U; decoded_symbols = 0U;
@@ -422,13 +420,10 @@ static void test_navigation_handoff_override(void)
     setup_core(&core, true);
     core_fixture(&core, runs);
     CHECK(navigation_events == 1U && decoded_symbols == 1U);
-    CHECK(core.awaiting_controller && !latest.steering_allowed);
-    for (i = 0U; i < 70U; ++i)
-    {
-        s3_sample_t absent = {{0U, 0U, 0U}, 7U, 0U};
-        core_time += 10U; absent.time_ms = core_time;
-        s3_core_step(&core, &absent, &latest);
-        CHECK(latest.event.kind == S3_EVENT_NONE);
+    CHECK(!core.awaiting_controller && latest.steering_allowed);
+    for (i = 0U; i < 70U; ++i) {
+        core_feed(&core,false);
+        CHECK(latest.event.kind==S3_EVENT_NONE && latest.steering_allowed);
     }
     core_fixture(&core, runs);
     CHECK(navigation_events == 1U);
@@ -458,9 +453,8 @@ static void test_four_navigation_commands(void)
     const unsigned patterns[4]={0x109U,0x049U,0x148U,0x019U};
     for(unsigned letter=0;letter<4;++letter) {
         s3_core_t core;uint32_t runs[29];setup_core(&core,true);
-        core.config.map_a=S3_NAV_LEFT;core.config.map_b=S3_NAV_RIGHT;
-        core.config.map_c=S3_NAV_STRAIGHT;core.config.map_d=S3_NAV_UTURN;
-        expected_navigation=(s3_navigation_t)(letter+1U);observed_symbol=0;
+
+        observed_symbol=0;
         for(unsigned ch=0;ch<3;++ch) {
             unsigned pattern=ch==1?patterns[letter]:0x094U;
             for(unsigned n=0;n<9;++n)runs[ch*10U+n]=(pattern&(1U<<(8U-n)))?120U:40U;
@@ -470,7 +464,91 @@ static void test_four_navigation_commands(void)
         CHECK(navigation_events==1U && decoded_symbols==1U);
         CHECK(observed_symbol==(char)('A'+letter));
     }
-    expected_navigation=S3_NAV_LEFT;
+
+}
+
+static void test_barcode_retry_keeps_tracking(void)
+{
+    s3_core_t core;uint32_t runs[29];
+    setup_core(&core,true);core.config.barcode_retry=true;core.config.barcode.min_run_ms=0U;
+    core_feed(&core,true);core_feed(&core,false); /* Incomplete single pulse. */
+    for(unsigned n=0U;n<21U;++n)core_feed(&core,false);
+    CHECK(core.barcode_diagnostics.rejected_count==1U);
+    CHECK(core.barcode_diagnostics.status==S3_BARCODE_INCOMPLETE);
+    CHECK(core.barcode_diagnostics.rejected_runs==1U);
+    CHECK(!core.latched_error && !fault_events && !navigation_events);
+    CHECK(latest.steering_allowed && !latest.awaiting_controller);
+    CHECK(core.barcode.state==S3_CAPTURE_HOLD && core.barcode.rearm_requested);
+    while(core_time-core.barcode_diagnostics.rejected_ms<190U)core_feed(&core,false);
+    CHECK(core.barcode.state==S3_CAPTURE_HOLD);
+    core_feed(&core,false);CHECK(core.barcode.state==S3_CAPTURE_READY);
+    scale(sample_a,runs,40U);core_fixture(&core,runs);
+    CHECK(navigation_events==1U && decoded_symbols==1U && observed_symbol=='A');
+    CHECK(!fault_events && latest.steering_allowed && !core.barcode.rearm_requested);
+    core_fixture(&core,runs);CHECK(navigation_events==1U); /* Valid marker still latches. */
+
+    /* Both-black line samples must not truncate an active retry capture. */
+    setup_core(&core,true);core.config.barcode_retry=true;
+    core_feed(&core,true);
+    s3_sample_t sample={{1000U,1000U,1000U},7U,core_time+=10U};
+    s3_core_step(&core,&sample,&latest);
+    CHECK(latest.steering_allowed && latest.event.kind==S3_EVENT_NONE);
+    CHECK(core.barcode.state==S3_CAPTURE_RUNNING && latest.barcode_scanning);
+    CHECK(!core.barcode_diagnostics.rejected_count);
+    for(unsigned n=0U;n<10U;++n) {
+        sample.time_ms=core_time+=10U;s3_core_step(&core,&sample,&latest);
+        CHECK(core.barcode.state==S3_CAPTURE_RUNNING && core.barcode.have_sample);
+    }
+    /* Pause still aborts; resume requires a new white quiet interval. */
+    CHECK(s3_core_control(&core,S3_MODE_PAUSED,false));
+    CHECK(core.barcode.state==S3_CAPTURE_HOLD);
+    CHECK(s3_core_control(&core,S3_MODE_TRACK,true));
+    for(unsigned n=0U;n<22U;++n)core_feed(&core,false);
+    core_fixture(&core,runs);CHECK(navigation_events==1U && !fault_events);
+
+    /* Sampling and sensor faults remain fatal under the retry policy. */
+    setup_core(&core,true);core.config.barcode_retry=true;
+    sample=(s3_sample_t){{1000U,0U,0U},3U,core_time+10U};
+    s3_core_step(&core,&sample,&latest);
+    CHECK(latest.event.kind==S3_EVENT_FAULT && latest.error==S3_ERROR_SENSOR && !latest.steering_allowed);
+    setup_core(&core,true);core.config.barcode_retry=true;
+    sample=(s3_sample_t){{1000U,0U,0U},7U,core_time+40U};
+    s3_core_step(&core,&sample,&latest);
+    CHECK(latest.event.kind==S3_EVENT_FAULT && latest.error==S3_ERROR_STALE && !latest.steering_allowed);
+    setup_core(&core,true);core.config.barcode_retry=true;
+    CHECK(s3_core_control(&core,S3_MODE_PAUSED,false));
+    core_fixture(&core,runs);
+    CHECK(!latest.steering_allowed && !navigation_events && core.mode==S3_MODE_PAUSED);
+}
+
+static void test_retry_rejection_categories(void)
+{
+    const unsigned expected[]={S3_BARCODE_OVERFLOW,S3_BARCODE_TIMEOUT,
+                               S3_BARCODE_BAD_PATTERN,S3_BARCODE_UNKNOWN};
+    for(unsigned trial=0U;trial<4U;++trial) {
+        s3_core_t core;uint32_t runs[29];
+        setup_core(&core,true);core.config.barcode_retry=true;core.config.barcode.min_run_ms=0U;
+        if(trial==0U) {
+            core_feed(&core,true);core.barcode.count=29U;
+            core_feed(&core,false);
+        } else if(trial==1U) {
+            core.config.barcode.timeout_ms=1000U;
+            core_feed(&core,true);
+            for(unsigned n=0U;n<100U;++n)core_feed(&core,true);
+        } else {
+            scale(sample_a,runs,40U);
+            if(trial==2U)runs[0]=120U;
+            else {
+                for(unsigned n=10U;n<19U;++n)runs[n]=40U;
+                runs[13]=runs[14]=runs[16]=120U; /* Framed digit 0, outside A-Z. */
+            }
+            core_fixture(&core,runs);
+        }
+        CHECK(core.barcode_diagnostics.rejected_count==1U);
+        CHECK(core.barcode_diagnostics.status==expected[trial]);
+        CHECK(latest.steering_allowed && !latest.error && !latest.awaiting_controller);
+        CHECK(!navigation_events && !fault_events && !core.latched_error);
+    }
 }
 
 static void test_unmapped_corrupt_and_fault(void)
@@ -481,7 +559,7 @@ static void test_unmapped_corrupt_and_fault(void)
     scale(sample_a, runs, 40U);
     setup_core(&core, false);
     core_fixture(&core, runs);
-    CHECK(decoded_symbols == 1U && navigation_events == 0U);
+    CHECK(decoded_symbols == 1U && navigation_events == 1U);
     setup_core(&core, true);
     runs[9] = 120U;
     core_fixture(&core, runs);
@@ -546,27 +624,12 @@ static void test_core_loss_and_time(void)
 
 static void test_enum_boundaries(void)
 {
-    const int invalid_navigation[] = {-1, S3_NAV_UTURN + 1, 99};
     const int invalid_modes[] = {-1, S3_MODE_OVERRIDE + 1, 99};
     s3_config_t cfg = config();
     s3_core_t core;
     unsigned char before[sizeof(core)];
     size_t i;
 
-    for (i = 0U; i < sizeof(invalid_navigation) / sizeof(invalid_navigation[0]); ++i)
-    {
-        cfg = config();
-        cfg.map_a = (s3_navigation_t)invalid_navigation[i];
-        CHECK(!s3_config_valid(&cfg));
-        CHECK(!s3_core_init(&core, &cfg));
-        cfg = config();
-        cfg.map_z = (s3_navigation_t)invalid_navigation[i];
-        CHECK(!s3_config_valid(&cfg));
-        CHECK(!s3_core_init(&core, &cfg));
-    }
-    cfg = config();
-    cfg.map_a = S3_NAV_NONE;
-    cfg.map_z = S3_NAV_UTURN;
     CHECK(s3_core_init(&core, &cfg));
     CHECK(s3_core_control(&core, S3_MODE_TRACK, false));
     s3_core_fault(&core, S3_ERROR_SENSOR);
@@ -591,6 +654,8 @@ int main(int argc, char **argv)
     RUN("S3-U08 barcode scales/speed/direction", test_barcode_scale_direction_speed);
     RUN("S3-U09 barcode corruption", test_barcode_corruption);
     RUN("S3-U10 capture/rearm/duplicates", test_capture_duplicate_rearm);
+    RUN("S3 retry: keep tracking, fresh white, next decode, junction capture, pause and real faults", test_barcode_retry_keeps_tracking);
+    RUN("S3 retry: overflow/timeout/pattern/unknown remain nonfatal", test_retry_rejection_categories);
     RUN("S3-U11 capture failures/capacity", test_capture_failures);
     RUN("S3-U12 navigation/override", test_navigation_handoff_override);
     RUN("S3-U13 unmapped/corrupted/fault", test_unmapped_corrupt_and_fault);

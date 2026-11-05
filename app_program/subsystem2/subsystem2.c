@@ -7,6 +7,24 @@
 #include "../board_pins.h"
 #include "../shared/edr.h"
 #include "../robot_config.h"
+#ifndef BOARD_DRIVE_POWER_CAP
+#define BOARD_DRIVE_POWER_CAP 100U
+#endif
+#ifndef BOARD_PID_LEFT_FF_OFFSET
+#define BOARD_PID_LEFT_FF_OFFSET 0U
+#endif
+#ifndef BOARD_PID_RIGHT_FF_OFFSET
+#define BOARD_PID_RIGHT_FF_OFFSET 0U
+#endif
+#ifndef BOARD_PID_FORWARD_LEFT_TARGET_PERMILLE
+#define BOARD_PID_FORWARD_LEFT_TARGET_PERMILLE 1000U
+#endif
+#ifndef BOARD_PID_FORWARD_RIGHT_TARGET_PERMILLE
+#define BOARD_PID_FORWARD_RIGHT_TARGET_PERMILLE 1000U
+#endif
+#if BOARD_PID_FORWARD_LEFT_TARGET_PERMILLE > 1000U || BOARD_PID_FORWARD_LEFT_TARGET_PERMILLE < 500U || BOARD_PID_FORWARD_RIGHT_TARGET_PERMILLE > 1000U || BOARD_PID_FORWARD_RIGHT_TARGET_PERMILLE < 500U
+#error Forward wheel target calibration must be between 500 and 1000 permille
+#endif
 #include <tk/syslib.h>
 #include "speed_pid.h"
 #include "wheel_steering.h"
@@ -371,6 +389,7 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
 #if BOARD_PID_ENABLED
     if(power_percent>BOARD_PID_MAX_POWER)power_percent=BOARD_PID_MAX_POWER;
 #endif
+    if(power_percent>BOARD_DRIVE_POWER_CAP)power_percent=BOARD_DRIVE_POWER_CAP;
     UW duty = (MOTOR_PWM_WRAP + 1U) * power_percent;
     UW left_duty = (duty * S2_MOTOR1_TRIM_PERCENT) / 10000U;
     UW right_duty = (duty * S2_MOTOR2_TRIM_PERCENT) / 10000U;
@@ -471,9 +490,14 @@ static ER motor_regulate(uint16_t word)
     uint32_t dt=e.sampled_ms-pid_time;
     if(dt<10U)return E_OK;
     if(dt>100U)return E_TMOUT;
+    unsigned output_limit=BOARD_PID_MAX_POWER;
+    if(output_limit>BOARD_DRIVE_POWER_CAP)output_limit=BOARD_DRIVE_POWER_CAP;
     filtered_steering=s2_steering_step(filtered_steering,
         command==S2_MOVE_FORWARD?requested_steering:0,dt);
     unsigned output[2]={0,0};
+#if BOARD_WHEEL_CAL_BENCH
+    int32_t targets[2]={0,0};
+#endif
     for(unsigned n=0;n<2;++n) {
         int32_t delta;
         if(!edr_count_delta(counts[n],pid_counts[n],&delta) || delta>10000 || delta< -10000)return E_SYS;
@@ -482,11 +506,20 @@ static ER motor_regulate(uint16_t word)
             if(e.sampled_ms-pid_progress[n]>500U)return E_TMOUT;
             int32_t instant=(int32_t)((int64_t)delta*direction[n]*1000/dt);
             pid_speed[n]=(3*pid_speed[n]+instant)/4;
-            unsigned wheel_demand=s2_steered_demand_milli(power,filtered_steering,n,BOARD_PID_MAX_POWER);
+            unsigned wheel_demand=s2_steered_demand_milli(power,filtered_steering,n,output_limit);
             int32_t target=(int32_t)((uint64_t)wheel_demand*BOARD_PID_MAX_CPS/100000U);
+            if(command==S2_MOVE_FORWARD) {
+                unsigned balance=n==0?BOARD_PID_FORWARD_LEFT_TARGET_PERMILLE:
+                                      BOARD_PID_FORWARD_RIGHT_TARGET_PERMILLE;
+                target=(int32_t)((int64_t)target*balance/1000U);
+            }
+#if BOARD_WHEEL_CAL_BENCH
+            targets[n]=target;
+#endif
             unsigned trim=n==0?S2_MOTOR1_TRIM_PERCENT:S2_MOTOR2_TRIM_PERCENT;
-            output[n]=speed_pid_step(&wheel_pid[n],target,pid_speed[n],dt,
-                (unsigned)((uint64_t)wheel_demand*trim/100000U),BOARD_PID_MAX_POWER,
+            unsigned offset=n==0?BOARD_PID_LEFT_FF_OFFSET:BOARD_PID_RIGHT_FF_OFFSET;
+            output[n]=speed_pid_step_milli(&wheel_pid[n],target,pid_speed[n],dt,
+                speed_pid_feedforward(wheel_demand,trim,offset,output_limit),output_limit,
                 BOARD_PID_KP_MILLI,BOARD_PID_KI_MILLI,BOARD_PID_KD_MILLI);
         }
         pid_counts[n]=counts[n];
@@ -494,9 +527,18 @@ static ER motor_regulate(uint16_t word)
     pid_time=e.sampled_ms;
     if(__atomic_load_n(&stop_epoch,__ATOMIC_ACQUIRE)!=__atomic_load_n(&stopped_epoch,__ATOMIC_ACQUIRE))return E_OBJ;
     motor_set_pair(BOARD_MOTOR1_A_GPIO,BOARD_MOTOR1_B_GPIO,direction[0]*MOTOR1_FORWARD_SIGN,
-                   (MOTOR_PWM_WRAP+1U)*output[0]/100U);
+                   (MOTOR_PWM_WRAP+1U)*output[0]/100000U);
     motor_set_pair(BOARD_MOTOR2_A_GPIO,BOARD_MOTOR2_B_GPIO,direction[1]*MOTOR2_FORWARD_SIGN,
-                   (MOTOR_PWM_WRAP+1U)*output[1]/100U);
+                   (MOTOR_PWM_WRAP+1U)*output[1]/100000U);
+#if BOARD_WHEEL_CAL_BENCH
+    /* Dedicated bench diagnostics; production driving emits no regulator log. */
+    static uint32_t log_time;
+    if(e.sampled_ms-log_time>=40U) {
+        log_time=e.sampled_ms;
+        tm_printf((UB *)"[WHEEL PI] t=%u target=%d,%d speed=%d,%d pwm_milli=%u,%u\n",
+            e.sampled_ms,targets[0],targets[1],pid_speed[0],pid_speed[1],output[0],output[1]);
+    }
+#endif
     return E_OK;
 }
 #endif
@@ -504,7 +546,7 @@ static ER motor_regulate(uint16_t word)
 static BOOL movement_valid(s2_move_command_t command, UINT power_percent)
 {
     return ((UINT)command <= (UINT)S2_MOVE_PIVOT_LEFT) &&
-           (power_percent <= 100U);
+           (power_percent <= BOARD_DRIVE_POWER_CAP);
 }
 
 static ER motion_publish(const s2_packed_status_t *p_status)

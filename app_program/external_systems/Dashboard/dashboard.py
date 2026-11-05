@@ -5,15 +5,29 @@ import os
 import threading
 import time
 import uuid
+from collections import deque
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from packed16 import decode_messages, PACKED_TOPIC
+from barcode_diagnostic import decode as decode_barcode_diagnostic, TOPIC as BARCODE_DIAGNOSTIC_TOPIC
 
 ACK_TOPIC = "csc02/command/ack"
-TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0)]
+MAP_TOPIC = "csc02/barcode/map"
+MAP_ACK_TOPIC = "csc02/barcode/map/ack"
+MAP_ACTIONS = ("forward", "uturn", "left", "right")
+TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0), (BARCODE_DIAGNOSTIC_TOPIC, 1), (MAP_ACK_TOPIC, 1)]
 COMMAND_TOPIC = "csc02/command"
+START_POWER_PERCENT = 20
+
+def validate_mapping(mapping):
+    if not isinstance(mapping,dict) or set(mapping)!=set(MAP_ACTIONS):
+        raise ValueError("Movement map needs forward, uturn, left and right letters.")
+    letters=[mapping[k] for k in MAP_ACTIONS]
+    if any(not isinstance(v,str) or len(v)!=1 or not "A"<=v<="Z" for v in letters) or len(set(letters))!=4:
+        raise ValueError("Movement map needs four distinct uppercase letters A-Z.")
+    return {k:mapping[k] for k in MAP_ACTIONS}
 
 def availability_mask(topic):
     """Only live observations are invalidated; decoded command history persists."""
@@ -29,7 +43,7 @@ def availability_mask(topic):
     return 0
 
 class BrokerBridge:
-    def __init__(self):
+    def __init__(self, mapping_file=None):
         self.lock = threading.Lock()
         self.status = "Connecting to MQTT broker"
         self.readings = {}
@@ -43,6 +57,15 @@ class BrokerBridge:
         self.command_sequence = 0
         self.pending_commands = {}
         self.ack_condition = threading.Condition(self.lock)
+        self.barcode_diagnostics = None
+        self.barcode_history = deque(maxlen=50)
+        self.diagnostic_received = None
+        self.mapping_file=Path(mapping_file) if mapping_file else None
+        self.saved_mapping=None
+        self.mapping_error=None
+        self.pending_map=None
+        if self.mapping_file and self.mapping_file.exists():
+            self.saved_mapping=validate_mapping(json.loads(self.mapping_file.read_text(encoding="utf-8-sig")))
 
     def set_status(self, status):
         with self.lock:
@@ -56,6 +79,7 @@ class BrokerBridge:
                 self.sequence += 1
                 reading.update(payload=None, sequence=self.sequence)
             self.last_received_at = None
+            self.diagnostic_received = None
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         self.reset_observations()
@@ -78,6 +102,40 @@ class BrokerBridge:
         self.set_status("MQTT broker unavailable; retrying")
 
     def on_message(self, client, userdata, message):
+        if message.topic==MAP_ACK_TOPIC:
+            if getattr(message,"retain",False):return
+            data=message.payload
+            if len(data)!=6 or data[0]!=0xC4 or data[1]>4:return
+            mapping=None
+            if data[1]==0:
+                try:mapping=validate_mapping(dict(zip(MAP_ACTIONS,map(chr,data[2:]))))
+                except ValueError:return
+            with self.ack_condition:
+                if mapping is not None:self.saved_mapping=mapping
+                if self.pending_map and (data[2:]==self.pending_map["letters"] or data[1]!=0 and data[2:]==bytes(4)):
+                    self.pending_map["reply"]=data[1];self.ack_condition.notify_all()
+            if mapping is not None and self.mapping_file:
+                try:
+                    temporary=self.mapping_file.with_suffix(self.mapping_file.suffix+".tmp")
+                    temporary.write_text(json.dumps(mapping,indent=2)+"\n",encoding="utf-8")
+                    os.replace(temporary,self.mapping_file)
+                    self.mapping_error=None
+                except OSError as error:self.mapping_error=str(error)
+            return
+        if message.topic == BARCODE_DIAGNOSTIC_TOPIC:
+            if getattr(message,"retain",False):return
+            try:record=decode_barcode_diagnostic(message.payload)
+            except (TypeError,ValueError):
+                with self.lock:self.rejected_packets+=1
+                return
+            with self.lock:
+                self.diagnostic_received=time.monotonic()
+                previous=self.barcode_diagnostics
+                self.barcode_diagnostics=record
+                if not previous or (record["sequence"],record["time_ms"])!=(previous["sequence"],previous["time_ms"]):
+                    self.barcode_history.append(record)
+                self.received_packets+=1;self.last_received_at=time.time()
+            return
         if message.topic == ACK_TOPIC:
             if getattr(message, "retain", False):
                 return
@@ -131,6 +189,42 @@ class BrokerBridge:
         if locked and not self.command_lock.acquire(blocking=False):
             raise RuntimeError("A command is already being sent.")
         try:
+            if action=="reset" and self.mapping_file:
+                # STOP also cancels this boot's automatic start before a map
+                # is loaded. RESET stays last and never requests motion.
+                self._send_action("stop")
+                self.restore_saved_mapping()
+            result=self._send_action(action)
+            if action=="reset" and self.mapping_file:
+                result["message"]="Movement mapping restored. "+result["message"]
+            return result
+        finally:
+            if locked:self.command_lock.release()
+
+    def restore_saved_mapping(self):
+        mapping=self.saved_mapping
+        if self.mapping_file and self.mapping_file.exists():
+            mapping=validate_mapping(json.loads(self.mapping_file.read_text(encoding="utf-8-sig")))
+        if mapping is None:
+            raise RuntimeError("No saved movement map. Send the instructor's mapping via MQTT first.")
+        letters="".join(mapping[k] for k in MAP_ACTIONS).encode("ascii")
+        entry={"letters":letters,"reply":None}
+        with self.ack_condition:self.pending_map=entry
+        try:
+            info=self.command_client.publish(MAP_TOPIC,json.dumps(mapping),qos=1,retain=False)
+            if info.rc!=0:raise RuntimeError("MQTT rejected the movement map.")
+            info.wait_for_publish(timeout=2)
+            if not info.is_published():raise RuntimeError("Movement map delivery is unconfirmed; robot remains stopped.")
+            with self.ack_condition:
+                if not self.ack_condition.wait_for(lambda:entry["reply"] is not None,timeout=3):
+                    raise RuntimeError("RoboPico did not acknowledge the movement map; robot remains stopped.")
+                if entry["reply"]!=0:raise RuntimeError("RoboPico rejected the movement map; robot remains stopped.")
+        finally:
+            with self.ack_condition:self.pending_map=None
+
+    def _send_action(self,action):
+        opcodes={"stop":0,"reset":2,"start":3}
+        try:
             client = self.command_client
             if client is None or not client.is_connected():
                 raise RuntimeError("MQTT is disconnected.")
@@ -139,7 +233,7 @@ class BrokerBridge:
                 self.command_sequence = (sequence + 1) & 255
                 entry = {"opcode": opcodes[action], "reply": None}
                 self.pending_commands[sequence] = entry
-            frame = bytes((0xC1, opcodes[action], 30 if action == "start" else 0,
+            frame = bytes((0xC1, opcodes[action], START_POWER_PERCENT if action == "start" else 0,
                            0, 0, sequence))
             # QoS 0 avoids retrying a stale START after a reconnect.
             info = client.publish(COMMAND_TOPIC, frame, qos=0, retain=False)
@@ -154,10 +248,12 @@ class BrokerBridge:
                 result, phase, fault = entry["reply"]
             faults = ("none", "sensor", "line", "shock", "transport", "run timeout", "uncalibrated", "motor")
             if result == 2:
-                raise RuntimeError("RoboPico rejected Start: press Reset robot first after MQTT reconnect.")
+                raise RuntimeError("RoboPico rejected Start: press Reset robot first after Stop or MQTT reconnect, then Start. Stop requires another Reset.")
             if result == 3:
                 raise RuntimeError("RoboPico rejected an expired command. Try again after checking its state.")
             if result != 0:
+                if action == "start" and phase == 0 and fault == 0:
+                    raise RuntimeError("RoboPico is not ready to Start. Check that the MQTT letter mapping is loaded, sensors and encoders are fresh, and GP28 is on WHITE.")
                 raise RuntimeError(f"RoboPico rejected {action}. Phase {phase}, fault {faults[fault]}. Reset requires stopped motors; Start requires reset and readiness.")
             return {"action": action, "acknowledged": True, "phase": phase, "fault": fault,
                     "message": f"RoboPico accepted {action}. Phase {phase}, fault {faults[fault]}."}
@@ -165,8 +261,6 @@ class BrokerBridge:
             if "sequence" in locals():
                 with self.ack_condition:
                     self.pending_commands.pop(sequence, None)
-            if locked:
-                self.command_lock.release()
 
     def snapshot(self):
         with self.lock:
@@ -182,6 +276,13 @@ class BrokerBridge:
                 "received_packets": self.received_packets,
                 "rejected_packets": self.rejected_packets,
                 "last_received_at": self.last_received_at,
+                "barcode_diagnostics": self.barcode_diagnostics,
+                "barcode_diagnostics_age_s": now-self.diagnostic_received if self.diagnostic_received is not None else None,
+                "barcode_diagnostic_history": list(self.barcode_history),
+                "movement_mapping": self.saved_mapping,
+                "mapping_save_error": self.mapping_error,
+                "mapping_restore_on_reset": bool(self.mapping_file),
+                "start_power_percent": START_POWER_PERCENT,
                 "messages": sorted(self.readings.values(), key=lambda item: item["sequence"]),
             }
 
@@ -241,12 +342,13 @@ def main():
     parser.add_argument("--broker", default="localhost")
     parser.add_argument("--mqtt-port", type=int, default=1883)
     parser.add_argument("--username", default=os.getenv("MQTT_USERNAME"))
+    parser.add_argument("--mapping-file",type=Path,help="PC-side saved MQTT map; Reset stops, reapplies it and resets without starting")
     args = parser.parse_args()
     try:
         import paho.mqtt.client as mqtt
     except ImportError:
         parser.exit(1, "Install MQTT support with: python -m pip install -r app_program/external_systems/Dashboard/requirements.txt\n")
-    bridge = BrokerBridge()
+    bridge = BrokerBridge(args.mapping_file)
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     if args.username:
         client.username_pw_set(args.username, os.getenv("MQTT_PASSWORD"))

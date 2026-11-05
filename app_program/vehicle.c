@@ -1,6 +1,9 @@
 #include "app_state.h"
 #include "board_pins.h"
 #include "vehicle_curve_memory.h"
+#include "barcode_route.h"
+#include "barcode_boot.h"
+#include "barcode_line_follow.h"
 #include "subsystem1/control.h"
 #include "subsystem2/subsystem2.h"
 #include "subsystem2/odometry.h"
@@ -25,13 +28,24 @@ static void vehicle_task(INT code,void *context) {
     s3_mode_t mode=S3_MODE_PAUSED;
     INT line_curve=0;
     curve_memory_t curve_memory={0};
+    barcode_route_t route={0};
+#if BOARD_BARCODE_SCAN_STEERING
+    barcode_line_follow_t scan_line={0};
+#endif
+#if BOARD_BARCODE_DEFAULT_FORWARD
+    route.default_forward=true;
+#endif
+#if BOARD_BARCODE_DEMO
+    barcode_boot_t boot={0};uint32_t demo_last_tick=0;BOOL demo_have_tick=FALSE;
+#endif
     uint32_t next_tick=0;unsigned previous_phase=VC_DISARMED,previous_look=0;
     BOOL requested_sensor_mode=FALSE;
     for(;;) {
         SYSTIM now;
         odom_config_t calibration={0}; /* short-lived calculation/API view */
         (void)odom_calibration_unpack(&calibration_record,&calibration);
-        s2_motion_status_t motor={0};uint8_t encoder_payload[ENCODER_SNAPSHOT_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
+        static s3_status_t line;memset(&line,0,sizeof(line));
+        s2_motion_status_t motor={0};uint8_t encoder_payload[ENCODER_SNAPSHOT_SIZE]={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
         BOOL mo=s2_motion_get_status(&motor)==E_OK;
         BOOL en=s2_encoder_snapshot(encoder_payload,sizeof(encoder_payload))==E_OK;
         BOOL li=s3_status_get(&line)==E_OK;
@@ -40,8 +54,18 @@ static void vehicle_task(INT code,void *context) {
         BOOL im=s4_sensor_get_record(&imu_record)==E_OK;
         /* Snapshot APIs may wait briefly. Age them against a time obtained
          * afterwards, so a newly published sample cannot appear in the future. */
-        if(tk_get_otm(&now)<0) {vc_stop(&state.vehicle,VC_TRANSPORT);s2_emergency_stop();tk_dly_tsk(10);continue;}
+        if(tk_get_otm(&now)<0) {
+#if BOARD_BARCODE_DEMO
+            barcode_boot_cancel(&boot);
+#endif
+            vc_stop(&state.vehicle,VC_TRANSPORT);s2_emergency_stop();tk_dly_tsk(10);continue;}
         if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&imu);
+#if BOARD_BARCODE_DEMO
+        if(demo_have_tick && now.lo-demo_last_tick>=30U && state.vehicle.armed) {
+            vc_stop(&state.vehicle,VC_TRANSPORT);s2_emergency_stop();barcode_boot_cancel(&boot);
+        }
+        demo_last_tick=now.lo;demo_have_tick=TRUE;
+#endif
         state.time_ms=now.lo;++state.sequence;
         s4_encoder_terrain_step(&encoder_input,&terrain,&calibration,now.lo,
             encoder_payload,sizeof(encoder_payload),en,imu.latest.accel.read_time_us,
@@ -69,13 +93,26 @@ static void vehicle_task(INT code,void *context) {
         /* At most four copied command records per tick; STOP bypasses that queue. */
         for(unsigned n=0;n<4;++n) {
             control_message_t c;ER er=s1_command_take(&c);if(er<0)break;
-            if(c.wire[1]==0) {vc_stop(&state.vehicle,VC_OK);
+            if(c.wire[0]==0xC3) {
+                unsigned result=now.lo-c.time_ms>=100U?BARCODE_MAP_STALE:
+                    barcode_route_configure(&route,c.wire+2,state.vehicle.armed);
+#if BOARD_BARCODE_DEMO
+                if(result==BARCODE_MAP_OK)boot.waiting=false;
+#endif
+                s1_barcode_map_ack(result,c.wire+2);continue;
+            }
+            if(c.wire[1]==0) {
+#if BOARD_BARCODE_DEMO
+                barcode_boot_cancel(&boot);
+#endif
+                vc_stop(&state.vehicle,VC_OK);
                 s1_command_ack(c.wire[5],0,0,state.vehicle.phase,state.vehicle.fault);break;}
             if(now.lo-c.time_ms>=100U) {
                 s1_command_ack(c.wire[5],c.wire[1],3,state.vehicle.phase,state.vehicle.fault);continue;
             }
             if(c.wire[1]==2 && !state.vehicle.armed && mo && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
+                barcode_route_clear(&route);state.barcode=state.navigation=0;
                 requested_sensor_mode=FALSE; /* RESET also restarts a latched S5 scan. */
                 s4_result_t cleared={.calculated_ms=now.lo};
                 result=cleared;
@@ -89,8 +126,19 @@ static void vehicle_task(INT code,void *context) {
                 if(state.vehicle.armed) {
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
                 }
+                if(!route.configured) {
+                    s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
+                }
                 if(BOARD_MOTORS_DISABLED) {vc_stop(&state.vehicle,VC_MOTOR);
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;}
+#if BOARD_BARCODE_DEMO
+                if(c.wire[2]>BOARD_DRIVE_POWER_CAP || !mo || motor.state==S2_MOTION_FAULT ||
+                   !odom->valid || !li || !line.configured || line.acquisition_error!=E_OK ||
+                   line.sample.valid_mask!=7U || now.lo-line.sample_time_ms>=30U || !line.output.barcode_white) {
+                    s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
+                }
+                BOOL fresh_arm=!state.vehicle.armed;
+#else
                 if(c.wire[1]==3 && (!BOARD_PID_ENABLED || !BOARD_PID_CALIBRATED || !BOARD_BYPASS_VALIDATED)) {
                     vc_stop(&state.vehicle,VC_UNCALIBRATED);
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
@@ -100,9 +148,14 @@ static void vehicle_task(INT code,void *context) {
                     vc_stop(&state.vehicle,VC_UNCALIBRATED);
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
                 }
+#endif
                 if((c.wire[1]==3 ? vc_start(&state.vehicle,now.lo,c.wire[2]) :
                     vc_arm(&state.vehicle,now.lo,(unsigned)c.wire[3]|((unsigned)c.wire[4]<<8),c.wire[2])) && fresh_arm) {
+#if BOARD_BARCODE_DEMO
+                    vc_track_requested(&state.vehicle,now.lo);
+#else
                     state.vehicle.phase=VC_REACQUIRE;state.vehicle.entered_ms=now.lo;
+#endif
                     state.vehicle.origin_yaw=odom_turn_mdeg(odom);
                     state.vehicle.origin_um=odom->distance_um;state.vehicle.turn_progress=0;
                     requested_sensor_mode=FALSE;
@@ -111,6 +164,18 @@ static void vehicle_task(INT code,void *context) {
                     state.vehicle.phase,state.vehicle.fault);
             }
         }
+#if BOARD_BARCODE_DEMO && BOARD_BARCODE_AUTO_START
+        BOOL boot_ready=mo && motor.state==S2_MOTION_STOPPED && odom->valid && li &&
+            line.configured && line.acquisition_error==E_OK && line.sample.valid_mask==7U &&
+            now.lo-line.sample_time_ms<30U && line.output.barcode_white &&
+            state.vehicle.phase==VC_DISARMED;
+        if(barcode_boot_step(&boot,now.lo,route.configured,boot_ready)) {
+            if(vc_start(&state.vehicle,now.lo,30U)) {
+                vc_track_requested(&state.vehicle,now.lo);requested_sensor_mode=FALSE;
+                tm_printf((UB *)"[BARCODE AUTO START] t=%u power=30 map=received\n",now.lo);
+            }
+        }
+#endif
         vc_input_t input={.now_ms=now.lo,.scan_id=scan.scan_id,
             .distance_um=odom->distance_um,.yaw_mdeg=odom_turn_mdeg(odom),
             .line_error=line.output.line.error,.line_state=(uint8_t)line.output.line.state,
@@ -122,7 +187,8 @@ static void vehicle_task(INT code,void *context) {
             .terrain_valid=result_ok && (result.flags&S4_RESULT_TILT),.shock=(result.flags&S4_RESULT_SHOCK)!=0U,
             .slope=result.terrain==TERRAIN_ASCENT || result.terrain==TERRAIN_DESCENT,
             .bypass_steering=(uint16_t)(BOARD_TRACK_WIDTH_MM*1000U/(2U*S5_BYPASS_ARC_RADIUS_MM)),
-            .bypass_enabled=BOARD_PID_ENABLED && BOARD_BYPASS_VALIDATED,.transport_ok=1};
+            .bypass_enabled=BOARD_PID_ENABLED && BOARD_BYPASS_VALIDATED,.transport_ok=1,
+            .barcode_demo=BOARD_BARCODE_DEMO,.barcode_scanning=line.output.barcode_scanning};
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
         input.steering=input.line_fresh && line.output.steering_allowed;
         input.line_detected=input.line_fresh &&
@@ -145,13 +211,16 @@ static void vehicle_task(INT code,void *context) {
             state.vehicle.armed && state.vehicle.phase==VC_TRACK,
             input.line_fresh && line.output.error==S3_ERROR_NONE,
             line.output.line.black_mask & 3U,line.output.line.error);
-        input.curve_hold=curve_memory.turning && input.line_fresh;
+        input.curve_hold=!BOARD_BARCODE_DEMO && curve_memory.turning && input.line_fresh;
         for(unsigned n=0;n<S3_EVENT_CAPACITY;++n) {
             s3_event_record_t e;ER er=s3_event_receive(&e);if(er==E_TMOUT)break;
             if(er<0) {input.transport_ok=0;break;}
-            if(e.event.kind==S3_EVENT_NAVIGATION) {
-                input.navigation_event=1;input.nav=(uint8_t)e.event.command;
-                state.navigation=(uint8_t)e.event.command;state.barcode=(e.event.symbol>='A' && e.event.symbol<='D')?(uint8_t)(e.event.symbol-'A'+1):e.event.symbol=='Z'?5:0;
+            if(e.event.kind==S3_EVENT_BARCODE) {
+                if(state.vehicle.armed && barcode_route_store(&route,e.event.symbol)) {
+                    state.barcode=(uint8_t)(e.event.symbol-'A'+1);
+                    state.navigation=0;
+                    tm_printf((UB *)"[BARCODE STORED] symbol=%c waiting=junction\n",e.event.symbol);
+                } else if(state.vehicle.armed) input.transport_ok=0;
             } else if(e.event.kind==S3_EVENT_RECOVERY_REQUEST) input.recovery_event=1;
             else input.safety_event=1;
         }
@@ -159,7 +228,32 @@ static void vehicle_task(INT code,void *context) {
             /* Acknowledge the short dropout so S3 can resume normal observations. */
             if(s3_controller_control(S3_MODE_TRACK,true,100)<E_OK)input.transport_ok=0;
         }
+        char junction_symbol=route.pending;
+#if BOARD_BARCODE_DEMO
+        barcode_route_observe_capture(&route,input.line_fresh,input.line_black_mask,
+            input.barcode_scanning,line.barcode_diagnostics.result_id,
+            line.barcode_diagnostics.result_line_mask);
+#endif
+        s3_navigation_t next=barcode_route_step(&route,now.lo,input.line_fresh,
+            input.line_black_mask,state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
+            !(BOARD_BARCODE_DEMO && input.barcode_scanning));
+        if(next!=S3_NAV_NONE) {
+            input.navigation_event=1;input.nav=(uint8_t)next;state.navigation=(uint8_t)next;
+            BOOL mapped=FALSE;
+            for(unsigned n=0;n<BARCODE_MAP_BYTES;++n)
+                if(route.configured && route.letters[n]==(uint8_t)junction_symbol)mapped=TRUE;
+            if(route.default_forward && !mapped) {
+                if(!junction_symbol)state.barcode=0; /* Do not label a fallback with an old symbol. */
+                tm_printf((UB *)"[BARCODE JUNCTION] symbol=%c navigation=%u default=forward reason=%s\n",
+                    junction_symbol?junction_symbol:'-',(unsigned)next,junction_symbol?"unmapped":"no_decode");
+            } else tm_printf((UB *)"[BARCODE JUNCTION] symbol=%c navigation=%u\n",junction_symbol,(unsigned)next);
+        }
+        if(route.fault)input.safety_event=1;
         vc_step(&state.vehicle,&input);
+#if BOARD_BARCODE_DEMO
+        if(state.vehicle.phase==VC_FAULT)barcode_boot_cancel(&boot);
+#endif
+        if(!state.vehicle.armed) {barcode_route_clear(&route);state.navigation=0;}
         s3_mode_t wanted=!state.vehicle.armed?S3_MODE_PAUSED:
             state.vehicle.phase==VC_TRACK?S3_MODE_TRACK:S3_MODE_OVERRIDE;
         ER control=E_OK;
@@ -169,7 +263,8 @@ static void vehicle_task(INT code,void *context) {
             control=s3_controller_control(wanted,wanted==S3_MODE_TRACK,wanted==S3_MODE_TRACK?100:0);
             if(control>=E_OK) {
                 mode=wanted;
-                if(wanted==S3_MODE_TRACK)vc_track_requested(&state.vehicle,now.lo);
+                if(wanted==S3_MODE_TRACK && !(BOARD_BARCODE_DEMO && acknowledge_straight))
+                    vc_track_requested(&state.vehicle,now.lo);
             }
         } else if(wanted==S3_MODE_TRACK)control=s3_controller_renew(100);
         if(control<0)vc_stop(&state.vehicle,VC_TRANSPORT);
@@ -189,6 +284,21 @@ static void vehicle_task(INT code,void *context) {
             requested_sensor_mode=TRUE;previous_phase=phase;previous_look=look;
             state.vehicle.command=0;state.vehicle.power=0;
         }
+#if BOARD_BARCODE_SCAN_STEERING
+        {
+            const int16_t positions[S3_SENSOR_COUNT]=BOARD_IR_POSITIONS;
+            uint16_t left_dark=0,right_dark=0;
+            for(unsigned n=0;n<S3_SENSOR_COUNT;++n) {
+                if(positions[n]<0)left_dark=line.output.line.darkness[n];
+                if(positions[n]>0)right_dark=line.output.line.darkness[n];
+            }
+            bool active=state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
+                state.vehicle.command==S2_MOVE_FORWARD && input.barcode_scanning &&
+                input.line_fresh && input.steering && line.output.error==S3_ERROR_NONE;
+            state.vehicle.steering=barcode_line_follow_step(&scan_line,line.sample_time_ms,
+                active,left_dark,right_dark,input.line_black_mask);
+        }
+#endif
         if(state.vehicle.command==S2_MOVE_STOP) {
             /* An epoch per stopped tick invalidates every old queued movement. */
             s2_emergency_stop();
@@ -196,7 +306,9 @@ static void vehicle_task(INT code,void *context) {
             ER er;
             if(BOARD_PID_ENABLED && state.vehicle.phase==VC_TRACK &&
                state.vehicle.command==S2_MOVE_FORWARD && input.line_fresh) {
-                er=s2_follow_send(state.vehicle.power,line_curve);
+                /* GP28 capture stays forward-only, with bounded analog line
+                 * correction instead of a steering lock or pivot. */
+                er=s2_follow_send(state.vehicle.power,BOARD_BARCODE_DEMO?state.vehicle.steering:line_curve);
             } else if (BOARD_PID_ENABLED && state.vehicle.command==S2_MOVE_FORWARD &&
                        state.vehicle.phase>=VC_TURN_OUT && state.vehicle.phase<=VC_RESTORE) {
                 line_curve=state.vehicle.steering;

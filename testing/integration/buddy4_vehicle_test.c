@@ -3,25 +3,38 @@
 #include <assert.h>
 #include <setjmp.h>
 #include <stdio.h>
+#include <string.h>
+#if !BOARD_BARCODE_DEMO
 #define BOARD_TICKS_PER_REV 100
 #define BOARD_WHEEL_CIRCUMFERENCE_MM 200
 #define BOARD_TRACK_WIDTH_MM 100
 #define BOARD_TERRAIN_CALIBRATED 1
 #define BOARD_MOTORS_DISABLED 0
 #define BOARD_BYPASS_VALIDATED 1 /* synthetic policy fixture only */
+#endif
 ID app_start_task(FP task, PRI priority, UW core, const char *name);
 #include "../../app_program/vehicle.c"
 static jmp_buf done;
 static app_state_t saved;
 static uint32_t clock_ms, iteration;
 static unsigned failure_mode, stops, positive_requests;
-static bool reset_offered;
+static bool reset_offered,map_offered,barcode_offered;
+static unsigned fixture_limit;
+static int fixture_mask=-1;
+static bool fixture_white=true;
+static bool fixture_scanning;
+static uint32_t fixture_capture_result;
+static uint8_t fixture_result_mask;
+static uint16_t fixture_dark_left,fixture_dark_right;
+static ER (*fixture_command)(control_message_t *);
+static ER (*fixture_event)(s3_event_record_t *);
+static void (*fixture_publish)(const app_state_t *);
 
 ER tk_get_otm(SYSTIM *t) { t->hi=0;t->lo=clock_ms;return E_OK; }
 ER tk_dly_tsk(UW delay)
 {
     (void)delay;
-    if (++iteration >= 12U) longjmp(done,1);
+    if (++iteration >= (fixture_limit?fixture_limit:failure_mode>=10U?18U:12U)) longjmp(done,1);
     clock_ms += 20U;
     return E_OK;
 }
@@ -31,9 +44,23 @@ ER s3_controller_bind(void) { return E_OK; }
 ER s5_controller_bind(void) { return E_OK; }
 ER s2_emergency_stop(void) { ++stops; return E_OK; }
 ER s2_movement_send(s2_move_command_t command,UINT power)
-{ (void)command;(void)power;++positive_requests;return E_OK; }
+{ (void)command;(void)power;
+#if BOARD_BARCODE_DEMO
+    assert(power<=30U);
+#endif
+    ++positive_requests;return E_OK; }
 ER s2_motion_get_status(s2_motion_status_t *s)
 { *s=(s2_motion_status_t){0};return E_OK; }
+ER s2_follow_send(UINT power,INT steering)
+{
+#if BOARD_BARCODE_DEMO
+    assert(steering>=-100 && steering<=100);
+    if(!BOARD_BARCODE_SCAN_STEERING || !fixture_scanning || fixture_mask==3)assert(steering==0);
+#else
+    (void)steering;
+#endif
+    return s2_movement_send(S2_MOVE_FORWARD,power);
+}
 ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
 {
     uint32_t stamp=clock_ms;
@@ -45,7 +72,17 @@ ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
 }
 ER s3_status_get(s3_status_t *s) {
     *s=(s3_status_t){0};
-    if(failure_mode>=7U) {s->configured=1;s->sample_time_ms=clock_ms;s->output.steering_allowed=1;}
+    if(failure_mode>=7U) {
+        s->configured=1;s->sample_time_ms=clock_ms;s->sample.valid_mask=7;
+        s->output.steering_allowed=1;s->output.barcode_white=fixture_white;
+        s->output.barcode_scanning=fixture_scanning;
+        s->barcode_diagnostics.result_id=fixture_capture_result;
+        s->barcode_diagnostics.result_line_mask=fixture_result_mask;
+        s->output.line.darkness[0]=fixture_dark_right;s->output.line.darkness[1]=fixture_dark_left;
+        s->output.line.black_mask=failure_mode>=10U && iteration>=10U?3U:1U;
+        if(fixture_mask>=0)s->output.line.black_mask=(uint8_t)fixture_mask;
+        s->output.line.state=s->output.line.black_mask==3U?S3_LINE_JUNCTION:S3_LINE_TRACKING;
+    }
     return E_OK;
 }
 ER s5_get_status(s5_status_t *s) {
@@ -73,6 +110,11 @@ ER s4_sensor_get_record(s4_sensor_cache_t *s)
 
 ER s1_command_take(control_message_t *c)
 {
+    if(fixture_command)return fixture_command(c);
+    if(!map_offered) {
+        *c=(control_message_t){.time_ms=clock_ms};c->wire[0]=0xC3;
+        memcpy(c->wire+2,"EMQZ",4);map_offered=true;return E_OK;
+    }
     if(failure_mode==4U && iteration==9U && !reset_offered) {
         *c=(control_message_t){.time_ms=clock_ms};c->wire[1]=2;
         reset_offered=true;return E_OK;
@@ -84,6 +126,11 @@ ER s1_command_take(control_message_t *c)
     }
     return E_TMOUT;
 }
+INT tm_printf(UB *format,...) { (void)format;return 0; }
+void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault)
+{ (void)seq;(void)opcode;(void)result;(void)phase;(void)fault; }
+void s1_barcode_map_ack(unsigned result,const unsigned char letters[4])
+{ assert(result==BARCODE_MAP_OK && !memcmp(letters,"EMQZ",4)); }
 ER s1_command_offer(const uint8_t *wire,UINT length)
 { (void)wire;(void)length;return E_OK; }
 ER s3_controller_control(s3_mode_t mode,bool clear,UW lease)
@@ -91,14 +138,26 @@ ER s3_controller_control(s3_mode_t mode,bool clear,UW lease)
 ER s3_controller_renew(UW lease) { (void)lease;return E_OK; }
 ER s5_navigation_set(uint32_t id,s5_state_t mode,INT angle)
 { (void)id;(void)mode;(void)angle;return E_OK; }
-ER s3_event_receive(s3_event_record_t *event) { (void)event;return E_TMOUT; }
-ER app_state_publish(const app_state_t *s) { saved=*s;return E_OK; }
+ER s3_event_receive(s3_event_record_t *event) {
+    if(fixture_event)return fixture_event(event);
+    if(failure_mode>=10U && iteration==8U && !barcode_offered) {
+        *event=(s3_event_record_t){0};event->event.kind=S3_EVENT_BARCODE;
+        event->event.symbol="EMQZB"[failure_mode-10U];barcode_offered=true;return E_OK;
+    }
+    return E_TMOUT;
+}
+ER app_state_publish(const app_state_t *s) {
+    if(failure_mode>=10U && iteration==8U) {
+        assert(s->barcode && s->vehicle.phase==VC_TRACK && !s->navigation && s->vehicle.command==1);
+    }
+    saved=*s;if(fixture_publish)fixture_publish(s);return E_OK;
+}
 ID app_start_task(FP task,PRI priority,UW core,const char *name)
 { (void)task;(void)priority;(void)core;(void)name;return 1; }
 int main(void)
 {
-    for(failure_mode=0;failure_mode<10;++failure_mode) {
-        iteration=stops=positive_requests=0;clock_ms=100;reset_offered=false;
+    for(failure_mode=0;failure_mode<15;++failure_mode) {
+        iteration=stops=positive_requests=0;clock_ms=100;reset_offered=map_offered=barcode_offered=false;
         if(setjmp(done)==0)vehicle_task(0,NULL);
         s4_result_t result={0};assert(s4_result_decode(saved.s4_result,sizeof(saved.s4_result),&result));
         if(failure_mode==0)assert((result.flags&S4_RESULT_TILT) && saved.odometry_valid);
@@ -112,8 +171,16 @@ int main(void)
         if(failure_mode==6)assert((result.flags&S4_RESULT_SHOCK) &&
                                   (result.faults&EDR_FAULT_IMU) && !(result.flags&S4_RESULT_TILT));
         assert(stops);
-        if(failure_mode==9U)assert(positive_requests>0);
+        if(failure_mode>=9U)assert(positive_requests>0);
         else assert(!positive_requests);
+        if(failure_mode>=10U && failure_mode<14U) {
+            const unsigned actions[4]={3,4,1,2};unsigned action=actions[failure_mode-10U];
+            assert(barcode_offered && saved.barcode==(uint8_t)("EMQZ"[failure_mode-10U]-'A'+1));
+            assert(saved.navigation==action);
+            if(action==3U)assert(saved.vehicle.phase==VC_TRACK);
+            else assert(saved.vehicle.phase==VC_NAV_TURN && saved.vehicle.turn_deg==(action==1?90:action==2?-90:180));
+        }
+        if(failure_mode==14U)assert(saved.vehicle.phase==VC_FAULT && saved.vehicle.fault==VC_LINE && saved.barcode==2);
         if(failure_mode==7U)assert(saved.vehicle.phase==VC_FAULT && saved.vehicle.fault==VC_SENSOR);
     }
     puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");

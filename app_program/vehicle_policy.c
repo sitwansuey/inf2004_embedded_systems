@@ -41,6 +41,7 @@ static int yaw_delta(int32_t now,int32_t origin) {
 }
 void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (!s || !i) return;
+    bool front_clear=i->barcode_demo || i->front_clear;
     unsigned was_driving=s->command==1 && s->power!=0;
     uint32_t elapsed=i->now_ms-s->last_step_ms;
     s->last_step_ms=i->now_ms;
@@ -56,7 +57,9 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (i->shock || i->safety_event) { vc_stop(s,i->shock?VC_SHOCK:VC_LINE);return; }
     if (!i->transport_ok) { vc_stop(s,VC_TRANSPORT);return; }
     if (!i->motor_ok) { vc_stop(s,VC_MOTOR);return; }
-    if (!i->sensor_fresh || !i->terrain_valid || !i->odom_valid) { vc_stop(s,VC_SENSOR);return; }
+    if (i->barcode_demo && s->maximum_power>30U) { vc_stop(s,VC_MOTOR);return; }
+    if (i->barcode_demo && !i->line_fresh) { vc_stop(s,VC_LINE);return; }
+    if ((!i->barcode_demo && (!i->sensor_fresh || !i->terrain_valid)) || !i->odom_valid) { vc_stop(s,VC_SENSOR);return; }
     /* S3 removes events on receive. Preserve navigation before obstacle or
      * clearance gates can defer it; never silently overwrite another marker. */
     if (i->navigation_event && i->nav) {
@@ -68,7 +71,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (s->phase!=VC_TRACK && i->now_ms-s->entered_ms>
         ((s->phase==VC_ACQUIRE)?30000U:(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE)?10000U:5000U)) { vc_stop(s,VC_TIMEOUT);return; }
     if (s->phase==VC_TRACK) {
-        if (i->obstacle) { enter(s,i,VC_ACQUIRE);return; }
+        if (!i->barcode_demo && i->obstacle) { enter(s,i,VC_ACQUIRE);return; }
         if (s->track_wait) {
             if (i->line_fresh && i->steering) s->track_wait=0;
             else {
@@ -76,11 +79,17 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
                 return; /* stay stopped while S3 applies TRACK and samples */
             }
         }
-        if (!i->front_clear) return;
+        if (!front_clear) return;
         if (i->recovery_event && !i->curve_hold) { enter(s,i,VC_REACQUIRE);return; }
         if (s->pending_nav) {
             unsigned nav=s->pending_nav;s->pending_nav=0;
-            if (nav==3) {s->navigation_ack=1;return;}
+            if (nav==3) {
+                s->navigation_ack=1;
+                if(i->barcode_demo && i->line_fresh && i->steering) {
+                    s->command=1;s->power=s->maximum_power;
+                }
+                return;
+            }
             s->turn_deg=nav==1?90:nav==2?-90:180;
             enter(s,i,VC_NAV_TURN);return;
         }
@@ -99,7 +108,8 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         if (!i->line_fresh || !i->steering) { vc_stop(s,VC_LINE);return; }
         /* Either front sensor on black is sufficient to keep following forward. */
-        s->command=1;
+        s->command=i->barcode_demo && !i->barcode_scanning?
+            (i->line_black_mask==1U?5U:i->line_black_mask==2U?6U:1U):1U;
     } else if (s->phase==VC_ACQUIRE) {
         if (i->front_clear && !i->obstacle && !i->scan_ready) { enter(s,i,VC_REACQUIRE);return; }
         if (!i->scan_ready) return;
@@ -113,7 +123,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         s->bypass_steering=i->bypass_steering;
         enter(s,i,VC_TURN_OUT);return;
     } else if (s->phase==VC_REACQUIRE) {
-        if (!i->front_clear) return;
+        if (!front_clear) return;
         if (!i->line_fresh) { vc_stop(s,VC_LINE);return; }
         if (s->line_settling) {
             if (i->now_ms-s->line_found_ms<20U) {
@@ -146,7 +156,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         s->power=s->maximum_power>15?15:s->maximum_power;
         return;
     } else {
-        if (!i->front_clear && !s->look_side) return;
+        if (!front_clear && !s->look_side) return;
         int target=0;unsigned next=VC_FAULT;
         switch(s->phase) {
         case VC_TURN_OUT: target=s->turn_deg*1000;next=VC_DIAGONAL;break;

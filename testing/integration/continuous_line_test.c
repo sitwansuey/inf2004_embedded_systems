@@ -2,7 +2,7 @@
 #include "../../app_program/ir_line_trace.h"
 static unsigned checks,failures;
 #define CHECK(x) do {++checks;if(!(x)){++failures;printf("FAIL continuous line %u: %s\n",(unsigned)__LINE__,#x);}}while(0)
-static const s3_line_config_t cfg={4095U,{187U,189U,197U},{3214U,3177U,2472U},{1000,-1000,0},3U,400U,600U,100U,500U};
+static const s3_line_config_t cfg={4095U,{187U,189U,197U},{3214U,3177U,2472U},{1000,-1000,0},3U,400U,600U,100U,500U,false};
 int main(void) {
  CHECK(IR_SCAN_MAX_POWER==30U && IR_SCAN_POWER_BITS==5 && IR_SCAN_MAX_MS==20000U);
  for(unsigned p=0;p<=255U;++p) {

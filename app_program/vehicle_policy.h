@@ -35,6 +35,8 @@ typedef struct {
     uint8_t transport_ok : 1;
     uint8_t recovery_event : 1;
     uint8_t line_detected : 1;
+    uint8_t barcode_demo : 1; /* Explicit open-loop line/barcode-only profile. */
+    uint8_t barcode_scanning : 1;
     uint8_t curve_hold : 1; /* bounded turn memory across brief IR gaps */
 } vc_input_t;
 typedef struct {

@@ -10,14 +10,14 @@ class CodecTests(unittest.TestCase):
     def test_all_words(self):
         for word in range(65536):
             sid,data=word & 15,word >> 4
-            ranges = ((0,124),(0,37),(0,60),(38,218),(38,218),(0,5),
+            ranges = ((0,124),(0,154),(0,60),(38,218),(38,218),(0,5),
                       (0,200),(0,200),(0,100),(0,63),(0,255),(0,255),
                       (0,255),(28,228),(28,228),(0,14))
             subtype, status = data >> 8, data & 255
             low, high = ranges[subtype]
             status_ok = low <= status <= high
             if subtype == 0: status_ok &= status % 16 <= 12
-            if subtype == 1: status_ok &= status % 8 <= 5
+            if subtype == 1: status_ok &= status % 32 <= 26
             if subtype == 2: status_ok &= status % 8 <= 4
             valid=( (sid!=0 or status_ok) and (sid!=3 or data<=180) and (sid!=12 or data<=127)
                    and (sid!=11 or ((data&7)<=6 and ((data>>3)&127)<=100 and data>>10<=2)))

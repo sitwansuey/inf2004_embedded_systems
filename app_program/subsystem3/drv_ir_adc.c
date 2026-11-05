@@ -11,9 +11,8 @@ static bool worker_failed;
 
 bool s3_adc_available(void)
 {
-    /* These flags configure pads at kernel boot. No runtime pin takeover.
-     * All three channels are required; GP29/ADC3 remains radio-owned. */
-#if DEVCNF_USE_ADC && DEVCONF_ADC_PIN_INIT_0 && DEVCONF_ADC_PIN_INIT_1 && DEVCONF_ADC_PIN_INIT_2
+    /* Mixed mode keeps GP28 digital; GP29/ADC3 remains radio-owned. */
+#if DEVCNF_USE_ADC && DEVCONF_ADC_PIN_INIT_0 && DEVCONF_ADC_PIN_INIT_1 && (DEVCONF_ADC_PIN_INIT_2 || BOARD_IR_MODE == 3)
     return true;
 #else
     return false;
@@ -159,12 +158,20 @@ static ER acquire(const s3_adc_request_t *p_request, s3_sample_t *p_sample)
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
     {
         uint8_t ch = p_request->channel[i];
+#if BOARD_IR_MODE == 3
+        if (i == 2U && ch == S3_ADC_CHANNEL_UNUSED) continue;
+#endif
         if ((ch > 2U) || ((mask & (1U << ch)) != 0U))
         {
             return E_PAR;
         }
         mask |= (uint8_t)(1U << ch);
     }
+#if BOARD_IR_MODE == 3
+    if (mask != 3U || p_request->channel[2] != S3_ADC_CHANNEL_UNUSED) return E_PAR;
+#else
+    if (mask != S3_SENSOR_MASK) return E_PAR;
+#endif
     er = check_deadline(p_request->issued_ms, &now);
     if (er < E_OK)
     {
@@ -183,6 +190,7 @@ static ER acquire(const s3_adc_request_t *p_request, s3_sample_t *p_sample)
     }
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
     {
+        if (p_request->channel[i] == S3_ADC_CHANNEL_UNUSED) continue;
         UW value = 0U;
         SZ actual = 0;
         er = check_deadline(p_request->issued_ms, &now);
@@ -208,7 +216,7 @@ static ER acquire(const s3_adc_request_t *p_request, s3_sample_t *p_sample)
         }
         p_sample->raw[i] = (uint16_t)value;
     }
-    p_sample->valid_mask = S3_SENSOR_MASK;
+    p_sample->valid_mask = mask;
     return E_OK;
 }
 
@@ -239,7 +247,7 @@ ER s3_adc_worker_once(TMO timeout)
         /* A timed-out conversion can leave a stale FIFO/IRQ. Never retry on
          * this boot. The kernel owner must repair/reset its device safely. */
         worker_failed = true;
-#if BOARD_IR_RAW_BENCH
+#if BOARD_IR_RAW_BENCH || BOARD_BARCODE_DEMO
         tm_printf((UB *)"[S3ADC] worker failed error=%d request=%u\n",
                   reply.error, request.sequence);
 #endif

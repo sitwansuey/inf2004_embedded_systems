@@ -143,12 +143,12 @@ EXPORT ER s3_configure(const s3_adapter_config_t *p_config)
         !s3_ir_config_valid(&p_config->ir) ||
         ((p_config->ir.mode == S3_IR_DIGITAL) &&
          (p_config->algorithms.line.raw_max != 1U)) ||
-        ((p_config->ir.mode == S3_IR_ADC) &&
+        ((p_config->ir.mode >= S3_IR_ADC) &&
          (p_config->algorithms.line.raw_max != 4095U)))
     {
         return E_PAR;
     }
-    if ((p_config->ir.mode == S3_IR_ADC) && !s3_adc_available())
+    if ((p_config->ir.mode >= S3_IR_ADC) && !s3_adc_available())
     {
         return E_NOSPT;
     }
@@ -173,7 +173,7 @@ EXPORT ER s3_configure_raw(const s3_ir_config_t *p_config)
     if (!BOARD_MOTORS_DISABLED) return E_OACV;
     if (p_config == NULL || !s3_ir_config_valid(p_config) || p_config->mode == S3_IR_DISABLED)
         return E_PAR;
-    if (p_config->mode == S3_IR_ADC && !s3_adc_available()) return E_NOSPT;
+    if (p_config->mode >= S3_IR_ADC && !s3_adc_available()) return E_NOSPT;
     er = lock();
     if (er < E_OK) return er;
     if (started) { (void)unlock(); return E_OBJ; }
@@ -686,6 +686,9 @@ EXPORT ER s3_service_once(void)
         }
     }
     status.output = output;
+    status.barcode_diagnostics = core.barcode_diagnostics;
+    status.capture_runs=core.barcode.count;
+    status.capture_state=(uint8_t)core.barcode.state;
     status.output.event = (s3_event_t){0}; /* Events are consumed only via MBF. */
     status.sample = (acquisition == E_OK) ? sample : (s3_sample_t){0};
     status.sample.time_ms = sample.time_ms;

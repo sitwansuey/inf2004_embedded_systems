@@ -146,6 +146,7 @@ def run_codec_tests(compiler: str) -> None:
             subprocess.run([compiler,"-std=c99","-Wall","-Wextra","-Werror",
                 str(ROOT / "app_program/subsystem1/tests/host" / (name+".c")),
                 str(ROOT / "app_program/subsystem1/telemetry_codec.c"),
+                str(ROOT / "app_program/barcode_route.c"),
                 "-o",str(executable)],check=True)
             subprocess.run([str(executable)],check=True)
 

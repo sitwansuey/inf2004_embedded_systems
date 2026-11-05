@@ -5,10 +5,15 @@
 
 IMPORT void cyw43_utk_task(INT stacd, void *exinf);
 
-/* USB CDC drains at priority 3 on the same physical core.  Keep radio polling
- * below it so firmware download and the 2 ms poll cadence cannot overflow the
- * console ring, while remaining well above the qualification task. */
+/* The barcode profile has a 20ms ADC conversion / 30ms delivery deadline.
+ * Put radio/DHCP/MQTT work below the sampler (16) and worker (17), so network
+ * reconnect processing cannot starve a pending scan. USB remains at 3;
+ * vehicle/motor priorities are unchanged. Other profiles retain priority 4. */
+#if BOARD_BARCODE_DEMO || BOARD_WHEEL_CAL_BENCH
+#define CYW43_TASK_PRIORITY  18
+#else
 #define CYW43_TASK_PRIORITY  4
+#endif
 #if TM_NET_LWIP
 /* lwIP's own call chains (tcp_input/dhcp/etharp) run on this same task and
  * go deeper than the bare radio poll loop did. */

@@ -1,5 +1,10 @@
 # INF2004 CSC02 robot firmware
 
+This branch preserves the restored 5 November barcode-course checkpoint.
+See [the current barcode profile](CURRENT_BARCODE_PROFILE.md) for its measured
+wheel PI, 20% dashboard Start, digital GP28 polling and exact build command.
+The generic default and older bench profiles described below are separate.
+
 Pico W / RP2040 firmware using micro T-Kernel 3 SMP. See TEAM.md for hardware
 ownership and task/interface responsibilities. The current implementation
 includes the five subsystems, controller, binary telemetry and dashboard.
@@ -59,7 +64,7 @@ explicit lengths, validity/fault flags, operating time, STOP and lease behavior.
 
 Dashboard: run `python app_program/external_systems/Dashboard/dashboard.py --broker YOUR_BROKER`
 after installing that folder's requirements. It subscribes to
-`Robopico/sensors/edr16/v1`; readings expire after one second. ID 0 carries
+`Robopico/sensors/edr16/v2`; readings expire after one second. ID 0 carries
 mission status, while sensor IDs 1-15 retain their meanings. See
 [the complete wire contract](docs/DATA_REPRESENTATION.md).
 

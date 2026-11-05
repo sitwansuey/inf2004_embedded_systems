@@ -13,10 +13,17 @@ static jmp_buf finished;
 static UW clock_ms, read_delay, sample_age, line_stamp;
 static unsigned clock_reads, packets;
 static BOOL copy_failure, clock_failure;
+static BOOL ir_copy_failure;
 static BOOL bad_s4_record;
 static BOOL bad_s5_fields;
 static int32_t test_speed;
 static int64_t decoded[TEL_FIELD_COUNT];
+static unsigned diagnostic_packets;
+static uint8_t diagnostic_wire[BARCODE_DIAGNOSTIC_BYTES];
+int s1_diagnostic_offer(const unsigned char *data,unsigned length) {
+    REQUIRE(length==BARCODE_DIAGNOSTIC_BYTES);
+    memcpy(diagnostic_wire,data,length);++diagnostic_packets;return E_OK;
+}
 
 ER tk_get_otm(SYSTIM *time)
 {
@@ -41,7 +48,12 @@ ER s2_encoder_get_status(s2_encoder_status_t *state)
 { *state=(s2_encoder_status_t){.valid=1};return E_OK; }
 ER s3_status_get(s3_status_t *state)
 {
+    if(ir_copy_failure)return E_TMOUT;
     *state=(s3_status_t){.configured=1,.acquisition_error=E_OK,.sample_time_ms=line_stamp};
+    state->sample=(s3_sample_t){.time_ms=line_stamp,.valid_mask=7};
+    state->barcode_diagnostics.result_id=7;state->barcode_diagnostics.result_status=6;
+    state->barcode_diagnostics.result_runs=29;state->barcode_diagnostics.runs[0]=40;
+    state->barcode_diagnostics.runs[28]=120;
     return E_OK;
 }
 ER s4_sensor_get_record(s4_sensor_cache_t *state) {
@@ -72,6 +84,11 @@ int main(void)
 {
     read_delay=10;sample_age=0;line_stamp=1000;
     capture();
+#if BOARD_BARCODE_DEMO
+    REQUIRE(diagnostic_packets==1 && diagnostic_wire[0]==0xBC && diagnostic_wire[2]==2);
+    REQUIRE(diagnostic_wire[3]==6 && diagnostic_wire[12]==7 && diagnostic_wire[36]==29);
+    REQUIRE(diagnostic_wire[76]==40 && diagnostic_wire[188]==120 && (diagnostic_wire[69]&16));
+#endif
     REQUIRE(packets==1 && decoded[TEL_TIME_MS]==1010);
     REQUIRE((decoded[TEL_AVAILABLE]&16)!=0 && decoded[TEL_DISTANCE_MM]==400);
     REQUIRE((decoded[TEL_AVAILABLE]&96)==96 && decoded[TEL_PITCH_CDEG]==1234 &&
@@ -100,6 +117,12 @@ int main(void)
     copy_failure=FALSE;clock_failure=TRUE;
     capture();
     REQUIRE(packets==0); /* no publication with an unusable age reference */
+#if BOARD_BARCODE_DEMO
+    clock_failure=FALSE;ir_copy_failure=TRUE;read_delay=1500;
+    unsigned before=diagnostic_packets;capture();
+    REQUIRE(diagnostic_packets==before+1 && diagnostic_wire[12]==7 && diagnostic_wire[3]==6);
+    REQUIRE(!(diagnostic_wire[69]&16) && diagnostic_wire[52]==206 && diagnostic_wire[55]==255);
+#endif
     puts("INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
     return 0;
 }

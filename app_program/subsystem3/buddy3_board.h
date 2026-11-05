@@ -34,22 +34,17 @@
 #ifndef BOARD_BARCODE_SENSOR
 #define BOARD_BARCODE_SENSOR 2
 #endif
+#ifndef BOARD_IR_CENTER_WHITE
+#define BOARD_IR_CENTER_WHITE 0
+#endif
+#ifndef BOARD_BARCODE_MIN_RUN_MS
+#define BOARD_BARCODE_MIN_RUN_MS 20U
+#endif
+#ifndef BOARD_BARCODE_RETRY
+#define BOARD_BARCODE_RETRY 0
+#endif
 #ifndef BOARD_IR_POSITIONS
 #define BOARD_IR_POSITIONS {1000,-1000,0}
 #endif
-#ifndef BOARD_MAP_A
-#define BOARD_MAP_A 1
-#endif
-#ifndef BOARD_MAP_B
-#define BOARD_MAP_B 2
-#endif
-#ifndef BOARD_MAP_C
-#define BOARD_MAP_C 3
-#endif
-#ifndef BOARD_MAP_D
-#define BOARD_MAP_D 4
-#endif
-#ifndef BOARD_MAP_Z
-#define BOARD_MAP_Z 0
-#endif
+
 #endif

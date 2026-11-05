@@ -11,8 +11,7 @@ EXPORT void subsystem3_test(void)
     s3_config_defaults(&config);
     TEST_CHECK("S3-U02", s3_normalize(4095U, 0U, 4095U, 4095U, &value) &&
                (value == 1000U), "pure reflectance endpoint");
-    TEST_CHECK("S3-U03", s3_config_valid(&config) &&
-               (config.map_a == S3_NAV_NONE) && (config.map_z == S3_NAV_NONE),
+    TEST_CHECK("S3-U03", s3_config_valid(&config),
                "no unverified navigation mapping");
     TEST_SUMMARY("subsystem3");
 }

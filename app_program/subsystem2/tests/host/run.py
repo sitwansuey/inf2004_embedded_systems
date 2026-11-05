@@ -64,12 +64,12 @@ def run_tests(compiler: str) -> None:
         subsystem.mkdir()
         shared.mkdir()
 
-        for filename in ("app.h", "board_pins.h", "subsystem2_host_test.c"):
+        for filename in ("app.h", "board_pins.h", "subsystem2_host_test.c", "pid_cap_test.c"):
             shutil.copy2(HERE / filename, temporary / filename)
         shutil.copy2(HERE / "tk/syslib.h", temporary / "tk/syslib.h")
         for filename in (
             "subsystem2.c", "subsystem2.h", "subsystem2_test.c",
-            "s2_data.c", "s2_data.h", "speed_pid.h",
+            "s2_data.c", "s2_data.h", "speed_pid.h", "wheel_steering.h",
         ):
             shutil.copy2(SUBSYSTEM / filename, subsystem / filename)
         for filename in ("edr.c", "edr.h", "encoder_snapshot.h"):
@@ -96,6 +96,20 @@ def run_tests(compiler: str) -> None:
             print(f"RUN Buddy 2 {name}", flush=True)
             subprocess.run([str(executable)], cwd=temporary, check=True)
             print(f"PASS Buddy 2 {name}", flush=True)
+
+        executable = temporary / ("pid-cap.exe" if os.name == "nt" else "pid-cap")
+        subprocess.run([
+            compiler_path, "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wpedantic",
+            "-DAPP_TEST=0", "-DAPP_S2_ONLY=0", "-DS2_ENCODER_ENABLED=1",
+            "-DS2_COMMAND_TIMEOUT_MS=150", "-DBOARD_PID_ENABLED=1",
+            "-DBOARD_DRIVE_POWER_CAP=30", "-DBOARD_PID_MAX_POWER=50",
+            "-DBOARD_PID_MAX_CPS=2500", "-DBOARD_PID_KP_MILLI=1000",
+            "-DBOARD_PID_KI_MILLI=0", "-DBOARD_PID_KD_MILLI=0",
+            "-I", str(temporary), str(temporary / "pid_cap_test.c"),
+            str(subsystem / "subsystem2_test.c"), str(subsystem / "s2_data.c"),
+            str(shared / "edr.c"), "-o", str(executable),
+        ], cwd=temporary, check=True)
+        subprocess.run([str(executable)], cwd=temporary, check=True)
 
 
 def main() -> int:

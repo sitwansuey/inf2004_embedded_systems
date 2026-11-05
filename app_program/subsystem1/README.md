@@ -8,7 +8,7 @@ mailbox copies these records to the existing single network owner.
 `telemetry_edr.h` translates that snapshot to independent uint16 readings:
 low four bits identify the source, upper twelve bits hold data. Each MQTT
 publication contains exactly two little-endian bytes on
-`Robopico/sensors/edr16/v1`. IDs 1/2 are the wheel encoders; ID 0 carries mission
+`Robopico/sensors/edr16/v2`. IDs 1/2 are the wheel encoders; ID 0 carries mission
 status subtypes. No old envelope or 50-byte aggregate is published.
 
 The network service sends at most four messages per poll and retries the same

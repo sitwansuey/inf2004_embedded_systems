@@ -110,8 +110,8 @@
   {
     "name": "barcode",
     "min": 0,
-    "max": 5,
-    "bits": 3
+    "max": 26,
+    "bits": 5
   },
   {
     "name": "navigation",

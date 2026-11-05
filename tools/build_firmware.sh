@@ -22,6 +22,7 @@ options=()
 case "$profile" in
     Default) ;;
     Mqtt) test -f "$repo/config/wifi_secrets.h" || { echo 'Create your local config/wifi_secrets.h from its example first'; exit 1; }; options=(NET=lwip MQTT=1);;
+    BarcodeDemo) test -f "$repo/config/wifi_secrets.h" || { echo 'Configure config/wifi_secrets.h first'; exit 1; }; options=(NET=lwip MQTT=1 BARCODE_DEMO=1 S2_COMMAND_TIMEOUT_MS=150);;
     PassiveTest) options=(TEST=1);;
     SingleCore) options=(SMP=0);;
     Uart) options=(CONSOLE=uart WIFI=none);;

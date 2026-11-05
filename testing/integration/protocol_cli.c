@@ -17,7 +17,9 @@ int main(void) {
         uint8_t saved=p[0];p[0]|=0x0F; /* version is reserved except encoded value zero */
         if(telemetry_decode(p,again))return 5;
         p[0]=saved;
-        p[TELEMETRY_BYTES-1]|=0x80;
+        /* All 400 bits are occupied. The final two bits encode motor_error;
+         * value 3 is invalid (0..2), rather than an obsolete padding check. */
+        p[TELEMETRY_BYTES-1]|=0xc0;
         if(telemetry_decode(p,again))return 6;
     }
     return 0;

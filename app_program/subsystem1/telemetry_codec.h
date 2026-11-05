@@ -2,7 +2,7 @@
 #define CSC02_TELEMETRY_CODEC_H
 #include <stdint.h>
 #include <stdbool.h>
-#define TELEMETRY_BITS 398U
+#define TELEMETRY_BITS 400U
 #define TELEMETRY_BYTES 50U
 enum {
     TEL_VERSION,

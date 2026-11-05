@@ -40,6 +40,7 @@ bool s3_line_config_valid(const s3_line_config_t *p_config)
 
     if ((p_config == NULL) || (p_config->raw_max == 0U) ||
         (p_config->line_mask == 0U) || (p_config->line_mask > S3_SENSOR_MASK) ||
+        (p_config->center_white && p_config->line_mask != 3U) ||
         (p_config->threshold_low >= p_config->threshold_high) ||
         (p_config->threshold_high > 1000U) || (p_config->lost_ms == 0U) ||
         (p_config->recovery_ms == 0U) ||
@@ -133,6 +134,9 @@ void s3_line_update(s3_line_t *p_line, const s3_line_config_t *p_config,
     p_result->black_mask = active;
     if (active == 0U)
     {
+        if (p_config->center_white) {
+            p_line->missing=false;p_result->state=S3_LINE_TRACKING;return;
+        }
         uint32_t elapsed;
         if (!p_line->missing)
         {

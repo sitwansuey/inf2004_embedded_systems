@@ -10,7 +10,6 @@ static void setup(void)
     cfg.algorithms.line.raw_max = 1U;
     cfg.algorithms.line.line_mask = 3U;
     cfg.algorithms.barcode_sensor = 2U;
-    cfg.algorithms.map_a = S3_NAV_LEFT; /* Explicitly a test mapping only. */
     cfg.ir.mode = S3_IR_DIGITAL;
     for (i = 0U; i < 3U; ++i)
     {
@@ -170,13 +169,13 @@ static void test_event_handoff_and_staleness(void)
 {
     s3_event_record_t record;
     setup(); marker();
-    CHECK(queue_count == 1U && !status.output.steering_allowed);
+    CHECK(queue_count == 1U && status.output.steering_allowed);
     CHECK(s3_event_receive(&record) == E_OK);
-    CHECK(record.event.kind == S3_EVENT_NAVIGATION && record.event.symbol == 'A');
-    CHECK(record.event.command == S3_NAV_LEFT);
+    CHECK(record.event.kind == S3_EVENT_BARCODE && record.event.symbol == 'A');
+    CHECK(record.event.command == S3_NAV_NONE);
     CHECK(s3_event_receive(&record) == E_TMOUT && record.event.kind == S3_EVENT_NONE);
     CHECK(s3_controller_renew(1000U) == E_OK);
-    CHECK((core.mode == S3_MODE_TRACK) && core.awaiting_controller); /* Renewal cannot resume. */
+    CHECK((core.mode == S3_MODE_TRACK) && !core.awaiting_controller); /* Renewal cannot resume. */
     CHECK(s3_controller_control(S3_MODE_TRACK, false, 1000U) == E_OK);
     marker(); CHECK(queue_count == 0U); /* Same physical marker, no rearm. */
     CHECK(s3_controller_control(S3_MODE_TRACK, true, 1000U) == E_OK);

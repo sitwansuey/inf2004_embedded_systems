@@ -8,8 +8,6 @@
 #define BOARD_IR_LINE_MASK 3 /* GP26 right + GP27 left, confirmed physical roles */
 #define BOARD_BARCODE_SENSOR 2 /* GP28 is dedicated barcode; S3 array index 2 */
 #define BOARD_IR_POSITIONS {1000,-1000,0} /* logical units, not measured spacing */
-#define BOARD_MAP_A 0
-#define BOARD_MAP_Z 0 /* set only from the actual command codebook */
 #define BOARD_IR_ADC_CALIBRATED 0
 #define BOARD_IR_ADC_WHITE {0,0,0}
 #define BOARD_IR_ADC_BLACK {0,0,0} /* replace with measured endpoints */

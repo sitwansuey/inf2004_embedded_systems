@@ -40,7 +40,7 @@ static inline bool telemetry_edr_record(const int64_t v[TEL_FIELD_COUNT],
         unsigned subtype=index-15U;id=0;
         switch(subtype) {
         case 0: data=(unsigned)v[TEL_PHASE]|((unsigned)v[TEL_FAULT]<<4U);break;
-        case 1: data=(unsigned)v[TEL_BARCODE]|((unsigned)v[TEL_NAVIGATION]<<3U);break;
+        case 1: data=(unsigned)v[TEL_BARCODE]|((unsigned)v[TEL_NAVIGATION]<<5U);break;
         case 2: if (!(available&4U))return false; data=(unsigned)v[TEL_LINE_STATE]|((unsigned)v[TEL_BLACK_MASK]<<3U);break;
         case 3: if (!(available&32U))return false; data=(unsigned)(v[TEL_PITCH_CDEG]/100+128);break;
         case 4: if (!(available&32U))return false; data=(unsigned)(v[TEL_ROLL_CDEG]/200+128);break;

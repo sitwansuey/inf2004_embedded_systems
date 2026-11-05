@@ -19,6 +19,12 @@ const context={document,window:{},location:{protocol:'file:'},console,Date};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'dashboard.js'),'utf8'),context);
 const snapshot=JSON.parse(fs.readFileSync(0,'utf8'));
+if(snapshot.barcode_diagnostics){
+  context.window.dashboard.receiveBarcodeDiagnostic(snapshot.barcode_diagnostics,0);
+  const diagnostic=elements.get('barcode-diagnostics').textContent;
+  assert.ok(diagnostic.includes('pattern') && diagnostic.includes('Z') && diagnostic.includes('29 / 29'));
+  assert.ok(elements.get('barcode-widths').textContent.includes('40, 120, 40'));
+}
 assert.equal(JSON.stringify(context.window.dashboard.subscriptions),JSON.stringify([snapshot.mqtt_topic]));
 for(const m of snapshot.messages) assert.equal(context.window.dashboard.receiveMqtt(m.topic,m.payload),true);
 function walk(node){return [node,...node.children.flatMap(walk)];}

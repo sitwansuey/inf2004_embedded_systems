@@ -39,7 +39,8 @@ typedef enum
     S3_EVENT_NAVIGATION,
     S3_EVENT_RECOVERY_REQUEST,
     S3_EVENT_STOP_REQUEST,
-    S3_EVENT_FAULT
+    S3_EVENT_FAULT,
+    S3_EVENT_BARCODE /* Decoded A-Z observation; route belongs to controller. */
 } s3_event_kind_t;
 
 typedef struct
@@ -57,10 +58,25 @@ typedef struct
     s3_barcode_config_t barcode;
     uint8_t barcode_sensor; /* Must not also be in line.line_mask. */
     uint32_t max_sample_gap_ms;
-    s3_navigation_t map_a;
-    s3_navigation_t map_z;
-    s3_navigation_t map_b, map_c, map_d;
+    bool barcode_retry; /* Invalid candidates rearm on fresh white; no drive fault. */
 } s3_config_t;
+
+typedef struct
+{
+    uint32_t rejected_count;
+    uint32_t rejected_ms;
+    uint32_t rejected_runs;
+    uint32_t max_run_ms;
+    uint8_t status; /* Last s3_barcode_status_t; retained for slow telemetry. */
+    bool junction_abort;
+    /* Retain the last complete result through retries, pause and slow Wi-Fi. */
+    uint32_t result_id,result_ms,started_ms,result_runs,result_max_run_ms,max_gap_ms,decoded_count;
+    uint32_t runs[S3_BARCODE_RUN_COUNT];
+    char symbol;
+    uint8_t result_status;
+    uint8_t result_line_mask;
+    bool reverse,result_junction_abort;
+} s3_barcode_diagnostics_t;
 
 typedef struct
 {
@@ -78,6 +94,8 @@ typedef struct
     uint8_t error : 3;
     uint8_t steering_allowed : 1;
     uint8_t awaiting_controller : 1;
+    uint8_t barcode_scanning : 1;
+    uint8_t barcode_white : 1;
 } s3_output_t;
 
 typedef struct
@@ -95,6 +113,8 @@ typedef struct
     bool awaiting_controller;
     bool recovery_sent;
     bool stop_sent;
+    uint32_t barcode_max_gap_ms;
+    s3_barcode_diagnostics_t barcode_diagnostics;
 } s3_core_t;
 
 /* Defaults are testable algorithm settings, not hardware claims. No mapping. */

@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][string]$PicoSdkPath,
-    [ValidateSet('Default','Mqtt','PassiveTest','SingleCore','Uart','S2Bench','S4Bench','IRRawAdc','IRRawDigital','IRCalibrated','IRBarcodeCapture','IRMotorScan','IRLineTrace','IRLineOnly','IRContinuous')]
+    [ValidateSet('Default','Mqtt','BarcodeDemo','PassiveTest','SingleCore','Uart','S2Bench','S4Bench','IRRawAdc','IRRawDigital','IRCalibrated','IRBarcodeCapture','IRMotorScan','IRLineTrace','IRLineOnly','IRContinuous')]
     [string]$Profile='Default',
     [string]$Distribution='Ubuntu',
     [ValidateSet('WSL','Native')][string]$Backend='WSL',

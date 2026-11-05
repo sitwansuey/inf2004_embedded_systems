@@ -17,8 +17,6 @@ int main(void)
     CHECK(cfg.line.line_mask == 3U && cfg.barcode_sensor == 2U);
     CHECK(cfg.line.position[0] == 1000 && cfg.line.position[1] == -1000);
     CHECK((cfg.line.line_mask & (1U << cfg.barcode_sensor)) == 0U);
-    CHECK(cfg.map_a == S3_NAV_LEFT && cfg.map_z == S3_NAV_NONE);
-    CHECK(cfg.map_b == S3_NAV_RIGHT && cfg.map_c == S3_NAV_STRAIGHT && cfg.map_d == S3_NAV_UTURN);
     CHECK(s3_config_valid(&cfg));
 
     s3_line_reset(&line); raw[0]=4095U;

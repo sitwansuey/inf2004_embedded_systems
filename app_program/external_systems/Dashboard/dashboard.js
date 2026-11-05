@@ -15,7 +15,7 @@ const groups = [
   ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence','quality','available','dropped']]
 ];
 // Topic names are case-sensitive. Keep the two roots exactly as agreed.
-const wireTopic = 'Robopico/sensors/edr16/v1';
+const wireTopic = 'Robopico/sensors/edr16/v2';
 const topicRoots = { sensors: 'Robopico/sensors', actuators: 'Robopico/Actuators' };
 const sectionTopics = {
   'Left IR': ['sensors','left_ir'],
@@ -118,6 +118,26 @@ window.dashboard={
 render();
 
 // Python owns the MQTT TCP subscription; the browser polls latest readings.
+function renderBarcodeDiagnostic(d,age) {
+  const fields=el('barcode-diagnostics');fields.replaceChildren();
+  if(!d){el('barcode-report').textContent='Waiting for scan reports.';el('barcode-widths').textContent='';return;}
+  el('barcode-report').textContent=age!==null && age<3
+    ? `Report ${d.sequence} · robot time ${(d.time_ms/1000).toFixed(2)}s`
+    : 'Last scan report retained; waiting for a fresh report.';
+  const entries=[['Stored instruction',d.stored_symbol||'None'],
+    ['Last completed scan',d.result_id?d.reason:'None yet'],['Decoded letter',d.decoded_symbol||'None'],
+    ['Scan direction',d.decoded_symbol?(d.reverse?'Reverse':'Forward'):'Unavailable'],
+    ['Current capture',d.capture_state],['Completed pulse count',`${d.run_count} / 29`],
+    ['Requested scan correction',d.scan_line_correction||'none'],
+    ['Capture pulse count',d.capture_runs],['Decoded / rejected',`${d.decoded_count} / ${d.rejected_count}`],
+    ['GP28',d.fresh_ir?(d.black?'BLACK':'WHITE'):'Unavailable'],
+    ['Largest scan sample gap',`${d.max_gap_ms} ms`],['Acquisition error',d.acquisition_error],
+    ['Algorithm error',d.algorithm_error],['Junction interrupted scan',d.junction_abort?'Yes':'No'],
+    ['Dropped diagnostic reports',d.dropped]];
+  for(const [label,value] of entries){const row=text(fields,'div','');text(row,'dt',label);text(row,'dd',String(value));}
+  el('barcode-widths').textContent=d.runs_ms.length?`Completed run widths (ms): ${d.runs_ms.join(', ')}`:'No completed pulse data yet.';
+}
+window.dashboard.receiveBarcodeDiagnostic=renderBarcodeDiagnostic;
 if(location.protocol==='http:' || location.protocol==='https:') {
   let lastSequence=0, receiverId=null;
   async function pollBroker() {
@@ -125,6 +145,11 @@ if(location.protocol==='http:' || location.protocol==='https:') {
       const response=await fetch('/api/telemetry',{cache:'no-store'});
       if(!response.ok)throw new Error('Receiver unavailable');
       const snapshot=await response.json();
+      renderBarcodeDiagnostic(snapshot.barcode_diagnostics,snapshot.barcode_diagnostics_age_s);
+      const mapping=snapshot.movement_mapping;
+      el('movement-map').textContent=mapping
+        ? `Movement map: Forward=${mapping.forward}, U-turn=${mapping.uturn}, Left=${mapping.left}, Right=${mapping.right}${snapshot.mapping_restore_on_reset?' · Reset restores this map after a Pico restart.':''}`
+        : 'Movement map: waiting for confirmation.';
       if(receiverId!==snapshot.receiver_id) {
         if(receiverId!==null)render();
         receiverId=snapshot.receiver_id;

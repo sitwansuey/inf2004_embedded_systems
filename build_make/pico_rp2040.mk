@@ -186,6 +186,45 @@ $(error Continuous test requires line-only profile)
 endif
 IR_SUFFIX := _ircontinuous30
 endif
+BARCODE_DEMO ?= 0
+ifneq ($(filter $(BARCODE_DEMO),0 1),$(BARCODE_DEMO))
+$(error BARCODE_DEMO must be zero or one)
+endif
+ifeq ($(BARCODE_DEMO),1)
+ifneq ($(NET)$(MQTT)$(IR_MOTOR_SCAN),lwip10)
+$(error BarcodeDemo requires NET=lwip MQTT=1 IR_MOTOR_SCAN=0)
+endif
+IR_SUFFIX := _barcodedemo30
+endif
+BARCODE_WHEEL_PI ?= 0
+ifneq ($(filter $(BARCODE_WHEEL_PI),0 1),$(BARCODE_WHEEL_PI))
+$(error BARCODE_WHEEL_PI must be zero or one)
+endif
+ifeq ($(BARCODE_WHEEL_PI),1)
+ifneq ($(BARCODE_DEMO),1)
+$(error BARCODE_WHEEL_PI requires BARCODE_DEMO=1)
+endif
+IR_SUFFIX := _barcodewheelpi30
+endif
+WHEEL_CAL ?= 0
+WHEEL_CAL_PI ?= 0
+ifneq ($(filter $(WHEEL_CAL_PI),0 1),$(WHEEL_CAL_PI))
+$(error WHEEL_CAL_PI must be zero or one)
+endif
+ifeq ($(WHEEL_CAL_PI),1)
+ifneq ($(WHEEL_CAL),1)
+$(error WHEEL_CAL_PI requires WHEEL_CAL=1)
+endif
+endif
+ifneq ($(filter $(WHEEL_CAL),0 1),$(WHEEL_CAL))
+$(error WHEEL_CAL must be zero or one)
+endif
+ifeq ($(WHEEL_CAL),1)
+ifneq ($(NET)$(MQTT)$(BARCODE_DEMO)$(IR_MOTOR_SCAN),lwip100)
+$(error Wheel calibration requires NET=lwip MQTT=1 BARCODE_DEMO=0 IR_MOTOR_SCAN=0)
+endif
+IR_SUFFIX := _wheelcalpid$(WHEEL_CAL_PI)
+endif
 S4_ONLY ?= 0
 ifneq ($(S4_ONLY),0)
 ifneq ($(S4_ONLY),1)
@@ -277,7 +316,7 @@ LFLAGS := -mcpu=cortex-m0plus -mthumb -ffreestanding \
     -O2 -g3 \
     -mfloat-abi=soft \
 
-LNKFILE := "../etc/linker/pico_rp2040/tkernel_map.ld"
+LNKFILE := "../include/etc/linker/pico_rp2040/tkernel_map.ld"
 
 # Applied here, after CFLAGS/ASFLAGS are assigned with ':=', which would
 # otherwise discard anything appended above.
@@ -291,6 +330,13 @@ CFLAGS  += -DS2_COMMAND_TIMEOUT_MS=$(S2_COMMAND_TIMEOUT_MS)
 CFLAGS  += -DAPP_S4_ONLY=$(S4_ONLY)
 ifeq ($(IR_MOTOR_SCAN),1)
 CFLAGS += -DBOARD_IR_MOTOR_SCAN_BENCH=1 -DBOARD_MOTORS_DISABLED=0 -DBOARD_IR_MODE=2
+endif
+ifeq ($(BARCODE_DEMO),1)
+CFLAGS += -DBOARD_BARCODE_DEMO=1
+CFLAGS += -DBOARD_BARCODE_WHEEL_PI=$(BARCODE_WHEEL_PI)
+endif
+ifeq ($(WHEEL_CAL),1)
+CFLAGS += -DBOARD_WHEEL_CAL_BENCH=1 -DBOARD_WHEEL_CAL_PI=$(WHEEL_CAL_PI)
 endif
 ifeq ($(IR_LINE_TRACE),1)
 CFLAGS += -DBOARD_IR_LINE_TRACE_BENCH=1
@@ -346,7 +392,7 @@ endif
 # before any recipe executes.
 ################################################################################
 
-PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)-s2$(S2_ONLY)-enc$(S2_ENCODER_ENABLED)-tmo$(S2_COMMAND_TIMEOUT_MS)-s4$(S4_ONLY)-irraw$(IR_RAW_MODE)-ircal$(IR_CALIBRATED_BENCH)-irbarcode$(IR_BARCODE_CAPTURE)-irmotor$(IR_MOTOR_SCAN)-irline$(IR_LINE_TRACE)-ironly$(IR_LINE_ONLY)-ironlyrev5-cont$(IR_CONTINUOUS)
+PROFILE_ID := smp$(SMP)-$(CONSOLE)-wifi$(WIFI)-net$(NET)-mqtt$(MQTT)-crash$(CRASH_REPORT)-test$(TEST)-s2$(S2_ONLY)-enc$(S2_ENCODER_ENABLED)-tmo$(S2_COMMAND_TIMEOUT_MS)-s4$(S4_ONLY)-irraw$(IR_RAW_MODE)-ircal$(IR_CALIBRATED_BENCH)-irbarcode$(IR_BARCODE_CAPTURE)-irmotor$(IR_MOTOR_SCAN)-irline$(IR_LINE_TRACE)-ironly$(IR_LINE_ONLY)-ironlyrev5-cont$(IR_CONTINUOUS)-barcodedemo$(BARCODE_DEMO)-barcodepi$(BARCODE_WHEEL_PI)-wheelcal$(WHEEL_CAL)-wheelpi$(WHEEL_CAL_PI)
 PROFILE_FILE := .build_profile
 
 ifneq ($(strip $(shell cat $(PROFILE_FILE) 2>/dev/null)),$(PROFILE_ID))

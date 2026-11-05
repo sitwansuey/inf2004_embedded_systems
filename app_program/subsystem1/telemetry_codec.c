@@ -21,7 +21,7 @@ static const field_t fields[TEL_FIELD_COUNT]={
     {0LL,4095LL,12},
     {0LL,7LL,3},
     {-1000LL,1000LL,11},
-    {0LL,5LL,3},
+    {0LL,26LL,5},
     {0LL,4LL,3},
     {-2048LL,2047LL,12},
     {-2048LL,2047LL,12},

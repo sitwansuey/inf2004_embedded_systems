@@ -1,4 +1,4 @@
-/* Code39 A-D navigation plus legacy A/Z samples; board maps select commands. */
+/* Code 39 A-Z symbols, independent of the runtime navigation mapping. */
 #ifndef BUDDY3_BARCODE_H
 #define BUDDY3_BARCODE_H
 
@@ -6,11 +6,12 @@
 #include <stdint.h>
 
 #define S3_BARCODE_RUN_COUNT 29U
+#define S3_BARCODE_MAX_RESYNC_PAIRS 8U
 
 typedef struct
 {
     uint32_t quiet_ms; /* Required blank surface before/after a capture. */
-    uint32_t min_run_ms; /* Reject under-sampled/noisy elements. */
+    uint32_t min_run_ms; /* Optional pulse-duration floor; zero disables it. */
     uint32_t timeout_ms;
 } s3_barcode_config_t;
 
@@ -36,7 +37,7 @@ typedef enum
 
 typedef struct
 {
-    char symbol; /* A/B/C/D or legacy Z on success; zero on any failure. */
+    char symbol; /* A..Z on success; zero on any failure. */
     bool reverse;
 } s3_symbol_t;
 
@@ -49,6 +50,7 @@ typedef struct
     uint32_t started;
     uint32_t max_run;
     uint32_t count;
+    uint32_t resync_pairs; /* Discarded leading black/white pairs; bounded. */
     bool have_sample;
     bool black;
     bool rearm_requested;
@@ -61,6 +63,13 @@ void s3_barcode_init(s3_barcode_t *p_barcode);
 void s3_barcode_abort(s3_barcode_t *p_barcode);
 void s3_barcode_rearm(s3_barcode_t *p_barcode);
 s3_barcode_status_t s3_barcode_feed(s3_barcode_t *p_barcode,
+                                   const s3_barcode_config_t *p_config,
+                                   bool black, uint32_t now_ms,
+                                   s3_symbol_t *p_symbol);
+/* Retry profiles may slide past bounded leading pulse pairs. Same width,
+ * quiet-exit and absolute timeout checks; only a complete *A..Z* is accepted.
+ * The strict feed API above retains immediate overflow rejection. */
+s3_barcode_status_t s3_barcode_feed_resync(s3_barcode_t *p_barcode,
                                    const s3_barcode_config_t *p_config,
                                    bool black, uint32_t now_ms,
                                    s3_symbol_t *p_symbol);

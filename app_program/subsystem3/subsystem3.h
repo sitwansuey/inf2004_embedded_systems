@@ -55,6 +55,9 @@ typedef struct
     uint32_t generation;
     ER acquisition_error;
     bool configured;
+    s3_barcode_diagnostics_t barcode_diagnostics;
+    uint32_t capture_runs;
+    uint8_t capture_state;
 #if defined(BOARD_IR_MOTOR_SCAN_BENCH) && BOARD_IR_MOTOR_SCAN_BENCH
     s3_barcode_bench_status_t bench;
 #endif

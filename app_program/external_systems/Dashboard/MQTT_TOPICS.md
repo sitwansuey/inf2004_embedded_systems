@@ -1,6 +1,6 @@
 # One MQTT topic, multiple dashboard fields
 
-**Subscribed wire topic:** `Robopico/sensors/edr16/v1`
+**Subscribed wire topic:** `Robopico/sensors/edr16/v2`
 
 Each payload is exactly two bytes, low byte first. `(word & 15)` identifies the
 reading; `(word >> 4)` supplies the data. The receiver validates before storing

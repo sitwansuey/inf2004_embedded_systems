@@ -55,7 +55,8 @@ int main(void) {
     i.front_clear=0;vc_step(&s,&i);assert(!s.command);
     i.front_clear=1;i.yaw_mdeg=30000;vc_step(&s,&i);assert(!s.command);
     vc_step(&s,&i);assert(s.command==4); /* sweep across, not endless turn */
-    i.line_detected=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
+    i.line_detected=1;vc_step(&s,&i);assert(s.line_settling);
+    i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
     i.line_detected=0;i.steering=1;i.recovery_event=1;vc_step(&s,&i);
     i.recovery_event=0;i.steering=0;i.now_ms+=4000;vc_step(&s,&i);
     assert(s.phase==VC_FAULT && !s.armed && !s.command);

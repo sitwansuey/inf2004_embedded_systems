@@ -29,21 +29,13 @@ void s3_config_defaults(s3_config_t *p_config)
     p_config->max_sample_gap_ms = 30U;
 }
 
-static bool navigation_valid(s3_navigation_t command)
-{
-    return (unsigned int)command <= (unsigned int)S3_NAV_UTURN;
-}
-
 bool s3_config_valid(const s3_config_t *p_config)
 {
     if ((p_config == NULL) || !s3_line_config_valid(&p_config->line) ||
         !s3_barcode_config_valid(&p_config->barcode) ||
         (p_config->barcode_sensor > S3_NO_BARCODE) ||
         (p_config->max_sample_gap_ms == 0U) ||
-        (p_config->max_sample_gap_ms > INT32_MAX) ||
-        !navigation_valid(p_config->map_a) || !navigation_valid(p_config->map_z) ||
-        !navigation_valid(p_config->map_b) || !navigation_valid(p_config->map_c) ||
-        !navigation_valid(p_config->map_d))
+        (p_config->max_sample_gap_ms > INT32_MAX))
     {
         return false;
     }
@@ -128,6 +120,38 @@ static void fault(s3_core_t *p_core, s3_output_t *p_output,
     p_output->awaiting_controller = true;
 }
 
+static void record_result(s3_core_t *p_core,s3_barcode_status_t status,
+                          uint32_t now_ms,bool junction_abort,const s3_symbol_t *symbol)
+{
+    s3_barcode_diagnostics_t *d=&p_core->barcode_diagnostics;
+    ++d->result_id;d->result_ms=now_ms;d->started_ms=p_core->barcode.started;
+    d->result_runs=p_core->barcode.count;d->result_max_run_ms=p_core->barcode.max_run;
+    d->max_gap_ms=p_core->barcode_max_gap_ms;d->result_status=(uint8_t)status;
+    d->result_line_mask=(uint8_t)(p_core->line.black_mask & p_core->config.line.line_mask);
+    d->result_junction_abort=junction_abort;d->symbol=symbol?symbol->symbol:0;
+    d->reverse=symbol && symbol->reverse;
+    memcpy(d->runs,p_core->barcode.runs,sizeof(d->runs));
+}
+static void rejected(s3_core_t *p_core, s3_barcode_status_t status,
+                     uint32_t now_ms, bool junction_abort)
+{
+    s3_barcode_diagnostics_t *d = &p_core->barcode_diagnostics;
+    ++d->rejected_count;
+    d->rejected_ms = now_ms;
+    d->rejected_runs = p_core->barcode.count;
+    d->max_run_ms = p_core->barcode.max_run;
+    d->status = (uint8_t)status;
+    d->junction_abort = junction_abort;
+    record_result(p_core,status,now_ms,junction_abort,NULL);
+}
+
+static void retry_after_white(s3_core_t *p_core, uint32_t now_ms)
+{
+    /* No immediate suffix retry: a fresh white quiet interval is required. */
+    p_core->barcode.last_edge = now_ms;
+    s3_barcode_rearm(&p_core->barcode);
+}
+
 void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
                    s3_output_t *p_output)
 {
@@ -147,6 +171,9 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
         return;
     }
     elapsed = p_sample->time_ms - p_core->last_sample;
+    if(p_core->have_sample && p_core->mode==S3_MODE_TRACK &&
+       p_core->barcode.state==S3_CAPTURE_RUNNING && elapsed>p_core->barcode_max_gap_ms)
+        p_core->barcode_max_gap_ms=elapsed;
     p_core->last_sample = p_sample->time_ms;
     if (p_core->have_sample &&
         ((elapsed == 0U) || (elapsed > p_core->config.max_sample_gap_ms)))
@@ -194,6 +221,7 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
             fault(p_core, p_output, S3_ERROR_SENSOR, p_sample->time_ms);
             return;
         }
+        p_output->barcode_white = darkness <= p_core->config.line.threshold_low;
         if (darkness >= p_core->config.line.threshold_high)
         {
             p_core->barcode_black = true;
@@ -228,44 +256,65 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
             p_core->awaiting_controller = true;
         }
     }
-    if ((p_output->line.state != S3_LINE_TRACKING) ||
+    /* Once GP28 has started a capture, a both-black line indication must not
+     * truncate it. The course controller holds that junction until clearance.
+     * Strict profiles, lost line, pause and actual faults retain their gates. */
+    bool capture_at_junction=p_core->config.barcode_retry &&
+        p_core->config.line.line_mask==3U && p_output->line.state==S3_LINE_JUNCTION &&
+        p_output->line.black_mask==3U && p_core->barcode.state==S3_CAPTURE_RUNNING;
+    if (((p_output->line.state != S3_LINE_TRACKING) && !capture_at_junction) ||
         p_core->awaiting_controller || (p_core->latched_error != S3_ERROR_NONE))
     {
-        s3_barcode_abort(&p_core->barcode);
+        if (p_core->config.line.line_mask == 3U &&
+            p_output->line.state == S3_LINE_JUNCTION &&
+            p_output->line.black_mask == 3U &&
+            !p_core->awaiting_controller && p_core->latched_error == S3_ERROR_NONE &&
+            p_core->barcode.state == S3_CAPTURE_HOLD)
+        {
+            /* A completed marker may be rearmed before the car has left the
+             * junction. Keep that directive, but require a fresh white quiet
+             * interval after clearance. Active retry captures continue below. */
+            p_core->barcode.have_sample = false;
+        }
+        else
+        {
+            bool retry = p_core->config.barcode_retry &&
+                         p_output->line.state == S3_LINE_JUNCTION &&
+                         p_core->latched_error == S3_ERROR_NONE &&
+                         !p_core->awaiting_controller &&
+                         p_core->barcode.state == S3_CAPTURE_RUNNING;
+            if (retry) rejected(p_core, S3_BARCODE_INCOMPLETE, p_sample->time_ms, true);
+            s3_barcode_abort(&p_core->barcode);
+            if (retry) retry_after_white(p_core, p_sample->time_ms);
+        }
     }
     else if (barcode_sensor != S3_NO_BARCODE)
     {
-        p_output->barcode_status = (uint8_t)((unsigned)s3_barcode_feed(&p_core->barcode,
+        bool was_running=p_core->barcode.state==S3_CAPTURE_RUNNING;
+        p_output->barcode_status = (uint8_t)((unsigned)(p_core->config.barcode_retry ?
+                                                  s3_barcode_feed_resync : s3_barcode_feed)(&p_core->barcode,
                                                   &p_core->config.barcode,
                                                   p_core->barcode_black,
                                                   p_sample->time_ms,
                                                   &p_output->decoded) & 7U);
+        if(!was_running && p_core->barcode.state==S3_CAPTURE_RUNNING)
+            p_core->barcode_max_gap_ms=elapsed;
         if (p_output->barcode_status == S3_BARCODE_OK)
         {
-            s3_navigation_t command = S3_NAV_NONE;
-            switch (p_output->decoded.symbol) {
-                case 'A': command=p_core->config.map_a; break;
-                case 'B': command=p_core->config.map_b; break;
-                case 'C': command=p_core->config.map_c; break;
-                case 'D': command=p_core->config.map_d; break;
-                case 'Z': command=p_core->config.map_z; break;
-                default: break;
-            }
-            if (command != S3_NAV_NONE)
-            {
-                event(p_core, p_output, S3_EVENT_NAVIGATION, p_sample->time_ms);
-                p_output->event.command = (uint8_t)((unsigned)command & 7U);
-                p_output->event.symbol = p_output->decoded.symbol;
-                p_core->awaiting_controller = true;
-            }
-            else
-            {
-                p_output->error = S3_ERROR_UNMAPPED;
-            }
+            ++p_core->barcode_diagnostics.decoded_count;
+            record_result(p_core,S3_BARCODE_OK,p_sample->time_ms,false,&p_output->decoded);
+            /* Reading a marker must not stop or turn the car. The controller
+             * stores this symbol until the next confirmed cross-junction. */
+            event(p_core, p_output, S3_EVENT_BARCODE, p_sample->time_ms);
+            p_output->event.symbol = p_output->decoded.symbol;
         }
         else if (p_output->barcode_status != S3_BARCODE_NONE)
         {
-            fault(p_core, p_output, S3_ERROR_BARCODE, p_sample->time_ms);
+            rejected(p_core, (s3_barcode_status_t)p_output->barcode_status,
+                     p_sample->time_ms, false);
+            if (p_core->config.barcode_retry)
+                retry_after_white(p_core, p_sample->time_ms);
+            else fault(p_core, p_output, S3_ERROR_BARCODE, p_sample->time_ms);
         }
     }
     /* Both front sensors on black is a traversable junction. Keep the
@@ -276,6 +325,7 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
                                   p_output->line.black_mask == 3U)) &&
                                  !p_core->awaiting_controller &&
                                  (p_core->latched_error == S3_ERROR_NONE);
+    p_output->barcode_scanning = p_core->barcode.state == S3_CAPTURE_RUNNING;
     p_output->awaiting_controller = p_core->awaiting_controller;
     if (p_core->latched_error != S3_ERROR_NONE)
     {

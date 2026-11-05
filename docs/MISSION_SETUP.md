@@ -4,6 +4,11 @@ The default firmware intentionally boots DISARMED with motors locked. Software
 changes cannot establish wheel dimensions, sensor mounting, PID tuning or track
 performance. Do not copy synthetic test constants into the hardware profile.
 
+For the motor-enabled open-loop line/barcode-only build, use the **BarcodeDemo**
+profile described in [BARCODE_DEMO.md](BARCODE_DEMO.md). Its 30% cap, white-centre
+layout and MQTT-gated automatic start are separate from the default integrated
+mission below; it does not require PID, terrain or ultrasonic-bypass calibration.
+
 ## Local calibration
 
 Use ignored `app_program/robot_config.local.h`. An autonomous mission requires:
@@ -55,13 +60,20 @@ start authorization and requires RESET before accepting ARM/START. An already
 running autonomous mission continues through a telemetry disconnect; timed ARM
 still expires locally. Both modes retain controller-to-motor watchdog renewal.
 The Python dashboard is read-only and subscribes only to
-`Robopico/sensors/edr16/v1`; it does not send driving commands.
+`Robopico/sensors/edr16/v2`; it does not send driving commands.
 
 ## Navigation and completion evidence
 
-The Code39 decoder supports A, B, C, D and legacy Z in either travel direction.
-Defaults: A left, B right, C straight, D U-turn; Z unmapped. `BOARD_MAP_*`
-can change the course codebook without changing the decoder. Turns use encoder
+The Code 39 decoder supports all A-Z characters in either scan direction.
+There is no compiled-in movement codebook. Send the instructor's four-character
+mapping over MQTT and wait for the application ACK before START. See
+[BARCODE_DEMO.md](BARCODE_DEMO.md) for the PC command and payload contract.
+The car stores the decoded character, continues following the line, and applies
+its mapped movement at the next debounced both-black cross-junction. It then
+rearms barcode capture for the next marker. An unmapped letter is still decoded
+and stored; it stops at the junction rather than guessing an action.
+
+Turns use encoder
 yaw. After turning/bypassing or losing the line, recovery checks fresh forward
 clearance and scans +30, -30, +60, -60 degrees around its starting heading, at
 most 15% demand. It stops on missing safety data or after four seconds without

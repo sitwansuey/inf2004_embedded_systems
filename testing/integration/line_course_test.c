@@ -4,7 +4,7 @@
 static unsigned checks,failures;
 #define CHECK(x) do {++checks;if(!(x)){++failures;printf("FAIL course line %u: %s\n",(unsigned)__LINE__,#x);}}while(0)
 static const s3_line_config_t cfg={4095U,{187U,189U,197U},{3214U,3177U,2472U},
-                                  {1000,-1000,0},3U,400U,600U,100U,500U};
+                                  {1000,-1000,0},3U,400U,600U,100U,500U,false};
 static unsigned tick(ir_line_course_t *s,ir_line_trace_t *line,unsigned mask,uint32_t t) {
     uint16_t raw[3]={mask&1U?3214U:187U,mask&2U?3177U:189U,2472U};
     CHECK(ir_line_observe(line,&cfg,raw,7U,t,t,true));

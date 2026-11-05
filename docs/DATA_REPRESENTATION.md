@@ -4,7 +4,7 @@ EDR16 is the common binary telemetry standard for all buddies. Each record is
 one uint16_t: bits 0–3 identify the reading and bits 4–15 hold its unsigned data.
 Transmit exactly two bytes, least-significant byte first. No source/length
 header is prepended. Use explicit byte lengths, never strlen or native structs.
-The MQTT topic `Robopico/sensors/edr16/v1` identifies this protocol/version.
+The MQTT topic `Robopico/sensors/edr16/v2` identifies this protocol/version.
 
 ```c
 word = (data << 4) | id;
@@ -55,7 +55,7 @@ Angles/speed/line error truncate toward zero; height/width round to nearest
 | Subtype | Meaning of value |
 |---|---|
 | 0 | phase in low nibble, controller fault in high nibble |
-| 1 | barcode in bits 2:0 (0 none, 1 A, 2 B, 3 C, 4 D, 5 Z); navigation in bits 5:3 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
+| 1 | barcode in bits 4:0 (0 none, 1..26 A..Z); navigation in bits 7:5 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
 | 2 | line state bits 2:0; physical IR black mask bits 5:3 |
 | 3 | pitch in whole degrees + 128 |
 | 4 | roll in two-degree units + 128 |
@@ -163,5 +163,11 @@ status copy). This is the commanded angle, not measured position feedback.
 Motor ID 12 is emitted only with motor availability and preserves timeout (32)
 versus other motor errors (64), using the same mapping as B2's direct adapter.
 Dashboard and audio ignore retained records and clear observations on disconnect
-and reconnect. The private snapshot now uses 398 bits, still 50 bytes; its
+and reconnect. The private snapshot now uses 400 bits, still 50 bytes; its
 schema includes a two-bit motor error class. Rebuild firmware components together.
+
+EDR16 v2 extends the barcode status to all A-Z letters. Its topic is distinct
+from v1 because subtype 1 changed: five symbol bits plus three navigation bits.
+Update PC/dashboard code together with firmware. Private snapshots use all
+400 bits of the existing 50 bytes; no padding bits remain. Sensor events stay
+14 bytes and carry A=1 through Z=26, with kind 5 for a barcode observation.

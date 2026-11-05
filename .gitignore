@@ -5,6 +5,7 @@ Release
 *.elf
 *.uf2
 *.map
+*.link.rsp
 *.o
 *.d
 build_make/tools/elf2uf2
@@ -47,6 +48,7 @@ edr-check-report.json
 # Promote selected final-submission evidence explicitly when ready.
 /docs/*
 !/docs/MISSION_SETUP.md
+!/docs/BARCODE_DEMO.md
 /testing/evidence/
 /testing/**/logs/
 /testing/**/*.md

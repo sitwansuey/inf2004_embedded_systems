@@ -12,6 +12,7 @@
 #define S3_ADC_REPLY_DEADLINE_MS 30U
 #define S3_ADC_REPLY_WAIT_MS 1
 #define S3_ADC_WORKER_PRI 17
+#define S3_ADC_CHANNEL_UNUSED 255U /* Digital slot: never read by the ADC worker. */
 
 typedef struct
 {

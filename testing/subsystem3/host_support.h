@@ -40,9 +40,15 @@
 #endif
 #if S3_TEST_ADC_ENABLED
 #define __DEV_ADC_CNF_RP2040_H__
+#ifndef DEVCONF_ADC_PIN_INIT_0
 #define DEVCONF_ADC_PIN_INIT_0 1
+#endif
+#ifndef DEVCONF_ADC_PIN_INIT_1
 #define DEVCONF_ADC_PIN_INIT_1 1
+#endif
+#ifndef DEVCONF_ADC_PIN_INIT_2
 #define DEVCONF_ADC_PIN_INIT_2 1
+#endif
 #endif
 
 typedef int ID;

@@ -41,11 +41,14 @@ static mqtt_client_t	*client;
 static ip_addr_t	broker_addr;
 static u8_t		connecting;
 static u8_t retry_pending;
-static unsigned char incoming[CSC02_COMMAND_BYTES];
+static unsigned char incoming[BARCODE_MAP_JSON_MAX];
 static unsigned incoming_used;
 static unsigned incoming_total;
 static unsigned incoming_valid;
 static unsigned command_enabled;
+static unsigned telemetry_cursor,telemetry_loaded;
+static unsigned char diagnostic_wire[BARCODE_DIAGNOSTIC_BYTES];
+static unsigned diagnostic_pending,diagnostic_inflight,diagnostic_turn;
 
 static void publish_done_cb(void *arg,err_t result);
 static void retry_timeout(void *arg);
@@ -55,15 +58,23 @@ static void retry_timeout(void *arg);
  * length-delimited: a NUL is a payload byte, never a terminator. */
 static void incoming_publish_cb(void *arg,const char *topic,u32_t length) {
     (void)arg;incoming_used=0;incoming_total=length;
-    incoming_valid=strcmp(topic,CSC02_COMMAND_TOPIC)==0 && length==CSC02_COMMAND_BYTES;
+    incoming_valid=0;
+    if(strcmp(topic,CSC02_COMMAND_TOPIC)==0 && length==CSC02_COMMAND_BYTES)incoming_valid=1;
+    else if(strcmp(topic,CSC02_BARCODE_MAP_TOPIC)==0 && length>0 && length<=sizeof(incoming))incoming_valid=2;
 }
 static void incoming_data_cb(void *arg,const u8_t *data,u16_t length,u8_t flags) {
     (void)arg;
     if(!incoming_valid)return;
-    if(incoming_used+length>sizeof(incoming)) {incoming_valid=0;return;}
+    if(length>incoming_total-incoming_used || incoming_used+length>sizeof(incoming)) {incoming_valid=0;return;}
     memcpy(incoming+incoming_used,data,length);incoming_used+=length;
     if(flags & MQTT_DATA_FLAG_LAST) {
-        if(incoming_used==incoming_total) {
+        if(incoming_used==incoming_total && incoming_valid==2) {
+            uint8_t letters[BARCODE_MAP_BYTES]={0};
+            if(!barcode_map_parse(incoming,incoming_used,letters))
+                s1_barcode_map_ack(BARCODE_MAP_INVALID,NULL);
+            else if(s1_barcode_map_offer(letters)!=0)
+                s1_barcode_map_ack(BARCODE_MAP_QUEUE_FULL,letters);
+        } else if(incoming_used==incoming_total && incoming_valid==1) {
             /* Reconnect requires a fresh RESET before ARM. A retained ARM
              * alone must never restart a vehicle after boot or link loss. */
             if(incoming[1]==0)command_enabled=0;
@@ -83,7 +94,7 @@ static void subscribe_done_cb(void *arg, err_t result)
 {
 	(void)arg;
 	if(result == ERR_OK) {
-		tm_printf((UB*)"mqtt: subscribed to " CSC02_COMMAND_TOPIC "\n");
+		tm_printf((UB*)"mqtt: command/map subscription acknowledged\n");
 	} else {
 		tm_printf((UB*)"mqtt: subscribe failed, err=%d\n", (int)result);
 	}
@@ -98,31 +109,54 @@ static void publish_done_cb(void *arg, err_t result)
 }
 
 
+static void diagnostic_done(void *arg,err_t result) {
+    (void)arg;diagnostic_inflight=0;
+    if(result==ERR_OK)diagnostic_pending=0; /* Preserve exact frame on failure. */
+}
 void mqtt_utk_poll_telemetry(void) {
     static unsigned char snapshot[TELEMETRY_BYTES];
     static int64_t values[TEL_FIELD_COUNT];
-    static unsigned next=TELEMETRY_EDR_RECORDS;
+    /* Every field gets a turn even if backpressure outlives a snapshot.
+     * Critical state is first in each cycle; refreshing never rewinds it. */
+    static const uint8_t order[TELEMETRY_EDR_RECORDS]={15,16,25,24,10,11,0,1,6,4,5,17,29,28,26,27,
+        7,8,9,12,13,14,2,3,18,19,20,21,22,23,30};
     if(!client || !mqtt_client_is_connected(client))return;
     /* Command replies take priority over the sensor stream. */
     static unsigned char ack[CSC02_ACK_BYTES];
     static unsigned ack_pending;
     if(!ack_pending && s1_command_ack_take(ack)==CSC02_ACK_BYTES)ack_pending=1;
-    if(ack_pending && mqtt_publish(client,CSC02_ACK_TOPIC,ack,CSC02_ACK_BYTES,
-                                  0,0,publish_done_cb,NULL)==ERR_OK)ack_pending=0;
-
-    if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot))next=TELEMETRY_EDR_RECORDS;
-    if(next==TELEMETRY_EDR_RECORDS) {
-        if(s1_telemetry_take(snapshot)!=TELEMETRY_BYTES || !telemetry_decode(snapshot,values))return;
-        next=0;
+    if(ack_pending) {
+        if(mqtt_publish(client,ack[0]==0xC4?CSC02_BARCODE_MAP_ACK_TOPIC:CSC02_ACK_TOPIC,ack,CSC02_ACK_BYTES,
+                       0,0,publish_done_cb,NULL)!=ERR_OK)return;
+        ack_pending=0;
     }
-    /* Four two-byte messages per poll; retain the exact record on backpressure.
-     * Finish a snapshot before taking another, so later fields cannot starve. */
-    for(unsigned budget=0;budget<4 && next<TELEMETRY_EDR_RECORDS;) {
+    if(!diagnostic_pending && s1_diagnostic_take(diagnostic_wire)==BARCODE_DIAGNOSTIC_BYTES)diagnostic_pending=1;
+    /* Alternate diagnostic and EDR opportunities under a full 256-byte ring.
+     * At most one QoS1 diagnostic awaits PUBACK; motors never wait for it. */
+    if(diagnostic_pending && !diagnostic_inflight && diagnostic_turn) {
+        diagnostic_turn=0;
+        if(mqtt_publish(client,CSC02_BARCODE_DIAGNOSTIC_TOPIC,diagnostic_wire,BARCODE_DIAGNOSTIC_BYTES,
+                        1,0,diagnostic_done,NULL)==ERR_OK) {
+            diagnostic_inflight=1;return;
+        }
+    } else diagnostic_turn=1;
+
+    if(!telemetry_loaded || !s1_telemetry_current(snapshot)) {
+        if(s1_telemetry_take(snapshot)!=TELEMETRY_BYTES || !telemetry_decode(snapshot,values))return;
+        telemetry_loaded=1;
+    }
+    /* At most four EDR records per poll. A blocked field retains its turn;
+     * a refreshed snapshot supplies current values at that same cursor. */
+    for(unsigned budget=0,visited=0;budget<4 && visited<TELEMETRY_EDR_RECORDS;++visited) {
         uint8_t record[EDR_RECORD_SIZE];
-        if(!telemetry_edr_record(values,next,record)) {++next;continue;}
+        unsigned index=order[telemetry_cursor];
+        if(!telemetry_edr_record(values,index,record)) {
+            telemetry_cursor=(telemetry_cursor+1U)%TELEMETRY_EDR_RECORDS;continue;
+        }
         if(mqtt_publish(client,CSC02_TELEMETRY_TOPIC,record,EDR_RECORD_SIZE,
                         0,0,publish_done_cb,NULL)!=ERR_OK)return;
-        ++next;++budget;
+        telemetry_cursor=(telemetry_cursor+1U)%TELEMETRY_EDR_RECORDS;++budget;
+        if(!telemetry_cursor){telemetry_loaded=0;break;}
     }
 }
 
@@ -138,6 +172,8 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 {
 	(void)c;
 	(void)arg;
+    incoming_valid=0;incoming_used=0;incoming_total=0;
+    telemetry_loaded=0;telemetry_cursor=0;diagnostic_inflight=0;diagnostic_turn=0;
 
 	if(status == MQTT_CONNECT_ACCEPTED) {
 		command_enabled=0;
@@ -163,6 +199,9 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 			tm_printf((UB*)"mqtt: mqtt_subscribe() failed, err=%d\n",
 				  (int)err);
 		}
+
+        err=mqtt_subscribe(client,CSC02_BARCODE_MAP_TOPIC,1,subscribe_done_cb,NULL);
+        if(err!=ERR_OK)tm_printf((UB*)"mqtt: barcode map subscribe failed, err=%d\n",(int)err);
 
 		/* Drop any chain left over from a previous connection before
 		 * arming a new one. Each reconnect would otherwise add another

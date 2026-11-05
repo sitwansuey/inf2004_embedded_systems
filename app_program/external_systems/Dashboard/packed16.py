@@ -32,7 +32,8 @@ def status_messages(subtype, value):
         phase=value&15
         return one("vehicle_controller","state",PHASES[phase] if phase<len(PHASES) else "Unknown",True)+one("vehicle_controller","fault_code",value>>4,True)
     if subtype==1:
-        return one("barcode_ir","barcode",("—","A","B","C","D","Z")[value&7] if (value&7)<6 else "Unknown")+one("barcode_ir","navigation",("None","Left","Right","Straight","U-turn")[value>>3] if value>>3<5 else "Unknown")
+        symbol=value&31
+        return one("barcode_ir","barcode",(chr(64+symbol) if symbol else "—") if symbol<=26 else "Unknown")+one("barcode_ir","navigation",("None","Left","Right","Straight","U-turn")[value>>5] if value>>5<5 else "Unknown")
     if subtype==2: return one("left_ir","line_state",value&7)+one("left_ir","black_mask",value>>3)
     if subtype==3: return one("magnetometer","pitch_deg",value-128)
     if subtype==4: return one("magnetometer","roll_deg",(value-128)*2)

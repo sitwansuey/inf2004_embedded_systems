@@ -1,5 +1,6 @@
 #include "app.h"
 #include "subsystem2/subsystem2.h"
+#include "barcode_line_follow.h"
 
 /*
  * Create and start one task (declared in app.h for every subsystem).
@@ -47,9 +48,12 @@ EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
 #include "robot_ir_config.h"
 #include "subsystem3/subsystem3.h"
 #include "subsystem3/drv_ir_adc.h"
+#if TM_MQTT
+#include "../lib/libwifi/sysdepend/pico_rp2040/cyw43_utk.h"
+#endif
 #include "subsystem5/subsystem5.h"
 #include "subsystem1/telemetry_codec.h"
-#if !APP_S2_ONLY && !APP_S4_ONLY
+#if !APP_S2_ONLY && !APP_S4_ONLY && !BOARD_WHEEL_CAL_BENCH
 static ER configure_line(void) {
     if(BOARD_IR_MODE==S3_IR_DISABLED)return E_OK;
 #if BOARD_IR_RAW_BENCH
@@ -72,7 +76,36 @@ static ER configure_line(void) {
 EXPORT INT usermain(void) {
     T_RVER ver;tk_ref_ver(&ver);
     tm_printf((UB *)"\nCSC02 CR1 / micro T-Kernel 3, SMP=%u, encoders=%u\n",TK_SUPPORT_SMP,S2_ENCODER_ENABLED);
-#if BOARD_IR_CONTINUOUS_BENCH
+#if BOARD_WHEEL_CAL_BENCH
+    tm_printf((UB *)"WHEEL CAL: bounded forward ARM only; clear floor path or wheels raised; cap30; PI=%u\n",BOARD_PID_ENABLED);
+    tm_printf((UB *)"WHEEL CAL: boot stopped, no auto/START; encoder and motor only; ADC/line/sonar inactive\n");
+    tm_printf((UB *)"WHEEL CAL: forward lease maximum3000ms; onboard expiry; no renewal\n");
+#if BOARD_PID_ENABLED
+    tm_printf((UB *)"WHEEL CAL: fractional PWM feedback; forward target500/%u at command30\n",
+        (30U*BOARD_PID_MAX_CPS/100U)*BOARD_PID_FORWARD_RIGHT_TARGET_PERMILLE/1000U);
+#endif
+#elif BOARD_BARCODE_DEMO
+#if BOARD_PID_ENABLED
+    tm_printf((UB *)"BARCODE DEMO30: motors ENABLED; measured wheel PI; cap30; ADC GP26/27; DIGITAL GP28\n");
+    tm_printf((UB *)"BARCODE WHEEL PI: fractional PWM; forward balance=%u/%u permille\n",
+        BOARD_PID_FORWARD_LEFT_TARGET_PERMILLE,BOARD_PID_FORWARD_RIGHT_TARGET_PERMILLE);
+#else
+    tm_printf((UB *)"BARCODE DEMO30: motors ENABLED; equal PWM; PID off; ADC GP26/27; DIGITAL GP28\n");
+#endif
+    tm_printf((UB *)"BARCODE DIGITAL: GP28 DO black_level=%u min_run=%ums sample=10ms\n",
+        BOARD_BARCODE_DIGITAL_BLACK_LEVEL,BOARD_BARCODE_MIN_RUN_MS);
+    tm_printf((UB *)"BARCODE DEMO30: invalid capture=discard/retry after WHITE; retry=%u\n",BOARD_BARCODE_RETRY);
+    tm_printf((UB *)"BARCODE DEMO30: no decoded/mapped instruction=FORWARD; default=%u\n",BOARD_BARCODE_DEFAULT_FORWARD);
+    tm_printf((UB *)"BARCODE DEMO30: white-centre; sonar/terrain bypass DISABLED; encoder turns\n");
+    tm_printf((UB *)"BARCODE DEMO30: wait MQTT map + WHITE/fresh sensors 3000ms; auto once per boot=%u\n",BOARD_BARCODE_AUTO_START);
+    tm_printf((UB *)"BARCODE MQTT DIAG: v1 widths29 QoS1 heartbeat1000ms; EDR cursor fair\n");
+    tm_printf((UB *)"BARCODE CAPTURE: active scan survives both-black; junction needs clearance then new detection\n");
+    tm_printf((UB *)"BARCODE RESYNC: retry capture slides up to8 leading pulse pairs; full frame and quiet required\n");
+    tm_printf((UB *)"BARCODE WIDTH FIT: compensated separation; joint bounded edge/gap fit\n");
+#if BOARD_BARCODE_SCAN_STEERING
+    tm_printf((UB *)"BARCODE LINE CORRECTION: forward-only analog P; cap=%upermille\n",BARCODE_SCAN_MAX_STEERING);
+#endif
+#elif BOARD_IR_CONTINUOUS_BENCH
     tm_printf((UB *)"IR CONTINUOUS BENCH v6: boot STOPPED; supervised USB start only\n");
     tm_printf((UB *)"IRLINE continuous: 30pct 20000ms pattern-stop=0 encoder-stop=0\n");
     tm_printf((UB *)"IRLINE emergency STOP/USB lease/ADC/motor faults retained; ultrasonic DISABLED\n");
@@ -126,7 +159,15 @@ EXPORT INT usermain(void) {
     tm_printf((UB *)"[S3] scan schedule: cyclic10; capture receive without status mutex\n");
 #endif
     ER er=E_OK;
-#if APP_S2_ONLY
+#if BOARD_WHEEL_CAL_BENCH
+    IMPORT ER wheel_calibration_start(void);
+    er=subsystem1_init();
+    if(er>=E_OK)er=subsystem2_init();
+    if(er>=E_OK)er=app_state_init();
+    if(er>=E_OK)er=subsystem2_start();
+    if(er>=E_OK)er=subsystem1_start();
+    if(er>=E_OK)er=wheel_calibration_start();
+#elif APP_S2_ONLY
     er=subsystem2_init();
     if(er>=0)er=subsystem2_start();
 #if APP_TEST
@@ -148,6 +189,24 @@ EXPORT INT usermain(void) {
     if(er>=0)er=app_state_init();
     /* All shared objects exist before any application task starts. */
     if(er>=0)er=subsystem2_start();
+#if TM_MQTT
+    /* Radio firmware upload can preempt ADC work for >30 ms at boot.
+     * Wait while stopped, before opening the one-shot ADC transport. Never
+     * relax acquisition deadlines or recover an unsafe conversion in place. */
+    if(er>=0) {
+        SYSTIM began,current;
+        er=tk_get_otm(&began);
+        while(er>=0) {
+            T_CYW43_UTK_STATUS radio={0};cyw43_utk_get_status(&radio);
+            if(radio.init_complete)break;
+            s2_emergency_stop();
+            er=tk_get_otm(&current);
+            if(er<0)break;
+            if(current.lo-began.lo>=10000U){er=E_TMOUT;break;}
+            er=tk_dly_tsk(10);
+        }
+    }
+#endif
     if(er>=0)er=subsystem3_start();
     if(er>=0)er=subsystem4_start();
     if(er>=0)er=subsystem5_start();

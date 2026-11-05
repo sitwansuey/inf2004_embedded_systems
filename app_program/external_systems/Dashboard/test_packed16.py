@@ -8,8 +8,9 @@ import unittest
 from functools import partial
 from types import SimpleNamespace
 from packed16 import decode_messages, PACKED_TOPIC, READINGS
-from dashboard import BrokerBridge, DashboardHandler, ThreadingHTTPServer, TOPICS
+from dashboard import BrokerBridge, DashboardHandler, ThreadingHTTPServer, TOPICS, MAP_ACK_TOPIC
 from edr_decode import encode_packet, pack_motor
+from barcode_diagnostic import TOPIC as BARCODE_DIAGNOSTIC_TOPIC
 
 # Values cover both wheels, every sensor axis, signed scaling, zero and limits.
 SAMPLES={1:100,2:200,3:90,4:32,5:0,6:4095,7:2048,8:1948,9:2048,10:2148,
@@ -31,7 +32,7 @@ class DashboardTests(unittest.TestCase):
         ok=SimpleNamespace(is_failure=False)
         for _ in range(2): bridge.on_connect(client,None,None,ok,None)
         self.assertEqual(calls,[TOPICS,TOPICS])
-        self.assertEqual(TOPICS,[(PACKED_TOPIC,0),("csc02/command/ack",0)])
+        self.assertEqual(TOPICS,[(PACKED_TOPIC,0),("csc02/command/ack",0),(BARCODE_DIAGNOSTIC_TOPIC,1),(MAP_ACK_TOPIC,1)])
         bridge.on_subscribe(None,None,1,[ok],None)
         self.assertEqual(bridge.snapshot()['status'],'MQTT subscribed')
 
@@ -93,13 +94,21 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(bridge.readings[READINGS[1]]['payload'],'101')
         self.assertNotEqual(bridge.receiver_id,BrokerBridge().receiver_id)
 
+    def test_all_barcode_letters_and_actions(self):
+        bridge=populated_bridge()
+        for symbol in range(27):
+            for action,name in enumerate(("None","Left","Right","Straight","U-turn")):
+                feed(bridge,PACKED_TOPIC,encode_packet(0,(1<<8)|symbol|(action<<5)))
+                self.assertEqual(bridge.readings['Robopico/sensors/barcode_ir/barcode']['payload'],chr(64+symbol) if symbol else "\N{EM DASH}")
+                self.assertEqual(bridge.readings['Robopico/sensors/barcode_ir/navigation']['payload'],name)
+
     def test_status_and_expiry(self):
         from unittest.mock import patch
         bridge=populated_bridge()
         feed(bridge,PACKED_TOPIC,encode_packet(0,(7<<8)|91))
         peak='Robopico/sensors/terrain/run_max_height_cm'
         self.assertEqual(bridge.readings[peak]['payload'],45.5)
-        feed(bridge,PACKED_TOPIC,encode_packet(0,(1<<8)|4|(4<<3)))
+        feed(bridge,PACKED_TOPIC,encode_packet(0,(1<<8)|26|(4<<5)))
         self.assertEqual(bridge.readings['Robopico/sensors/barcode_ir/navigation']['payload'],'U-turn')
         feed(bridge,PACKED_TOPIC,encode_packet(0,10<<8))
         self.assertIsNone(bridge.readings[READINGS[1]]['payload'])

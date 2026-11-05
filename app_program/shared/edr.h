@@ -1,4 +1,4 @@
-/* Repository-wide EDR16 v1. Every external record is exactly two bytes.
+/* Repository-wide EDR16 v2. Every external record is exactly two bytes.
  * Low nibble = reading ID; high 12 bits = value. See docs/DATA_REPRESENTATION.md.
  * No envelope, native struct copy, timestamp, or implicit byte order. */
 #ifndef EDR_H
@@ -8,7 +8,7 @@
 #include <stdint.h>
 #define EDR_RECORD_SIZE 2U
 #define EDR_DATA_MAX 4095U
-#define EDR_MQTT_TOPIC "Robopico/sensors/edr16/v1"
+#define EDR_MQTT_TOPIC "Robopico/sensors/edr16/v2"
 enum {
     EDR_ENCODER_LEFT = 1, EDR_ENCODER_RIGHT, EDR_SERVO_ANGLE,
     EDR_ULTRASONIC_CM, EDR_IR_LEFT, EDR_IR_RIGHT, EDR_IR_BARCODE,
@@ -41,7 +41,7 @@ static inline bool edr_status_valid(unsigned data)
     unsigned subtype=data>>8U, value=data&255U;
     switch(subtype) {
     case 0: return (value&15U)<=12U && (value>>4U)<=7U;
-    case 1: return (value&7U)<=5U && (value>>3U)<=4U;
+    case 1: return (value&31U)<=26U && (value>>5U)<=4U;
     case 2: return value<=63U && (value&7U)<=4U;
     case 3: case 4: return value>=38U && value<=218U;
     case 5: return value<=5U;
