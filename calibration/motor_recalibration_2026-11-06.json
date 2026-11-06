@@ -1,0 +1,92 @@
+{
+  "date": "2026-11-06",
+  "conditions": "one/two-second straight floor tests; line steering disabled",
+  "accepted": {
+    "command_percent": 35,
+    "max_cps_scale": 1700,
+    "target_cps": 595,
+    "pwm_ceiling_percent": 35,
+    "left_trim": 86,
+    "right_trim": 98,
+    "right_pwm_permille": 990,
+    "kp_ki_kd_milli": [
+      30,
+      10,
+      0
+    ],
+    "ticks_per_revolution": 631,
+    "wheel_circumference_mm": 220,
+    "track_mm": 113,
+    "left_counts": 1088,
+    "right_counts": 1094,
+    "relative_count_difference_percent": 0.5484460694698354,
+    "user_observation": "looked straight"
+  },
+  "limits": "Validated straight driving at the 35% operating point only; turning and other speeds still need validation. PID_CALIBRATED remains 0.",
+  "runs": [
+    {
+      "source_log": "recalibration-35-baseline.log",
+      "demand_percent": 30,
+      "duration_ms": 1000,
+      "left_trim": 73,
+      "right_trim": 98,
+      "right_pwm_permille": 990,
+      "max_cps_scale": 2500,
+      "target_cps": 750,
+      "fault": 0,
+      "left_counts": 453,
+      "right_counts": 480,
+      "steady_left_cps_last_5": 557.2,
+      "steady_right_cps_last_5": 609.4,
+      "user_observation": null
+    },
+    {
+      "source_log": "recalibration-35-verified-baseline.log",
+      "demand_percent": 35,
+      "duration_ms": 1000,
+      "left_trim": 73,
+      "right_trim": 98,
+      "right_pwm_permille": 990,
+      "max_cps_scale": 2500,
+      "target_cps": 875,
+      "fault": 0,
+      "left_counts": 541,
+      "right_counts": 510,
+      "steady_left_cps_last_5": 636.6,
+      "steady_right_cps_last_5": 612.4,
+      "user_observation": "veered right"
+    },
+    {
+      "source_log": "recalibration-35-balanced89.log",
+      "demand_percent": 35,
+      "duration_ms": 1000,
+      "left_trim": 89,
+      "right_trim": 98,
+      "right_pwm_permille": 990,
+      "max_cps_scale": 1700,
+      "target_cps": 595,
+      "fault": 0,
+      "left_counts": 465,
+      "right_counts": 450,
+      "steady_left_cps_last_5": 625.4,
+      "steady_right_cps_last_5": 612.4,
+      "user_observation": "slightly right"
+    },
+    {
+      "source_log": "recalibration-35-confirm86-2s.log",
+      "demand_percent": 35,
+      "duration_ms": 2000,
+      "left_trim": 86,
+      "right_trim": 98,
+      "right_pwm_permille": 990,
+      "max_cps_scale": 1700,
+      "target_cps": 595,
+      "fault": 0,
+      "left_counts": 1088,
+      "right_counts": 1094,
+      "steady_left_cps_last_5": 601.2,
+      "steady_right_cps_last_5": 613.2,
+      "user_observation": "looked straight"
+    }
+  ]
+}
