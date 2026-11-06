@@ -8,6 +8,7 @@ import uuid
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from packed16 import decode_messages, PACKED_TOPIC
 
@@ -201,14 +202,31 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def send_json(self, status, result):
+        data = json.dumps(result).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_POST(self):
         if self.path != "/api/command":
-            self.send_error(404)
+            self.send_json(404, {"error": "Unknown command endpoint."})
             return
-        # Accept commands only from the local dashboard's own browser origin.
-        origin = f"http://127.0.0.1:{self.server.server_port}"
-        if self.headers.get("Origin") != origin or self.headers.get("Host") != origin[7:]:
-            self.send_error(403)
+        # Require a loopback Host and a matching browser origin. A missing
+        # Origin is accepted only with a matching same-origin Referer.
+        host = self.headers.get("Host", "")
+        allowed_hosts = {f"127.0.0.1:{self.server.server_port}",
+                         f"localhost:{self.server.server_port}"}
+        origin = self.headers.get("Origin")
+        if origin is None:
+            referer = urlsplit(self.headers.get("Referer", ""))
+            origin = f"{referer.scheme}://{referer.netloc}"
+        if host not in allowed_hosts or origin != f"http://{host}":
+            self.send_json(403, {"error": "Command origin rejected. Open this dashboard at "
+                            f"http://127.0.0.1:{self.server.server_port}/ and reload the page."})
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -223,13 +241,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             result, status = {"error": str(error)}, 400
         except (RuntimeError, OSError) as error:
             result, status = {"error": str(error)}, 503
-        data = json.dumps(result).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        self.send_json(status, result)
 
     def log_message(self, format, *args):
         if self.path != "/api/telemetry":

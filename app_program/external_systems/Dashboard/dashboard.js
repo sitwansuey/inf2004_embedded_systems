@@ -164,7 +164,10 @@ for (const action of ['reset', 'start', 'stop']) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({action})
       });
-      const result = await response.json();
+      const text = await response.text();
+      let result;
+      try { result = JSON.parse(text); }
+      catch { throw new Error(`Dashboard returned HTTP ${response.status} instead of JSON. Open http://127.0.0.1:8001/ and reload the page.`); }
       if (!response.ok) throw new Error(result.error || 'Command failed.');
       status.textContent = result.message;
     } catch (error) {

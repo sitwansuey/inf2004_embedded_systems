@@ -49,4 +49,25 @@ class Commands(unittest.TestCase):
     response=h.getresponse();self.assertEqual(response.status,expected);response.read();h.close()
    self.assertEqual(c.publish.call_count,1)
   finally:server.shutdown();server.server_close();t.join()
+ def test_loopback_origins_and_json_errors(self):
+  b,c=self.bridge();server=ThreadingHTTPServer(('127.0.0.1',0),partial(DashboardHandler,bridge=b))
+  t=threading.Thread(target=server.serve_forever,daemon=True);t.start()
+  try:
+   port=server.server_port
+   cases=[(f'localhost:{port}',{'Origin':f'http://localhost:{port}'},200),
+          (f'127.0.0.1:{port}',{'Referer':f'http://127.0.0.1:{port}/'},200),
+          (f'127.0.0.1:{port}',{'Origin':'http://evil.example'},403),
+          (f'127.0.0.1:{port}',{},403),
+          (f'127.0.0.1:{port}',{'Origin':'null'},403),
+          (f'evil.example:{port}',{'Origin':f'http://evil.example:{port}'},403)]
+   for host,extra,status in cases:
+    with self.subTest(host=host,headers=extra):
+     h=http.client.HTTPConnection('127.0.0.1',port)
+     h.request('POST','/api/command',json.dumps({'action':'reset'}),
+               {'Host':host,'Content-Type':'application/json',**extra})
+     response=h.getresponse();self.assertEqual(response.status,status)
+     self.assertIn('application/json',response.getheader('Content-Type'))
+     result=json.loads(response.read());self.assertIn('error' if status==403 else 'acknowledged',result);h.close()
+   self.assertEqual(c.publish.call_count,2)
+  finally:server.shutdown();server.server_close();t.join()
 if __name__=='__main__':unittest.main()
