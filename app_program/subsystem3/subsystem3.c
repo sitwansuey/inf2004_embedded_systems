@@ -37,7 +37,43 @@ static struct
     uint32_t generation;
     uint32_t issued_ms;
     uint32_t lease_ms;
+    uint32_t barcode_end; /* request generation, see s3_controller_barcode_end */
 } control;
+static uint32_t applied_barcode_end;
+#if defined(S2_ENCODER_ENABLED) && S2_ENCODER_ENABLED
+#include "../subsystem2/subsystem2.h"
+/* Cumulative wheel travel for distance-based barcode widths: half encoder
+ * counts of |left+right| per scan, so forward and reverse both advance it
+ * and a spin in place does not. */
+static uint32_t travel_position;
+static uint32_t travel_m1, travel_m2;
+static bool travel_seen;
+static void attach_position(s3_sample_t *p_sample)
+{
+    s2_encoder_status_t e;
+    p_sample->position_valid = false;
+    if ((s2_encoder_get_status(&e) < E_OK) || !e.valid)
+    {
+        travel_seen = false;
+        return;
+    }
+    uint32_t m1 = (uint32_t)e.motor1_forward_counts, m2 = (uint32_t)e.motor2_forward_counts;
+    if (travel_seen)
+    {
+        int64_t sum = (int64_t)(int32_t)(m1 - travel_m1) + (int64_t)(int32_t)(m2 - travel_m2);
+        if (sum < 0) sum = -sum;
+        if (sum > 2000) /* >35 cm in one scan: a discontinuity, not travel */
+        {
+            travel_m1 = m1; travel_m2 = m2;
+            return;
+        }
+        travel_position += (uint32_t)sum;
+        p_sample->position_valid = true;
+    }
+    travel_m1 = m1; travel_m2 = m2; travel_seen = true;
+    p_sample->position = travel_position;
+}
+#endif
 
 static ER lock(void)
 {
@@ -143,12 +179,12 @@ EXPORT ER s3_configure(const s3_adapter_config_t *p_config)
         !s3_ir_config_valid(&p_config->ir) ||
         ((p_config->ir.mode == S3_IR_DIGITAL) &&
          (p_config->algorithms.line.raw_max != 1U)) ||
-        ((p_config->ir.mode == S3_IR_ADC) &&
+        ((p_config->ir.mode >= S3_IR_ADC) &&
          (p_config->algorithms.line.raw_max != 4095U)))
     {
         return E_PAR;
     }
-    if ((p_config->ir.mode == S3_IR_ADC) && !s3_adc_available())
+    if ((p_config->ir.mode >= S3_IR_ADC) && !s3_adc_available())
     {
         return E_NOSPT;
     }
@@ -173,7 +209,7 @@ EXPORT ER s3_configure_raw(const s3_ir_config_t *p_config)
     if (!BOARD_MOTORS_DISABLED) return E_OACV;
     if (p_config == NULL || !s3_ir_config_valid(p_config) || p_config->mode == S3_IR_DISABLED)
         return E_PAR;
-    if (p_config->mode == S3_IR_ADC && !s3_adc_available()) return E_NOSPT;
+    if (p_config->mode >= S3_IR_ADC && !s3_adc_available()) return E_NOSPT;
     er = lock();
     if (er < E_OK) return er;
     if (started) { (void)unlock(); return E_OBJ; }
@@ -370,6 +406,22 @@ EXPORT ER s3_controller_control(s3_mode_t mode, bool marker_clear, UW lease_ms)
     return unlock();
 }
 
+EXPORT ER s3_controller_barcode_end(void)
+{
+    ER er = lock();
+    if (er < E_OK)
+    {
+        return er;
+    }
+    if ((h_controller == 0) || (tk_get_tid() != h_controller))
+    {
+        (void)unlock();
+        return E_OACV;
+    }
+    ++control.barcode_end;
+    return unlock();
+}
+
 EXPORT ER s3_controller_renew(UW lease_ms)
 {
     SYSTIM now;
@@ -529,6 +581,7 @@ EXPORT ER s3_service_once(void)
 {
     SYSTIM now;
     uint32_t generation;
+    uint32_t barcode_end;
     s3_mode_t mode;
     bool marker_clear;
     bool active;
@@ -566,11 +619,17 @@ EXPORT ER s3_service_once(void)
     generation = control.generation;
     mode = control.mode;
     marker_clear = control.marker_clear;
+    barcode_end = control.barcode_end;
     (void)unlock();
     if (generation != applied_generation)
     {
         (void)s3_core_control(&core, mode, marker_clear);
         applied_generation = generation;
+    }
+    if (barcode_end != applied_barcode_end)
+    {
+        s3_core_barcode_end(&core);
+        applied_barcode_end = barcode_end;
     }
     if (!acquisition_attempted)
     {
@@ -584,6 +643,9 @@ EXPORT ER s3_service_once(void)
     acquisition = (er < E_OK) ? er :
                   ((acquisition_open_error < E_OK) ? acquisition_open_error :
                    s3_ir_acquire(&ir, (uint32_t)now.lo, &sample));
+#if defined(S2_ENCODER_ENABLED) && S2_ENCODER_ENABLED
+    if (acquisition == E_OK) attach_position(&sample);
+#endif
     if (er < E_OK) s3_core_fault(&core, S3_ERROR_STALE);
     er = tk_get_otm(&now);
     if (er < E_OK)
@@ -646,6 +708,8 @@ EXPORT ER s3_service_once(void)
         output.error = (uint8_t)((unsigned)core.latched_error & 7U);
         output.awaiting_controller = core.awaiting_controller;
     }
+    /* Latched diagnostics survive paths that do not step the core. */
+    s3_core_barcode_summary(&core, &output);
     er = lock_sample();
     if (er < E_OK)
     {

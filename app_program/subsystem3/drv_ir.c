@@ -10,7 +10,7 @@ bool s3_ir_config_valid(const s3_ir_config_t *p_config)
     /* Cast before range checking so a negative/invalid enum is rejected
      * even when the target compiler chooses an unsigned enum type. */
     if ((p_config == NULL) ||
-        ((unsigned int)p_config->mode > (unsigned int)S3_IR_ADC))
+        ((unsigned int)p_config->mode > (unsigned int)S3_IR_ADC_LINE_DIGITAL_BARCODE))
     {
         return false;
     }
@@ -31,7 +31,7 @@ bool s3_ir_config_valid(const s3_ir_config_t *p_config)
             return false;
         }
 #endif
-        if ((p_config->mode == S3_IR_ADC) && (pin < 26U))
+        if ((p_config->mode >= S3_IR_ADC) && (pin < 26U))
         {
             return false;
         }
@@ -43,7 +43,8 @@ bool s3_ir_config_valid(const s3_ir_config_t *p_config)
             }
         }
     }
-    return true;
+    return p_config->mode != S3_IR_ADC_LINE_DIGITAL_BARCODE ||
+           (p_config->pin[0] == 26U && p_config->pin[1] == 27U && p_config->pin[2] == 28U);
 }
 
 ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config)
@@ -77,6 +78,11 @@ ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config)
     }
     else
     {
+        if (p_config->mode == S3_IR_ADC_LINE_DIGITAL_BARCODE)
+        {
+            ER er = gpio_set_pin(p_config->pin[2], GPIO_MODE_IN);
+            if (er < E_OK) return er;
+        }
         ER er = s3_adc_start();
         if (er < E_OK)
         {
@@ -91,7 +97,7 @@ ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config)
 bool s3_ir_waiting(const s3_ir_t *p_ir)
 {
     return (p_ir != NULL) && p_ir->opened &&
-           (p_ir->config.mode == S3_IR_ADC) && p_ir->adc_pending &&
+           (p_ir->config.mode >= S3_IR_ADC) && p_ir->adc_pending &&
            !p_ir->adc_failed;
 }
 
@@ -118,6 +124,8 @@ static ER submit_scan(s3_ir_t *p_ir, uint32_t now_ms)
     request.issued_ms = now_ms;
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
         request.channel[i] = (uint8_t)(p_ir->config.pin[i] - 26U);
+    if (p_ir->config.mode == S3_IR_ADC_LINE_DIGITAL_BARCODE)
+        request.channel[2] = S3_ADC_CHANNEL_UNUSED;
     er = s3_adc_submit(&request);
     if (er != E_OK) return adc_failure(p_ir, er);
     p_ir->adc_started_ms = now_ms;
@@ -175,7 +183,8 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
         {
             return adc_failure(p_ir, (reply.error < E_OK) ? reply.error : E_IO);
         }
-        if ((reply.sample.valid_mask != S3_SENSOR_MASK) ||
+        const uint8_t analog_mask = p_ir->config.mode == S3_IR_ADC_LINE_DIGITAL_BARCODE ? 3U : S3_SENSOR_MASK;
+        if ((reply.sample.valid_mask != analog_mask) ||
             ((now_ms - reply.sample.time_ms) >= S3_ADC_REPLY_DEADLINE_MS) ||
             ((reply.sample.time_ms - p_ir->adc_started_ms) >= S3_ADC_DEADLINE_MS))
         {
@@ -212,9 +221,21 @@ static ER read_ir(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample, bool wa
     {
         return E_NOSPT;
     }
-    if (p_ir->config.mode == S3_IR_ADC)
+    if (p_ir->config.mode >= S3_IR_ADC)
     {
-        return adc_poll(p_ir, now_ms, p_sample, wait);
+        ER er = adc_poll(p_ir, now_ms, p_sample, wait);
+        if (er != E_OK || p_ir->config.mode != S3_IR_ADC_LINE_DIGITAL_BARCODE) return er;
+        UINT level = gpio_get_val(p_ir->config.pin[2]);
+        if (level > 1U)
+        {
+            *p_sample = (s3_sample_t){0};
+            return E_IO;
+        }
+        /* Preserve the oldest ADC timestamp; digital input is sampled later.
+         * Publish all three valid bits only after the DO read succeeds. */
+        p_sample->raw[2] = (uint16_t)level;
+        p_sample->valid_mask |= 4U;
+        return E_OK;
     }
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
     {

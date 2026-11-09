@@ -29,3 +29,6 @@ main{max-width:1920px;padding:24px 2%}
 .robot-controls p{margin:8px 0;font-size:13px}.robot-buttons{display:flex;gap:10px;flex-wrap:wrap}
 #robot-start{background:#176b4b;color:white}#robot-stop{background:#ac2634;color:white;font-weight:bold}
 .robot-buttons button:disabled{opacity:.5}
+
+.read-ok td:nth-child(5){color:#67e0c2;font-weight:600}.read-fail td:nth-child(5){color:#f08c8c}
+#barcode-reads p.muted{margin:0 0 10px;font-size:12px}

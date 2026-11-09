@@ -14,12 +14,19 @@ typedef struct
     INT fine_hit, fine_clear;
     UINT fine_checks;
     BOOL averaging_bound;
+    UINT edge_retreats; /* per side: edge moved 1 deg inward after a missed sample */
     UINT bound_samples;
     UW bound_sum_mm;
     INT origin_left, origin_right;
+    UW width_hold_ms; /* sample time the widths were first published */
     uint8_t position_recorded : 1;
     uint8_t plan_pending : 1;
+    uint8_t width_hold : 1; /* VERIFY_CLEAR publishes widths before the plan */
+    uint8_t side_retry : 1; /* the other side was already planned once */
 } s5_scan_context_t;
+#ifndef S5_EDGE_RETREATS
+#define S5_EDGE_RETREATS 3U
+#endif
 /* Unsigned subtraction preserves encoder wrap; compare before abs(INT_MIN). */
 static inline BOOL s5_encoder_displaced(INT a, INT b)
 {

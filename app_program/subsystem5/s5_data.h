@@ -3,7 +3,7 @@
 #include "subsystem5.h"
 #include <stdbool.h>
 #include <stdint.h>
-#define S5_DATA_SIZE 84U
+#define S5_DATA_SIZE 92U
 #define S5_DATA_SOURCE 5U
 #define S5_DATA_KIND 0U
 /* Explicit byte representation; no compiler bit fields or struct copies.

@@ -10,21 +10,31 @@
 static int64_t bounded(int64_t n,int64_t lo,int64_t hi) {return n<lo?lo:n>hi?hi:n;}
 void telemetry_task(INT code,void *context) {
     (void)code;(void)context;unsigned count=0;uint32_t previous=0;unsigned old_fault=0;
+    /* Last published width/side: a new valid width or side is sent at once,
+     * so the halves reach MQTT during S5's hold before the side is chosen. */
+    UW width_scan=0,width_left=0,width_right=0;unsigned old_side=0;
     for(;;) {
         app_state_t s={0};s2_motion_status_t m={0};s2_encoder_status_t e={0};s3_status_t l={0};s4_sensor_status_t a={0};s5_status_t o={0};
         BOOL st=app_get_state(&s)==E_OK;SYSTIM now;
         if(tk_get_otm(&now)<E_OK) {tk_dly_tsk(10);continue;}
-        if(st && (now.lo-previous>=200U || s.vehicle.fault!=old_fault)) {
+        ER sonar_copy=s5_get_status(&o);BOOL so=sonar_copy==E_OK;
+        /* S5's own validity bound (tangent envelope <= 500 mm) plus a
+         * consistency check against corrupt copies; the Pythagoras total can
+         * legitimately exceed 500 and is only saturated for its field. */
+        BOOL width_valid=so && o.object_width_valid && o.object_width_max_mm<=500U &&
+            o.object_left_mm<=5000U && o.object_right_mm<=5000U &&
+            o.object_width_mm==o.object_left_mm+o.object_right_mm;
+        unsigned side=so && o.approach_plan_valid?(o.planned_rotate_deg>0?1U:o.planned_rotate_deg<0?2U:0U):0U;
+        BOOL width_new=width_valid && (o.scan_id!=width_scan || o.object_left_mm!=width_left || o.object_right_mm!=width_right);
+        if(st && (now.lo-previous>=200U || s.vehicle.fault!=old_fault || width_new || (so && side!=old_side))) {
             BOOL mo=s2_motion_get_status(&m)==E_OK,en=s2_encoder_get_status(&e)==E_OK && e.valid;
             ER ir_copy=s3_status_get(&l);BOOL li=ir_copy==E_OK;
             s4_sensor_cache_t imu_record={0};
             BOOL im=s4_sensor_get_record(&imu_record)==E_OK;
-            ER sonar_copy=s5_get_status(&o);BOOL so=sonar_copy==E_OK;
             if(tk_get_otm(&now)<E_OK) {tk_dly_tsk(10);continue;}
             if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&a);
             li=li && l.configured && l.acquisition_error==E_OK && now.lo-l.sample_time_ms<30U;
             BOOL us=so && o.valid && o.distance_mm>0 && o.distance_mm<=5000U && now.lo-o.time_ms<500U;
-            BOOL width_valid=so && o.object_width_valid && o.object_width_mm<=500U;
             app_log_state(&s);
             s4_result_t terrain={0};
             BOOL terrain_copy=st && s4_result_decode(s.s4_result,sizeof(s.s4_result),&terrain);
@@ -54,13 +64,19 @@ void telemetry_task(INT code,void *context) {
             v[TEL_MZ_MG]=bounded(a.latest.mag.milli_units[2],-2048,2047);
             v[TEL_PITCH_CDEG]=terrain.pitch_cdeg;v[TEL_ROLL_CDEG]=terrain.roll_cdeg;v[TEL_TERRAIN]=terrain.terrain;
             v[TEL_HEIGHT_MM]=terrain.height_mm;v[TEL_HIGHEST_MM]=terrain.maximum_mm;
-            v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=width_valid?o.object_width_mm:0;
+            v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=width_valid?bounded(o.object_width_mm,0,500):0;
             v[TEL_SERVO_DEG]=o.angle_deg;v[TEL_SCAN_STATE]=o.state;
             v[TEL_QUALITY]=(width_valid?1:0)|((terrain.flags&S4_RESULT_SHOCK)?2:0)|(s.vehicle.armed?4:0)|
                 (BOARD_BYPASS_VALIDATED?8:0)|(s.odometry_valid?16:0)|
                 (so && o.state!=S5_FAULT?32:0);
             v[TEL_DROPPED]=s1_drop_count();
             v[TEL_MOTOR_ERROR]=s2_motor_error_code(mo?m.last_error:E_SYS);
+            v[TEL_BARCODE_ELEMENTS]=li?(l.output.barcode_elements>31U?31U:l.output.barcode_elements):0;
+            v[TEL_BARCODE_RESULT]=li && l.output.barcode_result<=3U?l.output.barcode_result:0;
+            v[TEL_WIDTH_LEFT_MM]=width_valid?bounded(o.object_left_mm,0,1000):0;
+            v[TEL_WIDTH_RIGHT_MM]=width_valid?bounded(o.object_right_mm,0,1000):0;
+            v[TEL_BYPASS_SIDE]=side;
+            v[TEL_FAULT_CAUSE]=s.vehicle.fault==VC_SENSOR?s.vehicle.fault_cause:0;
             if(telemetry_encode(out,v)) {
 #if TM_MQTT
                 (void)s1_binary_send(out);
@@ -104,7 +120,8 @@ void telemetry_task(INT code,void *context) {
                     (unsigned)l.output.line.darkness[0],(unsigned)l.output.line.darkness[1]);
             }
 #endif
-            previous=now.lo;old_fault=s.vehicle.fault;
+            previous=now.lo;old_fault=s.vehicle.fault;old_side=side;
+            if(width_valid) {width_scan=o.scan_id;width_left=o.object_left_mm;width_right=o.object_right_mm;}
             if(BOARD_MOTORS_DISABLED && BOARD_IR_RAW_BENCH) {
                 tm_printf((UB *)"[S3RAW] copied=%u error=%d t=%u acquisition=%d mask=%u raw=%u,%u,%u configured=%u steering=%u fresh=%u\n",
                     (unsigned)(ir_copy==E_OK),(INT)ir_copy,l.sample.time_ms,(INT)l.acquisition_error,

@@ -25,7 +25,7 @@ independent packing scheme in a buddy's folder.
 | 4 | 0100 | B5 ultrasonic | whole centimetres, 0–4095 |
 | 5 | 0101 | B3 left IR | raw reading, 0–4095; digital mode 0/1 |
 | 6 | 0110 | B3 right IR | raw reading, 0–4095; digital mode 0/1 |
-| 7 | 0111 | B3 barcode IR | raw reading, not decoded text |
+| 7 | 0111 | B3 barcode IR | GP28 digital level 0/1 (1 = black) in IR mode 3; raw ADC reading in mode 2; not decoded text |
 | 8 | 1000 | B4 magnetometer X | milligauss + 2048 |
 | 9 | 1001 | B4 magnetometer Y | milligauss + 2048 |
 | 10 | 1010 | B4 magnetometer Z | milligauss + 2048 |
@@ -54,22 +54,31 @@ Angles/speed/line error truncate toward zero; height/width round to nearest
 
 | Subtype | Meaning of value |
 |---|---|
-| 0 | phase in low nibble, controller fault in high nibble |
-| 1 | barcode in bits 2:0 (0 none, 1 A, 2 B, 3 C, 4 D, 5 Z); navigation in bits 5:3 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
+| 0 | phase in low nibble (0-13; 13 = reverse before turn-out), controller fault in high nibble |
+| 1 | last decoded barcode in bits 4:0 (0 none, 1-26 = A-Z, mapped to a route or not); navigation in bits 7:5 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
 | 2 | line state bits 2:0; physical IR black mask bits 5:3 |
 | 3 | pitch in whole degrees + 128 |
 | 4 | roll in two-degree units + 128 |
-| 5 | terrain: 0 flat, 1 ascent, 2 crest, 3 descent, 4 shock, 5 invalid |
+| 5 | bits 2-0 terrain: 0 flat, 1 ascent, 2 crest, 3 descent, 4 shock, 5 invalid; bits 7-3 barcode elements (bars + spaces) read in the current/last barcode, shown as x/29 (0-31, saturating) |
 | 6 | current completed hump height, in 5 mm units |
 | 7 | highest completed hump this run, in 5 mm units |
-| 8 | obstacle width, in 5 mm units |
-| 9 | quality bits: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5) |
+| 8 | paged obstacle width: 0-100 total width in 5 mm units; 128-191 centre->left edge half-width, (value&63)*8 mm; 192-255 centre->right edge half-width, same units (saturates at 63 = 504 mm); 101-127 rejected. All three pages are sent only with quality bit 0 (width valid) |
+| 9 | bits 5-0 quality: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5); bits 7-6 sensor-fault cause, sent only while fault = 1 (sensor), else 0: 0 none/other, 1 sonar (stale/fault/blocked scan, width or plan rejected), 2 tilt (terrain invalid), 3 odometry. All 256 values valid; consumers mask quality with 63 |
 | 10 | availability bits: motor, encoder, IR, acceleration, sonar, tilt, height, magnetic field |
 | 11 | observation sequence modulo 256 |
 | 12 | dropped internal observations, saturated at 255 |
 | 13 | signed vehicle speed in 20 mm/s units + 128 |
 | 14 | signed line error in 10-unit increments + 128 |
-| 15 | scan state, matching the subsystem5 enum |
+| 15 | bits 3-0 scan state, matching the subsystem5 enum; bits 5-4 barcode decode result: 0 none yet, 1 reading, 2 successful, 3 unsuccessful; bits 7-6 bypass side: 0 none, 1 left, 2 right (3 rejected) |
+
+Half-widths are measured from the sonar's forward axis: with forward range d0
+and mean edge slant range dE, half = isqrt(dE²-d0²), falling back to
+d0·tan(edge angle) when dE <= d0; the total (page 0-100) is left + right.
+Telemetry rounds each half to (mm+4)/8. The bypass side is the planned side
+(S5 picks the feasible side with the smaller half-width) and is 0 until a
+verified plan exists. S5 publishes the widths for at least 300 ms before
+choosing a side; the telemetry task sends an extra snapshot as soon as a new
+valid width or a changed side appears, so the halves reach MQTT first.
 
 Controller phases and faults match `vehicle_policy.h`. Sensor values are sent
 only when their source is usable; mission availability/quality records clear
@@ -78,11 +87,11 @@ independently of traffic from other sensors. Arrival time is not source time.
 
 The telemetry task samples at 5 Hz. The network task sends at most four
 records per poll, retries the same record on backpressure, and discards an
-unfinished observation once its internal timestamp reaches 500 ms. Up to 31
-messages describe one observation; MQTT QoS 0 does not guarantee all arrive.
+unfinished observation once its internal timestamp reaches 500 ms. Up to 33
+messages (15 sensor IDs, 16 status subtypes, 2 width pages) describe one observation; MQTT QoS 0 does not guarantee all arrive.
 The sequence field is diagnostic, not an atomic-frame assembly protocol.
 
-The 50-byte `telemetry_codec` record is a private RTOS mailbox format; its
+The 54-byte `telemetry_codec` record is a private RTOS mailbox format; its
 schema is in `tools/telemetry_schema.json`. It never crosses MQTT. Similarly,
 `encoder_snapshot.h` retains 32-bit counts, monotonic time and validity for
 odometry/terrain. These internal codecs prevent loss of control precision;
@@ -163,5 +172,5 @@ status copy). This is the commanded angle, not measured position feedback.
 Motor ID 12 is emitted only with motor availability and preserves timeout (32)
 versus other motor errors (64), using the same mapping as B2's direct adapter.
 Dashboard and audio ignore retained records and clear observations on disconnect
-and reconnect. The private snapshot now uses 398 bits, still 50 bytes; its
+and reconnect. The private snapshot now uses 431 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side and a 2-bit sensor-fault cause; phase maximum 13) in 54 bytes, keeping reserved zero padding; its
 schema includes a two-bit motor error class. Rebuild firmware components together.

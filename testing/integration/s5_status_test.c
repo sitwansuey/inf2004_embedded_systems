@@ -62,6 +62,8 @@ int main(void)
     REQUIRE(s5_navigation_set(6,S5_APPROACH,0)==E_OBJ);
     REQUIRE(s5_navigation_set(7,S5_SCAN_LEFT,0)==E_PAR);
     REQUIRE(s5_navigation_set(7,S5_APPROACH,91)==E_PAR);
+    REQUIRE(s5_navigation_set(7,S5_APPROACH,0)==E_OK);
+    status_load(&status);REQUIRE(status.valid && status.time_ms==100);
     owner_preempted=TRUE;
     REQUIRE(s5_navigation_set(7,S5_APPROACH,20)==E_OK && handoffs==3);
     status_load(&status);

@@ -40,17 +40,17 @@ static inline bool edr_status_valid(unsigned data)
 {
     unsigned subtype=data>>8U, value=data&255U;
     switch(subtype) {
-    case 0: return (value&15U)<=12U && (value>>4U)<=7U;
-    case 1: return (value&7U)<=5U && (value>>3U)<=4U;
+    case 0: return (value&15U)<=13U && (value>>4U)<=7U; /* phase | fault<<4 */
+    case 1: return (value&31U)<=26U && (value>>5U)<=4U; /* A..Z, navigation */
     case 2: return value<=63U && (value&7U)<=4U;
     case 3: case 4: return value>=38U && value<=218U;
-    case 5: return value<=5U;
+    case 5: return (value&7U)<=5U; /* terrain | barcode bars<<3 */
     case 6: case 7: return value<=200U;
-    case 8: return value<=100U;
-    case 9: return value<=63U; /* bit 5: valid servo command/status */
-    case 10: case 11: case 12: return true;
+    case 8: return value<=100U || value>=128U; /* total 5 mm | 128+left/192+right 8 mm */
+    /* subtype 9: quality bits 0..5 (bit 5 servo status) | fault cause<<6 */
+    case 9: case 10: case 11: case 12: return true;
     case 13: case 14: return value>=28U && value<=228U;
-    case 15: return value<=14U;
+    case 15: return (value&15U)<=14U && (value>>6U)<=2U; /* scan | barcode result<<4 | bypass side<<6 */
     default: return false;
     }
 }

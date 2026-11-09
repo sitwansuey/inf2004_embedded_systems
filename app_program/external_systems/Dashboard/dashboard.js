@@ -3,16 +3,16 @@
 const groups = [
   ['navigation','Left IR','03','Raw left sensor reading.',['ir_left','line_state','black_mask','line_error']],
   ['navigation','Right IR','03','Raw right sensor reading.',['ir_right']],
-  ['navigation','Barcode IR','03','Barcode sensor reading and decoded data.',['ir_barcode','barcode','navigation']],
+  ['navigation','Barcode IR','03','GP28 digital barcode sensor. A barcode ends 30 mm after its last bar; elements read (bars + spaces, 29 for a full code) and the decode result are for the current or last barcode.',['ir_barcode','elements_read','decode_result','barcode','navigation']],
   ['motion','Left wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_left','left_speed_mps']],
   ['motion','Right wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_right','right_speed_mps']],
   ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact','imu_status']],
   ['terrain','Magnetometer','04','Heading uses the magnetometer. Pitch, roll and turn rate are derived estimates; the GY-511 has no gyroscope.',['mag_x_ut','mag_y_ut','mag_z_ut','heading_deg','pitch_deg','roll_deg','turn_rate_dps','valid']],
-  ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','depth_cm','left_clearance_cm','right_clearance_cm']],
+  ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','width_left_cm','width_right_cm','depth_cm','left_clearance_cm','right_clearance_cm']],
   ['terrain','Terrain & hump analysis','04','Derived motion and hump estimates.',['motion_class','hump_state','hump_height_cm','run_max_height_cm','valid']],
   ['obstacle','Servo Motor','05','Scan actuator position and avoidance decisions.',['state','servo_angle_deg','scan_state','bypass_side','route']],
   ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','fault_flags','speed_mps','distance_m','last_error','last_command_ms']],
-  ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence','quality','available','dropped']]
+  ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_cause','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence','quality','available','dropped']]
 ];
 // Topic names are case-sensitive. Keep the two roots exactly as agreed.
 const wireTopic = 'Robopico/sensors/edr16/v1';
@@ -38,15 +38,16 @@ const topicBindings = groups.flatMap(([key,title,,,fields])=>{
 const eventTopic = `${topicRoots.actuators}/vehicle_controller/events`;
 let mqttPacket = {};
 const labels = {
-  ir_left:['Raw reading'],ir_barcode:['Raw reading'],ir_right:['Raw reading'],
+  ir_left:['Raw reading'],ir_barcode:['GP28 level (1 = black)'],ir_right:['Raw reading'],
+  elements_read:['Elements read','/ 29'],decode_result:['Decoding'],barcode:['Decoded letter'],
   fault_flags:['Motor fault bits'],encoder_left:['Pulse count (mod 4096)'],encoder_right:['Pulse count (mod 4096)'],left_speed_mps:['Wheel speed','m/s'],right_speed_mps:['Wheel speed','m/s'],
   accel_x_mps2:['Acceleration X','m/s²'],accel_y_mps2:['Acceleration Y','m/s²'],accel_z_mps2:['Acceleration Z','m/s²'],
   mag_x_ut:['Magnetic field X','µT'],mag_y_ut:['Magnetic field Y','µT'],mag_z_ut:['Magnetic field Z','µT'],
   heading_deg:['Heading / yaw alias','°'],pitch_deg:['Pitch','°'],roll_deg:['Roll','°'],turn_rate_dps:['Estimated turn rate','°/s'],
-  distance_cm:['Obstacle distance','cm'],width_cm:['Width','cm'],depth_cm:['Depth','cm'],left_clearance_cm:['Left clearance','cm'],right_clearance_cm:['Right clearance','cm'],
+  distance_cm:['Obstacle distance','cm'],width_cm:['Estimated width','cm'],width_left_cm:['Centre to left edge','cm'],width_right_cm:['Centre to right edge','cm'],bypass_side:['Bypass side'],depth_cm:['Depth','cm'],left_clearance_cm:['Left clearance','cm'],right_clearance_cm:['Right clearance','cm'],
   line_error:['Line position error'],hump_height_cm:['Current hump peak','cm'],run_max_height_cm:['Run maximum height','cm'],servo_angle_deg:['Servo angle','°'],
   power_percent:['Commanded power','%'],distance_m:['Travelled distance','m'],last_command_ms:['Command timestamp','ms'],heartbeat_age_ms:['Heartbeat age','ms'],
-  uptime_ms:['Robot uptime','ms'],telemetry_period_ms:['Telemetry period','ms'],latency_ms:['Reported delivery latency','ms'],valid:['Estimate validity']
+  fault_cause:['Fault cause'],uptime_ms:['Robot uptime','ms'],telemetry_period_ms:['Telemetry period','ms'],latency_ms:['Reported delivery latency','ms'],valid:['Estimate validity']
 };
 function fieldLabel(field) { return labels[field] || [field.replaceAll('_',' ').replace(/^./,c=>c.toUpperCase())]; }
 let receivedAt = null;
@@ -86,7 +87,7 @@ function render(packet={}, mode='Waiting') {
   el('updated').textContent=receivedAt?`Last received: ${new Date(receivedAt).toLocaleTimeString()}`:'Last received: —';
 }
 function validate(packet){if(!packet||typeof packet!=='object'||Array.isArray(packet))throw new Error('Expected a JSON object.');groups.forEach(([key])=>{if(packet[key]!=null&&(typeof packet[key]!=='object'||Array.isArray(packet[key])))throw new Error(`${key} must be an object.`);});if(packet.events!=null&&(!Array.isArray(packet.events)||packet.events.some(e=>!e||typeof e!=='object'||Array.isArray(e))))throw new Error('events must be an array of objects.');return packet;}
-el('demo').addEventListener('click',()=>render({motion:{state:'MOVING',direction:'FORWARD',power_percent:35,left_speed_mps:0.24,right_speed_mps:0.25,distance_m:3.8,encoder_left:420,encoder_right:424,last_error:0,last_command_ms:12000},navigation:{state:'TRACKING',ir_left:650,ir_barcode:2100,ir_right:720,line_error:0.03,barcode:'RIGHT',waypoint:'WP-02',requested_turn:'RIGHT'},terrain:{valid:true,heading_deg:92,pitch_deg:4.2,roll_deg:0.8,turn_rate_dps:1.4,accel_x_mps2:0.1,accel_y_mps2:0.02,accel_z_mps2:9.8,motion_class:'CLIMBING',impact:false,hump_state:'ASCENDING',hump_height_cm:2.1,run_max_height_cm:3.6,imu_status:'OK'},obstacle:{state:'SCANNING',distance_cm:32,width_cm:14,depth_cm:20,left_clearance_cm:40,right_clearance_cm:18,servo_angle_deg:60,bypass_side:'LEFT',route:'Pending controller'},system:{state:'LINE_TRACK',fault_code:0,fault_message:'None',safety_state:'NORMAL',uptime_ms:12500,telemetry_period_ms:10,latency_ms:24,sequence:1250},events:[{time:'00:12.4',source:'Buddy 4',level:'INFO',message:'Suspected hump; reduce speed requested.'},{time:'00:12.5',source:'Buddy 5',level:'INFO',message:'Obstacle scan started.'}]},'Demo'));
+el('demo').addEventListener('click',()=>render({motion:{state:'MOVING',direction:'FORWARD',power_percent:35,left_speed_mps:0.24,right_speed_mps:0.25,distance_m:3.8,encoder_left:420,encoder_right:424,last_error:0,last_command_ms:12000},navigation:{state:'TRACKING',ir_left:650,ir_barcode:2100,ir_right:720,line_error:0.03,barcode:'RIGHT',waypoint:'WP-02',requested_turn:'RIGHT'},terrain:{valid:true,heading_deg:92,pitch_deg:4.2,roll_deg:0.8,turn_rate_dps:1.4,accel_x_mps2:0.1,accel_y_mps2:0.02,accel_z_mps2:9.8,motion_class:'CLIMBING',impact:false,hump_state:'ASCENDING',hump_height_cm:2.1,run_max_height_cm:3.6,imu_status:'OK'},obstacle:{state:'SCANNING',distance_cm:32,width_cm:14,depth_cm:20,left_clearance_cm:40,right_clearance_cm:18,servo_angle_deg:60,bypass_side:'LEFT',route:'Pending controller'},system:{state:'LINE_TRACK',fault_code:0,fault_cause:'None',fault_message:'None',safety_state:'NORMAL',uptime_ms:12500,telemetry_period_ms:10,latency_ms:24,sequence:1250},events:[{time:'00:12.4',source:'Buddy 4',level:'INFO',message:'Suspected hump; reduce speed requested.'},{time:'00:12.5',source:'Buddy 5',level:'INFO',message:'Obstacle scan started.'}]},'Demo'));
 el('reset').addEventListener('click',()=>render());
 el('import').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{if(file.size>1048576)throw new Error('Use a file smaller than 1 MB.');render(validate(JSON.parse(await file.text())),'Imported');}catch(error){el('notice').textContent=`Import failed: ${error.message}`;}finally{event.target.value='';}});
 function receiveMqtt(topic,payload) {
@@ -108,8 +109,21 @@ function receiveMqtt(topic,payload) {
   render(mqttPacket,'MQTT');
   return true;
 }
+function renderBarcodeHistory(rows) {
+  const list=Array.isArray(rows)?rows.slice().reverse():[];
+  el('barcode-history').replaceChildren();
+  if(!list.length){const row=text(el('barcode-history'),'tr','');const cell=text(row,'td','No barcode reads yet.');cell.colSpan=7;}
+  list.forEach(read=>{
+    const row=text(el('barcode-history'),'tr','',read.result==='Successful'?'read-ok':'read-fail');
+    [read.time,read.pass,`${read.elements} / 29`,`${read.seconds} s`,read.result,read.letter||'—',read.turn||'—']
+      .forEach(value=>text(row,'td',display(value)));
+  });
+  el('barcode-count').textContent=`${list.length} reads`;
+}
+renderBarcodeHistory([]);
 window.dashboard={
   setTelemetry:packet=>render(validate(packet),'Imported'),
+  renderBarcodeHistory,
   receiveMqtt,
   subscriptions:[wireTopic],
   topicBindings,
@@ -136,6 +150,7 @@ if(location.protocol==='http:' || location.protocol==='https:') {
         catch(error) { console.warn('Rejected MQTT message:',message.topic,error.message); }
       }
       lastSequence=Math.max(lastSequence,...snapshot.messages.map(message=>message.sequence));
+      renderBarcodeHistory(snapshot.barcode_history);
       el('connection').textContent=snapshot.status;
       el('updated').textContent=snapshot.last_received_at
         ? `Last packet received: ${new Date(snapshot.last_received_at*1000).toLocaleTimeString()}`

@@ -465,6 +465,13 @@ static void test_lifecycle_and_validation(void)
     assert(s2_movement_send((s2_move_command_t)-1, 30) == E_PAR);
     assert(s2_movement_send((s2_move_command_t)99, 30) == E_PAR);
     assert(s2_movement_send(S2_MOVE_FORWARD, 101) == E_PAR);
+    /* Steered reverse shares the forward steering range and PID requirement. */
+    assert(s2_reverse_follow_send(30, 401) == E_PAR);
+    assert(s2_reverse_follow_send(30, -401) == E_PAR);
+#if !BOARD_PID_ENABLED
+    assert(s2_reverse_follow_send(30, 100) == E_NOSPT);
+    assert(s2_follow_send(30, -100) == E_NOSPT);
+#endif
     assert(s2_motion_get_status(NULL) == E_PAR);
     assert(s2_encoder_get_status(NULL) == E_PAR);
 #if !APP_S2_ONLY

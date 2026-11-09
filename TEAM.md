@@ -54,7 +54,7 @@ scheduler, MPU, resource-sharing redesign or CR2/CR3 feature was introduced.
 
 27 October Buddy 4 continuation: see `docs/BUDDY4_IMPLEMENTATION.md` for current
 integration provenance, owner boundaries, verification and limitations. The
-50-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16 records,
+54-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16 records,
 including ID 0 mission status; the retired envelope/aggregate is not accepted
 by the dashboard. See docs/DATA_REPRESENTATION.md and docs/MISSION_SETUP.md.
 See docs/MAIN_RECONCILIATION_20261027.md for adopted S5 storage and retained safety

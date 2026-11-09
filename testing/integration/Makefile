@@ -6,14 +6,26 @@ SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_po
 .PHONY: test sanitize
 test:
 	mkdir -p .build
+	$(CC) $(CFLAGS) -include host.h width_avoidance_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem5/s5_width.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_data.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -lm -o .build/width_avoidance
+	./.build/width_avoidance
+	$(CC) $(CFLAGS) smooth_motor_test.c $(LDFLAGS) -o .build/smooth_motor
+	./.build/smooth_motor
 	$(CC) $(CFLAGS) speed30_test.c $(LDFLAGS) -o .build/speed30
 	.build/speed30
 	$(CC) $(CFLAGS) obstacle_bend_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/obstacle_bend
 	.build/obstacle_bend
+	$(CC) $(CFLAGS) -D_USE_MATH_DEFINES reverse_track_test.c $(LDFLAGS) -lm -o .build/reverse_track
+	.build/reverse_track
+	$(CC) $(CFLAGS) line_steer_test.c $(LDFLAGS) -o .build/line_steer
+	.build/line_steer
+	$(CC) $(CFLAGS) barcode_retry_test.c $(LDFLAGS) -o .build/barcode_retry
+	.build/barcode_retry
 	$(CC) $(CFLAGS) edr_stream_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/edr_stream
 	python3 edr_stream_test.py
 	$(CC) $(CFLAGS) mission_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o .build/mission
 	./.build/mission
+	$(CC) $(CFLAGS) nav_junction_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/nav_junction
+	./.build/nav_junction
 	$(CC) $(CFLAGS) buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle
 	./.build/buddy4_vehicle
 	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/continuous_line

@@ -36,7 +36,9 @@ class Subsystem5Tests(unittest.TestCase):
                 print(result.stdout.strip())
                 # This is a private full-resolution snapshot, NOT MQTT EDR16.
                 raw=bytes.fromhex(result.stdout.splitlines()[0])
-                self.assertEqual(len(raw),84)
+                self.assertEqual(len(raw),92)
+                self.assertEqual(int.from_bytes(raw[84:88],"little"),86)
+                self.assertEqual(int.from_bytes(raw[88:92],"little"),0xa1b2c3d4)
                 self.assertEqual(int.from_bytes(raw[8:12],"little"),0x12345678)
                 self.assertEqual(raw[2]-90,-90)
                 self.assertEqual(int.from_bytes(raw[40:44],"little",signed=True),-2147483648)

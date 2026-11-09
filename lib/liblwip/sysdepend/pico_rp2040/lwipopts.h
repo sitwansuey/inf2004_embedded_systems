@@ -65,6 +65,18 @@
 #define TCP_SND_BUF                 (8 * TCP_MSS)
 #define TCP_SND_QUEUELEN            ((4 * (TCP_SND_BUF) + (TCP_MSS - 1)) / (TCP_MSS))
 
+/* mqtt.c queues every outgoing packet in a per-client ring buffer that is
+ * freed only when the broker ACKs. Each EDR16 reading is a ~31-byte PUBLISH
+ * (topic + 2-byte payload), so lwIP's 256-byte default held only ~8 and
+ * capped telemetry near 30 msg/s against a Windows delayed-ACK broker, far
+ * below the ~125 msg/s firmware rate. Fields then expired on the dashboard.
+ * The buffer is allocated once from MEM_SIZE by mqtt_client_new(). */
+#define MQTT_OUTPUT_RINGBUF_SIZE    2048
+/* Every PUBLISH, even QoS 0, holds one request slot until the TCP ACK.
+ * lwIP's default of 4 limited telemetry to ~4 readings per (delayed) ACK.
+ * 64 x ~31-byte EDR16 publishes fit the 2048-byte ring buffer above. */
+#define MQTT_REQ_MAX_IN_FLIGHT      64
+
 #define LWIP_NETIF_STATUS_CALLBACK  1
 #define LWIP_NETIF_LINK_CALLBACK    1
 #define LWIP_NETIF_HOSTNAME         1

@@ -15,6 +15,8 @@ from packed16 import decode_messages, PACKED_TOPIC
 ACK_TOPIC = "csc02/command/ack"
 TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0)]
 COMMAND_TOPIC = "csc02/command"
+# Scan results retained between reports and cleared by quality bit 0.
+WIDTH_TOPICS = ("/width_cm", "/width_left_cm", "/width_right_cm")
 
 def availability_mask(topic):
     """Only live observations are invalidated; decoded command history persists."""
@@ -39,11 +41,20 @@ class BrokerBridge:
         self.received_packets = 0
         self.rejected_packets = 0
         self.last_received_at = None
+        self.last_received_monotonic = 0.0
+        self.width_valid = False
         self.command_client = None
         self.command_lock = threading.Lock()
         self.command_sequence = 0
         self.pending_commands = {}
         self.ack_condition = threading.Condition(self.lock)
+        # One row per finished barcode read, newest last (see track_barcode).
+        self.barcode_history = []
+        self.barcode_read = None
+        self.motor_direction = None
+        self.motor_power = 0
+        self.barcode_letter = None
+        self.barcode_turn = None
 
     def set_status(self, status):
         with self.lock:
@@ -57,6 +68,8 @@ class BrokerBridge:
                 self.sequence += 1
                 reading.update(payload=None, sequence=self.sequence)
             self.last_received_at = None
+            self.last_received_monotonic = 0.0
+            self.width_valid = False
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         self.reset_observations()
@@ -83,7 +96,7 @@ class BrokerBridge:
             if getattr(message, "retain", False):
                 return
             data = message.payload
-            if len(data) != 6 or data[0] != 0xC2 or data[2] > 3 or data[3] > 3 or data[4] > 12 or data[5] > 7:
+            if len(data) != 6 or data[0] != 0xC2 or data[2] > 3 or data[3] > 3 or data[4] > 13 or data[5] > 7:
                 return
             with self.ack_condition:
                 entry = self.pending_commands.get(data[1])
@@ -104,10 +117,14 @@ class BrokerBridge:
         with self.lock:
             self.received_packets += 1
             self.last_received_at = time.time()
+            self.last_received_monotonic = time.monotonic()
+            if len(message.payload)==2 and (int.from_bytes(message.payload,"little") & 0xF00F)==0x8000:
+                self.width_valid=True  # Producer sends width only for a valid scan.
             if len(message.payload)==2 and (int.from_bytes(message.payload,"little") & 0xF00F)==0x9000:
-                quality=int.from_bytes(message.payload,"little")>>4 & 255
+                quality=int.from_bytes(message.payload,"little")>>4 & 63  # bits 6..7 = fault cause
+                self.width_valid=bool(quality&1)
                 for topic, reading in self.readings.items():
-                    required=1 if topic.endswith("/width_cm") else 16 if topic.endswith("/speed_mps") else 32 if topic.endswith("/servo_angle_deg") else 0
+                    required=1 if topic.endswith(WIDTH_TOPICS) else 16 if topic.endswith("/speed_mps") else 32 if topic.endswith("/servo_angle_deg") else 0
                     if required and not quality&required:
                         self.sequence+=1;reading.update(payload=None,sequence=self.sequence)
             # A status record invalidates affected readings even before expiry.
@@ -123,6 +140,56 @@ class BrokerBridge:
                     "topic": topic, "payload": payload, "sequence": self.sequence,
                     "received_monotonic": time.monotonic()
                 }
+                self.track_barcode(topic, payload)
+
+    def track_barcode(self, topic, payload):
+        """Turn the live barcode fields into one history row per read.
+
+        A read runs from decode_result "Reading..." to Successful/Unsuccessful.
+        While it runs, keep the highest element count and how the robot drove
+        (any REVERSE -> reverse pass, power <= 12% -> slow pass). Reads under
+        9 elements are line crossings, not barcodes. Caller holds self.lock.
+        """
+        field = "/".join(topic.rsplit("/", 2)[-2:])
+        now = time.time()
+        read = self.barcode_read
+        if field == "motors/direction":
+            self.motor_direction = payload
+            if read is not None: read["directions"].add(payload)
+        elif field == "motors/power_percent":
+            try: self.motor_power = int(payload)
+            except (TypeError, ValueError): return
+            if read is not None and self.motor_power: read["max_power"] = max(read["max_power"], self.motor_power)
+        elif field == "barcode_ir/elements_read" and read is not None:
+            read["elements"] = max(read["elements"], int(payload))
+        elif field in ("barcode_ir/barcode", "barcode_ir/navigation"):
+            if field.endswith("barcode"): self.barcode_letter = payload
+            else: self.barcode_turn = payload
+            # The letter and turn can arrive just after the result.
+            last = self.barcode_history[-1] if self.barcode_history else None
+            if last and last["result"] == "Successful" and now - last["epoch"] <= 2.0:
+                last["letter" if field.endswith("barcode") else "turn"] = payload
+        elif field == "barcode_ir/decode_result":
+            if payload == "Reading...":
+                if read is None:
+                    self.barcode_read = {"start": now, "elements": 0,
+                                         "directions": {self.motor_direction} - {None},
+                                         "max_power": self.motor_power}
+            elif read is not None:
+                self.barcode_read = None
+                if payload not in ("Successful", "Unsuccessful") or read["elements"] < 9:
+                    return
+                directions = read["directions"]
+                kind = ("Reverse" if "REVERSE" in directions else
+                        "Slow" if 0 < read["max_power"] <= 12 else "Normal")
+                ok = payload == "Successful"
+                self.barcode_history.append({
+                    "epoch": now, "time": time.strftime("%H:%M:%S", time.localtime(now)),
+                    "pass": kind, "elements": min(read["elements"], 31),
+                    "seconds": round(now - read["start"], 1), "result": payload,
+                    "letter": self.barcode_letter if ok else None,
+                    "turn": self.barcode_turn if ok else None})
+                del self.barcode_history[:-30]
 
     def send_command(self, action):
         opcodes = {"stop": 0, "reset": 2, "start": 3}
@@ -172,8 +239,11 @@ class BrokerBridge:
     def snapshot(self):
         with self.lock:
             now=time.monotonic()
-            for reading in self.readings.values():
-                if reading["payload"] is not None and now-reading["received_monotonic"]>1.0:
+            for topic, reading in self.readings.items():
+                # Width is a scan result, not a live range sample. Retain it
+                # between reports while the stream is alive and quality valid.
+                keep_width=topic.endswith(WIDTH_TOPICS) and self.width_valid and now-self.last_received_monotonic<=1.0
+                if reading["payload"] is not None and not keep_width and now-reading["received_monotonic"]>1.0:
                     self.sequence+=1
                     reading.update(payload=None,sequence=self.sequence)
             return {
@@ -184,6 +254,7 @@ class BrokerBridge:
                 "rejected_packets": self.rejected_packets,
                 "last_received_at": self.last_received_at,
                 "messages": sorted(self.readings.values(), key=lambda item: item["sequence"]),
+                "barcode_history": [dict(row) for row in self.barcode_history],
             }
 
 class DashboardHandler(SimpleHTTPRequestHandler):

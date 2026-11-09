@@ -8,7 +8,7 @@
 
 #define S4_PRI_SENSOR     18 /* Existing TEAM.md priority band 18-19. */
 #define S4_PRI_MONITOR    19
-#define S4_POLL_MS        20
+#define S4_POLL_MS        10 /* Cyclic release; accelerometer produces a sample every 20 ms. */
 #define S4_REPORT_MS      200
 #define S4_RETRY_US       UINT64_C(1000000)
 #define S4_LOCK_WAIT_MS   5

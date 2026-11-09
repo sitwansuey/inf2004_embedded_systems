@@ -12,11 +12,13 @@ static inline void robot_ir_apply_layout(s3_config_t *p_config)
     uint8_t i;
     p_config->line.line_mask = BOARD_IR_LINE_MASK;
     p_config->barcode_sensor = BOARD_BARCODE_SENSOR;
+    p_config->barcode_retry = BOARD_BARCODE_RETRY;
     p_config->map_a = BOARD_MAP_A;
     p_config->map_z = BOARD_MAP_Z;
     p_config->map_b = BOARD_MAP_B;
     p_config->map_c = BOARD_MAP_C;
     p_config->map_d = BOARD_MAP_D;
+    p_config->map_f = BOARD_MAP_F;
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
         p_config->line.position[i] = positions[i];
 }
@@ -35,7 +37,11 @@ static inline bool robot_ir_apply_adc_calibration(s3_config_t *p_config)
     /* This measured ADC profile samples every 10 ms. Require two complete
      * sample periods; one-sample pulses remain rejected. Generic defaults,
      * hysteresis, sample freshness and marker timeout are unchanged. */
-    p_config->barcode.min_run_ms = 20U;
+    p_config->barcode.min_run_ms = BOARD_BARCODE_MIN_RUN_MS;
+    if(BOARD_IR_MODE==3) {
+        p_config->line.white[2]=1U-BOARD_BARCODE_DIGITAL_BLACK_LEVEL;
+        p_config->line.black[2]=BOARD_BARCODE_DIGITAL_BLACK_LEVEL;
+    }
     return s3_config_valid(p_config);
 #else
     (void)p_config;

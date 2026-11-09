@@ -54,6 +54,8 @@ bool s5_data_encode(const s5_status_t *v, uint8_t *data, size_t capacity)
     for (unsigned b = 0; b < 4; ++b) result[72 + b] = (uint8_t)((uint32_t)v->object_width_mm >> (8U * b));
     for (unsigned b = 0; b < 4; ++b) result[76 + b] = (uint8_t)((uint32_t)v->object_width_min_mm >> (8U * b));
     for (unsigned b = 0; b < 4; ++b) result[80 + b] = (uint8_t)((uint32_t)v->object_width_max_mm >> (8U * b));
+    for (unsigned b = 0; b < 4; ++b) result[84 + b] = (uint8_t)((uint32_t)v->object_left_mm >> (8U * b));
+    for (unsigned b = 0; b < 4; ++b) result[88 + b] = (uint8_t)((uint32_t)v->object_right_mm >> (8U * b));
     memcpy(data, result, sizeof(result));
     return true;
 }
@@ -181,6 +183,16 @@ bool s5_data_decode(const uint8_t *data, size_t size, s5_status_t *value)
         uint32_t word = 0;
         for (unsigned b = 0; b < 4; ++b) word |= (uint32_t)data[80 + b] << (8U * b);
         result.object_width_max_mm = word;
+    }
+    {
+        uint32_t word = 0;
+        for (unsigned b = 0; b < 4; ++b) word |= (uint32_t)data[84 + b] << (8U * b);
+        result.object_left_mm = word;
+    }
+    {
+        uint32_t word = 0;
+        for (unsigned b = 0; b < 4; ++b) word |= (uint32_t)data[88 + b] << (8U * b);
+        result.object_right_mm = word;
     }
     *value = result;
     return true;

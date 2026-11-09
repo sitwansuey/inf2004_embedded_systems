@@ -19,6 +19,11 @@ static uint64_t clock_ms;
 static int64_t wall_clock_ms = -INT64_C(473385600000);
 static unsigned int wall_clock_reads;
 static bool clock_failed;
+static bool cycle_create_failed;
+static bool sensor_start_failed;
+static unsigned int cycles_deleted;
+static unsigned int sensor_wakes;
+static void (*sensor_release)(void *);
 
 ER tk_get_tim(SYSTIM *p_time)
 {
@@ -49,6 +54,28 @@ ID tk_cre_mbf(const T_CMBF *p_config)
 {
     REQUIRE(p_config->maxmsz == S4_SUMMARY_MAX);
     return fail_buffer_create ? E_NOMEM : 12;
+}
+ID tk_cre_cyc(const T_CCYC *p_config)
+{
+    REQUIRE(p_config->cycatr == (TA_HLNG | TA_STA));
+    REQUIRE(p_config->cyctim == 10 && p_config->cycphs == 10);
+    REQUIRE(p_config->cychdr != NULL);
+    if (cycle_create_failed) return E_NOMEM;
+    sensor_release = p_config->cychdr;
+    return 13;
+}
+ER tk_del_cyc(ID id)
+{
+    REQUIRE(id == 13);
+    ++cycles_deleted;
+    sensor_release = NULL;
+    return E_OK;
+}
+ER tk_wup_tsk(ID id)
+{
+    REQUIRE(id == tid_s4_sensor && id > 0);
+    ++sensor_wakes;
+    return E_OK;
 }
 ER tk_loc_mtx(ID id, INT timeout)
 {
@@ -88,6 +115,7 @@ ID app_start_task(FP entry, PRI pri, UW affinity, const char *p_name)
     if (tasks_started == 0)
     {
         REQUIRE(entry == s4_sensor_task && pri == 18 && affinity == TP_PRC2);
+        if (sensor_start_failed) return E_NOMEM;
     }
     else
     {
@@ -165,7 +193,15 @@ int main(void)
     clock_failed = false;
     puts("[TEST] S4-U27 PASS  clock errors cannot publish a fresh sample or replace caller output");
 
+    cycle_create_failed = true;
+    REQUIRE(subsystem4_start() == E_NOMEM && tasks_started == 0);
+    cycle_create_failed = false;
+    sensor_start_failed = true;
+    REQUIRE(subsystem4_start() == E_NOMEM && cycles_deleted == 1);
+    sensor_start_failed = false;
     REQUIRE(subsystem4_start() == E_OK && tasks_started == 2);
+    sensor_release(NULL);
+    REQUIRE(sensor_wakes == 1);
     REQUIRE(subsystem4_start() == E_OBJ);
     puts("[TEST] S4-U21 PASS  task priorities/affinity and duplicate-start rejection");
     return EXIT_SUCCESS;

@@ -5,7 +5,7 @@ from pathlib import Path
 
 SCHEMA = json.loads((Path(__file__).resolve().parents[2] / "tools" / "telemetry_schema.json").read_text())
 BITS = sum(f["bits"] for f in SCHEMA)
-SIZE = (BITS + 7) // 8
+SIZE = BITS // 8 + 1  # always keeps reserved zero padding (398 -> 50, 400 -> 51)
 
 def decode(payload):
     if len(payload) != SIZE:

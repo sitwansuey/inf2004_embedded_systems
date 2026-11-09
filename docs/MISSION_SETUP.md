@@ -59,8 +59,9 @@ The Python dashboard is read-only and subscribes only to
 
 ## Navigation and completion evidence
 
-The Code39 decoder supports A, B, C, D and legacy Z in either travel direction.
-Defaults: A left, B right, C straight, D U-turn; Z unmapped. `BOARD_MAP_*`
+The Code39 decoder reads any A-Z in either travel direction; A, B, C, D, F and
+Z can be mapped to turns. Codebook: A U-turn, Z right, F left; B, C, D are
+read and shown but unmapped (no turn). `BOARD_MAP_*`
 can change the course codebook without changing the decoder. Turns use encoder
 yaw. After turning/bypassing or losing the line, recovery checks fresh forward
 clearance and scans +30, -30, +60, -60 degrees around its starting heading, at

@@ -1,5 +1,5 @@
 /* Run the production telemetry task against snapshots published during a wait.
- * The real 50-byte codec feeds a fake transport; no network connection is made. */
+ * The real 54-byte codec feeds a fake transport; no network connection is made. */
 #include "s5_hardware_host.h"
 #include <setjmp.h>
 #include <stdio.h>
@@ -16,6 +16,7 @@ static BOOL copy_failure, clock_failure;
 static BOOL bad_s4_record;
 static BOOL bad_s5_fields;
 static int32_t test_speed;
+static uint8_t test_fault,test_cause;
 static int64_t decoded[TEL_FIELD_COUNT];
 
 ER tk_get_otm(SYSTIM *time)
@@ -28,7 +29,7 @@ INT tm_printf(UB *format, ...) { (void)format;return 0; }
 ER app_get_state(app_state_t *state) {
     *state=(app_state_t){0};
     state->speed_bits=(uint16_t)((uint32_t)test_speed & UINT32_C(0xfff));
-    state->odometry_valid=1;
+    state->odometry_valid=1;state->vehicle.fault=test_fault;state->vehicle.fault_cause=test_cause;
     s4_result_t result={.calculated_ms=clock_ms,.pitch_cdeg=1234,.roll_cdeg=-5678,
         .height_mm=123,.maximum_mm=456,.terrain=0,.flags=27};
     REQUIRE(s4_result_encode(&result,state->s4_result,sizeof(state->s4_result)));
@@ -82,6 +83,12 @@ int main(void)
         REQUIRE(packets==1 && decoded[TEL_SPEED_MM_S]==speeds[n]);
         REQUIRE((decoded[TEL_QUALITY]&16)!=0);
     }
+    REQUIRE(decoded[TEL_FAULT_CAUSE]==0);
+    test_fault=VC_SENSOR;test_cause=VC_CAUSE_ODOM;capture();
+    REQUIRE(decoded[TEL_FAULT]==VC_SENSOR && decoded[TEL_FAULT_CAUSE]==VC_CAUSE_ODOM);
+    test_fault=VC_LINE;capture(); /* cause only describes a sensor fault */
+    REQUIRE(decoded[TEL_FAULT]==VC_LINE && decoded[TEL_FAULT_CAUSE]==0);
+    test_fault=VC_OK;test_cause=0;
     bad_s5_fields=TRUE;capture();
     REQUIRE(packets==1 && (decoded[TEL_AVAILABLE]&16)==0 && (decoded[TEL_QUALITY]&1)==0);
     bad_s5_fields=FALSE;

@@ -25,15 +25,15 @@ INT tk_rcv_mbf(ID id,void *p,TMO timeout) {
 }
 int main(void) {
     app_state_t state={0};
-    for(unsigned symbol=0;symbol<=5;++symbol) {
+    for(unsigned symbol=0;symbol<=26;++symbol) {
         state.barcode=(uint8_t)symbol;
         assert(state.barcode==symbol);
         int64_t values[TEL_FIELD_COUNT]={0}, decoded_values[TEL_FIELD_COUNT];
-        uint8_t packed[TELEMETRY_BYTES], record[2];unsigned id,data;
+        uint8_t packed[TELEMETRY_BYTES], record[2]={0};unsigned id=0,data=0;
         values[TEL_VERSION]=1;values[TEL_BARCODE]=state.barcode;
         assert(telemetry_encode(packed,values) && telemetry_decode(packed,decoded_values));
         assert(telemetry_edr_record(decoded_values,16,record));
-        assert(edr_decode(record,2,&id,&data) && id==0 && (data&7U)==symbol);
+        assert(edr_decode(record,2,&id,&data) && id==0 && (data&31U)==symbol);
     }
     assert(edr_motor_fault_flags(s2_motor_error_code(E_OK))==0);
     assert(edr_motor_fault_flags(s2_motor_error_code(E_TMOUT))==32);

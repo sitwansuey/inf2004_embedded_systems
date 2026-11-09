@@ -2,12 +2,19 @@
 #include "s5_scan.h"
 #include "s5_policy.h"
 
+/* Halves are meaningful exactly while object_width_valid. */
+static void width_clear(s5_status_t *next)
+{
+    next->object_width_valid = FALSE;
+    next->object_left_mm = next->object_right_mm = 0;
+}
+
 static INT scan_blocked(s5_status_t *next)
 {
     next->approach_plan_valid = FALSE;
     next->state = S5_BLOCKED;
     next->avoidance_deg = 0;
-    next->object_width_valid = FALSE;
+    width_clear(next);
     return 0;
 }
 
@@ -34,18 +41,46 @@ static INT scan_begin(s5_status_t *next, s5_scan_context_t *scan)
     next->left_bound_valid = next->right_bound_valid = FALSE;
     next->object_width_valid = FALSE;
     next->object_width_mm = next->object_width_min_mm = next->object_width_max_mm = 0;
+    next->object_left_mm = next->object_right_mm = 0;
     next->state = S5_SCAN_LEFT;
     return S5_SCAN_STEP_DEG;
 }
 
-/* Always sample 30,60,90 before fine checking the first measured opening. */
+/* Always sample 30,60,90 before fine checking the first measured opening.
+ * Publish both half-widths first, with no plan, and hold the vehicle in
+ * VERIFY_CLEAR for S5_WIDTH_PUBLISH_MS before the side is chosen. */
 static INT finish_sides(s5_status_t *next, s5_scan_context_t *scan)
 {
     s5_width_from_bounds(next); /* Remains invalid when only one edge is known. */
-    if (!s5_acquisition_plan(next)) return scan_blocked(next);
+    if (!next->object_width_valid) return scan_blocked(next);
+    next->approach_plan_valid=FALSE;next->avoidance_deg=0;next->planned_rotate_deg=0;
+    next->planned_rotate_ms=next->planned_approach_mm=next->planned_return_mm=0;
     next->state=S5_VERIFY_CLEAR;
+    scan->plan_pending=0;scan->width_hold=1;scan->width_hold_ms=next->time_ms;
+    return next->angle_deg;
+}
+/* Hold samples only advance time; the plan then pans to a fresh heading. */
+static INT width_hold_step(s5_status_t *next, s5_scan_context_t *scan)
+{
+    if (next->time_ms - scan->width_hold_ms < S5_WIDTH_PUBLISH_MS) return next->angle_deg;
+    scan->width_hold=0;
+    if (!s5_acquisition_plan(next) || next->planned_rotate_deg < -80 ||
+        next->planned_rotate_deg > 80) return scan_blocked(next);
     scan->plan_pending=1;
     return next->planned_rotate_deg;
+}
+/* The chosen heading failed its check: both edges are still known, so plan
+ * the other side once (if it clears) before giving up. */
+static INT verify_failed(s5_status_t *next, s5_scan_context_t *scan)
+{
+    if (scan->plan_pending && !scan->side_retry && next->approach_plan_valid) {
+        INT other = next->planned_rotate_deg > 0 ? -1 : 1;
+        scan->side_retry = 1;
+        if (s5_acquisition_plan_side(next, other) && next->planned_rotate_deg >= -80 &&
+            next->planned_rotate_deg <= 80)
+            return next->planned_rotate_deg;
+    }
+    return scan_blocked(next);
 }
 /* Keep a failed side unknown, and advance without restarting acquisition. */
 static INT side_failed(s5_status_t *next, s5_scan_context_t *scan, BOOL left)
@@ -63,7 +98,7 @@ static INT fine_begin(s5_status_t *next, s5_scan_context_t *scan, BOOL left)
 {
     scan->fine_hit=0;
     scan->fine_clear=left?scan->left_clear:-scan->right_clear;
-    scan->fine_checks=0;scan->averaging_bound=FALSE;
+    scan->fine_checks=0;scan->averaging_bound=FALSE;scan->edge_retreats=0;
     next->state=left?S5_REFINE_LEFT:S5_REFINE_RIGHT;
     return (left?1:-1)*(scan->fine_clear/2);
 }
@@ -100,9 +135,18 @@ static BOOL bound_average(s5_status_t *next, s5_scan_context_t *scan, UW *mean)
 static INT refine_side(s5_status_t *next, s5_scan_context_t *scan, BOOL object, BOOL left)
 {
     INT magnitude=left?next->angle_deg:-next->angle_deg;
-    if(scan->averaging_bound && !object)return side_failed(next,scan,left);
+    /* A borderline edge sample that misses the object (while averaging, or
+     * the fresh check at the candidate edge) retreats the edge 1 deg inward
+     * and re-checks there, at most S5_EDGE_RETREATS times per side. */
+    if(!object && (scan->averaging_bound || (scan->fine_hit>0 && magnitude<=scan->fine_hit))) {
+        if(scan->edge_retreats>=S5_EDGE_RETREATS || magnitude<=1)return side_failed(next,scan,left);
+        ++scan->edge_retreats;scan->averaging_bound=FALSE;
+        scan->fine_clear=magnitude;scan->fine_hit=magnitude-1;
+        return (left?1:-1)*scan->fine_hit;
+    }
     if(!scan->averaging_bound) {
-        if(++scan->fine_checks>10U)return side_failed(next,scan,left);
+        /* Retreats are counted separately and never use up the fine-check limit. */
+        if(++scan->fine_checks>10U+scan->edge_retreats)return side_failed(next,scan,left);
         if(object)scan->fine_hit=magnitude;else scan->fine_clear=magnitude;
         if(scan->fine_clear-scan->fine_hit>1)
             return (left?1:-1)*((scan->fine_clear+scan->fine_hit)/2);
@@ -148,7 +192,7 @@ EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
         *scan=(s5_scan_context_t){0};scan->motion_restarts=restarts;
         next->approach_plan_valid=FALSE;next->valid=FALSE;
         next->left_bound_valid=next->right_bound_valid=FALSE;
-        next->object_width_valid=FALSE;
+        width_clear(next);
         if(restarts>S5_SCAN_MOTION_RESTARTS)return scan_blocked(next);
         next->state=S5_CENTERING;
         return 0;
@@ -158,9 +202,10 @@ EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
         next->state == S5_VERIFY_CLEAR || next->state == S5_READY;
     BOOL opening = FALSE;
     if (next->sample_angle_deg != next->angle_deg) {
-        next->approach_plan_valid=FALSE;next->state=S5_FAULT;
+        next->approach_plan_valid=FALSE;next->state=S5_FAULT;scan->width_hold=0;
         return 0;
     }
+    if (scan->width_hold && next->state==S5_VERIFY_CLEAR) return width_hold_step(next,scan);
     if(!scan->echo_angle_valid || scan->echo_angle!=next->angle_deg) {
         scan->echo_angle=next->angle_deg;scan->echo_angle_valid=TRUE;
         scan->echo_failures=0;
@@ -181,15 +226,15 @@ EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
                 case S5_SCAN_RIGHT:return scan_right(next,scan,TRUE);
                 case S5_REFINE_LEFT:return side_failed(next,scan,TRUE);
                 case S5_REFINE_RIGHT:return side_failed(next,scan,FALSE);
-                case S5_VERIFY_CLEAR:case S5_READY:
-                    return side_failed(next,scan,next->planned_rotate_deg>0);
+                case S5_VERIFY_CLEAR:return verify_failed(next,scan);
+                case S5_READY:return scan_blocked(next);
                 default:break;
                 }
             }
             if(next->state==S5_BLOCKED)return 0;
             next->approach_plan_valid=FALSE;next->state=S5_FAULT;
             next->left_bound_valid=next->right_bound_valid=FALSE;
-            next->object_width_valid=FALSE;*scan=(s5_scan_context_t){0};
+            width_clear(next);*scan=(s5_scan_context_t){0};
             return 0;
         }
     } else scan->echo_failures=0;
@@ -216,7 +261,7 @@ EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
         return refine_side(next, scan, object,FALSE);
     case S5_VERIFY_CLEAR:
         if (object || (!opening && next->distance_mm <= S5_GUIDANCE_OBSTACLE_MM))
-            return side_failed(next,scan,next->planned_rotate_deg>0);
+            return verify_failed(next,scan);
         if (!scan->plan_pending) {
             if (!s5_acquisition_plan(next) || next->planned_rotate_deg < -80 ||
                 next->planned_rotate_deg > 80) return scan_blocked(next);
@@ -251,7 +296,7 @@ EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)
         next->approach_plan_valid = FALSE;
         next->state = S5_FAULT;
         next->valid = FALSE;
-        next->object_width_valid = FALSE;
+        width_clear(next);scan->width_hold=0;
         next->left_bound_valid = next->right_bound_valid = FALSE;
         return 0;
     }

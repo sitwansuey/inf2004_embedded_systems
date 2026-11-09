@@ -68,7 +68,7 @@ class MonitorTests(unittest.TestCase):
         self.assertNotIn('off_course', self.activate(Monitor(), available=16))
 
     def test_phase_gating(self):
-        for phase in (0, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12):
+        for phase in (0, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13):
             self.assertNotIn('off_course', self.activate(Monitor(), phase=phase))
         for phase in (1, 10, 44):
             self.assertIn('off_course', self.activate(Monitor(), phase=phase))
@@ -78,7 +78,7 @@ class MonitorTests(unittest.TestCase):
         m = Monitor()
         self.assertFalse(m.receive('other', packet(4, 10), 0))
         self.assertFalse(m.receive(MQTT_TOPIC, packet(4, 10), 0, retained=True))
-        for payload in (b'', b'123', packet(0, 0x207), packet(0, 13)):
+        for payload in (b'', b'123', packet(0, 0x207), packet(0, 14)):
             self.assertFalse(m.receive(MQTT_TOPIC, payload, 0))
         self.assertEqual(m.ready(0), [])
         self.activate(m)

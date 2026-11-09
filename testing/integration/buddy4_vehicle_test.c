@@ -11,17 +11,29 @@
 #define BOARD_BYPASS_VALIDATED 1 /* synthetic policy fixture only */
 ID app_start_task(FP task, PRI priority, UW core, const char *name);
 #include "../../app_program/vehicle.c"
+void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault)
+{ (void)seq;(void)opcode;(void)result;(void)phase;(void)fault; }
 static jmp_buf done;
 static app_state_t saved;
 static uint32_t clock_ms, iteration;
 static unsigned failure_mode, stops, positive_requests;
+/* Mode 10: barcode miss -> retry reverse, with one forward sonar glitch. */
+#define BR_MISS_AT 10U
+#define BR_GLITCH_AT 25U
+#define BR_ITERATIONS 40U
+static unsigned reverse_requests, reverse_after_glitch, left_track;
+/* Mode 11: S3 starts reading a marker during normal tracking (first pass). */
+#define READ_FROM 12U
+#define READ_UNTIL 16U
+static unsigned read_count, read_max, normal_count, normal_min;
 static bool reset_offered;
 
 ER tk_get_otm(SYSTIM *t) { t->hi=0;t->lo=clock_ms;return E_OK; }
 ER tk_dly_tsk(UW delay)
 {
     (void)delay;
-    if (++iteration >= 12U) longjmp(done,1);
+    if(failure_mode==10U && iteration>BR_MISS_AT && saved.vehicle.phase!=VC_TRACK)++left_track;
+    if (++iteration >= (failure_mode==10U?BR_ITERATIONS:failure_mode==11U?20U:12U)) longjmp(done,1);
     clock_ms += 20U;
     return E_OK;
 }
@@ -31,7 +43,20 @@ ER s3_controller_bind(void) { return E_OK; }
 ER s5_controller_bind(void) { return E_OK; }
 ER s2_emergency_stop(void) { ++stops; return E_OK; }
 ER s2_movement_send(s2_move_command_t command,UINT power)
-{ (void)command;(void)power;++positive_requests;return E_OK; }
+{
+    ++positive_requests;
+    if(failure_mode==11U && command==S2_MOVE_FORWARD) {
+        if(iteration>=READ_FROM && iteration<READ_UNTIL) {++read_count;if(power>read_max)read_max=power;}
+        else {++normal_count;if(power<normal_min)normal_min=power;}
+    }
+    if(command==S2_MOVE_REVERSE) {++reverse_requests;if(iteration>BR_GLITCH_AT)++reverse_after_glitch;}
+    return E_OK;
+}
+ER s2_reverse_follow_send(UINT power,INT steering)
+{
+    (void)power;(void)steering;++positive_requests;
+    ++reverse_requests;if(iteration>BR_GLITCH_AT)++reverse_after_glitch;return E_OK;
+}
 ER s2_motion_get_status(s2_motion_status_t *s)
 { *s=(s2_motion_status_t){0};return E_OK; }
 ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
@@ -46,6 +71,13 @@ ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
 ER s3_status_get(s3_status_t *s) {
     *s=(s3_status_t){0};
     if(failure_mode>=7U) {s->configured=1;s->sample_time_ms=clock_ms;s->output.steering_allowed=1;}
+    if(failure_mode==10U && iteration>=BR_MISS_AT)s->output.barcode_fail_count=1;
+    /* A marker in progress (bar, gap, bar...): a single crossing line with
+     * fewer than 3 elements must not slow the robot (checked at READ_FROM-1). */
+    if(failure_mode==11U && iteration>=READ_FROM-1U && iteration<READ_UNTIL) {
+        s->output.barcode_result=S3_BARCODE_RESULT_READING;
+        s->output.barcode_elements=(uint8_t)(iteration<READ_FROM?2U:3U+iteration-READ_FROM);
+    }
     return E_OK;
 }
 ER s5_get_status(s5_status_t *s) {
@@ -53,6 +85,7 @@ ER s5_get_status(s5_status_t *s) {
     if(failure_mode>=7U) {
         s->state=S5_MONITOR;s->valid=1;s->distance_mm=400;s->time_ms=clock_ms;
         if(iteration>=8U && failure_mode==7U)s->distance_mm=UINT32_MAX;
+        if(iteration==BR_GLITCH_AT && failure_mode==10U)s->distance_mm=150; /* one spurious echo */
         if(iteration>=8U && failure_mode==8U) {
             s->state=S5_READY;s->distance_mm=100;s->approach_plan_valid=1;s->object_width_valid=1;
             s->planned_rotate_deg=65537;s->planned_approach_mm=65537;s->planned_return_mm=65537;
@@ -89,6 +122,7 @@ ER s1_command_offer(const uint8_t *wire,UINT length)
 ER s3_controller_control(s3_mode_t mode,bool clear,UW lease)
 { (void)mode;(void)clear;(void)lease;return E_OK; }
 ER s3_controller_renew(UW lease) { (void)lease;return E_OK; }
+ER s3_controller_barcode_end(void) { return E_OK; }
 ER s5_navigation_set(uint32_t id,s5_state_t mode,INT angle)
 { (void)id;(void)mode;(void)angle;return E_OK; }
 ER s3_event_receive(s3_event_record_t *event) { (void)event;return E_TMOUT; }
@@ -97,8 +131,10 @@ ID app_start_task(FP task,PRI priority,UW core,const char *name)
 { (void)task;(void)priority;(void)core;(void)name;return 1; }
 int main(void)
 {
-    for(failure_mode=0;failure_mode<10;++failure_mode) {
+    for(failure_mode=0;failure_mode<12;++failure_mode) {
         iteration=stops=positive_requests=0;clock_ms=100;reset_offered=false;
+        reverse_requests=reverse_after_glitch=left_track=0;saved=(app_state_t){0};
+        read_count=read_max=normal_count=0;normal_min=~0U;
         if(setjmp(done)==0)vehicle_task(0,NULL);
         s4_result_t result={0};assert(s4_result_decode(saved.s4_result,sizeof(saved.s4_result),&result));
         if(failure_mode==0)assert((result.flags&S4_RESULT_TILT) && saved.odometry_valid);
@@ -112,10 +148,30 @@ int main(void)
         if(failure_mode==6)assert((result.flags&S4_RESULT_SHOCK) &&
                                   (result.faults&EDR_FAULT_IMU) && !(result.flags&S4_RESULT_TILT));
         assert(stops);
-        if(failure_mode==9U)assert(positive_requests>0);
+        if(failure_mode>=9U)assert(positive_requests>0);
         else assert(!positive_requests);
-        if(failure_mode==7U)assert(saved.vehicle.phase==VC_FAULT && saved.vehicle.fault==VC_SENSOR);
+        if(failure_mode==7U)assert(saved.vehicle.phase==VC_FAULT && saved.vehicle.fault==VC_SENSOR &&
+            saved.vehicle.fault_cause==VC_CAUSE_SONAR);
+#if BOARD_BARCODE_RETRY_DRIVE
+        /* The glitch arrives while reversing: TRACK holds and the reverse continues. */
+        if(failure_mode==10U)assert(saved.vehicle.armed && saved.vehicle.phase==VC_TRACK && !left_track &&
+            reverse_requests>reverse_after_glitch && reverse_after_glitch>=BR_ITERATIONS-BR_GLITCH_AT-2U);
+#endif
+        if(failure_mode==11U) {
+            unsigned slow=30U;
+#if BOARD_BARCODE_RETRY_DRIVE && BOARD_BARCODE_SLOW_WHILE_READING
+            /* A marker started at full speed is read on at the re-read speed. */
+            slow=30U*BOARD_BARCODE_RETRY_SPEED_PERCENT/100U;
+            if(slow<BOARD_BARCODE_RETRY_MIN_POWER)slow=BOARD_BARCODE_RETRY_MIN_POWER;
+            assert(slow<30U);
+#endif
+            assert(saved.vehicle.armed && saved.vehicle.phase==VC_TRACK);
+            assert(read_count==READ_UNTIL-READ_FROM && read_max==slow);
+            assert(normal_count>=6U && normal_min==30U); /* full speed before and after */
+        }
     }
     puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");
+    puts("Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read PASS");
+    puts("Barcode first pass: S3 READING caps the forward power to the re-read speed PASS");
     return 0;
 }

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Robo Pico · Mission dashboard</title><link rel="stylesheet" href="dashboard.css?v=command-ack-1"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Robo Pico · Mission dashboard</title><link rel="stylesheet" href="dashboard.css?v=barcode-history-1"></head>
 <body>
 <header><div class="brand">RP<span>ROBO PICO / INF2004</span></div><div id="connection" class="badge">Awaiting data</div></header>
 <main>
@@ -14,7 +14,8 @@
 <section class="summary" id="summary"></section>
 <div class="section-intro"><p class="eyebrow">SENSOR DATA & SUBSYSTEM OUTPUTS</p><h2>Individual sensor sections</h2><p class="muted">Each card groups the readings received from one sensor or processing stage. Missing readings stay blank until supplied.</p></div>
 <section class="grid" id="panels" aria-label="Sensor readings and subsystem outputs"></section>
+<section class="panel events" id="barcode-reads"><div class="panel-heading"><div><p class="eyebrow">BARCODE HISTORY</p><h2>Barcode reads</h2></div><span id="barcode-count" class="muted">0 reads</span></div><p class="muted">One row per barcode pass: normal speed, reverse re-read, then slow final pass. Elements are bars + spaces; a full barcode is 29. Codebook: A = U-turn, Z = right, F = left.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Pass</th><th>Elements</th><th>Duration</th><th>Result</th><th>Letter</th><th>Turn</th></tr></thead><tbody id="barcode-history"></tbody></table></div></section>
 <section class="panel events"><div class="panel-heading"><div><p class="eyebrow">MISSION HISTORY</p><h2>Events & faults</h2></div><span id="event-count" class="muted">0 events</span></div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Source</th><th>Level</th><th>Event / message</th></tr></thead><tbody id="events"></tbody></table></div></section>
 <footer><span id="updated">Last received: —</span><span>Display only · Start/stop commands are handled by firmware; dashboard is read-only</span></footer>
-</main><script src="dashboard.js?v=command-ack-1"></script>
+</main><script src="dashboard.js?v=barcode-history-1"></script>
 </body></html>

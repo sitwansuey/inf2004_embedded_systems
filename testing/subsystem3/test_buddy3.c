@@ -200,7 +200,7 @@ static void test_config_boundaries(void)
     cfg = config(); cfg.line.position[0] = 0;
     CHECK(!s3_config_valid(&cfg));
     cfg = config(); cfg.barcode.min_run_ms = 0U;
-    CHECK(!s3_config_valid(&cfg));
+    CHECK(s3_config_valid(&cfg)); /* Reference supports an explicitly disabled floor. */
     cfg = config(); cfg.max_sample_gap_ms = 0U;
     CHECK(!s3_config_valid(&cfg));
     CHECK(!s3_core_init(NULL, &cfg));
@@ -254,7 +254,7 @@ static void test_barcode_corruption(void)
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_BAD_PATTERN);
     scale(sample_a, runs, 40U);
     for (i = 10U; i < 19U; ++i) { runs[i] = 40U; }
-    runs[10] = 120U; runs[11] = 120U; runs[12] = 120U;
+    runs[13] = 120U; runs[14] = 120U; runs[16] = 120U; /* Digit0 is outside A-Z. */
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_UNKNOWN);
     CHECK(symbol.symbol == 0);
     for (i = 0U; i < 29U; ++i) { runs[i] = UINT32_MAX; }
@@ -367,7 +367,7 @@ static s3_output_t latest;
 
 static void core_feed(s3_core_t *p_core, bool black)
 {
-    s3_sample_t sample = {{1000U, 0U, 0U}, 7U, 0U};
+    s3_sample_t sample = {.raw={1000U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
     core_time += 10U;
     sample.time_ms = core_time;
     sample.raw[2] = black ? 1000U : 0U;
@@ -425,7 +425,7 @@ static void test_navigation_handoff_override(void)
     CHECK(core.awaiting_controller && !latest.steering_allowed);
     for (i = 0U; i < 70U; ++i)
     {
-        s3_sample_t absent = {{0U, 0U, 0U}, 7U, 0U};
+        s3_sample_t absent = {.raw={0U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
         core_time += 10U; absent.time_ms = core_time;
         s3_core_step(&core, &absent, &latest);
         CHECK(latest.event.kind == S3_EVENT_NONE);
@@ -477,7 +477,7 @@ static void test_unmapped_corrupt_and_fault(void)
 {
     s3_core_t core;
     uint32_t runs[29];
-    s3_sample_t sample = {{1000U, 0U, 0U}, 7U, 0U};
+    s3_sample_t sample = {.raw={1000U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
     scale(sample_a, runs, 40U);
     setup_core(&core, false);
     core_fixture(&core, runs);
@@ -500,7 +500,7 @@ static void test_core_loss_and_time(void)
 {
     s3_core_t core;
     s3_config_t cfg = config();
-    s3_sample_t sample = {{0U, 0U, 0U}, 7U, 0U};
+    s3_sample_t sample = {.raw={0U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
     s3_output_t output;
     unsigned int recoveries = 0U;
     unsigned int stops = 0U;

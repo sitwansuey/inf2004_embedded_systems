@@ -6,7 +6,7 @@ static const field_t fields[TEL_FIELD_COUNT]={
     {1LL,1LL,4},
     {0LL,65535LL,16},
     {0LL,4294967295LL,32},
-    {0LL,12LL,4},
+    {0LL,13LL,4},
     {0LL,7LL,3},
     {0LL,6LL,3},
     {0LL,100LL,7},
@@ -21,7 +21,7 @@ static const field_t fields[TEL_FIELD_COUNT]={
     {0LL,4095LL,12},
     {0LL,7LL,3},
     {-1000LL,1000LL,11},
-    {0LL,5LL,3},
+    {0LL,26LL,5},
     {0LL,4LL,3},
     {-2048LL,2047LL,12},
     {-2048LL,2047LL,12},
@@ -40,7 +40,13 @@ static const field_t fields[TEL_FIELD_COUNT]={
     {0LL,14LL,4},
     {0LL,63LL,6},
     {0LL,65535LL,16},
-    {0LL,2LL,2}
+    {0LL,2LL,2},
+    {0LL,31LL,5},
+    {0LL,3LL,2},
+    {0LL,1000LL,10},
+    {0LL,1000LL,10},
+    {0LL,2LL,2},
+    {0LL,3LL,2}
 };
 bool telemetry_encode(uint8_t out[TELEMETRY_BYTES],const int64_t v[TEL_FIELD_COUNT]) {
     if(!out || !v)return false;

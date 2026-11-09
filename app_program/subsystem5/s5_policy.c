@@ -1,5 +1,6 @@
 /* Public path assessment, kept separate from hardware. */
 #include "s5_policy.h"
+#include "s5_width.h"
 static const UW cosine_q10000[] = {
         10000U, 9998U, 9994U, 9986U, 9976U, 9962U, 9945U, 9925U, 9903U, 9877U,
         9848U, 9816U, 9781U, 9744U, 9703U, 9659U, 9613U, 9563U, 9511U, 9455U,
@@ -34,20 +35,37 @@ static INT edge_clearance_heading(INT angle, UW range_mm)
     return 0;
 }
 
-static void approach_geometry(s5_path_t *path, UW depth, UINT degree)
+static BOOL approach_geometry(s5_path_t *path,const s5_status_t *sensor,UINT degree,BOOL left)
 {
-    (void)degree;
-    path->approach_mm = depth;
-    path->return_mm = depth; /* Symmetric diagonal and arc sequence. */
+    if(!degree || degree>80U || !sensor->object_width_valid ||
+       sensor->object_width_max_mm>AVOID_MAX_WIDTH_MM)return FALSE;
+    INT bound=left?sensor->left_bound_deg:-sensor->right_bound_deg;
+    UW range=left?sensor->left_bound_distance_mm:sensor->right_bound_distance_mm;
+    if(bound<0 || bound>80 || !range || range>5000U)return FALSE;
+    UW edge=range*cosine_q10000[90-(UINT)bound]/10000U;
+    UW half=(sensor->object_width_max_mm+1U)/2U;
+    UW lateral=(edge>half?edge:half)+S5_CLEARANCE_RADIUS_MM;
+    UW arc=2U*S5_BYPASS_ARC_RADIUS_MM*(10000U-cosine_q10000[degree])/10000U;
+    UW remaining=lateral>arc?lateral-arc:0U;
+    UW sine=cosine_q10000[90U-degree];
+    if(!sine)return FALSE;
+    UW leg=(remaining*10000U+sine-1U)/sine;
+    if(leg<50U)leg=50U;
+    if(leg>1000U)return FALSE;
+    path->approach_mm=path->return_mm=leg;
+    return TRUE;
 }
 
-/* Use both averaged edge ranges to choose the smaller feasible tangent. */
-EXPORT BOOL s5_acquisition_plan(s5_status_t *sensor)
+/* Use both averaged edge ranges to choose the shorter feasible detour.
+ * side: 0 chooses, +1 forces LEFT, -1 forces RIGHT (fails if infeasible). */
+EXPORT BOOL s5_acquisition_plan_side(s5_status_t *sensor, INT side)
 {
     if (!sensor) return FALSE;
     sensor->approach_plan_valid = FALSE;
     sensor->planned_rotate_deg = 0;
     sensor->planned_rotate_ms = sensor->planned_approach_mm = sensor->planned_return_mm = 0;
+    s5_width_from_bounds(sensor);
+    if(!sensor->object_width_valid)return FALSE;
     if ((!sensor->left_bound_valid && !sensor->right_bound_valid) ||
         sensor->obstacle_distance_mm == 0U ||
         sensor->obstacle_distance_mm > S5_OBSTACLE_MM ||
@@ -57,18 +75,28 @@ EXPORT BOOL s5_acquisition_plan(s5_status_t *sensor)
     INT right = sensor->right_bound_valid ? edge_clearance_heading(sensor->right_bound_deg, sensor->right_bound_distance_mm) : 0;
     if(left>80)left=0;
     if(right>80)right=0;
+    if (side > 0) right = 0;
+    if (side < 0) left = 0;
     if (!left && !right) return FALSE;
-    BOOL choose_left = left && (!right || left <= right);
+    /* Shorter detour first: smaller centre-to-edge half; ties keep the
+     * smaller heading, then LEFT. */
+    BOOL choose_left = left && (!right ||
+        sensor->object_left_mm < sensor->object_right_mm ||
+        (sensor->object_left_mm == sensor->object_right_mm && left <= right));
     INT magnitude = choose_left ? left : right;
     sensor->avoidance_deg = choose_left ? sensor->left_bound_deg + 1 : sensor->right_bound_deg - 1;
     s5_path_t plan = {0};
-    approach_geometry(&plan, sensor->obstacle_distance_mm + S5_BYPASS_ARC_RADIUS_MM, (UINT)magnitude);
+    if(!approach_geometry(&plan,sensor,(UINT)magnitude,choose_left))return FALSE;
     sensor->planned_rotate_deg = choose_left ? magnitude : -magnitude;
     sensor->planned_rotate_ms = (UW)magnitude * S5_ROTATE_MS_PER_DEG;
     sensor->planned_approach_mm = plan.approach_mm;
     sensor->planned_return_mm = plan.return_mm;
     sensor->approach_plan_valid = TRUE;
     return TRUE;
+}
+EXPORT BOOL s5_acquisition_plan(s5_status_t *sensor)
+{
+    return s5_acquisition_plan_side(sensor, 0);
 }
 
 /* Pure assessment of the copied sensor state: no motor access. */

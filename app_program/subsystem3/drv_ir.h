@@ -8,7 +8,8 @@ typedef enum
 {
     S3_IR_DISABLED,
     S3_IR_DIGITAL,
-    S3_IR_ADC /* Optional worker; requires verified kernel analogue pad config. */
+    S3_IR_ADC, /* Optional worker; requires verified kernel analogue pad config. */
+    S3_IR_ADC_LINE_DIGITAL_BARCODE /* GP26/27 ADC, GP28 digital input. */
 } s3_ir_mode_t;
 
 typedef struct

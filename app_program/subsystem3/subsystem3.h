@@ -79,6 +79,10 @@ IMPORT ER s3_configure_raw(const s3_ir_config_t *p_config);
 IMPORT ER s3_controller_bind(void);
 IMPORT ER s3_controller_control(s3_mode_t mode, bool marker_clear, UW lease_ms);
 IMPORT ER s3_controller_renew(UW lease_ms);
+/* Controller only: the vehicle measured the end of the marker (no GP28 edge
+ * over BOARD_BARCODE_END_GAP_MM of travel); finish the running capture now.
+ * Applied by the S3 task on its next sample; ignored if nothing is reading. */
+IMPORT ER s3_controller_barcode_end(void);
 IMPORT ER s3_event_receive(s3_event_record_t *p_record);
 #if defined(BOARD_IR_MOTOR_SCAN_BENCH) && BOARD_IR_MOTOR_SCAN_BENCH
 /* Bound scan controller only: priority-inheritance state handoff, at most the

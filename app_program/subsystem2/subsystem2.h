@@ -119,6 +119,9 @@ IMPORT ER app_vehicle_request(UINT subsystem, s2_move_command_t command,
 /* Task context only; moving commands need periodic renewal. */
 IMPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent);
 IMPORT ER s2_follow_send(UINT power_percent, INT steering);
+/* REVERSE with steering in -400..400 (PID builds only, else E_NOSPT).
+ * Positive steering speeds the left wheel, turning the robot CCW. */
+IMPORT ER s2_reverse_follow_send(UINT power_percent, INT steering);
 /* Reports commanded output, not measured wheel motion. Task context only. */
 IMPORT ER s2_motion_get_status(s2_motion_status_t *p_status);
 /* E_NOSPT and zeroed output when encoder diagnostics are disabled.

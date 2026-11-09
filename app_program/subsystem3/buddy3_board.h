@@ -10,6 +10,19 @@
 #ifndef BOARD_MOTORS_DISABLED
 #define BOARD_MOTORS_DISABLED 0 /* No shared owner has declared a drive lock. */
 #endif
+/* Barcode-only import: preserve all other board defaults and profiles. */
+#ifndef BOARD_BARCODE_RETRY
+#define BOARD_BARCODE_RETRY 1
+#endif
+#ifndef BOARD_BARCODE_MIN_RUN_MS
+#define BOARD_BARCODE_MIN_RUN_MS 20U
+#endif
+#ifndef BOARD_BARCODE_DIGITAL_BLACK_LEVEL
+#define BOARD_BARCODE_DIGITAL_BLACK_LEVEL 1U /* GP28 was measured HIGH on black. */
+#endif
+#if BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 0 && BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 1
+#error Barcode digital black level must be zero or one
+#endif
 #ifndef BOARD_IR_MODE
 #define BOARD_IR_MODE 0
 #endif
@@ -38,18 +51,21 @@
 #define BOARD_IR_POSITIONS {1000,-1000,0}
 #endif
 #ifndef BOARD_MAP_A
-#define BOARD_MAP_A 1
+#define BOARD_MAP_A 4
 #endif
 #ifndef BOARD_MAP_B
-#define BOARD_MAP_B 2
+#define BOARD_MAP_B 0
 #endif
 #ifndef BOARD_MAP_C
-#define BOARD_MAP_C 3
+#define BOARD_MAP_C 0
 #endif
 #ifndef BOARD_MAP_D
-#define BOARD_MAP_D 4
+#define BOARD_MAP_D 0
 #endif
 #ifndef BOARD_MAP_Z
-#define BOARD_MAP_Z 0
+#define BOARD_MAP_Z 2
+#endif
+#ifndef BOARD_MAP_F
+#define BOARD_MAP_F 1 /* left */
 #endif
 #endif

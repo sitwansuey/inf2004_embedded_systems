@@ -43,7 +43,7 @@ bool s3_config_valid(const s3_config_t *p_config)
         (p_config->max_sample_gap_ms > INT32_MAX) ||
         !navigation_valid(p_config->map_a) || !navigation_valid(p_config->map_z) ||
         !navigation_valid(p_config->map_b) || !navigation_valid(p_config->map_c) ||
-        !navigation_valid(p_config->map_d))
+        !navigation_valid(p_config->map_d) || !navigation_valid(p_config->map_f))
     {
         return false;
     }
@@ -107,6 +107,56 @@ void s3_core_fault(s3_core_t *p_core, s3_error_t error)
     }
 }
 
+void s3_core_barcode_end(s3_core_t *p_core)
+{
+    if (p_core != NULL)
+    {
+        s3_barcode_request_end(&p_core->barcode);
+    }
+}
+
+void s3_core_barcode_summary(const s3_core_t *p_core, s3_output_t *p_output)
+{
+    if ((p_core == NULL) || (p_output == NULL))
+    {
+        return;
+    }
+    p_output->last_symbol = p_core->last_symbol;
+    p_output->barcode_ok_count = p_core->barcode_ok_count;
+    p_output->barcode_fail_count = p_core->barcode_fail_count;
+    if (p_core->barcode.state == S3_CAPTURE_RUNNING)
+    {
+        uint32_t bars = p_core->barcode.bars;
+        uint32_t elements = p_core->barcode.elements;
+        p_output->barcode_bars = (uint8_t)(bars > S3_BARCODE_BARS_MAX ? S3_BARCODE_BARS_MAX : bars);
+        p_output->barcode_elements = (uint8_t)(elements > 255U ? 255U : elements);
+        p_output->barcode_result = S3_BARCODE_RESULT_READING;
+    }
+    else
+    {
+        p_output->barcode_bars = p_core->last_bars;
+        p_output->barcode_elements = p_core->last_elements;
+        p_output->barcode_result = p_core->last_result;
+    }
+}
+
+/* A finished capture becomes the dashboard result unless it was too short
+ * to be a marker (a line crossing); bars/elements are the last capture's. */
+static void barcode_finished(s3_core_t *p_core, bool decoded)
+{
+    uint32_t elements = p_core->barcode.elements != 0U ?
+                        p_core->barcode.elements : p_core->barcode.count;
+    uint32_t bars = p_core->barcode.elements != 0U ?
+                    p_core->barcode.bars : (p_core->barcode.count + 1U) / 2U;
+    if (!decoded && (elements < S3_BARCODE_FAIL_MIN_RUNS))
+    {
+        return;
+    }
+    p_core->last_bars = (uint8_t)(bars > S3_BARCODE_BARS_MAX ? S3_BARCODE_BARS_MAX : bars);
+    p_core->last_elements = (uint8_t)(elements > 255U ? 255U : elements);
+    p_core->last_result = decoded ? S3_BARCODE_RESULT_DECODED : S3_BARCODE_RESULT_FAILED;
+}
+
 static void event(s3_core_t *p_core, s3_output_t *p_output,
                     s3_event_kind_t kind, uint32_t now_ms)
 {
@@ -146,6 +196,7 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
         p_output->error = S3_ERROR_CONFIG;
         return;
     }
+    s3_core_barcode_summary(p_core, p_output);
     elapsed = p_sample->time_ms - p_core->last_sample;
     p_core->last_sample = p_sample->time_ms;
     if (p_core->have_sample &&
@@ -202,6 +253,7 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
         {
             p_core->barcode_black = false;
         }
+        p_output->barcode_black = p_core->barcode_black;
     }
     if (p_core->mode != S3_MODE_TRACK)
     {
@@ -210,7 +262,8 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
         p_output->awaiting_controller = p_core->awaiting_controller;
         return;
     }
-    if ((p_output->line.state == S3_LINE_LOST) &&
+    if (!p_core->config.line_straddle &&
+        (p_output->line.state == S3_LINE_LOST) &&
         (p_core->latched_error == S3_ERROR_NONE) &&
         (!p_core->awaiting_controller || p_core->recovery_sent))
     {
@@ -228,14 +281,29 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
             p_core->awaiting_controller = true;
         }
     }
-    if ((p_output->line.state != S3_LINE_TRACKING) ||
+    /* Retain an in-progress barcode through the existing traversable junction.
+     * This changes capture gating only; junction steering remains unchanged. */
+    bool capture_at_junction=p_core->config.barcode_retry &&
+        p_core->config.line.line_mask==3U && p_output->line.state==S3_LINE_JUNCTION &&
+        p_output->line.black_mask==3U && p_core->barcode.state==S3_CAPTURE_RUNNING;
+    if (((p_output->line.state != S3_LINE_TRACKING) && !capture_at_junction &&
+         !p_core->config.line_straddle) ||
         p_core->awaiting_controller || (p_core->latched_error != S3_ERROR_NONE))
     {
-        s3_barcode_abort(&p_core->barcode);
+        if(p_core->config.barcode_retry && p_core->config.line.line_mask==3U &&
+           p_output->line.state==S3_LINE_JUNCTION && p_output->line.black_mask==3U &&
+           !p_core->awaiting_controller && p_core->latched_error==S3_ERROR_NONE &&
+           p_core->barcode.state==S3_CAPTURE_HOLD) {
+            /* Preserve the rearm request across the junction, but require a
+             * fresh white quiet interval after it, as in the reference. */
+            p_core->barcode.have_sample=false;
+        } else s3_barcode_abort(&p_core->barcode);
     }
     else if (barcode_sensor != S3_NO_BARCODE)
     {
-        p_output->barcode_status = (uint8_t)((unsigned)s3_barcode_feed(&p_core->barcode,
+        p_core->barcode.position = p_sample->position;
+        p_core->barcode.position_valid = p_sample->position_valid;
+        p_output->barcode_status =(uint8_t)((unsigned)(p_core->config.barcode_retry ? s3_barcode_feed_resync : s3_barcode_feed)(&p_core->barcode,
                                                   &p_core->config.barcode,
                                                   p_core->barcode_black,
                                                   p_sample->time_ms,
@@ -243,11 +311,19 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
         if (p_output->barcode_status == S3_BARCODE_OK)
         {
             s3_navigation_t command = S3_NAV_NONE;
+            p_output->barcode_ok_count = ++p_core->barcode_ok_count;
+            barcode_finished(p_core, true);
+            if (p_output->decoded.symbol >= 'A' && p_output->decoded.symbol <= 'Z')
+            {
+                p_core->last_symbol = p_output->decoded.symbol;
+                p_output->last_symbol = p_core->last_symbol;
+            }
             switch (p_output->decoded.symbol) {
                 case 'A': command=p_core->config.map_a; break;
                 case 'B': command=p_core->config.map_b; break;
                 case 'C': command=p_core->config.map_c; break;
                 case 'D': command=p_core->config.map_d; break;
+                case 'F': command=p_core->config.map_f; break;
                 case 'Z': command=p_core->config.map_z; break;
                 default: break;
             }
@@ -261,11 +337,27 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
             else
             {
                 p_output->error = S3_ERROR_UNMAPPED;
+                if(p_core->config.barcode_retry) {
+                    p_core->barcode.last_edge=p_sample->time_ms;
+                    s3_barcode_rearm(&p_core->barcode);
+                }
             }
         }
         else if (p_output->barcode_status != S3_BARCODE_NONE)
         {
-            fault(p_core, p_output, S3_ERROR_BARCODE, p_sample->time_ms);
+            uint32_t elements = p_core->barcode.elements != 0U ?
+                                p_core->barcode.elements : p_core->barcode.count;
+            if (elements >= S3_BARCODE_FAIL_MIN_RUNS)
+            {
+                p_output->barcode_fail_count = ++p_core->barcode_fail_count;
+            }
+            barcode_finished(p_core, false);
+            if(p_core->config.barcode_retry) {
+                /* Reject a pattern, not the line sensor. Wait for a fresh
+                 * white quiet interval before considering another marker. */
+                p_core->barcode.last_edge=p_sample->time_ms;
+                s3_barcode_rearm(&p_core->barcode);
+            } else fault(p_core, p_output, S3_ERROR_BARCODE, p_sample->time_ms);
         }
     }
     /* Both front sensors on black is a traversable junction. Keep the
@@ -281,4 +373,5 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
     {
         p_output->error = (uint8_t)((unsigned)p_core->latched_error & 7U);
     }
+    s3_core_barcode_summary(p_core, p_output);
 }

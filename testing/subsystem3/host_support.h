@@ -42,7 +42,9 @@
 #define __DEV_ADC_CNF_RP2040_H__
 #define DEVCONF_ADC_PIN_INIT_0 1
 #define DEVCONF_ADC_PIN_INIT_1 1
+#ifndef DEVCONF_ADC_PIN_INIT_2
 #define DEVCONF_ADC_PIN_INIT_2 1
+#endif
 #endif
 
 typedef int ID;

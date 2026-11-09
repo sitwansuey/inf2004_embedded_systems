@@ -2,6 +2,13 @@
 #include "subsystem4.h"
 #include "drv_pico_i2c.h"
 
+static void wait_for_sensor_release(void)
+{
+    /* Drop releases missed during I2C work. A cyclic wake-up sets the
+     * cadence without adding a full kernel tick to a relative delay. */
+    if (tk_can_wup(TSK_SELF) >= E_OK) (void)tk_slp_tsk(TMO_FEVR);
+}
+
 void s4_sensor_task(INT start_code, void *p_exinf)
 {
     lsm303_bus_t bus;
@@ -24,7 +31,7 @@ void s4_sensor_task(INT start_code, void *p_exinf)
             s4_data_invalidate(&state);
             device.initialized = false;
             (void)s4_status_publish(&state);
-            (void)tk_dly_tsk(S4_POLL_MS);
+            wait_for_sensor_release();
             continue;
         }
 
@@ -55,6 +62,6 @@ void s4_sensor_task(INT start_code, void *p_exinf)
         {
             s4_cache_increment(&state,S4_COUNT_PUBLISH_ERROR);
         }
-        (void)tk_dly_tsk(S4_POLL_MS);
+        wait_for_sensor_release();
     }
 }

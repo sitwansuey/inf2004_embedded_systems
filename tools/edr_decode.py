@@ -25,17 +25,18 @@ def unpack_motor(data):
 
 def status_valid(data):
     subtype, value = data >> 8, data & 255
-    if subtype == 0: return (value & 15) <= 12 and (value >> 4) <= 7
-    if subtype == 1: return (value & 7) <= 5 and (value >> 3) <= 4
+    if subtype == 0: return (value & 15) <= 13 and (value >> 4) <= 7  # phase | fault << 4
+    if subtype == 1: return (value & 31) <= 26 and (value >> 5) <= 4
     if subtype == 2: return value <= 63 and (value & 7) <= 4
     if subtype in (3, 4): return 38 <= value <= 218
-    if subtype == 5: return value <= 5
+    if subtype == 5: return (value & 7) <= 5  # terrain | barcode bars << 3
     if subtype in (6, 7): return value <= 200
-    if subtype == 8: return value <= 100
-    if subtype == 9: return value <= 63
-    if subtype in (10, 11, 12): return True
+    if subtype == 8: return value <= 100 or value >= 128  # total 5 mm | 128+left / 192+right 8 mm
+    # subtype 9: quality bits 0..5 | fault cause << 6 (0 none, 1 sonar, 2 tilt, 3 odometry)
+    if subtype in (9, 10, 11, 12): return True
     if subtype in (13, 14): return 28 <= value <= 228
-    return subtype == 15 and value <= 14
+    # scan | barcode result << 4 | bypass side << 6 (0 none, 1 left, 2 right)
+    return subtype == 15 and (value & 15) <= 14 and (value >> 6) <= 2
 
 def validate(sensor_id, data):
     integer(sensor_id,0,15); integer(data,0,4095)

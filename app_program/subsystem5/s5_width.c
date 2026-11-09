@@ -39,11 +39,40 @@ EXPORT BOOL s5_target_detected(const s5_status_t *sample)
     return forward <= sample->obstacle_distance_mm + S5_TARGET_DEPTH_TOLERANCE_MM;
 }
 
+static UW isqrt64(unsigned long long n)
+{
+    unsigned long long root = 0, bit = 1ULL << 62;
+    while (bit > n) bit >>= 2;
+    while (bit) {
+        if (n >= root + bit) {n -= root + bit; root = (root >> 1) + bit;}
+        else root >>= 1;
+        bit >>= 2;
+    }
+    return (UW)root;
+}
+/* Pythagoras from the averaged slant edge range; tangent when range <= depth.
+ * The edge is at least at the measured bound angle, so the half-width never
+ * drops below floor(depth*tan(bound)): without that floor an edge range 1 mm
+ * above depth gives sqrt(2*depth+1) ~ 17 mm at any angle, and sonar noise
+ * would decide the bypass side. */
+static UW half_width(UW depth, UW edge_mm, UINT degree)
+{
+    unsigned long long tangent = (unsigned long long)depth * (UW)tangent_q[degree];
+    if (edge_mm > depth) {
+        UW pythagoras = isqrt64((unsigned long long)edge_mm * edge_mm -
+                                (unsigned long long)depth * depth);
+        UW minimum = (UW)(tangent / 10000U);
+        return pythagoras > minimum ? pythagoras : minimum;
+    }
+    return (UW)((tangent + 5000U) / 10000U);
+}
+
 EXPORT void s5_width_from_bounds(s5_status_t *result)
 {
     if (!result) return;
     result->object_width_valid = FALSE;
     result->object_width_mm = result->object_width_min_mm = result->object_width_max_mm = 0U;
+    result->object_left_mm = result->object_right_mm = 0U;
     if (!result->left_bound_valid || !result->right_bound_valid ||
         result->left_bound_deg < 0 || result->left_bound_deg >= 80 ||
         result->right_bound_deg > 0 || result->right_bound_deg <= -80 ||
@@ -56,6 +85,13 @@ EXPORT void s5_width_from_bounds(s5_status_t *result)
     UW depth = result->obstacle_distance_mm;
     result->object_width_min_mm = depth * inner / 10000U;
     result->object_width_max_mm = (depth * outer + 9999U) / 10000U;
-    result->object_width_mm = (depth * inner + 5000U) / 10000U;
+    if(result->object_width_max_mm>AVOID_MAX_WIDTH_MM) {
+        result->object_width_min_mm=result->object_width_max_mm=0U;
+        return;
+    }
+    /* The tangent envelope above stays the validity/clearance bound. */
+    result->object_left_mm = half_width(depth, result->left_bound_distance_mm, left);
+    result->object_right_mm = half_width(depth, result->right_bound_distance_mm, right);
+    result->object_width_mm = result->object_left_mm + result->object_right_mm;
     result->object_width_valid = TRUE;
 }

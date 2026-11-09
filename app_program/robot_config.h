@@ -33,8 +33,139 @@
 #ifndef APP_S5_ENABLED
 #define APP_S5_ENABLED BOARD_UART0_FREE
 #endif
+/* Barcode-only import: preserve all other board defaults and profiles. */
+#ifndef BOARD_BARCODE_RETRY
+#define BOARD_BARCODE_RETRY 1
+#endif
+/* Physical barcode re-read: miss at normal speed -> reverse at 30% speed
+ * (read backwards); hit -> forward at normal speed without re-reading;
+ * miss -> forward at 30% speed for a third read; third miss -> carry on.
+ * A read ends when the robot has travelled BOARD_BARCODE_END_GAP_MM without
+ * a GP28 edge (vehicle.c measures it by odometry, so speed and pauses do not
+ * matter); BOARD_BARCODE_END_QUIET_MS is only the time backstop for a robot
+ * that stops on the marker. */
+#ifndef BOARD_BARCODE_END_GAP_MM
+#define BOARD_BARCODE_END_GAP_MM 30U /* no GP28 change over 30 mm = end of barcode */
+#endif
+#ifndef BOARD_BARCODE_END_QUIET_MS
+#define BOARD_BARCODE_END_QUIET_MS 4000U /* backstop: no GP28 change for 4 s */
+#endif
+#ifndef BOARD_BARCODE_RETRY_DRIVE
+#define BOARD_BARCODE_RETRY_DRIVE 1
+#endif
+#ifndef BOARD_BARCODE_RETRY_BRAKE_MS
+#define BOARD_BARCODE_RETRY_BRAKE_MS 200U /* settle before reversing direction */
+#endif
+#ifndef BOARD_BARCODE_RETRY_SPEED_PERCENT
+#define BOARD_BARCODE_RETRY_SPEED_PERCENT 30U /* re-read speed, % of the normal demand */
+#endif
+#ifndef BOARD_BARCODE_RETRY_REVERSE_MAX_MM
+#define BOARD_BARCODE_RETRY_REVERSE_MAX_MM 800U /* reverse bound if no read result */
+#endif
+#ifndef BOARD_BARCODE_RETRY_SLOW_EXTRA_MM
+#define BOARD_BARCODE_RETRY_SLOW_EXTRA_MM 150U /* slow pass beyond the reverse distance */
+#endif
+#ifndef BOARD_BARCODE_RETRY_COOLDOWN_MM
+#define BOARD_BARCODE_RETRY_COOLDOWN_MM 300U /* ignore late results of the same marker */
+#endif
+#ifndef BOARD_BARCODE_RETRY_MIN_POWER
+#define BOARD_BARCODE_RETRY_MIN_POWER 5U /* PID speed target floor for the slow passes */
+#endif
+#ifndef BOARD_BARCODE_RETRY_STATE_MS
+#define BOARD_BARCODE_RETRY_STATE_MS 20000U /* any retry step longer than this gives up */
+#endif
+#ifndef BOARD_BARCODE_RETRY_REVERSE_ELEMENTS
+#define BOARD_BARCODE_RETRY_REVERSE_ELEMENTS 29U /* stop reversing once a whole *X* (15 bars + 14 spaces) is read */
+#endif
+#ifndef BOARD_BARCODE_RETRY_IDLE_MS
+#define BOARD_BARCODE_RETRY_IDLE_MS 3000U /* no barcode state change while reversing/waiting = failed */
+#endif
+#ifndef BOARD_BARCODE_RETRY_RUNUP_MM
+#define BOARD_BARCODE_RETRY_RUNUP_MM 50U /* reverse this far beyond the end gap past the first bar */
+#endif
+#ifndef BOARD_BARCODE_RETRY_REVERSE_MIN_MS
+#define BOARD_BARCODE_RETRY_REVERSE_MIN_MS 5000U /* reverse at least this long before declaring failure */
+#endif
+/* First normal-speed pass: once GP28 starts a marker (S3 READING), read the
+ * rest of it at the re-read speed above. Bars are measured by travelled
+ * distance, so the change of speed does not distort them, and a ~4 mm narrow
+ * bar gets ~8 samples instead of ~2 at full speed. */
+#ifndef BOARD_BARCODE_SLOW_WHILE_READING
+#define BOARD_BARCODE_SLOW_WHILE_READING 1
+#endif
+/* A decoded turn runs at the next junction (both straddle sensors and GP28 on
+ * black): straight on by the sensor-to-wheel offset, so the wheels pivot on
+ * the crossing. No junction within SEARCH_MM: it turns there. Straddle builds
+ * only (BOARD_LINE_STRADDLE); edge-following builds still turn at once. */
+#ifndef BOARD_NAV_JUNCTION_OFFSET_MM
+#define BOARD_NAV_JUNCTION_OFFSET_MM 90U /* front IR sensors to the wheel axle */
+#endif
+#ifndef BOARD_NAV_JUNCTION_SEARCH_MM
+#define BOARD_NAV_JUNCTION_SEARCH_MM 600U /* stop waiting for a junction */
+#endif
+#if BOARD_NAV_JUNCTION_OFFSET_MM > 1000 || BOARD_NAV_JUNCTION_SEARCH_MM > 10000
+#error Junction navigation distances out of range
+#endif
+/* After a barcode U-turn, rotate on the spot (+/-30, +/-60 deg sweep) until a
+ * line sensor is on black before tracking. 1: left/right turns do it too. */
+#ifndef BOARD_NAV_UTURN_IGNORE_MM
+#define BOARD_NAV_UTURN_IGNORE_MM 1200U /* after a U-turn, re-reading the same marker does not turn again */
+#endif
+#ifndef BOARD_NAV_SPOT_SCAN_ALL
+#define BOARD_NAV_SPOT_SCAN_ALL 0
+#endif
+/* Steered reverse (PID builds): steer = -YAW_GAIN*theta_deg + LINE_GAIN*e,
+ * where theta is yaw relative to the forward-tracking heading and e is +1/-1
+ * when only the right/left straddle sensor is on black. */
+#ifndef BOARD_BARCODE_RETRY_REVERSE_YAW_GAIN
+#define BOARD_BARCODE_RETRY_REVERSE_YAW_GAIN 40 /* steering per degree of heading error */
+#endif
+#ifndef BOARD_BARCODE_RETRY_REVERSE_LINE_GAIN
+/* LINE/YAW sets the heading authority (200/40 = 5 deg) the line term has
+ * against a wrong heading reference; below ~5x the robot drifts off. */
+#define BOARD_BARCODE_RETRY_REVERSE_LINE_GAIN 200 /* steering when one sensor touches the line */
+#endif
+#ifndef BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT
+#define BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT 300 /* |steer| bound, S2 accepts up to 400 */
+#endif
+#ifndef BOARD_BARCODE_RETRY_YAW_REF_DIV
+#define BOARD_BARCODE_RETRY_YAW_REF_DIV 50 /* heading EMA divisor: 50 ticks x 10 ms = 0.5 s */
+#endif
+/* Straddle line following (PID builds): a side touch steers smoothly instead
+ * of pivoting; see vehicle_line_steer.h. Set BOARD_LINE_SMOOTH_STEER 0 for
+ * the original pivot-per-touch behaviour. */
+#ifndef BOARD_LINE_SMOOTH_STEER
+#define BOARD_LINE_SMOOTH_STEER 1
+#endif
+#ifndef BOARD_LINE_STEER_MIN
+#define BOARD_LINE_STEER_MIN 150 /* first correction: inner wheel ~74% of the outer */
+#endif
+#ifndef BOARD_LINE_STEER_MAX
+#define BOARD_LINE_STEER_MAX 400 /* after the ramp: ~141 mm turn radius */
+#endif
+#ifndef BOARD_LINE_STEER_RAMP_MS
+#define BOARD_LINE_STEER_RAMP_MS 300U /* MIN -> MAX while the same sensor stays on black */
+#endif
+#ifndef BOARD_LINE_PIVOT_AFTER_MS
+#define BOARD_LINE_PIVOT_AFTER_MS 700U /* still touching: tight bend, pivot (0 = never) */
+#endif
+#ifndef BOARD_BARCODE_MIN_RUN_MS
+#define BOARD_BARCODE_MIN_RUN_MS 20U
+#endif
+#ifndef BOARD_BARCODE_MIN_RUN_POSITION
+#define BOARD_BARCODE_MIN_RUN_POSITION 4U /* half encoder counts (~0.7 mm): shorter AND briefer = noise */
+#endif
+#ifndef BOARD_BARCODE_DIGITAL_BLACK_LEVEL
+#define BOARD_BARCODE_DIGITAL_BLACK_LEVEL 1U /* GP28 was measured HIGH on black. */
+#endif
+#if BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 0 && BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 1
+#error Barcode digital black level must be zero or one
+#endif
+#ifndef BOARD_LINE_STRADDLE
+#define BOARD_LINE_STRADDLE 0 /* 1: GP26/27 straddle the line; both WHITE = centred */
+#endif
 #ifndef BOARD_IR_MODE
-#define BOARD_IR_MODE 0 /* 0 disabled, 1 digital, 2 ADC; confirm AO/DO first. */
+#define BOARD_IR_MODE 0 /* 0 disabled, 1 digital, 2 ADC, 3 ADC line + GP28 digital barcode. */
 #endif
 #ifndef BOARD_IR_RAW_BENCH
 #define BOARD_IR_RAW_BENCH 0 /* Input-only bring-up; never calibrated steering. */
@@ -147,19 +278,22 @@
 #define BOARD_IR_POSITIONS {1000,-1000,0} /* Logical right/left; not millimetres. */
 #endif
 #ifndef BOARD_MAP_A
-#define BOARD_MAP_A 1 /* Code 39 A=left, B=right, C=straight, D=U-turn. */
+#define BOARD_MAP_A 4 /* Codebook: A=U-turn, Z=right, F=left; B-D unmapped (read, no turn). 1 left 2 right 3 straight 4 U-turn */
 #endif
 #ifndef BOARD_MAP_B
-#define BOARD_MAP_B 2
+#define BOARD_MAP_B 0
 #endif
 #ifndef BOARD_MAP_C
-#define BOARD_MAP_C 3
+#define BOARD_MAP_C 0
 #endif
 #ifndef BOARD_MAP_D
-#define BOARD_MAP_D 4
+#define BOARD_MAP_D 0
 #endif
 #ifndef BOARD_MAP_Z
-#define BOARD_MAP_Z 0
+#define BOARD_MAP_Z 2
+#endif
+#ifndef BOARD_MAP_F
+#define BOARD_MAP_F 1 /* left */
 #endif
 #ifndef BOARD_TICKS_PER_REV
 #define BOARD_TICKS_PER_REV 0 /* measured x1 counts, not quadrature x4 */

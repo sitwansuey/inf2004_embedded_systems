@@ -4,6 +4,9 @@
 static const unsigned sample_a[29]={1,3,1,1,3,1,3,1,1,1,3,1,1,1,1,3,1,1,3,1,1,3,1,1,3,1,3,1,1};
 static const unsigned sample_z[29]={1,3,1,1,3,1,3,1,1,1,1,3,3,1,3,1,1,1,1,1,1,3,1,1,3,1,3,1,1};
 static uint32_t observed_generation;
+/* No controller requests the distance end on the bench: a read completes only
+ * after the GP28 end-quiet backstop (10 ms ticks). */
+#define QUIET_TICKS (BOARD_BARCODE_END_QUIET_MS/10U)
 static void setup_bench(void) {
     s3_adapter_config_t cfg={0};reset();
     CHECK(subsystem3_init()==E_OK);
@@ -34,7 +37,7 @@ static void test_every_sample(void) {
              * interpreted in S3 even when latest snapshots skip elements. */
             if(i%5U==0U){s3_status_t copy={0};CHECK(s3_status_get(&copy)==E_OK);}
         }
-        feed(false,50U);
+        feed(false,50U+QUIET_TICKS);
         s3_status_t copy={0};CHECK(s3_status_get(&copy)==E_OK);
         CHECK(copy.bench.error==E_OK && copy.bench.generation==observed_generation);
         CHECK(copy.bench.result==S3_BARCODE_OK && copy.bench.symbol.symbol==(z?'Z':'A'));
@@ -48,13 +51,13 @@ static void test_short_biased_frame(void) {
     const unsigned widths[29]={30,140,40,70,130,60,140,70,30,70,120,60,30,60,40,160,40,60,140,80,30,190,30,100,180,110,220,100,40};
     setup_bench();feed(false,30U);
     for(unsigned i=0U;i<29U;++i)feed((i&1U)==0U,widths[i]/10U);
-    feed(false,100U);
+    feed(false,100U+QUIET_TICKS);
     s3_status_t copy={0};CHECK(s3_status_get(&copy)==E_OK);
     CHECK(copy.bench.result==S3_BARCODE_OK && copy.bench.symbol.symbol=='A');
     CHECK(!copy.output.steering_allowed && queue_count==0U && core.mode==S3_MODE_PAUSED);
 }
 static void test_faults_and_authority(void) {
-    setup_bench();feed(false,30U);feed(true,1U);feed(false,1U);
+    setup_bench();feed(false,30U);feed(true,1U);feed(false,1U+QUIET_TICKS);
     CHECK(status.bench.result==S3_BARCODE_NOISE && status.bench.symbol.symbol==0);
     setup_bench();feed(false,3U);fake_now+=40U;feed(false,1U);
     CHECK(status.bench.error==E_TMOUT && !bench_observe);

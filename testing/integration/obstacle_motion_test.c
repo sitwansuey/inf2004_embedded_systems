@@ -20,5 +20,10 @@ int main(void) {
  (void)s5_scan_step(&s,&c);assert(s5_scan_step(&s,&c)==30 && c.motion_restarts==1);
  s=sample(4);assert(s5_scan_step(&s,&c)==0 && s.state==S5_CENTERING && c.motion_restarts==2);
  s=sample(4);assert(s5_scan_step(&s,&c)==0 && s.state==S5_BLOCKED && c.motion_restarts==3 && !s.approach_plan_valid);
- puts("PASS: 1-3 encoder counts tolerated; larger displacement recentres and retries twice; retry budget survives acquisition; repeated motion blocks; encoder wrap is handled.");
+ /* Motion while widths are held clears the hold and both halves. */
+ c=(s5_scan_context_t){.width_hold=1};s=sample(4);s.state=S5_VERIFY_CLEAR;
+ s.object_width_valid=1;s.object_left_mm=s.object_right_mm=86;
+ assert(s5_scan_step(&s,&c)==0 && s.state==S5_CENTERING && !c.width_hold);
+ assert(!s.object_width_valid && !s.object_left_mm && !s.object_right_mm && !s.approach_plan_valid);
+ puts("PASS: 1-3 encoder counts tolerated; larger displacement recentres and retries twice; retry budget survives acquisition; repeated motion blocks; width hold cleared by motion; encoder wrap is handled.");
 }

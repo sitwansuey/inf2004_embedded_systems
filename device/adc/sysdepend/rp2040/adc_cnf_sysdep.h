@@ -41,10 +41,10 @@
  */
 #include "../../../../app_program/robot_config.h"
 #ifndef DEVCONF_ADC_PIN_INIT_0
-#define DEVCONF_ADC_PIN_INIT_0 (BOARD_IR_MODE == 2)
+#define DEVCONF_ADC_PIN_INIT_0 (BOARD_IR_MODE == 2 || BOARD_IR_MODE == 3)
 #endif
 #ifndef DEVCONF_ADC_PIN_INIT_1
-#define DEVCONF_ADC_PIN_INIT_1 (BOARD_IR_MODE == 2)
+#define DEVCONF_ADC_PIN_INIT_1 (BOARD_IR_MODE == 2 || BOARD_IR_MODE == 3)
 #endif
 #ifndef DEVCONF_ADC_PIN_INIT_2
 #define DEVCONF_ADC_PIN_INIT_2 (BOARD_IR_MODE == 2)

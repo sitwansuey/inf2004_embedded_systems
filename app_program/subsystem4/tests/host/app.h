@@ -16,6 +16,7 @@ typedef uint8_t UB;
 typedef void (*FP)(INT, void *);
 typedef struct { int32_t hi; UW lo; } SYSTIM;
 typedef struct { UW mtxatr; } T_CMTX;
+typedef struct { UW cycatr; void (*cychdr)(void *); UW cyctim; UW cycphs; } T_CCYC;
 typedef struct { UW flgatr; UW iflgptn; } T_CFLG;
 typedef struct { UW mbfatr; INT bufsz; INT maxmsz; } T_CMBF;
 
@@ -28,11 +29,16 @@ typedef struct { UW mbfatr; INT bufsz; INT maxmsz; } T_CMBF;
 #define TA_INHERIT 2u
 #define TA_TFIFO 0u
 #define TA_WMUL 8u
+#define TA_HLNG 1u
+#define TA_STA 2u
 #define TP_PRC2 2u
 
 ER tk_get_otm(SYSTIM *p_time);
 ER tk_get_tim(SYSTIM *p_time); /* Poisoned wall-clock source for the regression test. */
 ID tk_cre_mtx(const T_CMTX *p_config);
+ID tk_cre_cyc(const T_CCYC *p_config);
+ER tk_del_cyc(ID id);
+ER tk_wup_tsk(ID id);
 ID tk_cre_flg(const T_CFLG *p_config);
 ID tk_cre_mbf(const T_CMBF *p_config);
 ER tk_loc_mtx(ID id, INT timeout);

@@ -5,7 +5,8 @@
 #include <stdio.h>
 static vc_input_t healthy(void) {
     return (vc_input_t){.now_ms=10,.sensor_fresh=1,.motor_ok=1,.terrain_valid=1,
-        .odom_valid=1,.transport_ok=1,.front_clear=1,.line_fresh=1,.steering=1};
+        .odom_valid=1,.transport_ok=1,.front_clear=1,.line_fresh=1,.steering=1,
+        .nav_offset_mm=90,.nav_search_mm=600};
 }
 static void handoffs(void) {
     vc_state_t s={0};vc_input_t i=healthy();
@@ -23,6 +24,11 @@ static void handoffs(void) {
     vc_track_requested(&s,40);i.now_ms=50;i.steering=0;
     vc_step(&s,&i);assert(s.armed && s.track_wait && !s.command);
     i.now_ms=60;i.steering=1;
+    vc_step(&s,&i);assert(s.phase==VC_TRACK && s.command==1 && s.pending_nav==1);
+    /* It runs at the next junction, after the 90 mm sensor-to-wheel offset. */
+    i.now_ms=70;i.junction=1;i.line_black_mask=3;
+    vc_step(&s,&i);assert(s.phase==VC_TRACK && s.nav_offset && s.command==1 && !s.steering);
+    i.now_ms=80;i.junction=0;i.line_black_mask=0;i.distance_um=90000;
     vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.turn_deg==90 && !s.pending_nav);
     /* Delayed STRAIGHT must acknowledge only when actually consumed. */
     s=(vc_state_t){0};assert(vc_start(&s,0,30));i=healthy();
@@ -43,7 +49,7 @@ static void handoffs(void) {
     assert(s.fault==VC_SHOCK && !s.pending_nav && !s.track_wait);
     s=(vc_state_t){0};assert(vc_start(&s,0,30));s.pending_nav=4;
     vc_stop(&s,VC_OK);assert(!s.pending_nav && !s.armed);
-    puts("Mission handoffs: obstacle priority, deferred navigation, TRACK acknowledgement, timeout/wrap and STOP PASS");
+    puts("Mission handoffs: obstacle priority, deferred navigation to the junction, TRACK acknowledgement, timeout/wrap and STOP PASS");
 }
 int main(void) {
     handoffs();
@@ -55,7 +61,7 @@ int main(void) {
     i.front_clear=0;vc_step(&s,&i);assert(!s.command);
     i.front_clear=1;i.yaw_mdeg=30000;vc_step(&s,&i);assert(!s.command);
     vc_step(&s,&i);assert(s.command==4); /* sweep across, not endless turn */
-    i.line_detected=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
+    i.line_detected=1;vc_step(&s,&i);assert(s.line_settling);i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
     i.line_detected=0;i.steering=1;i.recovery_event=1;vc_step(&s,&i);
     i.recovery_event=0;i.steering=0;i.now_ms+=4000;vc_step(&s,&i);
     assert(s.phase==VC_FAULT && !s.armed && !s.command);

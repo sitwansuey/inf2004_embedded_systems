@@ -12,6 +12,8 @@ int main(void) {
     v[TEL_MX_MG]=-100;v[TEL_AX_MG]=1000;v[TEL_PITCH_CDEG]=-1200;
     v[TEL_ROLL_CDEG]=400;v[TEL_TERRAIN]=2;v[TEL_LINE_ERROR]=-500;
     v[TEL_SEQUENCE]=257;v[TEL_DROPPED]=300;
+    v[TEL_WIDTH_LEFT_MM]=86;v[TEL_WIDTH_RIGHT_MM]=1000;v[TEL_BYPASS_SIDE]=2;v[TEL_SCAN_STATE]=9;
+    v[TEL_FAULT]=1;v[TEL_FAULT_CAUSE]=2; /* sensor fault: tilt */
     uint8_t snapshot[TELEMETRY_BYTES];int64_t decoded[TEL_FIELD_COUNT];
     assert(telemetry_encode(snapshot,v) && telemetry_decode(snapshot,decoded));
     for(unsigned n=0;n<TELEMETRY_EDR_RECORDS;++n) {
@@ -19,6 +21,16 @@ int main(void) {
         assert(telemetry_edr_record(decoded,n,word));
         assert(edr_decode(word,2,&id,&data));
         printf("%02x%02x\n",word[0],word[1]);
+    }
+    {   /* Subtype 9: quality bits 0..5 kept, fault cause in bits 6..7. */
+        uint8_t word[2];unsigned id,data;
+        assert(decoded[TEL_FAULT_CAUSE]==2);
+        assert(telemetry_edr_record(decoded,15+9,word) && edr_decode(word,2,&id,&data));
+        assert(id==0 && data==((9U<<8)|63U|(2U<<6)));
+        decoded[TEL_QUALITY]=1;decoded[TEL_FAULT_CAUSE]=3;
+        assert(telemetry_edr_record(decoded,15+9,word) && edr_decode(word,2,&id,&data));
+        assert(data==((9U<<8)|1U|(3U<<6)));
+        decoded[TEL_QUALITY]=63;decoded[TEL_FAULT_CAUSE]=2;
     }
     decoded[TEL_AVAILABLE]=0;decoded[TEL_QUALITY]=0;
     uint8_t word[2];
@@ -39,6 +51,7 @@ int main(void) {
     assert(!telemetry_edr_record(decoded,7,word));
     assert(!telemetry_edr_record(decoded,15+6,word));
     assert(!telemetry_edr_record(decoded,15+13,word));
+    assert(!telemetry_edr_record(decoded,31,word) && !telemetry_edr_record(decoded,32,word)); /* quality bit 0 clear */
     decoded[TEL_AVAILABLE]=128; /* magnetometer is independent of obstacle width */
     assert(telemetry_edr_record(decoded,7,word));
     return 0;

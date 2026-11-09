@@ -102,6 +102,7 @@ void mqtt_utk_poll_telemetry(void) {
     static unsigned char snapshot[TELEMETRY_BYTES];
     static int64_t values[TEL_FIELD_COUNT];
     static unsigned next=TELEMETRY_EDR_RECORDS;
+    static unsigned resume;
     if(!client || !mqtt_client_is_connected(client))return;
     /* Command replies take priority over the sensor stream. */
     static unsigned char ack[CSC02_ACK_BYTES];
@@ -110,7 +111,12 @@ void mqtt_utk_poll_telemetry(void) {
     if(ack_pending && mqtt_publish(client,CSC02_ACK_TOPIC,ack,CSC02_ACK_BYTES,
                                   0,0,publish_done_cb,NULL)==ERR_OK)ack_pending=0;
 
-    if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot))next=TELEMETRY_EDR_RECORDS;
+    if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot)) {
+        /* Continue at the unsent field in the fresh snapshot. Width/status
+         * fields must not starve behind encoder/IR records on slow links. */
+        resume=(resume+next)%TELEMETRY_EDR_RECORDS;
+        next=TELEMETRY_EDR_RECORDS;
+    }
     if(next==TELEMETRY_EDR_RECORDS) {
         if(s1_telemetry_take(snapshot)!=TELEMETRY_BYTES || !telemetry_decode(snapshot,values))return;
         next=0;
@@ -119,7 +125,7 @@ void mqtt_utk_poll_telemetry(void) {
      * Finish a snapshot before taking another, so later fields cannot starve. */
     for(unsigned budget=0;budget<4 && next<TELEMETRY_EDR_RECORDS;) {
         uint8_t record[EDR_RECORD_SIZE];
-        if(!telemetry_edr_record(values,next,record)) {++next;continue;}
+        if(!telemetry_edr_record(values,(resume+next)%TELEMETRY_EDR_RECORDS,record)) {++next;continue;}
         if(mqtt_publish(client,CSC02_TELEMETRY_TOPIC,record,EDR_RECORD_SIZE,
                         0,0,publish_done_cb,NULL)!=ERR_OK)return;
         ++next;++budget;

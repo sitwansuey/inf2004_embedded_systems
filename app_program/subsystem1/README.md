@@ -1,7 +1,7 @@
 # Buddy 1: integrated telemetry and commands
 
 `task_telemetry.c` samples copied owner snapshots at 5 Hz, including controller,
-encoder, IR/barcode, IMU/terrain, servo and ultrasonic data. The private 50-byte
+encoder, IR/barcode, IMU/terrain, servo and ultrasonic data. The private 54-byte
 codec preserves internal precision and timestamp/availability. A two-slot RTOS
 mailbox copies these records to the existing single network owner.
 
@@ -9,7 +9,7 @@ mailbox copies these records to the existing single network owner.
 low four bits identify the source, upper twelve bits hold data. Each MQTT
 publication contains exactly two little-endian bytes on
 `Robopico/sensors/edr16/v1`. IDs 1/2 are the wheel encoders; ID 0 carries mission
-status subtypes. No old envelope or 50-byte aggregate is published.
+status subtypes. No old envelope or 54-byte aggregate is published.
 
 The network service sends at most four messages per poll and retries the same
 record on backpressure, discarding observations older than 500 ms. It owns all

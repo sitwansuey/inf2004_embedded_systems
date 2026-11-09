@@ -7,7 +7,7 @@ int main(void) {
     s3_config_t cfg;
     s3_core_t core;
     s3_output_t output;
-    s3_sample_t sample={{187U,189U,213U},7U,20U};
+    s3_sample_t sample={.raw={187U,189U,213U},.valid_mask=7U,.time_ms=20U};
     s3_config_defaults(&cfg);robot_ir_apply_layout(&cfg);
 #if BOARD_IR_CALIBRATED_BENCH
     /* Historical GP26/27 floor bounds; replacement GP28 training bounds.

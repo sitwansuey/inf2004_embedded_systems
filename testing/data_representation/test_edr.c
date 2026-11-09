@@ -10,12 +10,15 @@ int main(void)
     for (word=0; word<65536U; ++word) {
         unsigned int sid=word & 15U, value=word >> 4U;
         const unsigned lows[16]={0,0,0,38,38,0,0,0,0,0,0,0,0,28,28,0};
-        const unsigned highs[16]={124,37,60,218,218,5,200,200,100,63,255,255,255,228,228,14};
+        const unsigned highs[16]={125,154,60,218,218,255,200,200,255,255,255,255,255,228,228,190}; /* 9: quality | cause<<6 */
         unsigned subtype=value/256U, status=value%256U;
         bool status_ok=status>=lows[subtype] && status<=highs[subtype];
-        if(subtype==0U) status_ok=status_ok && status%16U<=12U;
-        if(subtype==1U) status_ok=status_ok && status%8U<=5U;
+        if(subtype==0U) status_ok=status_ok && status%16U<=13U; /* phase | fault<<4 */
+        if(subtype==1U) status_ok=status_ok && status%32U<=26U; /* A..Z | navigation<<5 */
         if(subtype==2U) status_ok=status_ok && status%8U<=4U;
+        if(subtype==5U) status_ok=status_ok && status%8U<=5U; /* terrain | bars<<3 */
+        if(subtype==8U) status_ok=status<=100U || status>=128U; /* total | 128+left/192+right */
+        if(subtype==15U) status_ok=status_ok && status%16U<=14U && status/64U<=2U; /* scan | result<<4 | side<<6 */
         bool expected = (sid!=0U || status_ok) && (sid!=3U || value<=180U) &&
             (sid!=12U || value<=127U) && (sid!=11U ||
             ((value & 7U)<=6U && ((value>>3U)&127U)<=100U && (value>>10U)<=2U));

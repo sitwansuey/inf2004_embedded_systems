@@ -11,6 +11,13 @@
 #include "speed_pid.h"
 #include "wheel_steering.h"
 static INT requested_steering;
+/* Straight-line commands accept differential steering. Positive steering
+ * always raises the left wheel's demand, so it turns CW going forward and
+ * CCW in reverse. */
+static BOOL s2_steerable(UINT command)
+{
+    return command==(UINT)S2_MOVE_FORWARD || command==(UINT)S2_MOVE_REVERSE;
+}
 #if BOARD_PID_ENABLED && !S2_ENCODER_ENABLED
 #error Speed regulation requires both encoders
 #endif
@@ -364,7 +371,7 @@ static void motor_set_pair(UINT pin_a, UINT pin_b, INT direction, UW duty)
 }
 
 static ER motor_apply(s2_move_command_t command, UINT power_percent,
-                      UW issued_at_ms)
+                      UW issued_at_ms, UINT direction_changed)
 {
     INT left = 0;
     INT right = 0;
@@ -374,12 +381,21 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
     UW duty = (MOTOR_PWM_WRAP + 1U) * power_percent;
     UW left_duty = (duty * S2_MOTOR1_TRIM_PERCENT) / 10000U;
     UW right_duty = (duty * S2_MOTOR2_TRIM_PERCENT) / 10000U;
+#if BOARD_PID_ENABLED
+    INT initial_steering=s2_steerable(command)?
+        (direction_changed?requested_steering:(INT)filtered_steering):0;
+    unsigned left_request=s2_steered_demand_milli(power_percent,initial_steering,0U,BOARD_PID_MAX_POWER);
+    unsigned right_request=s2_steered_demand_milli(power_percent,initial_steering,1U,BOARD_PID_MAX_POWER);
+    left_duty=(UW)((uint64_t)(MOTOR_PWM_WRAP+1U)*left_request*S2_MOTOR1_TRIM_PERCENT/10000000U);
+    right_duty=(UW)((uint64_t)(MOTOR_PWM_WRAP+1U)*right_request*S2_MOTOR2_TRIM_PERCENT/10000000U);
+#endif
     ER er = E_OK;
 
-    motor_stop();
+    if(direction_changed || command==S2_MOVE_STOP || !power_percent)motor_stop();
     /* Enforce the bench lock even if a caller bypasses the command queue. */
     if (BOARD_MOTORS_DISABLED)
     {
+        motor_stop();
         return ((command == S2_MOVE_STOP) || (power_percent == 0U)) ? E_OK : E_OACV;
     }
     switch (command)
@@ -414,8 +430,8 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
     {
         SYSTIM now;
 
-        /* Brief zero-output interval before changing direction. */
-        er = tk_dly_tsk(1);
+        /* Power-only updates preserve PWM and the PI steering history. */
+        er = direction_changed ? tk_dly_tsk(1) : E_OK;
         if (er >= E_OK)
         {
             er = tk_get_otm(&now);
@@ -466,13 +482,13 @@ static ER motor_regulate(uint16_t word)
             pid_progress[n]=e.sampled_ms;pid_speed[n]=0;
         }
         pid_time=e.sampled_ms;pid_command=command;pid_initialized=TRUE;
-        filtered_steering=0;return E_OK;
+        filtered_steering=s2_steerable(command)?requested_steering:0;return E_OK;
     }
     uint32_t dt=e.sampled_ms-pid_time;
     if(dt<10U)return E_OK;
     if(dt>100U)return E_TMOUT;
     filtered_steering=s2_steering_step(filtered_steering,
-        command==S2_MOVE_FORWARD?requested_steering:0,dt);
+        s2_steerable(command)?requested_steering:0,dt);
     unsigned output[2]={0,0};
     for(unsigned n=0;n<2;++n) {
         int32_t delta;
@@ -485,8 +501,8 @@ static ER motor_regulate(uint16_t word)
             unsigned wheel_demand=s2_steered_demand_milli(power,filtered_steering,n,BOARD_PID_MAX_POWER);
             int32_t target=(int32_t)((uint64_t)wheel_demand*BOARD_PID_MAX_CPS/100000U);
             unsigned trim=n==0?S2_MOTOR1_TRIM_PERCENT:S2_MOTOR2_TRIM_PERCENT;
-            output[n]=speed_pid_step(&wheel_pid[n],target,pid_speed[n],dt,
-                (unsigned)((uint64_t)wheel_demand*trim/100000U),BOARD_PID_MAX_POWER,
+            output[n]=speed_pid_step_milli(&wheel_pid[n],target,pid_speed[n],dt,
+                (unsigned)((uint64_t)wheel_demand*trim/100U),BOARD_PID_MAX_POWER,
                 BOARD_PID_KP_MILLI,BOARD_PID_KI_MILLI,BOARD_PID_KD_MILLI);
         }
         pid_counts[n]=counts[n];
@@ -494,9 +510,9 @@ static ER motor_regulate(uint16_t word)
     pid_time=e.sampled_ms;
     if(__atomic_load_n(&stop_epoch,__ATOMIC_ACQUIRE)!=__atomic_load_n(&stopped_epoch,__ATOMIC_ACQUIRE))return E_OBJ;
     motor_set_pair(BOARD_MOTOR1_A_GPIO,BOARD_MOTOR1_B_GPIO,direction[0]*MOTOR1_FORWARD_SIGN,
-                   (MOTOR_PWM_WRAP+1U)*output[0]/100U);
+                   (UW)((uint64_t)(MOTOR_PWM_WRAP+1U)*output[0]/100000U));
     motor_set_pair(BOARD_MOTOR2_A_GPIO,BOARD_MOTOR2_B_GPIO,direction[1]*MOTOR2_FORWARD_SIGN,
-                   (MOTOR_PWM_WRAP+1U)*output[1]/100U);
+                   (UW)((uint64_t)(MOTOR_PWM_WRAP+1U)*output[1]/100000U));
     return E_OK;
 }
 #endif
@@ -718,7 +734,7 @@ static void motor_task(INT stacd, void *p_exinf)
         /* Unpack validates the command and power before widening. */
         command = (s2_move_command_t)packed_command;
         power = packed_power;
-        if(steering< -400 || steering>400 || (command!=S2_MOVE_FORWARD && steering!=0)) {
+        if(steering< -400 || steering>400 || (!s2_steerable(command) && steering!=0)) {
             er=motion_fault(&current,E_PAR);continue;
         }
         requested_steering=steering;
@@ -753,7 +769,7 @@ static void motor_task(INT stacd, void *p_exinf)
 
         if (((UINT)command != current_command) || (power != current_power))
         {
-            er = motor_apply(command, power, issued_at);
+            er = motor_apply(command, power, issued_at,(UINT)command!=current_command);
             if (er < E_OK)
             {
                 er = motion_fault(&current, er);
@@ -874,7 +890,7 @@ static ER movement_send(s2_move_command_t command, UINT power_percent, INT steer
     SYSTIM now = {0};
     uint16_t motor;
     ER er = E_OK;
-    if(steering< -400 || steering>400 || (command!=S2_MOVE_FORWARD && steering!=0))
+    if(steering< -400 || steering>400 || (!s2_steerable(command) && steering!=0))
         return E_PAR;
 #if !BOARD_PID_ENABLED
     if(steering!=0)return E_NOSPT;
@@ -961,4 +977,8 @@ EXPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent)
 EXPORT ER s2_follow_send(UINT power_percent, INT steering)
 {
     return movement_send(S2_MOVE_FORWARD,power_percent,steering);
+}
+EXPORT ER s2_reverse_follow_send(UINT power_percent, INT steering)
+{
+    return movement_send(S2_MOVE_REVERSE,power_percent,steering);
 }

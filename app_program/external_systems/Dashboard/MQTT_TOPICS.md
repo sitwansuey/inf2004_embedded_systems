@@ -31,6 +31,22 @@ Validation rejects command >6, power >100 and state >2. Zero bytes are valid.
 Wrong lengths, invalid servo angles and invalid fault masks are rejected.
 ID zero carries the mission-status subtype and value.
 
+ID 0 obstacle and scan fields (local display keys):
+
+| Subtype / value | Display key | Conversion |
+|---|---|---|
+| 0, low nibble | `Robopico/Actuators/vehicle_controller/state` | phase name; 13 = `Reverse` |
+| 8, 0–100 | `Robopico/sensors/ultrasonic_ranger/width_cm` | value × 0.5 cm (total width) |
+| 8, 128–191 | `Robopico/sensors/ultrasonic_ranger/width_left_cm` | (value & 63) × 0.8 cm, centre to left edge |
+| 8, 192–255 | `Robopico/sensors/ultrasonic_ranger/width_right_cm` | (value & 63) × 0.8 cm, centre to right edge |
+| 9, bits 5–0 | `Robopico/Actuators/vehicle_controller/quality` | value & 63 (also `safety_state` bit 2, `accelerometer/impact` bit 1) |
+| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry` (non-zero only while fault code 1, sensor; with fault code 1, `None/other` means an avoidance-step check such as a side-check timeout) |
+| 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
+
+Subtype 8 values 101–127 and bypass side 3 are rejected. The three width
+fields are retained between reports while the stream is live and quality
+bit 0 is set; a quality record with bit 0 clear, or a disconnect, clears them.
+
 The prior packed16/v1 topic, individual sensor topics and JSON/event topics
 are not consumed. Demo/JSON import remain explicit browser-only features.
 Supported physical sensors not yet connected remain blank. ID zero supplies decoded navigation, height/maximum, controller state and

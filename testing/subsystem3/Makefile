@@ -31,6 +31,11 @@ BARCODE_CAPTURE = .build/test_barcode_capture$(EXEEXT)
 MOTOR_SCAN_SAMPLER = .build/test_motor_scan_sampler$(EXEEXT)
 SAMPLE_SCHEDULE = .build/test_sample_schedule$(EXEEXT)
 EDGE_BIAS = .build/test_barcode_edge_bias$(EXEEXT)
+RESYNC = .build/test_barcode_resync$(EXEEXT)
+COMPLETION = .build/test_barcode_completion$(EXEEXT)
+BARCODE_IMPORT = .build/test_barcode_import$(EXEEXT)
+MIXED_BARCODE = .build/test_mixed_barcode$(EXEEXT)
+END_QUIET = .build/test_barcode_end_quiet$(EXEEXT)
 
 .PHONY: test verify-failure check-headers clean barcode-replay
 barcode-replay: .build/replay_barcode_capture$(EXEEXT)
@@ -38,7 +43,7 @@ barcode-replay: .build/replay_barcode_capture$(EXEEXT)
 .build/replay_barcode_capture$(EXEEXT): replay_barcode_capture.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h ../../app_program/robot_config.h
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 replay_barcode_capture.c $(CORE_SOURCES) $(LDFLAGS) -o $@
-test: $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(PAUSED_TIME) $(BARCODE_CAPTURE) $(SAMPLE_SCHEDULE) $(MOTOR_SCAN_SAMPLER)
+test: $(RESYNC) $(COMPLETION) $(END_QUIET) $(BARCODE_IMPORT) $(MIXED_BARCODE) $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(PAUSED_TIME) $(BARCODE_CAPTURE) $(SAMPLE_SCHEDULE) $(MOTOR_SCAN_SAMPLER)
 	./$(BINARY) $(TEST_ARGS)
 	./$(ADAPTER)
 	./$(ADC_TEST)
@@ -54,6 +59,31 @@ test: $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $
 	./$(SAMPLE_SCHEDULE)
 	./$(MOTOR_SCAN_SAMPLER)
 	./$(EDGE_BIAS)
+	./$(RESYNC)
+	./$(COMPLETION)
+	./$(END_QUIET)
+	./$(BARCODE_IMPORT)
+	./$(MIXED_BARCODE)
+
+$(RESYNC): test_barcode_resync.c $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_barcode.c
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) test_barcode_resync.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o $@
+
+$(COMPLETION): test_barcode_completion.c test_barcode_resync.c $(CORE_HEADERS) ../../app_program/subsystem3/buddy3_barcode.c
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) test_barcode_completion.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o $@
+
+$(END_QUIET): test_barcode_end_quiet.c $(CORE_SOURCES) $(CORE_HEADERS)
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) test_barcode_end_quiet.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+
+$(BARCODE_IMPORT): test_barcode_import.c $(CORE_SOURCES) $(CORE_HEADERS)
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) test_barcode_import.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+
+$(MIXED_BARCODE): test_mixed_barcode.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app_program/robot_ir_config.h
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=3 -DS3_TEST_ADC_ENABLED=1 -DDEVCONF_ADC_PIN_INIT_2=0 -include host_support.h test_mixed_barcode.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(EDGE_BIAS): test_barcode_edge_bias.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h ../../app_program/robot_config.h
 	mkdir -p .build

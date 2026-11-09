@@ -68,13 +68,18 @@ int main(void)
     }
     v = (s5_status_t){.state=S5_READY, .valid=TRUE, .scan_id=0x12345678,
         .angle_deg=-90, .sample_angle_deg=90, .motor1_counts_start=INT32_MIN,
-        .motor2_counts_end=INT32_MAX, .time_ms=UINT32_MAX};
+        .motor2_counts_end=INT32_MAX, .time_ms=UINT32_MAX,
+        .object_left_mm=86, .object_right_mm=0xA1B2C3D4};
     assert(s5_data_encode(&v, data, sizeof(data)));
     assert(data[0] == 6 && data[1] == 8 && data[2] == 0 && data[3] == 180);
     assert(data[8] == 0x78 && data[9] == 0x56 && data[10] == 0x34 && data[11] == 0x12);
+    /* Centre-to-edge halves append at 84 and 88, little-endian. */
+    assert(data[84] == 86 && !data[85] && !data[86] && !data[87]);
+    assert(data[88] == 0xD4 && data[89] == 0xC3 && data[90] == 0xB2 && data[91] == 0xA1);
     assert(s5_data_decode(data, sizeof(data), &decoded));
     assert(decoded.motor1_counts_start == INT32_MIN && decoded.motor2_counts_end == INT32_MAX);
     assert(decoded.time_ms == UINT32_MAX);
+    assert(decoded.object_left_mm == 86 && decoded.object_right_mm == 0xA1B2C3D4U);
     for (size_t i=0; i<sizeof(data); ++i) printf("%02x", data[i]);
     puts("");
     memcpy(again, data, sizeof(data));

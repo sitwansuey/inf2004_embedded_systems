@@ -14,7 +14,7 @@ static void test_paused_forward_gaps(void)
     for(unsigned trial=0;trial<2;++trial) {
         s3_core_t core;
         s3_output_t output;
-        s3_sample_t sample={{3214U,189U,213U},7U,start[trial]};
+        s3_sample_t sample={.raw={3214U,189U,213U},.valid_mask=7U,.time_ms=start[trial]};
         CHECK(s3_core_init(&core,&cfg));
         s3_core_step(&core,&sample,&output);
         for(unsigned j=0;j<10;++j) {
@@ -33,7 +33,7 @@ static void test_active_fault_stays_latched(void)
     s3_config_t cfg;
     s3_core_t core;
     s3_output_t output;
-    s3_sample_t sample={{3214U,189U,213U},7U,20U};
+    s3_sample_t sample={.raw={3214U,189U,213U},.valid_mask=7U,.time_ms=20U};
     s3_config_defaults(&cfg);robot_ir_apply_layout(&cfg);
     CHECK(robot_ir_apply_adc_calibration(&cfg));
     CHECK(s3_core_init(&core,&cfg));

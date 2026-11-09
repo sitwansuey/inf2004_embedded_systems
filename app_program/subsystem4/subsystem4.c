@@ -125,6 +125,12 @@ ER subsystem4_init(void)
     return E_OK;
 }
 
+static void sensor_cyclic(void *context)
+{
+    (void)context;
+    if (tid_s4_sensor > E_OK) (void)tk_wup_tsk(tid_s4_sensor);
+}
+
 ER subsystem4_start(void)
 {
     if (status_lock <= E_OK)
@@ -135,12 +141,25 @@ ER subsystem4_start(void)
     {
         return E_OBJ;
     }
+    T_CCYC config = {0};
+    config.cycatr = TA_HLNG | TA_STA;
+    config.cychdr = sensor_cyclic;
+    config.cyctim = S4_POLL_MS;
+    config.cycphs = S4_POLL_MS;
+#if TK_SUPPORT_SMP
+    config.cycatr |= TA_ASSPRC;
+    config.assprc = TP_PRC2;
+#endif
+    ID cycle = tk_cre_cyc(&config);
+    if (cycle < E_OK) return cycle;
+
     /* app_start_task ignores affinity in SMP=0. In SMP=1 the only I2C1
      * owner is pinned to physical core 1; logging may run on either core. */
     tid_s4_sensor = app_start_task(s4_sensor_task, S4_PRI_SENSOR,
                                     TP_PRC2, "s4_sensor_task");
     if (tid_s4_sensor <= E_OK)
     {
+        (void)tk_del_cyc(cycle);
         return tid_s4_sensor;
     }
     tid_s4_monitor = app_start_task(monitor_task, S4_PRI_MONITOR,

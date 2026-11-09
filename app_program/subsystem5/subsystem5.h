@@ -2,6 +2,7 @@
 #define SUBSYSTEM5_H
 #include "../app.h"
 #include "../robot_config.h"
+#include "../shared/avoidance_config.h"
 #define S5_PRI_MAIN 20
 #define S5_LOCK_WAIT_MS 5
 #define S5_OBSTACLE_MM 200U /* acquisition at 20 cm, inclusive */
@@ -14,6 +15,7 @@
 #define S5_STARTUP_CENTER_MS 1000U /* allow travel from any initial position */
 #define S5_SETTLE_MS 150
 #define S5_SAMPLE_MS 65 /* datasheet: measurement cycle over 60 ms */
+#define S5_WIDTH_PUBLISH_MS 300U /* widths published, vehicle stopped, before the side is chosen */
 #define S5_MAX_ANGLE 90 /* three 30-degree coarse checks per side */
 #define S5_SCAN_STEP_DEG 30
 #define S5_REFINE_STEP_DEG 1
@@ -111,6 +113,9 @@ typedef struct
     UW object_width_mm;
     UW object_width_min_mm;
     UW object_width_max_mm;
+    /* Centre (forward axis) to left/right edge; 0 unless object_width_valid. */
+    UW object_left_mm;
+    UW object_right_mm;
 } s5_status_t;
 /* User-selected policy: three no-return samples at one settled angle imply
  * open space. valid stays FALSE and distance stays unknown on the wire. */
@@ -143,7 +148,7 @@ IMPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg);
 #define S5_ROTATE_WAIT_MS 2000U
 #define S5_ROTATE_MS_PER_DEG 5U
 #define S5_SENSOR_OFFSET_MM 90U
-#define S5_CLEARANCE_RADIUS_MM 75U
+#define S5_CLEARANCE_RADIUS_MM AVOID_CLEARANCE_MM
 #define S5_BYPASS_ARC_RADIUS_MM 150U /* center path; steering derives from measured axle width */
 #define S5_CRUISE_MM_PER_SECOND 245U /* measured 1.20 rev/s with 65 mm wheels at 30% power */
 #define S5_OVERCOME_CLEARANCE_MM 200U

@@ -58,9 +58,11 @@ EXPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg)
         navigation_state = state;
         navigation_look = look_deg;
         navigation_requested = TRUE;
-        /* Stop consumers from reusing a sample from the previous mode. */
+        /* A real pan invalidates the old direction. Same-angle navigation
+         * can retain the current physical sample and its original timestamp. */
         status.state = state;
-        status.valid = FALSE;
+        if(look_deg!=status.angle_deg || look_deg!=status.sample_angle_deg || state==S5_MONITOR)
+            status.valid=FALSE;
     }
     status_store(&status);
     ER unlocked = tk_unl_mtx(status_mutex);
@@ -222,9 +224,11 @@ static void scan_task(INT stacd, void *exinf)
                 next.approach_plan_valid=FALSE;next.acquisition_clear=FALSE;
                 next.left_bound_valid=next.right_bound_valid=FALSE;
                 next.object_width_valid=FALSE;
+                next.object_left_mm=next.object_right_mm=0;
             }
             target = navigation_look;
-            next.valid = FALSE;
+            if(target!=next.angle_deg || target!=next.sample_angle_deg || navigation_state==S5_MONITOR)
+                next.valid=FALSE;
         }
         travelled = target - next.angle_deg;
         if (travelled < 0)
