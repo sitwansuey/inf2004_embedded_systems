@@ -77,6 +77,30 @@ static void cross(const uint32_t *w, unsigned n, int reverse)
     for (unsigned i = 0U; i < n; ++i) step(!(i & 1U), w[reverse ? n - 1U - i : i]);
 }
 
+/* Read one marker at normal speed; out holds the decoding sample. */
+static void read_marker(char letter)
+{
+    uint32_t w[29];
+    CHECK(s3_core_control(&core, S3_MODE_TRACK, true));
+    step(0, 300U);
+    cross(w, frame(letter, 40U, 120U, w), 0);
+    step(0, 10U);
+    s3_core_barcode_end(&core);
+    s3_sample_t s; memset(&s, 0, sizeof(s));
+    s.valid_mask = 7U; s.time_ms = now; now += 10U;
+    s3_core_step(&core, &s, &out);
+    CHECK(out.barcode_status == S3_BARCODE_OK && out.decoded.symbol == letter);
+}
+
+/* The decoding sample turned (NAVIGATION) or was read with no turn (UNMAPPED). */
+static int turned(char letter, s3_navigation_t turn)
+{
+    if (turn == S3_NAV_NONE)
+        return out.event.kind != S3_EVENT_NAVIGATION && out.error == S3_ERROR_UNMAPPED;
+    return out.event.kind == S3_EVENT_NAVIGATION && out.event.command == turn &&
+           out.event.symbol == letter;
+}
+
 static void setup(void)
 {
     s3_config_t c;
@@ -256,6 +280,37 @@ int main(void)
             else
                 CHECK(out.event.kind != S3_EVENT_NAVIGATION && out.error == S3_ERROR_UNMAPPED);
         }
+    }
+
+    /* Operator overrides (MQTT MAP) win over the codebook; 0 = read, no turn;
+     * letter 0 restores the codebook. Invalid input changes nothing. */
+    {
+        s3_core_t fresh;
+        s3_config_t c;
+        s3_config_defaults(&c);
+        CHECK(s3_core_init(&fresh, &c));
+        for (unsigned i = 0U; i < 26U; ++i) CHECK(fresh.map_override[i] == S3_MAP_DEFAULT);
+        CHECK(!s3_core_set_map(NULL, 1U, 1U));
+        CHECK(!s3_core_set_map(&core, 27U, S3_NAV_LEFT) && !s3_core_set_map(&core, 1U, 5U));
+        CHECK(!s3_core_set_map(&core, 0U, S3_NAV_LEFT));
+        for (unsigned i = 0U; i < 26U; ++i) CHECK(core.map_override[i] == S3_MAP_DEFAULT);
+        CHECK(s3_core_set_map(&core, 6U, S3_NAV_RIGHT));    /* F: left -> right */
+        CHECK(s3_core_set_map(&core, 2U, S3_NAV_STRAIGHT)); /* B: unmapped -> straight */
+        CHECK(s3_core_set_map(&core, 1U, S3_NAV_NONE));     /* A: U-turn -> ignore */
+        CHECK(s3_core_set_map(&core, 17U, S3_NAV_UTURN));   /* Q: unmapped -> U-turn */
+        read_marker('F'); CHECK(turned('F', S3_NAV_RIGHT));
+        read_marker('B'); CHECK(turned('B', S3_NAV_STRAIGHT));
+        unsigned ok = out.barcode_ok_count;
+        read_marker('A'); CHECK(turned('A', S3_NAV_NONE) && out.last_symbol == 'A');
+        CHECK(out.barcode_ok_count == (uint8_t)(ok + 1U) && !out.awaiting_controller);
+        read_marker('Q'); CHECK(turned('Q', S3_NAV_UTURN));
+        read_marker('Z'); CHECK(turned('Z', S3_NAV_RIGHT)); /* not overridden */
+        CHECK(s3_core_set_map(&core, 0U, 0U));
+        for (unsigned i = 0U; i < 26U; ++i) CHECK(core.map_override[i] == S3_MAP_DEFAULT);
+        read_marker('F'); CHECK(turned('F', S3_NAV_LEFT));
+        read_marker('A'); CHECK(turned('A', S3_NAV_UTURN));
+        read_marker('B'); CHECK(turned('B', S3_NAV_NONE));
+        read_marker('Q'); CHECK(turned('Q', S3_NAV_NONE));
     }
 
     /* Live GP28 bit (the vehicle's junction test): this sample's colour in

@@ -307,7 +307,7 @@ static void reset(void)
 {
     mbx_samples = 0; mtx_stats = 0; h_events = 0; h_controller = 0; h_task = 0;
     started = false; raw_only = false; acquisition_attempted = false; acquisition_open_error = E_OK;
-    applied_generation = 0U;
+    applied_generation = 0U; applied_map = 0U;
     h_requests = 0; h_replies = 0; h_worker = 0; h_client = 0; h_device = 0;
     worker_failed = false; have_request = false; have_reply = false;
     adc_request = (s3_adc_request_t){0}; adc_reply = (s3_adc_reply_t){0};

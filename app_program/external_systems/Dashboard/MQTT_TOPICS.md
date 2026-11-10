@@ -53,3 +53,27 @@ Supported physical sensors not yet connected remain blank. ID zero supplies deco
 other documented derived fields. Free-text events are not transmitted.
 
 Full bit layout: [DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md).
+
+## Command topic (dashboard buttons only)
+
+`dashboard.py` publishes non-retained QoS 0 frames on `csc02/command` and
+waits for the matching reply on `csc02/command/ack`. Request (6 bytes):
+`C1 opcode b2 b3 b4 seq`; ACK (6 bytes): `C2 seq opcode result phase fault`
+(result 0 accepted, 1 rejected, 2 Start needs Reset, 3 expired; phase 0–13,
+fault 0–7). Commands older than 100 ms on the robot are answered with result 3.
+
+| Opcode | Request | Behaviour |
+|---|---|---|
+| 0 | `C1 00 00 00 00 SS` | STOP |
+| 1 | `C1 01 DD LL LL SS` | timed ARM, demand 1–50, lease 1–1000 ms (not sent by the dashboard) |
+| 2 | `C1 02 00 00 00 SS` | RESET while stopped |
+| 3 | `C1 03 1E 00 00 SS` | autonomous START, demand 30 |
+| 4 | `C1 04 LL AA 00 SS` | MAP: barcode letter LL (1–26 = A–Z) performs action AA at the next junction |
+
+Opcode 4 actions: 0 ignore (read, no turn), 1 left, 2 right, 3 forward,
+4 U-turn. `LL = 0, AA = 0` restores the built-in codebook (A U-turn, F left,
+Z right; others no turn) for every letter; any other out-of-range pair is
+rejected (result 1). MAP is accepted in any phase and only changes future
+decodes. Mappings live in robot RAM, so after a robot reboot press **Send all**
+(it sends the codebook reset, then every entry that differs from the default).
+The dashboard's `barcode_map` (in `/api/telemetry`) changes only on result 0.

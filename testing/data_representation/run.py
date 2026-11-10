@@ -60,6 +60,10 @@ INPUTS = (
     "app_program/subsystem2/subsystem2_test.c",
     "app_program/subsystem2/s2_data.c",
     "app_program/subsystem2/s2_data.h",
+    "app_program/subsystem2/speed_pid.h",
+    "app_program/subsystem2/wheel_steering.h",
+    "app_program/subsystem2/turn_drive.h",
+    "app_program/shared/encoder_snapshot.h",
     "app_program/subsystem2/tests/host/run.py",
     "app_program/subsystem2/tests/host/subsystem2_host_test.c",
     "app_program/subsystem2/tests/host/app.h",
@@ -196,7 +200,7 @@ def main() -> int:
                   run_python_tests, report["stages"])
         run_stage("C99 codec, golden packets and exhaustive 16-bit records",
                   lambda: run_codec_tests(compiler), report["stages"])
-        run_stage("Buddy 2 adapters and watchdog (eight host profiles)",
+        run_stage("Buddy 2 adapters and watchdog (nine host profiles)",
                   lambda: run_motor_tests(compiler), report["stages"])
         if input_fingerprint() != report["inputs"]:
             raise ValueError("Test inputs changed during the run; rerun the check.")

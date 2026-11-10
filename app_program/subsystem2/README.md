@@ -123,11 +123,13 @@ From the repository root, with GCC on PATH:
 powershell -ExecutionPolicy Bypass -File .\app_program\subsystem2\tests\host\run.ps1
 ```
 
-Eight host configurations exercise the actual motor task with simulated RTOS,
+Nine host configurations exercise the actual motor task with simulated RTOS,
 time and GPIO/PWM services, compiled with warnings as errors. Coverage includes
 both encoders and directions, rollover, interrupted snapshots, shared/cross-bank
 GPIOs, disabled encoders, integrated controller access, rotation renewals/expiry,
-stale commands, deadtime expiry, stop/fault recovery and a 750 ms override.
+stale commands, deadtime expiry, stop/fault recovery, a 750 ms override and,
+with the robot PID settings, the spin/pivot PWM ceiling, breakaway kick and
+turn stall time.
 Standalone USB/WiFi firmware builds with encoders on (1000 ms timeout) and off
 (750 ms timeout) also pass ARM compilation and linking. Physical motor/encoder
 testing on the Pico remains required.

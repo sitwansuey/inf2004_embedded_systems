@@ -14,6 +14,8 @@
 #define S3_BARCODE_RESULT_DECODED 2U
 #define S3_BARCODE_RESULT_FAILED 3U
 #define S3_BARCODE_BARS_MAX 31U
+/* map_override entry: use the configured codebook for this letter. */
+#define S3_MAP_DEFAULT 0xFFU
 
 typedef enum
 {
@@ -131,6 +133,8 @@ typedef struct
     uint8_t last_bars;
     uint8_t last_elements;
     uint8_t last_result;
+    /* Operator letter -> s3_navigation_t, A..Z; S3_MAP_DEFAULT = codebook. */
+    uint8_t map_override[26];
 } s3_core_t;
 
 /* Defaults are testable algorithm settings, not hardware claims. No mapping. */
@@ -144,6 +148,10 @@ void s3_core_fault(s3_core_t *p_core, s3_error_t error);
 /* Finish a running barcode capture at the next edge-free sample (the
  * controller measured the end of the marker by distance). No-op otherwise. */
 void s3_core_barcode_end(s3_core_t *p_core);
+/* Runtime codebook override for letter 1..26 (A..Z): nav 0..4 is the
+ * s3_navigation_t used on its next decode (0 = read, no turn). Letter 0 with
+ * nav 0 restores the configured codebook for every letter. False if invalid. */
+bool s3_core_set_map(s3_core_t *p_core, unsigned letter, unsigned nav);
 /* Copy latched barcode diagnostics (letter, counters, bars, result). */
 void s3_core_barcode_summary(const s3_core_t *p_core, s3_output_t *p_output);
 /* Forward observation gaps while paused/overridden reset temporal history.

@@ -18,18 +18,28 @@ static BOOL bad_s5_fields;
 static int32_t test_speed;
 static uint8_t test_fault,test_cause;
 static int64_t decoded[TEL_FIELD_COUNT];
+/* Optional extra task loops (10 ms apart) with a per-loop shock count. */
+static unsigned extra_loops, loop_index;
+static uint8_t shock_counts[4];
+static int64_t qualities[4];
 
 ER tk_get_otm(SYSTIM *time)
 {
     if(++clock_reads>1 && clock_failure)return E_SYS;
     time->hi=0;time->lo=clock_ms;return E_OK;
 }
-ER tk_dly_tsk(UW delay) { (void)delay;longjmp(finished,1);return E_OK; }
+ER tk_dly_tsk(UW delay)
+{
+    (void)delay;
+    if(loop_index<extra_loops) {++loop_index;clock_ms+=10;return E_OK;}
+    longjmp(finished,1);return E_OK;
+}
 INT tm_printf(UB *format, ...) { (void)format;return 0; }
 ER app_get_state(app_state_t *state) {
     *state=(app_state_t){0};
     state->speed_bits=(uint16_t)((uint32_t)test_speed & UINT32_C(0xfff));
     state->odometry_valid=1;state->vehicle.fault=test_fault;state->vehicle.fault_cause=test_cause;
+    state->shock_count=shock_counts[loop_index<4U?loop_index:3U];
     s4_result_t result={.calculated_ms=clock_ms,.pitch_cdeg=1234,.roll_cdeg=-5678,
         .height_mm=123,.maximum_mm=456,.terrain=0,.flags=27};
     REQUIRE(s4_result_encode(&result,state->s4_result,sizeof(state->s4_result)));
@@ -62,11 +72,13 @@ ER s5_get_status(s5_status_t *state)
 uint16_t s1_drop_count(void) { return 0; }
 ER s1_binary_send(const uint8_t data[TELEMETRY_BYTES])
 {
-    REQUIRE(telemetry_decode(data,decoded));++packets;return E_OK;
+    REQUIRE(telemetry_decode(data,decoded));
+    if(packets<4U)qualities[packets]=decoded[TEL_QUALITY];
+    ++packets;return E_OK;
 }
 static void capture(void)
 {
-    clock_ms=1000;clock_reads=packets=0;memset(decoded,0,sizeof(decoded));
+    clock_ms=1000;clock_reads=packets=0;memset(decoded,0,sizeof(decoded));loop_index=0;
     if(setjmp(finished)==0)telemetry_task(0,NULL);
 }
 int main(void)
@@ -107,6 +119,14 @@ int main(void)
     copy_failure=FALSE;clock_failure=TRUE;
     capture();
     REQUIRE(packets==0); /* no publication with an unusable age reference */
+    /* A shock lasts one 20 ms sample and no longer changes the fault: a new
+     * shock count is sent at once (inside the 200 ms period) as impact. */
+    clock_failure=FALSE;read_delay=0;sample_age=0;line_stamp=1000;
+    extra_loops=3;shock_counts[0]=shock_counts[1]=0;shock_counts[2]=shock_counts[3]=1;
+    capture();
+    REQUIRE(packets==2 && (qualities[0]&2)==0 && (qualities[1]&2)!=0);
+    extra_loops=0;
+    puts("Shock count: a new shock is sent at once with the impact bit PASS");
     puts("INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
     return 0;
 }

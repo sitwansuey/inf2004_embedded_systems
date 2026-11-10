@@ -1,12 +1,16 @@
-/* Barcode turns run at the next junction after the sensor-to-wheel offset;
- * a U-turn then spot-scans until a line sensor is on black (pure policy). */
+/* Barcode turns run at the next junction after the sensor-to-wheel offset,
+ * spin until a straddle sensor finds the new line, and spot-scan when they
+ * end without one (pure policy). */
 #include "../../app_program/vehicle_policy.h"
 #include <assert.h>
 #include <stdio.h>
 static vc_input_t healthy(void) {
     return (vc_input_t){.now_ms=100,.sensor_fresh=1,.motor_ok=1,.terrain_valid=1,.odom_valid=1,
         .transport_ok=1,.front_clear=1,.line_fresh=1,.steering=1,.line_detected=1,.line_state=1,
-        .nav_offset_mm=90,.nav_search_mm=600};
+        .nav_offset_mm=90,.nav_search_mm=600,
+        /* robot_config.h defaults */
+        .nav_turn_power=25,.nav_seek_power=15,.nav_turn_min_deg=60,.nav_turn_max_deg=120,
+        .nav_uturn_min_deg=150,.nav_uturn_max_deg=210};
 }
 /* Tracking at 30% when turn `nav` is decoded here. */
 static vc_state_t decoded(vc_input_t *i,unsigned nav) {
@@ -36,7 +40,8 @@ static void right_at_junction(void) {
     drive(&s,&i,4999);assert(forward(&s) && s.nav_offset); /* 89.999 mm */
     drive(&s,&i,1);
     assert(s.phase==VC_NAV_TURN && s.turn_deg==-90 && !s.pending_nav && !s.command && !s.nav_offset);
-    i.yaw_mdeg=-45000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==4);
+    /* The right sensor is still on black: before 60 deg that is not the new line. */
+    i.yaw_mdeg=-45000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==4 && s.power==25);
     i.yaw_mdeg=-90000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && !s.spot_scan && !s.command);
     /* Left/right REACQUIRE is unchanged: fresh straddle data is the line. */
     line(&i,0,0);drive(&s,&i,0);assert(s.phase==VC_TRACK && !s.command);
@@ -86,8 +91,10 @@ static vc_state_t u_turned(vc_input_t *i) {
     line(i,3,1);drive(&s,i,0);assert(s.nav_offset);
     line(i,0,0);drive(&s,i,90000);
     assert(s.phase==VC_NAV_TURN && s.turn_deg==180 && !s.pending_nav);
-    i->yaw_mdeg=90000;drive(&s,i,0);assert(s.phase==VC_NAV_TURN && s.command==3);
-    i->yaw_mdeg=180000;drive(&s,i,0);assert(s.phase==VC_REACQUIRE && s.spot_scan && !s.command);
+    i->yaw_mdeg=90000;drive(&s,i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    /* No touch from 150 deg: seek on to 210 deg, then spot-scan. */
+    i->yaw_mdeg=180000;drive(&s,i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
+    i->yaw_mdeg=210000;drive(&s,i,0);assert(s.phase==VC_REACQUIRE && s.spot_scan && !s.command);
     return s;
 }
 static void spot_scan(void) {
@@ -96,10 +103,10 @@ static void spot_scan(void) {
      * line: rotate on the spot, slowly, through the bounded sweep. */
     assert(i.line_fresh && i.steering && i.line_detected && !i.line_touch);
     drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==3 && s.power<=15);
-    i.yaw_mdeg=195000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==3 && s.power<=15);
-    i.yaw_mdeg=210000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && !s.command); /* +30 reached */
+    i.yaw_mdeg=225000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==3 && s.power<=15);
+    i.yaw_mdeg=240000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && !s.command); /* +30 reached */
     drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==4 && s.power<=15);
-    i.yaw_mdeg=185000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==4);
+    i.yaw_mdeg=215000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==4);
     /* The right sensor touches the line: settle, then track. */
     line(&i,1,0);drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.line_settling && s.command==4 && s.power<=15);
     drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==4);
@@ -115,11 +122,12 @@ static void spot_scan(void) {
         assert(!s.command || ((s.command==3 || s.command==4) && s.power<=15));
     }
     assert(s.phase==VC_FAULT && s.fault==VC_LINE);
-    /* BOARD_NAV_SPOT_SCAN_ALL: left/right turns spot-scan too. */
+    /* BOARD_NAV_SPOT_SCAN_ALL: left/right turns without a touch spot-scan too. */
     i=healthy();i.spot_scan_all=1;s=decoded(&i,1);
     line(&i,3,1);drive(&s,&i,0);line(&i,0,0);drive(&s,&i,90000);
     assert(s.phase==VC_NAV_TURN && s.turn_deg==90);
-    i.yaw_mdeg=90000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.spot_scan);
+    i.yaw_mdeg=90000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
+    i.yaw_mdeg=120000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.spot_scan);
     drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && (s.command==3 || s.command==4) && s.power<=15);
     puts("U-turn spot scan: sweeps until a sensor is on black, immediate when touching, bounded PASS");
 }
@@ -145,7 +153,81 @@ static void uturn_repeat(void) {
     i=healthy();s=u_turned(&i);assert(!s.uturn_guard);
     puts("U-turn repeat: the same marker read on the way back does not turn again PASS");
 }
+/* Junction reached and the turn entered (the axle is over the crossing). */
+static vc_state_t turning(vc_input_t *i,unsigned nav) {
+    vc_state_t s=decoded(i,nav);
+    line(i,3,1);drive(&s,i,0);line(i,0,0);drive(&s,i,90000);
+    assert(s.phase==VC_NAV_TURN && !s.command && !s.pending_nav);
+    return s;
+}
+/* 25 % by encoder yaw to the min angle (a touch before it is the old line or
+ * the crossing), then 15 % until a straddle sensor touches the new line; no
+ * touch by the max angle ends it anyway, then a spot scan. */
+static void line_guided_turns(void) {
+    /* LEFT is +90 deg, spun counterclockwise: S2 LEFT (3). */
+    vc_input_t i=healthy();i.spot_scan_all=1;vc_state_t s=turning(&i,1);
+    assert(s.turn_deg==90);
+    drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    line(&i,2,0);i.yaw_mdeg=20000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    line(&i,3,1);i.yaw_mdeg=59999;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    line(&i,0,0);i.yaw_mdeg=60000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
+    i.yaw_mdeg=75000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
+    /* The first touch ends it: no spot scan, tracking from the next sample. */
+    line(&i,2,0);i.yaw_mdeg=78000;drive(&s,&i,0);
+    assert(s.phase==VC_REACQUIRE && !s.spot_scan && !s.command);
+    drive(&s,&i,0);assert(s.phase==VC_TRACK && !s.command);
+    drive(&s,&i,0);assert(forward(&s));
+    /* A touch exactly at the min angle counts; just before it does not. */
+    i=healthy();s=turning(&i,1);line(&i,1,0);i.yaw_mdeg=59000;drive(&s,&i,0);
+    assert(s.phase==VC_NAV_TURN && s.power==25);
+    i.yaw_mdeg=60000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && !s.spot_scan);
+    /* RIGHT is -90 deg, clockwise: S2 RIGHT (4). No touch: ends at 120 deg. */
+    i=healthy();i.spot_scan_all=1;s=turning(&i,2);assert(s.turn_deg==-90);
+    drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==4 && s.power==25);
+    i.yaw_mdeg=-90000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==4 && s.power==15);
+    i.yaw_mdeg=-119999;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==4 && s.power==15);
+    i.yaw_mdeg=-120000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.spot_scan && !s.command);
+    drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && (s.command==3 || s.command==4) && s.power<=15);
+    /* Turning the wrong way never counts as progress. */
+    i=healthy();s=turning(&i,2);line(&i,1,0);i.yaw_mdeg=70000;drive(&s,&i,0);
+    assert(s.phase==VC_NAV_TURN && s.command==4 && s.power==25);
+    /* Without SPOT_SCAN_ALL a line-guided turn that ran to its max angle
+     * without a touch has overshot the arm: it still searches for it. */
+    i=healthy();s=turning(&i,2);i.yaw_mdeg=-120000;drive(&s,&i,0);
+    assert(s.phase==VC_REACQUIRE && s.spot_scan);
+    drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && (s.command==3 || s.command==4));
+    /* ...but a turn that ended on a touch tracks at once. */
+    i=healthy();s=turning(&i,2);i.yaw_mdeg=-70000;line(&i,1,0);drive(&s,&i,0);
+    assert(s.phase==VC_REACQUIRE && !s.spot_scan);
+    drive(&s,&i,0);assert(s.phase==VC_TRACK);
+    /* Slope cap, a front stop and the 5 s phase timeout still apply. */
+    i=healthy();s=turning(&i,1);i.slope=1;drive(&s,&i,0);assert(s.command==3 && s.power==20);
+    i.slope=0;i.front_clear=0;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && !s.command);
+    i.front_clear=1;i.now_ms+=4970;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3);
+    drive(&s,&i,0);assert(s.phase==VC_FAULT && s.fault==VC_TIMEOUT);
+    puts("Line-guided turns: 25% to 60 deg, early touches ignored, first touch to 120 deg ends it, else spot scan PASS");
+}
+/* A U-turn passes the side arm near 90 deg: only touches from 150 deg count,
+ * and 210 deg ends it without one. */
+static void line_guided_uturn(void) {
+    vc_input_t i=healthy();i.uturn_ignore_mm=1200;vc_state_t s=turning(&i,4);
+    assert(s.turn_deg==180);
+    drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    line(&i,1,0);i.yaw_mdeg=85000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    i.yaw_mdeg=120000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.power==25);
+    line(&i,0,0);i.yaw_mdeg=149999;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.power==25);
+    i.yaw_mdeg=150000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
+    line(&i,2,0);i.yaw_mdeg=172000;drive(&s,&i,0);
+    assert(s.phase==VC_REACQUIRE && !s.spot_scan && !s.command && s.uturn_guard);
+    drive(&s,&i,0);assert(s.phase==VC_TRACK);
+    /* Encoder yaw alone (max 0): exactly 90 deg, any touch ignored. */
+    i=healthy();i.nav_turn_max_deg=0;s=turning(&i,1);line(&i,2,0);
+    i.yaw_mdeg=70000;drive(&s,&i,0);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    i.yaw_mdeg=90000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && !s.spot_scan);
+    puts("Line-guided U-turn: side arm ignored before 150 deg, first touch ends it, guard kept PASS");
+}
 int main(void) {
     right_at_junction();hold_and_search_limit();leave_track();spot_scan();uturn_repeat();
+    line_guided_turns();line_guided_uturn();
     return 0;
 }

@@ -12,6 +12,9 @@ typedef struct {
     uint8_t navigation : 3;
     uint8_t barcode : 5; /* 0 none, 1..26 = last decoded A..Z */
     uint8_t odometry_valid : 1;
+    /* S4 shocks seen (rising edges, wraps). A shock lasts one 20 ms
+     * accelerometer sample, so telemetry sends a frame for each new count. */
+    uint8_t shock_count;
 } app_state_t;
 static inline int32_t app_speed_mm_s(const app_state_t *s) {
     return odom_signed_value(s->speed_bits,12U);

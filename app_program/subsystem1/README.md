@@ -18,6 +18,7 @@ lwIP/MQTT calls and reconnect timers. Periodic state/sequence is the heartbeat.
 Commands arrive on `csc02/command` or the USB hook, using the shared checked
 six-byte command format. STOP bypasses a full queue. Timed ARM remains for
 supervised tests; START runs an onboard mission without continued remote input.
+MAP (opcode 4) changes which turn a decoded barcode letter requests, in RAM.
 Local sensor faults, watchdogs and STOP still apply. Default motor/calibration
 locks remain enabled. See `docs/MISSION_SETUP.md` before physical operation.
 

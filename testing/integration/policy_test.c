@@ -45,8 +45,27 @@ static void controller(void) {
     assert(s.phase==VC_TRACK && s.pending_nav==4 && s.command==1);i.navigation_event=0;
     i.junction=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && s.nav_offset && s.command==1);
     i.junction=0;i.distance_um=90000;vc_step(&s,&i);
-    assert(s.phase==VC_NAV_TURN);i.yaw_mdeg=179000;vc_step(&s,&i);
+    /* No turn settings (power 0, no angle window): armed power, exactly 180 deg by yaw.
+     * (vehicle.c sends 25 % in every build; the window only in straddle builds.) */
+    assert(s.phase==VC_NAV_TURN);i.yaw_mdeg=179000;i.line_touch=1;vc_step(&s,&i);
+    assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==30);
     i.yaw_mdeg=181000;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command && s.spot_scan);
+    /* Turn power never exceeds the armed (Start) power. */
+    s=armed();s.maximum_power=10;i=healthy();i.nav_turn_power=25;i.nav_seek_power=15;
+    i.navigation_event=1;i.nav=2;vc_step(&s,&i);i.navigation_event=0;
+    i.junction=1;vc_step(&s,&i);i.junction=0;i.distance_um=90000;vc_step(&s,&i);
+    assert(s.phase==VC_NAV_TURN);vc_step(&s,&i);assert(s.command==4 && s.power==10);
+    /* Straddle settings: 25 % to 60 deg, a touch there is ignored, then 15 %
+     * until the first touch, which ends a LEFT (+90, S2 LEFT 3) turn. */
+    s=armed();i=healthy();i.nav_turn_power=25;i.nav_seek_power=15;
+    i.nav_turn_min_deg=60;i.nav_turn_max_deg=120;i.nav_uturn_min_deg=150;i.nav_uturn_max_deg=210;
+    i.spot_scan_all=1;i.navigation_event=1;i.nav=1;vc_step(&s,&i);i.navigation_event=0;
+    i.junction=1;vc_step(&s,&i);i.junction=0;i.distance_um=90000;vc_step(&s,&i);
+    assert(s.phase==VC_NAV_TURN && s.turn_deg==90);
+    i.line_touch=1;i.yaw_mdeg=45000;vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    i.line_touch=0;i.yaw_mdeg=70000;vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
+    i.line_touch=1;i.yaw_mdeg=82000;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.spot_scan && !s.command);
+    vc_step(&s,&i);assert(s.phase==VC_TRACK);
     /* Any close obstacle overrides current steering in the same iteration. */
     s=armed();i=healthy();i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);
     i.scan_ready=1;i.turn_deg=30;i.approach_mm=200;i.return_mm=100;vc_step(&s,&i);
@@ -55,8 +74,12 @@ static void controller(void) {
     assert(s.pending_nav==2);i.navigation_event=0;
     i.scan_ready=1;i.bypass_enabled=1;i.turn_deg=30;i.approach_mm=200;i.return_mm=100;
     vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
-    vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==25); /* front_clear=0 does not gate it */
-    i.distance_um=-300000;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command && s.backup_mm==300 && s.pass_check_mm==475);
+    /* front_clear=0 does not gate it; the reverse ramps up from START_POWER */
+    vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_START_POWER);
+    /* Distance bound: stand still before the forward turn-out. */
+    i.distance_um=-300000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
+    i.now_ms=100+AVOID_BACKUP_BRAKE_MS;vc_step(&s,&i);
+    assert(s.phase==VC_TURN_OUT && !s.command && s.backup_mm==300 && s.pass_check_mm==475);
     vc_step(&s,&i);assert(!s.command); /* needs a fresh, forward-facing reading */
     i.front_clear=1;vc_step(&s,&i);assert(s.command==1 && s.steering==-376);
     i.yaw_mdeg=30000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1);
@@ -64,7 +87,7 @@ static void controller(void) {
     i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_PASS && !s.look_side && s.command==1);
     i.distance_um+=475000;vc_step(&s,&i);assert(!s.command && s.look_side);
     i.front_clear=0;i.side_observed=i.side_ready=i.side_clear=1;
-    for(unsigned n=0;n<3;++n){i.now_ms=i.side_sample_ms=120U+n*20U;vc_step(&s,&i);assert(!s.command);}
+    for(unsigned n=0;n<3;++n){i.now_ms=i.side_sample_ms=120U+AVOID_BACKUP_BRAKE_MS+n*20U;vc_step(&s,&i);assert(!s.command);}
     assert(s.phase==VC_TURN_IN);i.front_clear=1;
     i.yaw_mdeg=-30000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
     i.distance_um+=200000;vc_step(&s,&i);assert(s.phase==VC_RESTORE && s.command==1);

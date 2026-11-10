@@ -65,6 +65,17 @@ int main(void) {
     unsigned char start[6]={0xC1,3,30,0,0,0};
     assert(s1_command_offer(start,6)==E_OK && s1_command_take(&c)==E_OK && c.wire[1]==3);
     start[3]=1;assert(s1_command_offer(start,6)==E_PAR);
+    /* MAP: letter 1..26, action 0..4, byte 4 zero; 0/0 restores the codebook. */
+    unsigned char map[6]={0xC1,4,6,1,0,7};
+    assert(s1_command_offer(map,6)==E_OK && s1_command_take(&c)==E_OK &&
+           c.wire[1]==4 && c.wire[2]==6 && c.wire[3]==1 && c.wire[5]==7);
+    map[2]=0;map[3]=0;assert(s1_command_offer(map,6)==E_OK && s1_command_take(&c)==E_OK && !c.wire[2]);
+    map[3]=1;assert(s1_command_offer(map,6)==E_PAR);
+    map[2]=27;assert(s1_command_offer(map,6)==E_PAR);
+    map[2]=26;map[3]=5;assert(s1_command_offer(map,6)==E_PAR);
+    map[3]=4;map[4]=1;assert(s1_command_offer(map,6)==E_PAR);
+    map[4]=0;assert(s1_command_offer(map,6)==E_OK && s1_command_take(&c)==E_OK && c.wire[3]==4);
+    map[1]=5;assert(s1_command_offer(map,6)==E_PAR);
     wire[0]=0xFF;assert(!s3_event_unpack(wire,&decoded));
     puts("INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 14-byte events PASS");
     return 0;

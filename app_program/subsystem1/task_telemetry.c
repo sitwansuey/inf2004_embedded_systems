@@ -10,6 +10,7 @@
 static int64_t bounded(int64_t n,int64_t lo,int64_t hi) {return n<lo?lo:n>hi?hi:n;}
 void telemetry_task(INT code,void *context) {
     (void)code;(void)context;unsigned count=0;uint32_t previous=0;unsigned old_fault=0;
+    uint8_t old_shock=0; /* app_state_t.shock_count last sent */
     /* Last published width/side: a new valid width or side is sent at once,
      * so the halves reach MQTT during S5's hold before the side is chosen. */
     UW width_scan=0,width_left=0,width_right=0;unsigned old_side=0;
@@ -26,7 +27,9 @@ void telemetry_task(INT code,void *context) {
             o.object_width_mm==o.object_left_mm+o.object_right_mm;
         unsigned side=so && o.approach_plan_valid?(o.planned_rotate_deg>0?1U:o.planned_rotate_deg<0?2U:0U):0U;
         BOOL width_new=width_valid && (o.scan_id!=width_scan || o.object_left_mm!=width_left || o.object_right_mm!=width_right);
-        if(st && (now.lo-previous>=200U || s.vehicle.fault!=old_fault || width_new || (so && side!=old_side))) {
+        /* A shock no longer changes the fault, so a new one is sent at once. */
+        BOOL shock_new=st && s.shock_count!=old_shock;
+        if(st && (now.lo-previous>=200U || s.vehicle.fault!=old_fault || width_new || (so && side!=old_side) || shock_new)) {
             BOOL mo=s2_motion_get_status(&m)==E_OK,en=s2_encoder_get_status(&e)==E_OK && e.valid;
             ER ir_copy=s3_status_get(&l);BOOL li=ir_copy==E_OK;
             s4_sensor_cache_t imu_record={0};
@@ -66,7 +69,7 @@ void telemetry_task(INT code,void *context) {
             v[TEL_HEIGHT_MM]=terrain.height_mm;v[TEL_HIGHEST_MM]=terrain.maximum_mm;
             v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=width_valid?bounded(o.object_width_mm,0,500):0;
             v[TEL_SERVO_DEG]=o.angle_deg;v[TEL_SCAN_STATE]=o.state;
-            v[TEL_QUALITY]=(width_valid?1:0)|((terrain.flags&S4_RESULT_SHOCK)?2:0)|(s.vehicle.armed?4:0)|
+            v[TEL_QUALITY]=(width_valid?1:0)|(((terrain.flags&S4_RESULT_SHOCK) || shock_new)?2:0)|(s.vehicle.armed?4:0)|
                 (BOARD_BYPASS_VALIDATED?8:0)|(s.odometry_valid?16:0)|
                 (so && o.state!=S5_FAULT?32:0);
             v[TEL_DROPPED]=s1_drop_count();
@@ -120,7 +123,7 @@ void telemetry_task(INT code,void *context) {
                     (unsigned)l.output.line.darkness[0],(unsigned)l.output.line.darkness[1]);
             }
 #endif
-            previous=now.lo;old_fault=s.vehicle.fault;old_side=side;
+            previous=now.lo;old_fault=s.vehicle.fault;old_side=side;old_shock=s.shock_count;
             if(width_valid) {width_scan=o.scan_id;width_left=o.object_left_mm;width_right=o.object_right_mm;}
             if(BOARD_MOTORS_DISABLED && BOARD_IR_RAW_BENCH) {
                 tm_printf((UB *)"[S3RAW] copied=%u error=%d t=%u acquisition=%d mask=%u raw=%u,%u,%u configured=%u steering=%u fresh=%u\n",

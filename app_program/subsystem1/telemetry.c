@@ -58,7 +58,7 @@ int s1_telemetry_current(const unsigned char *data) {
     return tk_get_otm(&now)==E_OK && now.lo-stamp<500U;
 }
 int s1_command_offer(const unsigned char *data,unsigned length) {
-    if(!data || length!=CSC02_COMMAND_BYTES || data[0]!=0xC1 || data[1]>3)return E_PAR;
+    if(!data || length!=CSC02_COMMAND_BYTES || data[0]!=0xC1 || data[1]>4)return E_PAR;
     if(data[1]==0) { __atomic_store_n(&stop_sequence,data[5],__ATOMIC_RELEASE); /* STOP survives a full queue and is handled before ARM. */
         UW n=__atomic_load_n(&stop_epoch,__ATOMIC_RELAXED);
         __atomic_store_n(&stop_epoch,n+1U,__ATOMIC_RELEASE);return E_OK;
@@ -67,6 +67,8 @@ int s1_command_offer(const unsigned char *data,unsigned length) {
     if(data[1]==1 && (data[2]==0 || data[2]>50 || lease==0 || lease>1000))return E_PAR;
     if(data[1]==2 && (data[2] || lease))return E_PAR;
     if(data[1]==3 && (data[2]==0 || data[2]>50 || lease))return E_PAR;
+    /* MAP: letter 1..26 (A..Z), action 0..4 (s3_navigation_t); 0/0 = codebook. */
+    if(data[1]==4 && (data[2]>26 || data[3]>4 || data[4] || (data[2]==0 && data[3])))return E_PAR;
     if(command_buffer<=0)return E_OBJ;
     SYSTIM now;ER er=tk_get_otm(&now);if(er<0)return er;
     control_message_t m={.time_ms=now.lo,.epoch=__atomic_load_n(&stop_epoch,__ATOMIC_ACQUIRE)};

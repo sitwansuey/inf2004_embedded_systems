@@ -10,6 +10,9 @@
 #include <tk/syslib.h>
 #include "speed_pid.h"
 #include "wheel_steering.h"
+#include "turn_drive.h"
+_Static_assert((int)S2_MOVE_LEFT==3 && (int)S2_MOVE_RIGHT==4 && (int)S2_MOVE_PIVOT_RIGHT==5 &&
+               (int)S2_MOVE_PIVOT_LEFT==6,"turn_drive.h command numbers changed");
 static INT requested_steering;
 /* Straight-line commands accept differential steering. Positive steering
  * always raises the left wheel's demand, so it turns CW going forward and
@@ -28,6 +31,7 @@ static int32_t pid_speed[2];
 static BOOL pid_initialized;
 static UINT pid_command;
 static int32_t filtered_steering;
+static s2_kick_t turn_kick[2]; /* per-wheel spin breakaway kick (turn_drive.h) */
 #endif
 
 /* Persistent state uses the same motor word as the external representation.
@@ -445,6 +449,17 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
                               __atomic_load_n(&stopped_epoch, __ATOMIC_ACQUIRE)) er = E_OBJ;
         if (er >= E_OK)
         {
+#if BOARD_PID_ENABLED
+            /* A new spin starts both wheels at the breakaway kick;
+             * motor_regulate keeps it until each wheel really moves. */
+            if(direction_changed) {
+                UW kick=(UW)((uint64_t)(MOTOR_PWM_WRAP+1U)*s2_turn_kick_milli(command,0U,
+                    BOARD_TURN_KICK_MS,BOARD_TURN_KICK_POWER,
+                    s2_turn_limit(command,BOARD_PID_MAX_POWER,BOARD_PID_TURN_MAX_POWER))/100000U);
+                if(left_duty<kick)left_duty=kick;
+                if(right_duty<kick)right_duty=kick;
+            }
+#endif
             motor_set_pair(BOARD_MOTOR1_A_GPIO, BOARD_MOTOR1_B_GPIO,
                            left * MOTOR1_FORWARD_SIGN, left_duty);
             motor_set_pair(BOARD_MOTOR2_A_GPIO, BOARD_MOTOR2_B_GPIO,
@@ -480,6 +495,7 @@ static ER motor_regulate(uint16_t word)
         for(unsigned n=0;n<2;++n) {
             wheel_pid[n]=(speed_pid_t){0};pid_counts[n]=counts[n];
             pid_progress[n]=e.sampled_ms;pid_speed[n]=0;
+            s2_kick_start(&turn_kick[n],e.sampled_ms,s2_turn_command(command)?BOARD_TURN_KICK_MS:0U);
         }
         pid_time=e.sampled_ms;pid_command=command;pid_initialized=TRUE;
         filtered_steering=s2_steerable(command)?requested_steering:0;return E_OK;
@@ -490,20 +506,30 @@ static ER motor_regulate(uint16_t word)
     filtered_steering=s2_steering_step(filtered_steering,
         s2_steerable(command)?requested_steering:0,dt);
     unsigned output[2]={0,0};
+    /* Spins scrub: more PWM headroom, a breakaway kick for each wheel until
+     * it really moves (and again if it re-stalls), and a longer stall
+     * allowance (turn_drive.h). Speed targets are unchanged. */
+    unsigned limit=s2_turn_limit(command,BOARD_PID_MAX_POWER,BOARD_PID_TURN_MAX_POWER);
+    uint32_t stall=s2_stall_ms(command,500U,BOARD_TURN_STALL_MS);
+    unsigned kick=s2_turn_kick_milli(command,0U,BOARD_TURN_KICK_MS,BOARD_TURN_KICK_POWER,limit);
     for(unsigned n=0;n<2;++n) {
         int32_t delta;
         if(!edr_count_delta(counts[n],pid_counts[n],&delta) || delta>10000 || delta< -10000)return E_SYS;
         if(direction[n]) {
-            if(delta*direction[n]>0)pid_progress[n]=e.sampled_ms;
-            if(e.sampled_ms-pid_progress[n]>500U)return E_TMOUT;
+            int32_t progress=delta*direction[n];
+            if(progress>0)pid_progress[n]=e.sampled_ms;
+            if(e.sampled_ms-pid_progress[n]>stall)return E_TMOUT;
             int32_t instant=(int32_t)((int64_t)delta*direction[n]*1000/dt);
             pid_speed[n]=(3*pid_speed[n]+instant)/4;
             unsigned wheel_demand=s2_steered_demand_milli(power,filtered_steering,n,BOARD_PID_MAX_POWER);
             int32_t target=(int32_t)((uint64_t)wheel_demand*BOARD_PID_MAX_CPS/100000U);
             unsigned trim=n==0?S2_MOTOR1_TRIM_PERCENT:S2_MOTOR2_TRIM_PERCENT;
             output[n]=speed_pid_step_milli(&wheel_pid[n],target,pid_speed[n],dt,
-                (unsigned)((uint64_t)wheel_demand*trim/100U),BOARD_PID_MAX_POWER,
+                (unsigned)((uint64_t)wheel_demand*trim/100U),limit,
                 BOARD_PID_KP_MILLI,BOARD_PID_KI_MILLI,BOARD_PID_KD_MILLI);
+            if(kick && s2_kick_step(&turn_kick[n],e.sampled_ms,progress,e.sampled_ms-pid_progress[n],
+                   BOARD_TURN_KICK_MS,BOARD_TURN_KICK_COUNTS,BOARD_TURN_REKICK_MS) && output[n]<kick)
+                output[n]=kick;
         }
         pid_counts[n]=counts[n];
     }

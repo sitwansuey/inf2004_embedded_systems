@@ -13,12 +13,15 @@ static void route(int sign) {
  i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);
  i.now_ms=10;i.scan_ready=1;i.turn_deg=(int16_t)(sign*40);i.approach_mm=300;i.return_mm=300;
  vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
- /* Straight reverse, under the 16% cap, while the obstacle is still ahead. */
- i.now_ms=20;i.distance_um=-50000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==16 && !s.steering);
- const uint32_t t=AVOID_BACKUP_MS;
- i.now_ms=10+t;i.distance_um=-100000;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command && s.backup_mm==100 && s.pass_check_mm==275);
- i.now_ms=t+20;i.obstacle=i.scan_ready=0;i.front_clear=1;vc_step(&s,&i);assert(s.command==1 && s.steering==-sign*376 && s.power==16);
- i.now_ms=t+30;i.yaw_mdeg=sign*40000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1 && s.power==16);
+ /* Straight reverse, ramped, then under the 16% cap mid-way, while the obstacle is still ahead. */
+ i.now_ms=20;i.distance_um=-10000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_START_POWER && !s.steering);
+ i.now_ms=10+AVOID_BACKUP_MS/2;i.distance_um=-50000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==16 && !s.steering);
+ const uint32_t t=AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;
+ /* Reverse done: stand still, then turn out. */
+ i.now_ms=10+AVOID_BACKUP_MS;i.distance_um=-100000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
+ i.now_ms=10+t;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command && s.backup_mm==100 && s.pass_check_mm==275);
+ i.now_ms=t+20;i.obstacle=i.scan_ready=0;i.front_clear=1;vc_step(&s,&i);assert(s.command==1 && s.steering==-sign*376 && s.power==AVOID_BACKUP_START_POWER);
+ i.now_ms=t+30;i.yaw_mdeg=sign*40000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1 && s.power==AVOID_BACKUP_START_POWER);
  i.now_ms=t+40;i.distance_um=200000;vc_step(&s,&i);assert(s.phase==VC_ALIGN && s.command==1 && s.return_mm==300);
  i.now_ms=t+50;i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1 && !s.look_side);
  i.now_ms=t+55;i.distance_um+=274999;vc_step(&s,&i);assert(s.command==1 && !s.look_side);

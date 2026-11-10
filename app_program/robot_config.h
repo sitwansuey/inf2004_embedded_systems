@@ -106,13 +106,44 @@
 #if BOARD_NAV_JUNCTION_OFFSET_MM > 1000 || BOARD_NAV_JUNCTION_SEARCH_MM > 10000
 #error Junction navigation distances out of range
 #endif
+/* Decoded turn (VC_NAV_TURN): spin at NAV_TURN_POWER by encoder yaw to
+ * NAV_TURN_MIN_DEG, then on at NAV_TURN_SEEK_POWER until a straddle sensor
+ * touches black (the new line); no touch by NAV_TURN_MAX_DEG ends it anyway.
+ * A touch before MIN_DEG (old line, crossing) never ends it. U-turns use the
+ * UTURN pair. Straddle builds only; MAX_DEG 0 turns by encoder yaw alone. */
+#ifndef BOARD_NAV_TURN_POWER
+#define BOARD_NAV_TURN_POWER 25U
+#endif
+#ifndef BOARD_NAV_TURN_SEEK_POWER
+#define BOARD_NAV_TURN_SEEK_POWER 15U
+#endif
+#ifndef BOARD_NAV_TURN_MIN_DEG
+#define BOARD_NAV_TURN_MIN_DEG 60U
+#endif
+#ifndef BOARD_NAV_TURN_MAX_DEG
+#define BOARD_NAV_TURN_MAX_DEG 120U
+#endif
+#ifndef BOARD_NAV_UTURN_MIN_DEG
+#define BOARD_NAV_UTURN_MIN_DEG 150U
+#endif
+#ifndef BOARD_NAV_UTURN_MAX_DEG
+#define BOARD_NAV_UTURN_MAX_DEG 210U
+#endif
+#if BOARD_NAV_TURN_POWER < 1 || BOARD_NAV_TURN_POWER > 50 || BOARD_NAV_TURN_SEEK_POWER < 1 || BOARD_NAV_TURN_SEEK_POWER > 50
+#error Navigation turn powers must be 1..50 percent
+#endif
+#if (BOARD_NAV_TURN_MAX_DEG && (BOARD_NAV_TURN_MIN_DEG > 90 || BOARD_NAV_TURN_MAX_DEG < 90 || BOARD_NAV_TURN_MAX_DEG > 180)) || \
+    (BOARD_NAV_UTURN_MAX_DEG && (BOARD_NAV_UTURN_MIN_DEG > 180 || BOARD_NAV_UTURN_MAX_DEG < 180 || BOARD_NAV_UTURN_MAX_DEG > 255))
+#error Navigation turn windows must be MIN <= 90 <= MAX <= 180 (U-turn: MIN <= 180 <= MAX <= 255)
+#endif
 /* After a barcode U-turn, rotate on the spot (+/-30, +/-60 deg sweep) until a
- * line sensor is on black before tracking. 1: left/right turns do it too. */
+ * line sensor is on black before tracking; a turn that ended on a line touch
+ * needs none. 1: left/right turns do it too. */
 #ifndef BOARD_NAV_UTURN_IGNORE_MM
 #define BOARD_NAV_UTURN_IGNORE_MM 1200U /* after a U-turn, re-reading the same marker does not turn again */
 #endif
 #ifndef BOARD_NAV_SPOT_SCAN_ALL
-#define BOARD_NAV_SPOT_SCAN_ALL 0
+#define BOARD_NAV_SPOT_SCAN_ALL 1
 #endif
 /* Steered reverse (PID builds): steer = -YAW_GAIN*theta_deg + LINE_GAIN*e,
  * where theta is yaw relative to the forward-tracking heading and e is +1/-1
@@ -313,6 +344,16 @@
 #ifndef BOARD_ROLL_ZERO_CDEG
 #define BOARD_ROLL_ZERO_CDEG 0
 #endif
+/* 1: one accelerometer sample above 1.8 g (S4 shock) stops the run with
+ * VC_SHOCK. 0: shock is still detected and reported (dashboard impact,
+ * terrain SHOCK) but does not stop the run; the robot's own jolts (reverse
+ * to forward, pivot starts) exceed 1.8 g. A real collision still stalls the
+ * wheels (VC_MOTOR, PID builds only: S2's no-progress check runs inside the
+ * PID) and a sustained tilt loss still faults VC_SENSOR. Default: off with
+ * PID, on without it (no stall backstop there). */
+#ifndef BOARD_SHOCK_STOP
+#define BOARD_SHOCK_STOP (!BOARD_PID_ENABLED)
+#endif
 #ifndef BOARD_BYPASS_VALIDATED
 #define BOARD_BYPASS_VALIDATED 0 /* enable only after raised-wheel/track tests */
 #endif
@@ -349,9 +390,48 @@
 #if BOARD_PID_ENABLED && (BOARD_PID_MAX_CPS < 1 || BOARD_PID_MAX_CPS > 100000 || BOARD_PID_MAX_POWER < 1 || BOARD_PID_MAX_POWER > 50)
 #error PID requires a measured speed scale and an output cap of 1..50 percent
 #endif
+/* In-place spins (PID builds, subsystem2/turn_drive.h; navigation turns and
+ * the spot scan): tyre scrub needs more torque than straight driving. A spin
+ * may use up to TURN_MAX_POWER % PWM, holds each wheel at >= KICK_POWER %
+ * until it has moved KICK_COUNTS (at most KICK_MS), kicks a wheel again after
+ * REKICK_MS without progress, and faults only after STALL_MS without progress
+ * (straight and the line course's pivots: 500 ms, unchanged). */
+#ifndef BOARD_PID_TURN_MAX_POWER
+#define BOARD_PID_TURN_MAX_POWER 55
+#endif
+#ifndef BOARD_TURN_KICK_MS
+#define BOARD_TURN_KICK_MS 150U /* 0: no kick */
+#endif
+#ifndef BOARD_TURN_KICK_POWER
+#define BOARD_TURN_KICK_POWER 45
+#endif
+#ifndef BOARD_TURN_KICK_COUNTS
+#define BOARD_TURN_KICK_COUNTS 5 /* encoder counts of real motion that end a spin kick */
+#endif
+#ifndef BOARD_TURN_REKICK_MS
+#define BOARD_TURN_REKICK_MS 100U /* a spinning wheel this long without progress is kicked again */
+#endif
+#ifndef BOARD_TURN_STALL_MS
+#define BOARD_TURN_STALL_MS 1200U
+#endif
+#if BOARD_PID_ENABLED && (BOARD_PID_TURN_MAX_POWER < BOARD_PID_MAX_POWER || BOARD_PID_TURN_MAX_POWER > 100 || \
+    BOARD_TURN_KICK_POWER < 0 || BOARD_TURN_KICK_POWER > BOARD_PID_TURN_MAX_POWER || BOARD_TURN_KICK_MS > 1000 || \
+    BOARD_TURN_STALL_MS < 500 || BOARD_TURN_STALL_MS > 5000)
+#error Turn drive needs PID_MAX_POWER <= TURN_MAX_POWER <= 100, KICK_POWER <= TURN_MAX_POWER, KICK_MS <= 1000, STALL_MS 500..5000
+#endif
 /* Preserve Buddy 5's existing Grove wiring (subsystem5 branch, app.h).
  * The Week 6 document lists these roles in the opposite order. */
 #define BOARD_ULTRASONIC_TRIG_GPIO 1U
 #define BOARD_ULTRASONIC_ECHO_GPIO 0U
 #define BOARD_SERVO_GPIO 12U
+/* Servo pulse that aims the ranger straight ahead (S5 angle 0). Measured
+ * 2026-11-10 with an object centred in front of the robot: at 1500 us its
+ * edges read +40/-27 deg (and every logged run leaned the same way), so
+ * 1500 us aims ~6.5 deg right; 6.5 deg * 750 us / 90 deg = 54 us. */
+#ifndef BOARD_SERVO_CENTER_US
+#define BOARD_SERVO_CENTER_US 1554
+#endif
+#if BOARD_SERVO_CENTER_US < 1300 || BOARD_SERVO_CENTER_US > 1700
+#error BOARD_SERVO_CENTER_US is the straight-ahead pulse: 1300..1700 us
+#endif
 #endif

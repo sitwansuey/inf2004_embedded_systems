@@ -32,3 +32,9 @@ main{max-width:1920px;padding:24px 2%}
 
 .read-ok td:nth-child(5){color:#67e0c2;font-weight:600}.read-fail td:nth-child(5){color:#f08c8c}
 #barcode-reads p.muted{margin:0 0 10px;font-size:12px}
+.control-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 20px}.control-row .robot-controls{margin:0}
+.barcode-actions label{display:flex;align-items:center;gap:6px;font-size:12px;color:#afc2d5}
+.barcode-actions input,.barcode-actions select{font:inherit;font-size:12px;background:#0f1d2b;color:#e7eef6;border:1px solid #3b5068;border-radius:8px;padding:10px 8px}
+.barcode-actions input{width:44px;text-align:center;text-transform:uppercase}
+.barcode-actions table{max-width:320px}.barcode-actions td,.barcode-actions th{padding:6px 10px}
+@media(max-width:850px){.control-row{grid-template-columns:1fr}}

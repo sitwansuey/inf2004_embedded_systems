@@ -53,10 +53,22 @@ controller state, speed, tilt, scan state and hump/current-run maximum to their
 cards. Heading, event text and other untransmitted fields remain blank.
 See `docs/DATA_REPRESENTATION.md` for the ID 0 subtype table and units.
 
+## Robot commands and barcode actions
+
+The Robot test buttons send RESET/START/STOP frames on `csc02/command` and
+show the robot's ACK from `csc02/command/ack`. The Barcode actions panel sends
+opcode 4 (MAP) to choose what a decoded letter does at the next junction:
+Forward, Left, Right, U-turn or Ignore (read, no turn). Reset to defaults
+restores A U-turn, F Left, Z Right. The table shows the mapping last accepted
+by the robot. Mappings live in robot RAM; after a robot reboot press Send all.
+`POST /api/command` accepts `{"action":"map","letter":"A","turn":"left"}`,
+`{"action":"map_reset"}` and `{"action":"send_all"}`. Frame layout:
+[MQTT_TOPICS.md](MQTT_TOPICS.md#command-topic-dashboard-buttons-only).
+
 ## Tests
 
 ```powershell
-python -B -m unittest discover -s app_program/external_systems/Dashboard -p test_packed16.py -v
+python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py" -v
 ```
 
 Tests cover exact-topic subscription/reconnection, all 15 IDs, physical units,

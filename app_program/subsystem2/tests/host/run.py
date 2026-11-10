@@ -40,6 +40,15 @@ PROFILES = (
     ("integrated-custom-timeout", (
         "-DAPP_S2_ONLY=0", "-DS2_ENCODER_ENABLED=1",
         "-DS2_COMMAND_TIMEOUT_MS=750U")),
+    # Robot speed PID and trims; spin/pivot ceiling, kick and stall defaults.
+    ("integrated-pid-turn", (
+        "-DAPP_S2_ONLY=0", "-DS2_ENCODER_ENABLED=1", "-DBOARD_PID_ENABLED=1",
+        "-DBOARD_PID_MAX_CPS=1950", "-DBOARD_PID_KP_MILLI=30",
+        "-DBOARD_PID_KI_MILLI=40", "-DBOARD_PID_KD_MILLI=0",
+        "-DBOARD_PID_MAX_POWER=35", "-DBOARD_PID_TURN_MAX_POWER=55",
+        "-DBOARD_TURN_KICK_MS=150U", "-DBOARD_TURN_KICK_POWER=45",
+        "-DBOARD_TURN_STALL_MS=1200U", "-DBOARD_TURN_KICK_COUNTS=5", "-DBOARD_TURN_REKICK_MS=100U",
+        "-DS2_MOTOR1_TRIM_PERCENT=86U", "-DS2_MOTOR2_TRIM_PERCENT=93U")),
 )
 
 
@@ -70,6 +79,7 @@ def run_tests(compiler: str) -> None:
         for filename in (
             "subsystem2.c", "subsystem2.h", "subsystem2_test.c",
             "s2_data.c", "s2_data.h", "speed_pid.h", "wheel_steering.h",
+            "turn_drive.h",
         ):
             shutil.copy2(SUBSYSTEM / filename, subsystem / filename)
         for filename in ("edr.c", "edr.h", "encoder_snapshot.h"):

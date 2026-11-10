@@ -71,7 +71,9 @@ static void vehicle_task(INT code,void *context) {
     curve_memory_t curve_memory={0};
     uint32_t next_tick=0;unsigned previous_phase=VC_DISARMED,previous_look=0;
     BOOL requested_sensor_mode=FALSE;
+    uint8_t shown_ok=0;BOOL shown_seen=FALSE; /* last decode count shown on the dashboard */
     uint32_t tilt_ok_ms=0;BOOL tilt_seen=FALSE; /* last valid gravity tilt */
+    BOOL shock_prev=FALSE; /* S4 shock in the previous tick (rising-edge count) */
 #if BOARD_BARCODE_RETRY_DRIVE
     unsigned br_state=BR_IDLE,br_next=BR_IDLE;
     uint8_t br_ok=0,br_fail=0;BOOL br_seen=FALSE,br_cooldown=FALSE;
@@ -140,6 +142,10 @@ static void vehicle_task(INT code,void *context) {
             if(now.lo-c.time_ms>=100U) {
                 s1_command_ack(c.wire[5],c.wire[1],3,state.vehicle.phase,state.vehicle.fault);continue;
             }
+            if(c.wire[1]==4) { /* MAP letter->turn, any phase: only future decodes change */
+                s1_command_ack(c.wire[5],4,s3_controller_set_map(c.wire[2],c.wire[3])<E_OK?1U:0U,
+                    state.vehicle.phase,state.vehicle.fault);continue;
+            }
             if(c.wire[1]==2 && !state.vehicle.armed && mo && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
                 requested_sensor_mode=FALSE; /* RESET also restarts a latched S5 scan. */
@@ -189,10 +195,18 @@ static void vehicle_task(INT code,void *context) {
             .slope=result.terrain==TERRAIN_ASCENT || result.terrain==TERRAIN_DESCENT,
             .bypass_steering=(uint16_t)(BOARD_TRACK_WIDTH_MM*1000U/(2U*S5_BYPASS_ARC_RADIUS_MM)),
             .bypass_enabled=BOARD_PID_ENABLED && BOARD_BYPASS_VALIDATED,.transport_ok=1};
+        if(input.shock && !shock_prev)++state.shock_count;
+        shock_prev=input.shock;
+#if !BOARD_SHOCK_STOP
+        /* Shock stays in the S4 result (dashboard impact) but does not stop
+         * the run; the shock sample is then a tilt gap like any other. */
+        input.shock=0;
+#endif
         /* The GY-511 has no gyro: tilt is derived from gravity alone, so the
          * lateral jolt when a pivot starts briefly reads as >15 deg roll and
          * terrain drops tilt. Tolerate gaps shorter than VC_TILT_GRACE_MS;
-         * a sustained loss still faults VC_SENSOR, and shock is never masked. */
+         * a sustained loss still faults VC_SENSOR. With BOARD_SHOCK_STOP a
+         * shock sample is never masked. */
         if(input.terrain_valid) {tilt_ok_ms=now.lo;tilt_seen=TRUE;}
         else if(tilt_seen && !input.shock && now.lo-tilt_ok_ms<VC_TILT_GRACE_MS) input.terrain_valid=1;
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
@@ -264,7 +278,15 @@ static void vehicle_task(INT code,void *context) {
         input.nav_offset_mm=(uint16_t)BOARD_NAV_JUNCTION_OFFSET_MM;
         input.nav_search_mm=(uint16_t)BOARD_NAV_JUNCTION_SEARCH_MM;
         input.uturn_ignore_mm=(uint16_t)BOARD_NAV_UTURN_IGNORE_MM;
+        /* The axle is over the junction and the sensors 90 mm ahead: past the
+         * min angle the first straddle touch is the new line. */
+        input.nav_turn_min_deg=(uint8_t)BOARD_NAV_TURN_MIN_DEG;
+        input.nav_turn_max_deg=(uint8_t)BOARD_NAV_TURN_MAX_DEG;
+        input.nav_uturn_min_deg=(uint8_t)BOARD_NAV_UTURN_MIN_DEG;
+        input.nav_uturn_max_deg=(uint8_t)BOARD_NAV_UTURN_MAX_DEG;
 #endif
+        input.nav_turn_power=(uint8_t)BOARD_NAV_TURN_POWER;
+        input.nav_seek_power=(uint8_t)BOARD_NAV_TURN_SEEK_POWER;
         input.line_touch=input.line_fresh && input.line_black_mask!=0U;
         input.spot_scan_all=BOARD_NAV_SPOT_SCAN_ALL!=0;
 #if BOARD_BARCODE_RETRY_DRIVE
@@ -379,7 +401,14 @@ static void vehicle_task(INT code,void *context) {
             if(br_state==BR_BRAKE || br_state==BR_REVERSE || br_state==BR_WAIT) input.obstacle=0;
         }
 #endif
-        /* Dashboard shows the last decoded letter A..Z, mapped to a route or not. */
+        /* Dashboard shows the last decoded letter A..Z, mapped to a route or not.
+         * A decode with no turn (unmapped or set to Ignore) clears the shown
+         * turn, so it is not paired with the previous letter's turn. */
+        if(li && line.configured) {
+            if(shown_seen && line.output.barcode_ok_count!=shown_ok && !input.navigation_event)
+                state.navigation=0;
+            shown_ok=line.output.barcode_ok_count;shown_seen=TRUE;
+        }
         if(li && line.output.last_symbol>='A' && line.output.last_symbol<='Z')
             state.barcode=(uint8_t)(line.output.last_symbol-'A'+1);
         vc_step(&state.vehicle,&input);

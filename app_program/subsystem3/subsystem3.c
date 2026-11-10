@@ -38,8 +38,11 @@ static struct
     uint32_t issued_ms;
     uint32_t lease_ms;
     uint32_t barcode_end; /* request generation, see s3_controller_barcode_end */
+    uint32_t map_generation; /* see s3_controller_set_map */
+    uint8_t map[26]; /* full override table, S3_MAP_DEFAULT = codebook */
 } control;
 static uint32_t applied_barcode_end;
+static uint32_t applied_map;
 #if defined(S2_ENCODER_ENABLED) && S2_ENCODER_ENABLED
 #include "../subsystem2/subsystem2.h"
 /* Cumulative wheel travel for distance-based barcode widths: half encoder
@@ -169,6 +172,7 @@ EXPORT ER subsystem3_init(void)
     status.acquisition_error = E_NOSPT;
     control.mode = S3_MODE_PAUSED;
     control.generation = 1U;
+    for (unsigned int i = 0U; i < 26U; ++i) control.map[i] = (uint8_t)S3_MAP_DEFAULT;
     return E_OK;
 }
 
@@ -422,6 +426,34 @@ EXPORT ER s3_controller_barcode_end(void)
     return unlock();
 }
 
+EXPORT ER s3_controller_set_map(UINT letter, UINT nav)
+{
+    ER er;
+    if ((letter > 26U) || (nav > (UINT)S3_NAV_UTURN) || ((letter == 0U) && (nav != 0U)))
+    {
+        return E_PAR;
+    }
+    /* Rare operator command: a bounded wait, so a sampler holding the lock
+     * does not turn it into a rejected ACK. */
+    er = lock_sample();
+    if (er < E_OK)
+    {
+        return er;
+    }
+    if ((h_controller == 0) || (tk_get_tid() != h_controller))
+    {
+        (void)unlock();
+        return E_OACV;
+    }
+    if (letter == 0U)
+    {
+        for (unsigned int i = 0U; i < 26U; ++i) control.map[i] = (uint8_t)S3_MAP_DEFAULT;
+    }
+    else control.map[letter - 1U] = (uint8_t)nav;
+    ++control.map_generation;
+    return unlock();
+}
+
 EXPORT ER s3_controller_renew(UW lease_ms)
 {
     SYSTIM now;
@@ -582,6 +614,8 @@ EXPORT ER s3_service_once(void)
     SYSTIM now;
     uint32_t generation;
     uint32_t barcode_end;
+    uint32_t map_generation;
+    uint8_t map[26];
     s3_mode_t mode;
     bool marker_clear;
     bool active;
@@ -620,6 +654,8 @@ EXPORT ER s3_service_once(void)
     mode = control.mode;
     marker_clear = control.marker_clear;
     barcode_end = control.barcode_end;
+    map_generation = control.map_generation;
+    for (unsigned int i = 0U; i < 26U; ++i) map[i] = control.map[i];
     (void)unlock();
     if (generation != applied_generation)
     {
@@ -630,6 +666,15 @@ EXPORT ER s3_service_once(void)
     {
         s3_core_barcode_end(&core);
         applied_barcode_end = barcode_end;
+    }
+    if (map_generation != applied_map)
+    {
+        (void)s3_core_set_map(&core, 0U, 0U);
+        for (unsigned int i = 0U; i < 26U; ++i)
+        {
+            if (map[i] != S3_MAP_DEFAULT) (void)s3_core_set_map(&core, i + 1U, map[i]);
+        }
+        applied_map = map_generation;
     }
     if (!acquisition_attempted)
     {

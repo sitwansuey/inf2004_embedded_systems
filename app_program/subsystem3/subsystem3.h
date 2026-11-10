@@ -83,6 +83,10 @@ IMPORT ER s3_controller_renew(UW lease_ms);
  * over BOARD_BARCODE_END_GAP_MM of travel); finish the running capture now.
  * Applied by the S3 task on its next sample; ignored if nothing is reading. */
 IMPORT ER s3_controller_barcode_end(void);
+/* Controller only: operator codebook override, see s3_core_set_map (letter
+ * 1..26 = A..Z, nav 0..4; 0/0 restores the codebook). E_PAR if invalid.
+ * Applied by the S3 task on its next sample; affects future decodes only. */
+IMPORT ER s3_controller_set_map(UINT letter, UINT nav);
 IMPORT ER s3_event_receive(s3_event_record_t *p_record);
 #if defined(BOARD_IR_MOTOR_SCAN_BENCH) && BOARD_IR_MOTOR_SCAN_BENCH
 /* Bound scan controller only: priority-inheritance state handoff, at most the

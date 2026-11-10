@@ -58,6 +58,7 @@ bool s3_core_init(s3_core_t *p_core, const s3_config_t *p_config)
         return false;
     }
     (void)memset(p_core, 0, sizeof(*p_core));
+    (void)memset(p_core->map_override, S3_MAP_DEFAULT, sizeof(p_core->map_override));
     if (!s3_config_valid(p_config))
     {
         p_core->latched_error = S3_ERROR_CONFIG;
@@ -113,6 +114,24 @@ void s3_core_barcode_end(s3_core_t *p_core)
     {
         s3_barcode_request_end(&p_core->barcode);
     }
+}
+
+bool s3_core_set_map(s3_core_t *p_core, unsigned letter, unsigned nav)
+{
+    if ((p_core == NULL) || (letter > 26U) || (nav > (unsigned)S3_NAV_UTURN) ||
+        ((letter == 0U) && (nav != 0U)))
+    {
+        return false;
+    }
+    if (letter == 0U)
+    {
+        (void)memset(p_core->map_override, S3_MAP_DEFAULT, sizeof(p_core->map_override));
+    }
+    else
+    {
+        p_core->map_override[letter - 1U] = (uint8_t)nav;
+    }
+    return true;
 }
 
 void s3_core_barcode_summary(const s3_core_t *p_core, s3_output_t *p_output)
@@ -313,12 +332,16 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
             s3_navigation_t command = S3_NAV_NONE;
             p_output->barcode_ok_count = ++p_core->barcode_ok_count;
             barcode_finished(p_core, true);
+            uint8_t wanted = S3_MAP_DEFAULT;
             if (p_output->decoded.symbol >= 'A' && p_output->decoded.symbol <= 'Z')
             {
                 p_core->last_symbol = p_output->decoded.symbol;
                 p_output->last_symbol = p_core->last_symbol;
+                wanted = p_core->map_override[(unsigned)(p_output->decoded.symbol - 'A')];
             }
-            switch (p_output->decoded.symbol) {
+            /* An operator override wins over the configured codebook. */
+            if (wanted != S3_MAP_DEFAULT) command = (s3_navigation_t)wanted;
+            else switch (p_output->decoded.symbol) {
                 case 'A': command=p_core->config.map_a; break;
                 case 'B': command=p_core->config.map_b; break;
                 case 'C': command=p_core->config.map_c; break;

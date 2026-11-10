@@ -191,6 +191,36 @@ static void test_event_handoff_and_staleness(void)
     CHECK(record.event.kind == S3_EVENT_FAULT); /* Old turn was discarded. */
 }
 
+static void test_controller_set_map(void)
+{
+    s3_event_record_t record;
+    unsigned int ok;
+    setup();
+    CHECK(s3_controller_set_map(27U, 1U) == E_PAR && s3_controller_set_map(1U, 5U) == E_PAR);
+    CHECK(s3_controller_set_map(0U, 1U) == E_PAR);
+    caller = 9; CHECK(s3_controller_set_map(1U, 2U) == E_OACV); caller = 7;
+    busy_mutex = true; CHECK(s3_controller_set_map(1U, 2U) == E_TMOUT); busy_mutex = false;
+    CHECK(control.map_generation == 0U);
+    CHECK(s3_controller_set_map(1U, S3_NAV_RIGHT) == E_OK);
+    CHECK(s3_controller_set_map(2U, S3_NAV_UTURN) == E_OK); /* both kept until applied */
+    CHECK(core.map_override[0] == S3_MAP_DEFAULT); /* the S3 task applies it */
+    marker();
+    CHECK(core.map_override[0] == S3_NAV_RIGHT && core.map_override[1] == S3_NAV_UTURN);
+    CHECK(s3_event_receive(&record) == E_OK && record.event.symbol == 'A');
+    CHECK(record.event.command == S3_NAV_RIGHT);
+    CHECK(s3_controller_set_map(1U, S3_NAV_NONE) == E_OK); /* read, no turn */
+    CHECK(s3_controller_control(S3_MODE_TRACK, true, 1000U) == E_OK);
+    ok = status.output.barcode_ok_count;
+    marker();
+    CHECK(queue_count == 0U && status.output.barcode_ok_count == ok + 1U);
+    CHECK(status.output.last_symbol == 'A');
+    CHECK(s3_controller_set_map(0U, 0U) == E_OK); /* codebook again */
+    CHECK(s3_controller_control(S3_MODE_TRACK, true, 1000U) == E_OK);
+    marker();
+    CHECK(core.map_override[0] == S3_MAP_DEFAULT && core.map_override[1] == S3_MAP_DEFAULT);
+    CHECK(s3_event_receive(&record) == E_OK && record.event.command == S3_NAV_LEFT);
+}
+
 static void test_transport_overflow(void)
 {
     s3_event_record_t record;
@@ -255,6 +285,7 @@ int main(void)
     RUN("S3-U17 safety publication race", test_override_publication_race);
     RUN("S3-U18 event handoff/staleness", test_event_handoff_and_staleness);
     RUN("S3-U19 event queue full", test_transport_overflow);
+    RUN("S3-U51 controller barcode map", test_controller_set_map);
     RUN("S3-U20 sensor configuration", test_sensor_configuration);
     RUN("S3-U21 ADC boundary", test_adc_boundary);
     (void)printf("Buddy 3 adapter: %u groups, %u checks, %u failures\n",

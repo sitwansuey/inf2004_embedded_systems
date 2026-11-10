@@ -28,6 +28,8 @@ test:
 	./.build/nav_junction
 	$(CC) $(CFLAGS) buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle
 	./.build/buddy4_vehicle
+	$(CC) $(CFLAGS) -DBOARD_SHOCK_STOP=0 buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle_shock_ignored
+	./.build/buddy4_vehicle_shock_ignored
 	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/continuous_line
 	./.build/continuous_line
 	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_course_test.c ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/line_course
@@ -54,6 +56,8 @@ test:
 	./.build/scan
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar
 	./.build/sonar
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_SERVO_CENTER_US=1300 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar_low_centre
+	./.build/sonar_low_centre
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_status_test.c ../../app_program/subsystem5/s5_data.c $(LDFLAGS) -o .build/sonar_status
 	./.build/sonar_status
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time

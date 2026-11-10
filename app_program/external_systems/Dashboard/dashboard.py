@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import string
 import threading
 import time
 import uuid
@@ -17,6 +18,11 @@ TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0)]
 COMMAND_TOPIC = "csc02/command"
 # Scan results retained between reports and cleared by quality bit 0.
 WIDTH_TOPICS = ("/width_cm", "/width_left_cm", "/width_right_cm")
+# Opcode 4 action byte (s3_navigation_t order) and the firmware codebook.
+MAP_TURNS = {"ignore": 0, "left": 1, "right": 2, "forward": 3, "uturn": 4}
+MAP_LABELS = ("Ignore", "Left", "Right", "Forward", "U-turn")
+DEFAULT_BARCODE_MAP = {"A": "U-turn", "F": "Left", "Z": "Right"}
+FAULTS = ("none", "sensor", "line", "shock", "transport", "run timeout", "uncalibrated", "motor")
 
 def availability_mask(topic):
     """Only live observations are invalidated; decoded command history persists."""
@@ -55,6 +61,8 @@ class BrokerBridge:
         self.motor_power = 0
         self.barcode_letter = None
         self.barcode_turn = None
+        # Letter -> action label as last acknowledged by the robot (RAM only there).
+        self.barcode_map = dict(DEFAULT_BARCODE_MAP)
 
     def set_status(self, status):
         with self.lock:
@@ -96,7 +104,7 @@ class BrokerBridge:
             if getattr(message, "retain", False):
                 return
             data = message.payload
-            if len(data) != 6 or data[0] != 0xC2 or data[2] > 3 or data[3] > 3 or data[4] > 13 or data[5] > 7:
+            if len(data) != 6 or data[0] != 0xC2 or data[2] > 4 or data[3] > 3 or data[4] > 13 or data[5] > 7:
                 return
             with self.ack_condition:
                 entry = self.pending_commands.get(data[1])
@@ -191,24 +199,89 @@ class BrokerBridge:
                     "turn": self.barcode_turn if ok else None})
                 del self.barcode_history[:-30]
 
-    def send_command(self, action):
-        opcodes = {"stop": 0, "reset": 2, "start": 3}
+    def send_command(self, action, letter=None, turn=None):
+        opcodes = {"stop": 0, "reset": 2, "start": 3, "map": 4, "map_reset": 4, "send_all": 4}
         if action not in opcodes:
-            raise ValueError("Expected reset, start or stop.")
+            raise ValueError("Expected reset, start, stop, map, map_reset or send_all.")
+        if action == "map":
+            if not isinstance(letter, str) or len(letter) != 1 or letter not in string.ascii_letters:
+                raise ValueError("Letter must be one character A-Z.")
+            if not isinstance(turn, str) or turn not in MAP_TURNS:
+                raise ValueError("Turn must be forward, left, right, uturn or ignore.")
+            letter = letter.upper()
+        elif letter is not None or turn is not None:
+            raise ValueError("Only map takes a letter and turn.")
         locked = action != "stop"
         if locked and not self.command_lock.acquire(blocking=False):
             raise RuntimeError("A command is already being sent.")
         try:
-            client = self.command_client
-            if client is None or not client.is_connected():
-                raise RuntimeError("MQTT is disconnected.")
-            with self.ack_condition:
-                sequence = self.command_sequence
-                self.command_sequence = (sequence + 1) & 255
-                entry = {"opcode": opcodes[action], "reply": None}
-                self.pending_commands[sequence] = entry
-            frame = bytes((0xC1, opcodes[action], 30 if action == "start" else 0,
-                           0, 0, sequence))
+            if action == "send_all":
+                return self.send_all_maps()
+            if action == "map":
+                label = MAP_LABELS[MAP_TURNS[turn]]
+                result, phase, fault = self.exchange(4, ord(letter) - 64, MAP_TURNS[turn])
+            else:
+                result, phase, fault = self.exchange(opcodes[action], 30 if action == "start" else 0)
+            if result == 3:
+                raise RuntimeError("RoboPico rejected an expired command. Try again after checking its state.")
+            if opcodes[action] == 4:
+                if result != 0:
+                    what = f"{letter} = {label}" if action == "map" else "the codebook reset"
+                    raise RuntimeError(f"RoboPico rejected {what}. Check the letter/action and firmware.")
+                with self.lock:
+                    if action == "map":
+                        self.barcode_map[letter] = label
+                    else:
+                        self.barcode_map = dict(DEFAULT_BARCODE_MAP)
+                    table = dict(self.barcode_map)
+                message = (f"RoboPico set barcode {letter} to {label}." if action == "map" else
+                           "RoboPico restored the built-in codebook: A U-turn, F Left, Z Right.")
+                return {"action": action, "acknowledged": True, "phase": phase, "fault": fault,
+                        "barcode_map": table, "message": f"{message} Phase {phase}, fault {FAULTS[fault]}."}
+            if result == 2:
+                raise RuntimeError("RoboPico rejected Start: press Reset robot first after MQTT reconnect.")
+            if result != 0:
+                raise RuntimeError(f"RoboPico rejected {action}. Phase {phase}, fault {FAULTS[fault]}. Reset requires stopped motors; Start requires reset and readiness.")
+            return {"action": action, "acknowledged": True, "phase": phase, "fault": fault,
+                    "message": f"RoboPico accepted {action}. Phase {phase}, fault {FAULTS[fault]}."}
+        finally:
+            if locked:
+                self.command_lock.release()
+
+    def send_all_maps(self):
+        """Write every letter's final action (A..Z) directly, one ACKed frame at a
+        time. Each write is idempotent and there is no reset first, so a lost
+        ACK or a stop part-way never leaves the robot on the default codebook
+        while the table shows overrides; just press Send all again."""
+        with self.lock:
+            table = dict(self.barcode_map)
+        frames = [(ord(k) - 64, MAP_LABELS.index(table.get(k, DEFAULT_BARCODE_MAP.get(k, "Ignore"))), k)
+                  for k in string.ascii_uppercase]
+        for sent, (letter, action, name) in enumerate(frames):
+            what = f"{name} = {MAP_LABELS[action]}"
+            try:
+                result, phase, fault = self.exchange(4, letter, action)
+            except RuntimeError as error:
+                raise RuntimeError(f"Send all stopped at {what} ({sent} of {len(frames)} sent): {error}") from None
+            if result != 0:
+                raise RuntimeError(f"Send all stopped: RoboPico rejected {what} ({sent} of {len(frames)} sent).")
+        changed = sum(1 for k, v in table.items() if DEFAULT_BARCODE_MAP.get(k) != v)
+        return {"action": "send_all", "acknowledged": True, "phase": phase, "fault": fault,
+                "sent": len(frames), "barcode_map": table,
+                "message": f"RoboPico accepted all 26 letters ({changed} differ from the built-in codebook)."}
+
+    def exchange(self, opcode, demand=0, value=0):
+        """Publish one command frame and wait for its ACK: (result, phase, fault)."""
+        client = self.command_client
+        if client is None or not client.is_connected():
+            raise RuntimeError("MQTT is disconnected.")
+        with self.ack_condition:
+            sequence = self.command_sequence
+            self.command_sequence = (sequence + 1) & 255
+            entry = {"opcode": opcode, "reply": None}
+            self.pending_commands[sequence] = entry
+        try:
+            frame = bytes((0xC1, opcode, demand, value, 0, sequence))
             # QoS 0 avoids retrying a stale START after a reconnect.
             info = client.publish(COMMAND_TOPIC, frame, qos=0, retain=False)
             if info.rc != 0:
@@ -219,22 +292,10 @@ class BrokerBridge:
             with self.ack_condition:
                 if not self.ack_condition.wait_for(lambda: entry["reply"] is not None, timeout=3):
                     raise RuntimeError("Sent to MQTT, but RoboPico did not acknowledge. Check its power, connection and firmware.")
-                result, phase, fault = entry["reply"]
-            faults = ("none", "sensor", "line", "shock", "transport", "run timeout", "uncalibrated", "motor")
-            if result == 2:
-                raise RuntimeError("RoboPico rejected Start: press Reset robot first after MQTT reconnect.")
-            if result == 3:
-                raise RuntimeError("RoboPico rejected an expired command. Try again after checking its state.")
-            if result != 0:
-                raise RuntimeError(f"RoboPico rejected {action}. Phase {phase}, fault {faults[fault]}. Reset requires stopped motors; Start requires reset and readiness.")
-            return {"action": action, "acknowledged": True, "phase": phase, "fault": fault,
-                    "message": f"RoboPico accepted {action}. Phase {phase}, fault {faults[fault]}."}
+                return entry["reply"]
         finally:
-            if "sequence" in locals():
-                with self.ack_condition:
-                    self.pending_commands.pop(sequence, None)
-            if locked:
-                self.command_lock.release()
+            with self.ack_condition:
+                self.pending_commands.pop(sequence, None)
 
     def snapshot(self):
         with self.lock:
@@ -255,6 +316,7 @@ class BrokerBridge:
                 "last_received_at": self.last_received_at,
                 "messages": sorted(self.readings.values(), key=lambda item: item["sequence"]),
                 "barcode_history": [dict(row) for row in self.barcode_history],
+                "barcode_map": dict(sorted(self.barcode_map.items())),
             }
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -304,9 +366,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not 0 < length <= 128 or self.headers.get_content_type() != "application/json":
                 raise ValueError("Expected a small JSON command.")
             payload = json.loads(self.rfile.read(length))
-            if not isinstance(payload, dict) or set(payload) != {"action"} or not isinstance(payload["action"], str):
+            if not isinstance(payload, dict) or not isinstance(payload.get("action"), str):
                 raise ValueError("Expected one action field.")
-            result = self.bridge.send_command(payload["action"])
+            if payload["action"] == "map":
+                if set(payload) != {"action", "letter", "turn"}:
+                    raise ValueError("Expected action, letter and turn fields.")
+                result = self.bridge.send_command("map", payload["letter"], payload["turn"])
+            elif set(payload) != {"action"}:
+                raise ValueError("Expected one action field.")
+            else:
+                result = self.bridge.send_command(payload["action"])
             status = 200
         except (ValueError, json.JSONDecodeError) as error:
             result, status = {"error": str(error)}, 400

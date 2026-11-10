@@ -34,6 +34,7 @@ void vc_track_requested(vc_state_t *s,uint32_t now) {
     s->track_requested_ms=now;s->track_wait=1;
     s->command=0;s->power=0;s->steering=0;
 }
+static unsigned soft_start(vc_state_t *s,uint32_t now,bool driving,unsigned demand);
 static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     bool continuous=s->armed && s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE &&
         phase>=VC_TURN_OUT && phase<=VC_RESTORE && !s->look_side && i->front_clear;
@@ -48,10 +49,35 @@ static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
     if(continuous) {
         s->command=1;s->power=s->maximum_power>AVOID_POWER?AVOID_POWER:s->maximum_power;
+        s->power=(uint8_t)soft_start(s,i->now_ms,s->drive_prev,s->power);
         if(i->slope && s->power>20U)s->power=20U;
         if(phase==VC_ALIGN || phase==VC_TURN_IN)s->steering=(int16_t)(s->turn_deg>0?(int)s->bypass_steering:-(int)s->bypass_steering);
         else if(phase==VC_RESTORE)s->steering=(int16_t)(s->turn_deg>0?-(int)s->bypass_steering:(int)s->bypass_steering);
     }
+}
+/* Power cap t ms into a ramp: AVOID_BACKUP_START_POWER rising to top over
+ * AVOID_BACKUP_RAMP_MS. */
+static unsigned soft_cap(uint32_t t,unsigned top) {
+    if (t>=AVOID_BACKUP_RAMP_MS || top<=AVOID_BACKUP_START_POWER) return top;
+    return AVOID_BACKUP_START_POWER+(unsigned)((top-AVOID_BACKUP_START_POWER)*t/AVOID_BACKUP_RAMP_MS);
+}
+/* VC_BACKUP power cap t ms into the reverse: up over the first RAMP_MS, back
+ * down over the last RAMP_MS of AVOID_BACKUP_MS. */
+static unsigned backup_ramp(uint32_t t) {
+    uint32_t down=t<AVOID_BACKUP_MS?AVOID_BACKUP_MS-t:0U;
+    return soft_cap(t<down?t:down,AVOID_BACKUP_POWER);
+}
+/* An avoidance arc (TURN_OUT..RESTORE) that starts from standstill - after the
+ * reverse's stand-still, a side-look stop or a front-clear hold - ramps up the
+ * same way: a step from 0 puts the outer wheel at the PWM cap at once (S2
+ * applies the full steering on a fresh start) and rocks the robot. */
+static unsigned soft_start(vc_state_t *s,uint32_t now,bool driving,unsigned demand) {
+    if (!driving) {s->soft_start=1;s->soft_start_ms=now;}
+    if (!s->soft_start) return demand;
+    uint32_t t=now-s->soft_start_ms;
+    if (t>=AVOID_BACKUP_RAMP_MS) {s->soft_start=0;return demand;}
+    unsigned cap=soft_cap(t,AVOID_POWER);
+    return demand>cap?cap:demand;
 }
 static int yaw_delta(int32_t now,int32_t origin) {
     int d=now-origin; if(d>180000)d-=360000;if(d< -180000)d+=360000;return d;
@@ -59,6 +85,9 @@ static int yaw_delta(int32_t now,int32_t origin) {
 void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (!s || !i) return;
     unsigned was_driving=s->command==1 && s->power!=0;
+    s->drive_prev=was_driving!=0;
+    unsigned turn_power=0; /* VC_NAV_TURN demand, 0: maximum_power */
+    unsigned backup_cap=0; /* VC_BACKUP ramp cap, 0: none */
     uint32_t elapsed=i->now_ms-s->last_step_ms;
     s->last_step_ms=i->now_ms;
     s->command=0;s->power=0;s->steering=0;
@@ -73,8 +102,14 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (i->shock || i->safety_event) { vc_stop(s,i->shock?VC_SHOCK:VC_LINE);return; }
     if (!i->transport_ok) { vc_stop(s,VC_TRANSPORT);return; }
     if (!i->motor_ok) { vc_stop(s,VC_MOTOR);return; }
-    if (!i->sensor_fresh || !i->terrain_valid || !i->odom_valid) {
-        sensor_fault(s,!i->sensor_fresh?VC_CAUSE_SONAR:!i->terrain_valid?VC_CAUSE_TILT:VC_CAUSE_ODOM);return;
+    /* The GY-511 is mounted with its Y axis fore-aft, so the terrain "roll"
+     * limit (15 deg) is really fore-aft tilt plus acceleration: the obstacle
+     * reverse rocks it out for its whole ~1 s. VC_BACKUP (straight, slow,
+     * odometry-bounded) does not need tilt; TURN_OUT does, after the
+     * stand-still has let the robot settle. */
+    bool tilt_ok=i->terrain_valid || s->phase==VC_BACKUP;
+    if (!i->sensor_fresh || !tilt_ok || !i->odom_valid) {
+        sensor_fault(s,!i->sensor_fresh?VC_CAUSE_SONAR:!tilt_ok?VC_CAUSE_TILT:VC_CAUSE_ODOM);return;
     }
     /* S3 removes events on receive. Preserve navigation before obstacle or
      * clearance gates can defer it; never silently overwrite another marker. */
@@ -150,7 +185,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         if(s->pass_check_mm>AVOID_PASS_CHECK_MAX_MM)s->pass_check_mm=AVOID_PASS_CHECK_MAX_MM;
         /* Mirror the outbound diagonal and arcs to recover the original lateral area. */
         s->approach_mm=i->approach_mm;s->return_mm=i->approach_mm;
-        s->bypass_steering=i->bypass_steering;s->backup_mm=0;s->backup_moving=0;
+        s->bypass_steering=i->bypass_steering;s->backup_mm=0;s->backup_moving=0;s->backup_braking=0;
         s->backup_started_ms=i->now_ms;
         enter(s,i,VC_BACKUP);return;
     } else if (s->phase==VC_BACKUP) {
@@ -165,15 +200,30 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         int64_t back=(int64_t)s->origin_um-i->distance_um;
         if (back<-(int64_t)AVOID_BACKUP_WRONG_WAY_MM*1000) {vc_stop(s,VC_MOTOR);return;}
-        if (i->now_ms-s->backup_started_ms>=AVOID_BACKUP_MS || back>=(int64_t)AVOID_BACKUP_MAX_MM*1000) {
-            if(back>(int64_t)AVOID_BACKUP_MAX_MM*2000) {vc_stop(s,VC_SENSOR);return;}
+        if(back>(int64_t)AVOID_BACKUP_MAX_MM*2000) {vc_stop(s,VC_SENSOR);return;}
+        if (s->backup_braking) {
+            /* Stopped (command 0) until the wheels have really stopped; the
+             * robot never switches straight from reverse to forward. */
+            int64_t moved=(int64_t)i->distance_um-s->brake_last_um;
+            if (moved>AVOID_BACKUP_STILL_UM || moved< -AVOID_BACKUP_STILL_UM) {
+                s->brake_last_um=i->distance_um;s->brake_moved_ms=i->now_ms;
+            }
+            uint32_t braking=i->now_ms-s->brake_started_ms;
+            if (braking<AVOID_BACKUP_BRAKE_MAX_MS && (braking<AVOID_BACKUP_BRAKE_MS ||
+                i->now_ms-s->brake_moved_ms<AVOID_BACKUP_STILL_MS)) return;
+            /* Coasting counts as reversed distance. */
             uint32_t mm=back>0?(uint32_t)((back+999)/1000):0U;
-            s->backup_mm=(uint16_t)mm;
+            s->backup_mm=(uint16_t)mm;s->backup_braking=0;
             /* The obstacle is now further ahead: delay the side look by as much. */
             mm+=s->pass_check_mm;s->pass_check_mm=(uint16_t)(mm>UINT16_MAX?UINT16_MAX:mm);
             enter(s,i,VC_TURN_OUT);return;
         }
-        s->command=2;
+        uint32_t reversing=i->now_ms-s->backup_started_ms;
+        if (reversing>=AVOID_BACKUP_MS || back>=(int64_t)AVOID_BACKUP_MAX_MM*1000) {
+            s->backup_braking=1;s->brake_started_ms=s->brake_moved_ms=i->now_ms;
+            s->brake_last_um=i->distance_um;return;
+        }
+        s->command=2;backup_cap=backup_ramp(reversing);
     } else if (s->phase==VC_REACQUIRE) {
         if (!i->front_clear) return;
         if (!i->line_fresh) { vc_stop(s,VC_LINE);return; }
@@ -268,8 +318,28 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             s->turn_progress+=yaw_delta(i->yaw_mdeg,s->origin_yaw);
             s->origin_yaw=i->yaw_mdeg;
             int d=s->turn_progress;
-            if ((target>0 && d>=target) || (target<0 && d<=target)) {
-                bool scan=s->phase==VC_NAV_TURN && (s->turn_deg==180 || i->spot_scan_all);
+            bool done=(target>0 && d>=target) || (target<0 && d<=target),touched=false,guided=false;
+            if (s->phase==VC_NAV_TURN) {
+                /* Line-guided: past the min angle the first straddle touch is
+                 * the new line (earlier ones are the old line or the
+                 * crossing); by the max angle the turn ends regardless. */
+                bool u=s->turn_deg==180;
+                int reached=target>0?d:-d;
+                int lo=(u?i->nav_uturn_min_deg:i->nav_turn_min_deg)*1000;
+                int hi=(u?i->nav_uturn_max_deg:i->nav_turn_max_deg)*1000;
+                turn_power=i->nav_turn_power;
+                if (hi) {
+                    guided=true;
+                    touched=reached>=lo && i->line_touch;
+                    done=touched || reached>=hi;
+                    if (reached>=lo && i->nav_seek_power) turn_power=i->nav_seek_power;
+                }
+            }
+            if (done) {
+                /* A line-guided turn that ran to its max angle without a
+                 * touch has overshot the arm: always search for it. */
+                bool scan=s->phase==VC_NAV_TURN && !touched &&
+                    (guided || s->turn_deg==180 || i->spot_scan_all);
                 bool uturn=s->phase==VC_NAV_TURN && s->turn_deg==180;
                 enter(s,i,next);s->spot_scan=scan;
                 if (uturn && i->uturn_ignore_mm) {s->uturn_guard=1;s->uturn_end_um=i->distance_um;}
@@ -283,10 +353,14 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
     }
     if (s->command) {
-        unsigned demand=s->maximum_power;
-        if(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE && demand>AVOID_POWER)
-            demand=AVOID_POWER;
+        /* Turn/seek power never exceeds the armed (Start) power. */
+        unsigned demand=turn_power && turn_power<s->maximum_power?turn_power:s->maximum_power;
+        if(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE) {
+            if(demand>AVOID_POWER)demand=AVOID_POWER;
+            demand=soft_start(s,i->now_ms,was_driving!=0,demand);
+        }
         if(s->phase==VC_BACKUP && demand>AVOID_BACKUP_POWER)demand=AVOID_BACKUP_POWER;
+        if(backup_cap && demand>backup_cap)demand=backup_cap;
         s->power=(uint8_t)(i->slope && demand>20U?20U:demand);
     }
 }

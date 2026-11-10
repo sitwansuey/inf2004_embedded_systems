@@ -71,6 +71,7 @@ int main(void) {
     assert(connects==1 && timers==1);
     timers=0;retry_timeout(NULL);assert(connects==2);
     fake_client.connected=1;connection_cb(client,NULL,MQTT_CONNECT_ACCEPTED);deliver(arm);assert(offers==2);
+    unsigned char map[6]={0xC1,4,6,1,0,9};deliver(map);assert(offers==3 && offered[1]==4); /* MAP needs no RESET */
     puts("INT-CR1-07 actual MQTT port: binary length/NULs, fragments, malformed input, backpressure, autonomous link-loss independence and retry guard PASS");
     return 0;
 }

@@ -1,21 +1,29 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Robo Pico · Mission dashboard</title><link rel="stylesheet" href="dashboard.css?v=barcode-history-1"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Robo Pico · Mission dashboard</title><link rel="stylesheet" href="dashboard.css?v=barcode-map-1"></head>
 <body>
 <header><div class="brand">RP<span>ROBO PICO / INF2004</span></div><div id="connection" class="badge">Awaiting data</div></header>
 <main>
 <section class="intro"><div><p class="eyebrow">BUDDY 1 · COMMAND & TELEMETRY</p><h1>Mission dashboard</h1><p class="muted">One view of motion, navigation, terrain and obstacle telemetry.</p></div><div class="tools"><button id="demo">Load demo</button><label class="button">Import JSON<input id="import" type="file" accept=".json,application/json" hidden></label><button id="reset">Clear display</button></div></section>
 <div class="notice" id="notice" role="status">Dashboard shell · No robot connection. Values appear when telemetry is supplied.</div>
+<div class="control-row">
 <section class="robot-controls" aria-label="Robot test controls">
-<div><strong>Robot test</strong><p>Reset while stopped, then Start. Run limit 60 seconds. STOP ends the run.</p></div>
+<div><strong>Robot test</strong><p>Reset while stopped, then Start. No time limit: it runs until STOP or a fault.</p></div>
 <div class="robot-buttons"><button id="robot-reset" type="button">Reset robot</button><button id="robot-start" type="button">Start test</button><button id="robot-stop" type="button">STOP</button></div>
 <p id="command-status" role="status">Commands use the connected MQTT broker.</p>
 </section>
+<section class="robot-controls barcode-actions" aria-label="Barcode actions">
+<div><strong>Barcode actions</strong><p>Choose what a decoded letter does at the next junction. Works armed or stopped. Mappings live in robot RAM; after a robot reboot press Send all.</p></div>
+<div class="robot-buttons"><label>Letter <input id="map-letter" type="text" maxlength="1" size="2" autocomplete="off" spellcheck="false" placeholder="A"></label><label>Action <select id="map-turn"><option value="forward">Forward</option><option value="left">Left</option><option value="right">Right</option><option value="uturn">U-turn</option><option value="ignore">Ignore</option></select></label><button id="map-send" type="button">Send</button><button id="map-reset" type="button">Reset to defaults</button><button id="map-send-all" type="button">Send all</button></div>
+<p id="map-status" role="status">Defaults: A U-turn, F Left, Z Right. Other letters are read without a turn.</p>
+<div class="table-wrap"><table><thead><tr><th>Letter</th><th>Action</th></tr></thead><tbody id="barcode-map"></tbody></table></div>
+</section>
+</div>
 <section class="summary" id="summary"></section>
 <div class="section-intro"><p class="eyebrow">SENSOR DATA & SUBSYSTEM OUTPUTS</p><h2>Individual sensor sections</h2><p class="muted">Each card groups the readings received from one sensor or processing stage. Missing readings stay blank until supplied.</p></div>
 <section class="grid" id="panels" aria-label="Sensor readings and subsystem outputs"></section>
-<section class="panel events" id="barcode-reads"><div class="panel-heading"><div><p class="eyebrow">BARCODE HISTORY</p><h2>Barcode reads</h2></div><span id="barcode-count" class="muted">0 reads</span></div><p class="muted">One row per barcode pass: normal speed, reverse re-read, then slow final pass. Elements are bars + spaces; a full barcode is 29. Codebook: A = U-turn, Z = right, F = left.</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Pass</th><th>Elements</th><th>Duration</th><th>Result</th><th>Letter</th><th>Turn</th></tr></thead><tbody id="barcode-history"></tbody></table></div></section>
+<section class="panel events" id="barcode-reads"><div class="panel-heading"><div><p class="eyebrow">BARCODE HISTORY</p><h2>Barcode reads</h2></div><span id="barcode-count" class="muted">0 reads</span></div><p class="muted">One row per barcode pass: normal speed, reverse re-read, then slow final pass. Elements are bars + spaces; a full barcode is 29. Default codebook: A = U-turn, Z = right, F = left (change it under Barcode actions).</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Pass</th><th>Elements</th><th>Duration</th><th>Result</th><th>Letter</th><th>Turn</th></tr></thead><tbody id="barcode-history"></tbody></table></div></section>
 <section class="panel events"><div class="panel-heading"><div><p class="eyebrow">MISSION HISTORY</p><h2>Events & faults</h2></div><span id="event-count" class="muted">0 events</span></div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Source</th><th>Level</th><th>Event / message</th></tr></thead><tbody id="events"></tbody></table></div></section>
-<footer><span id="updated">Last received: —</span><span>Display only · Start/stop commands are handled by firmware; dashboard is read-only</span></footer>
-</main><script src="dashboard.js?v=barcode-history-1"></script>
+<footer><span id="updated">Last received: —</span><span>Commands are sent only by the Robot test and Barcode actions buttons; firmware checks each one</span></footer>
+</main><script src="dashboard.js?v=barcode-map-1"></script>
 </body></html>

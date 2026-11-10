@@ -887,8 +887,184 @@ static void test_stop_epoch(void)
 #endif
 }
 
+static void test_turn_drive_helpers(void)
+{
+    for (UINT command = 0; command <= (UINT)S2_MOVE_PIVOT_LEFT; ++command)
+    {
+        /* Only in-place spins; the line course's pivots keep their tuning. */
+        BOOL turn = command == (UINT)S2_MOVE_LEFT || command == (UINT)S2_MOVE_RIGHT;
+
+        assert(s2_turn_command(command) == (turn != 0));
+        assert(s2_turn_limit(command, 35U, 55U) == (turn ? 55U : 35U));
+        assert(s2_stall_ms(command, 500U, 1200U) == (turn ? 1200U : 500U));
+        assert(s2_turn_kick_milli(command, 0U, 150U, 45U, 55U) == (turn ? 45000U : 0U));
+        assert(s2_turn_kick_milli(command, 149U, 150U, 45U, 55U) == (turn ? 45000U : 0U));
+        assert(s2_turn_kick_milli(command, 150U, 150U, 45U, 55U) == 0U);
+    }
+    /* No kick when disabled or long expired; never above the ceiling. */
+    assert(s2_turn_kick_milli(S2_MOVE_LEFT, 0U, 0U, 45U, 55U) == 0U);
+    assert(s2_turn_kick_milli(S2_MOVE_LEFT, UINT32_MAX, 150U, 45U, 55U) == 0U);
+    assert(s2_turn_kick_milli(S2_MOVE_RIGHT, 0U, 150U, 70U, 55U) == 55000U);
+    /* Per-wheel kick: one backlash count does not end it, 5 real counts do;
+     * the window bounds it; a wheel that re-stalls for 100 ms is kicked again. */
+    s2_kick_t k;
+    s2_kick_start(&k, 1000U, 150U);
+    assert(s2_kick_step(&k, 1010U, 1, 10U, 150U, 5, 100U));
+    assert(s2_kick_step(&k, 1020U, 3, 10U, 150U, 5, 100U));
+    assert(!s2_kick_step(&k, 1030U, 1, 0U, 150U, 5, 100U)); /* 5 counts: moving */
+    assert(!s2_kick_step(&k, 1100U, 0, 70U, 150U, 5, 100U));
+    assert(s2_kick_step(&k, 1130U, 0, 100U, 150U, 5, 100U)); /* re-stalled */
+    assert(s2_kick_step(&k, 1270U, 0, 240U, 150U, 5, 100U));
+    assert(s2_kick_step(&k, 1290U, 0, 260U, 150U, 5, 100U)); /* still stuck: kept */
+    assert(!s2_kick_step(&k, 1300U, 9, 0U, 150U, 5, 100U)); /* breaks away */
+    s2_kick_start(&k, 0U, 150U);
+    assert(s2_kick_step(&k, 149U, 0, 40U, 150U, 5, 100U) && !s2_kick_step(&k, 150U, 2, 0U, 150U, 5, 100U));
+    s2_kick_start(&k, UINT32_MAX - 20U, 150U); /* clock wrap */
+    assert(s2_kick_step(&k, 100U, 0, 0U, 150U, 5, 100U) && !s2_kick_step(&k, 130U, 0, 0U, 150U, 5, 100U));
+    s2_kick_start(&k, 0U, 0U); /* disabled */
+    assert(!s2_kick_step(&k, 10U, 0, 500U, 0U, 5, 100U));
+    puts("Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS");
+}
+
+#if BOARD_PID_ENABLED
+/* Speed-PID profile: the actual motor task with simulated wheel encoders
+ * turning at 500 counts/s, except an optional stalled wheel. */
+static const INT sim_left[] = {0, 1, -1, -1, 1, 1, 0};
+static const INT sim_right[] = {0, 1, -1, 1, -1, 0, 1};
+static s2_move_command_t sim_command;
+static UINT sim_still; /* 0 left, 1 right, 2 neither */
+static UW sim_moved_ms;
+static UW sim_stop_ms;
+static UW sim_fault_ms;
+static UW sim_first[4];
+static UW sim_kick_min[4];
+static UW sim_after_min[4];
+static UW sim_late_max[4];
+static UW sim_late[4];
+
+static void sim_wheels_hook(void)
+{
+    UW counts = (now_ms - sim_moved_ms) / 2U;
+    UINT state = (motion_status.motor >> 10U) & 3U;
+
+    sim_moved_ms += counts * 2U;
+    if (state == S2_MOTION_FAULT && sim_fault_ms == 0U)
+    {
+        sim_fault_ms = now_ms;
+    }
+    if (state != S2_MOTION_MOVING)
+    {
+        return;
+    }
+    /* Left forward counts = negative - positive; right = positive - negative. */
+    if (sim_still != 0U && sim_left[sim_command] > 0) encoder1_negative += counts;
+    if (sim_still != 0U && sim_left[sim_command] < 0) encoder1_positive += counts;
+    if (sim_still != 1U && sim_right[sim_command] > 0) encoder_positive += counts;
+    if (sim_still != 1U && sim_right[sim_command] < 0) encoder_negative += counts;
+    for (UINT pin = 0; pin < 4U; ++pin)
+    {
+        UW duty = duties[8U + pin];
+
+        if (receive_count == 2U) sim_first[pin] = duty;
+        if (now_ms < 150U && duty < sim_kick_min[pin]) sim_kick_min[pin] = duty;
+        if (now_ms >= 160U && now_ms < 200U && duty < sim_after_min[pin]) sim_after_min[pin] = duty;
+        if (now_ms >= 200U && duty > sim_late_max[pin]) sim_late_max[pin] = duty;
+    }
+    if (sim_stop_ms != 0U && now_ms >= sim_stop_ms)
+    {
+        memcpy(sim_late, &duties[8], sizeof(sim_late));
+        sim_stop_ms = 0U;
+        assert(s2_movement_send(S2_MOVE_STOP, 0U) == E_OK);
+    }
+    else if (receive_count % 10U == 0U)
+    {
+        assert(s2_movement_send(sim_command, 25U) == E_OK);
+    }
+}
+
+static void sim_run(s2_move_command_t command, UINT still, UW stop_ms)
+{
+    setup();
+    sim_command = command;
+    sim_still = still;
+    sim_moved_ms = 0U;
+    sim_stop_ms = stop_ms;
+    sim_fault_ms = 0U;
+    memset(sim_first, 0, sizeof(sim_first));
+    memset(sim_kick_min, 0xff, sizeof(sim_kick_min));
+    memset(sim_after_min, 0xff, sizeof(sim_after_min));
+    memset(sim_late_max, 0, sizeof(sim_late_max));
+    memset(sim_late, 0, sizeof(sim_late));
+    p_receive_hook = sim_wheels_hook;
+    assert(s2_movement_send(command, 25U) == E_OK);
+    run_task();
+}
+
+static void test_pid_turn_drive(void)
+{
+    const UW kick = (MOTOR_PWM_WRAP + 1U) * BOARD_TURN_KICK_POWER / 100U;
+    const UW turn_cap = (MOTOR_PWM_WRAP + 1U) * BOARD_PID_TURN_MAX_POWER / 100U;
+    const UW straight_cap = (MOTOR_PWM_WRAP + 1U) * BOARD_PID_MAX_POWER / 100U;
+
+    /* Robot log: a LEFT spin whose left wheel does not break away. Both
+     * wheels start at the kick; the moving one drops it once it has really
+     * moved, the stalled one keeps being kicked (re-kick after 100 ms without
+     * progress), may then reach the turn ceiling, and faults only after the
+     * longer turn stall time. */
+    sim_run(S2_MOVE_LEFT, 0U, 0U);
+    assert(sim_first[0] == 0U && sim_first[1] == kick);
+    assert(sim_first[2] == 0U && sim_first[3] == kick);
+    assert(sim_kick_min[1] >= kick && sim_kick_min[3] < kick);
+    assert(sim_after_min[1] >= kick); /* still stalled: kicked again */
+    assert(sim_late_max[1] == turn_cap && turn_cap > straight_cap);
+    assert(sim_fault_ms > BOARD_TURN_STALL_MS && sim_fault_ms <= BOARD_TURN_STALL_MS + 20U);
+    assert_status(S2_MOTION_FAULT, E_TMOUT);
+
+    /* Straight driving is unchanged: no kick, the PID cap, a 500 ms stall. */
+    sim_run(S2_MOVE_FORWARD, 0U, 0U);
+    assert(sim_first[0] == (MOTOR_PWM_WRAP + 1U) * 25U * S2_MOTOR1_TRIM_PERCENT / 10000U);
+    assert(sim_first[3] == (MOTOR_PWM_WRAP + 1U) * 25U * S2_MOTOR2_TRIM_PERCENT / 10000U);
+    assert(sim_first[0] < kick && sim_late_max[0] == straight_cap);
+    assert(sim_fault_ms > 500U && sim_fault_ms <= 520U);
+    assert_status(S2_MOTION_FAULT, E_TMOUT);
+
+    /* Both wheels turning: the kick ends as they move and the PID tracks
+     * the 25 % speed target below it. */
+    sim_run(S2_MOVE_RIGHT, 2U, 300U);
+    assert(sim_first[0] == kick && sim_first[1] == 0U);
+    assert(sim_first[2] == kick && sim_first[3] == 0U);
+    assert(sim_kick_min[0] < kick && sim_kick_min[2] < kick);
+    assert(sim_late[0] > 0U && sim_late[0] < kick);
+    assert(sim_late[2] > 0U && sim_late[2] < kick);
+    assert(sim_fault_ms == 0U);
+    assert_status(S2_MOTION_STOPPED, E_OK);
+
+    /* The line course's pivots keep their tuning: no kick, the straight
+     * PID cap and the 500 ms stall. */
+    sim_run(S2_MOVE_PIVOT_LEFT, 1U, 0U);
+    assert(sim_first[0] == 0U && sim_first[1] == 0U);
+    assert(sim_first[2] == 0U && sim_first[3] == (MOTOR_PWM_WRAP + 1U) * 25U * S2_MOTOR2_TRIM_PERCENT / 10000U);
+    assert(sim_first[3] < kick);
+    assert(sim_late_max[0] == 0U && sim_late_max[1] == 0U);
+    assert(sim_late_max[3] == straight_cap);
+    assert(sim_fault_ms > 500U && sim_fault_ms <= 520U);
+    puts("PID spins: kick until real motion, re-kick, raised ceiling, longer stall; straight and pivots unchanged PASS");
+}
+#endif
+
 int main(void)
 {
+    test_turn_drive_helpers();
+#if BOARD_PID_ENABLED
+    /* The scenarios below model open-loop wheels; speed regulation would
+     * fault their motionless encoders, so this profile checks turns only. */
+    test_pid_turn_drive();
+    if (BOARD_PID_ENABLED)
+    {
+        puts("Motor-control host checks passed");
+        return 0;
+    }
+#endif
     test_lifecycle_and_validation();
     test_init_cleanup();
     test_watchdog_and_rollover();

@@ -61,9 +61,10 @@ UINT gpio_get_val(UINT pin)
     UW width = scenario == TOO_SHORT ? 50U : 580U;
     return elapsed >= 50U && (scenario == NO_FALL || elapsed < 50U + width);
 }
+static UW last_cc;
 ER pwm_set_cc(UINT pin, UW value)
 {
-    EXPECT(pin == 12U && value >= 750U && value <= 2250U); return E_OK;
+    EXPECT(pin == 12U && value >= 750U && value <= 2250U); last_cc = value; return E_OK;
 }
 ER pwm_set_wrap(UINT pin, UW value)
 {
@@ -94,6 +95,16 @@ int main(void)
     EXPECT(s5_hw_timer_init() == E_OK);
     s5_hw_io_init();
     EXPECT(echo_configured && trig_configured && !trigger_high);
+    /* Angle 0 is the measured straight-ahead pulse; 750 us per 90 deg,
+     * clamped to the 750..2250 us servo range. */
+    EXPECT(last_cc == BOARD_SERVO_CENTER_US);
+    s5_hw_servo(30); EXPECT(last_cc == BOARD_SERVO_CENTER_US + 250U);
+    s5_hw_servo(-30); EXPECT(last_cc == BOARD_SERVO_CENTER_US - 250U);
+    s5_hw_servo(90);
+    EXPECT(last_cc == (BOARD_SERVO_CENTER_US + 750U > 2250U ? 2250U : BOARD_SERVO_CENTER_US + 750U));
+    s5_hw_servo(-90);
+    EXPECT(last_cc == (BOARD_SERVO_CENTER_US < 1500U ? 750U : BOARD_SERVO_CENTER_US - 750U));
+    s5_hw_servo(0); EXPECT(last_cc == BOARD_SERVO_CENTER_US);
     UW mm, pulse;
     for (UINT wrap = 0; wrap < 2; ++wrap) {
         reset(NORMAL, wrap ? UINT32_MAX - 40U : 100U);

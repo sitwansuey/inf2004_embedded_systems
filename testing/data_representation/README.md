@@ -11,7 +11,7 @@ The three stages are:
    exact lengths, explicit byte vectors, units, malformed/old packet rejection.
 2. C shared codec: exhaustive words, fixed bytes, unchanged outputs on failure,
    null/short buffers and local arithmetic; B1 copied queue and length handling.
-3. Buddy 2's eight existing host profiles: encoder wiring, commands, watchdog,
+3. Buddy 2's nine host profiles: encoder wiring, commands, watchdog,
    rollover, error propagation, plus the updated EDR16 adapter bytes.
 
 Current specification: [DATA_REPRESENTATION.md](../../docs/DATA_REPRESENTATION.md).

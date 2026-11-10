@@ -121,9 +121,18 @@ function renderBarcodeHistory(rows) {
   el('barcode-count').textContent=`${list.length} reads`;
 }
 renderBarcodeHistory([]);
+// Letter -> action as last acknowledged by RoboPico (dashboard.py barcode_map).
+function renderBarcodeMap(map) {
+  const entries=map&&typeof map==='object'&&!Array.isArray(map)?Object.entries(map).sort(([a],[b])=>a<b?-1:1):[];
+  el('barcode-map').replaceChildren();
+  if(!entries.length){const row=text(el('barcode-map'),'tr','');const cell=text(row,'td','Mapping appears when dashboard.py is running.');cell.colSpan=2;}
+  entries.forEach(([letter,action])=>{const row=text(el('barcode-map'),'tr','');text(row,'td',letter);text(row,'td',display(action));});
+}
+renderBarcodeMap(null);
 window.dashboard={
   setTelemetry:packet=>render(validate(packet),'Imported'),
   renderBarcodeHistory,
+  renderBarcodeMap,
   receiveMqtt,
   subscriptions:[wireTopic],
   topicBindings,
@@ -151,6 +160,7 @@ if(location.protocol==='http:' || location.protocol==='https:') {
       }
       lastSequence=Math.max(lastSequence,...snapshot.messages.map(message=>message.sequence));
       renderBarcodeHistory(snapshot.barcode_history);
+      renderBarcodeMap(snapshot.barcode_map);
       el('connection').textContent=snapshot.status;
       el('updated').textContent=snapshot.last_received_at
         ? `Last packet received: ${new Date(snapshot.last_received_at*1000).toLocaleTimeString()}`
@@ -167,6 +177,19 @@ if(location.protocol==='http:' || location.protocol==='https:') {
 }
 
 // Explicit button presses are the only source of robot command requests.
+async function postCommand(body) {
+  const response = await fetch('/api/command', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  const text = await response.text();
+  let result;
+  try { result = JSON.parse(text); }
+  catch { throw new Error(`Dashboard returned HTTP ${response.status} instead of JSON. Open http://127.0.0.1:8001/ and reload the page.`); }
+  if (!response.ok) throw new Error(result.error || 'Command failed.');
+  return result;
+}
 for (const action of ['reset', 'start', 'stop']) {
   document.getElementById('robot-' + action).addEventListener('click', async () => {
     const status = document.getElementById('command-status');
@@ -174,17 +197,7 @@ for (const action of ['reset', 'start', 'stop']) {
     button.disabled = true;
     status.textContent = 'Sending ' + action + '?';
     try {
-      const response = await fetch('/api/command', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({action})
-      });
-      const text = await response.text();
-      let result;
-      try { result = JSON.parse(text); }
-      catch { throw new Error(`Dashboard returned HTTP ${response.status} instead of JSON. Open http://127.0.0.1:8001/ and reload the page.`); }
-      if (!response.ok) throw new Error(result.error || 'Command failed.');
-      status.textContent = result.message;
+      status.textContent = (await postCommand({action})).message;
     } catch (error) {
       status.textContent = error.message;
     } finally {
@@ -192,3 +205,28 @@ for (const action of ['reset', 'start', 'stop']) {
     }
   });
 }
+// Barcode actions: one request at a time; the table follows accepted ACKs only.
+const mapButtons = ['map-send', 'map-reset', 'map-send-all'];
+async function sendMap(body, label) {
+  mapButtons.forEach(id => { el(id).disabled = true; });
+  el('map-status').textContent = `Sending ${label}…`;
+  try {
+    const result = await postCommand(body);
+    el('map-status').textContent = result.message;
+    if (result.barcode_map) renderBarcodeMap(result.barcode_map);
+  } catch (error) {
+    el('map-status').textContent = error.message;
+  } finally {
+    mapButtons.forEach(id => { el(id).disabled = false; });
+  }
+}
+el('map-send').addEventListener('click', () => {
+  const letter = String(el('map-letter').value || '').trim().toUpperCase();
+  if (!/^[A-Z]$/.test(letter)) { el('map-status').textContent = 'Enter one letter A-Z.'; return; }
+  const turn = el('map-turn').value;
+  const names = {forward: 'Forward', left: 'Left', right: 'Right', uturn: 'U-turn', ignore: 'Ignore'};
+  sendMap({action: 'map', letter, turn}, `${letter} = ${names[turn] || turn}`);
+});
+el('map-letter').addEventListener('keydown', event => { if (event.key === 'Enter') el('map-send').click(); });
+el('map-reset').addEventListener('click', () => sendMap({action: 'map_reset'}, 'codebook reset'));
+el('map-send-all').addEventListener('click', () => sendMap({action: 'send_all'}, 'all mappings'));

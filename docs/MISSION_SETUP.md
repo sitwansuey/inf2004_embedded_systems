@@ -48,14 +48,29 @@ Frames are six raw bytes: `[0xC1, opcode, demand, lease_lo, lease_hi, sequence]`
 | 1 | supervised ARM, demand 1-50, lease 1-1000 ms |
 | 2 | RESET while stopped, demand/lease zero |
 | 3 | autonomous START, demand 1-50, lease zero |
+| 4 | MAP barcode letter: byte 2 letter 1-26 (A-Z), byte 3 action 0-4, byte 4 zero |
+
+MAP actions use the navigation numbering: 0 ignore (read, no turn), 1 left,
+2 right, 3 straight, 4 U-turn. Letter 0 with action 0 restores the built-in
+codebook for every letter. MAP is accepted armed or not (no RESET needed) and
+changes only future decodes; the table lives in RAM, so resend it after a
+reboot. Example: F turns right, `c1 04 06 02 00 07`.
+
+Replies use `csc02/command/ack`: `[0xC2, sequence, opcode, result, phase, fault]`,
+result 0 accepted, 1 rejected (bad fields, queue full, or not allowed now),
+2 RESET required (ARM/START after reconnect), 3 stale (queued 100 ms or more).
+Frames rejected before the vehicle task sees them report phase/fault 0.
+Commands still queued when a STOP arrives are dropped without a reply, and
+STOPs that arrive together are answered once, with the latest sequence.
 
 USB examples at demand 30: START `c1 03 1e 00 00 00`, STOP `c1 00 00 00 00 00`.
 Command publishers must use non-retained messages. Reconnect clears network
 start authorization and requires RESET before accepting ARM/START. An already
 running autonomous mission continues through a telemetry disconnect; timed ARM
 still expires locally. Both modes retain controller-to-motor watchdog renewal.
-The Python dashboard is read-only and subscribes only to
-`Robopico/sensors/edr16/v1`; it does not send driving commands.
+The Python dashboard subscribes to `Robopico/sensors/edr16/v1` and
+`csc02/command/ack`; it publishes only button-pressed RESET/START/STOP and
+MAP frames (see `app_program/external_systems/Dashboard/MQTT_TOPICS.md`).
 
 ## Navigation and completion evidence
 
