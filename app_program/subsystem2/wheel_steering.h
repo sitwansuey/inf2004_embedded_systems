@@ -1,10 +1,13 @@
 #ifndef S2_WHEEL_STEERING_H
 #define S2_WHEEL_STEERING_H
 #include <stdint.h>
+#ifndef S2_STEER_SLEW_PER_MS
+#define S2_STEER_SLEW_PER_MS 2U /* steering units per ms; robot_config.h sets the robot's */
+#endif
 /* Positive correction slows the right wheel; negative slows the left. */
 static inline int32_t s2_steering_step(int32_t previous,int32_t target,uint32_t dt_ms)
 {
-    int32_t step=(int32_t)(dt_ms*2U);
+    int32_t step=(int32_t)(dt_ms*S2_STEER_SLEW_PER_MS);
     if(target>previous+step)return previous+step;
     if(target<previous-step)return previous-step;
     return target;

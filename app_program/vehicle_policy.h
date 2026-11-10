@@ -99,6 +99,7 @@ typedef struct {
     uint8_t backup_braking : 1; /* VC_BACKUP reverse done: standing still before TURN_OUT */
     uint8_t soft_start : 1; /* TURN_OUT..RESTORE power still ramping up (soft_start_ms) */
     uint8_t drive_prev : 1; /* the previous tick commanded forward with power */
+    uint8_t nav_touched : 1; /* VC_NAV_TURN: a straddle sensor touched the new line (past min) */
     uint8_t fault_cause : 2; /* last VC_SENSOR: 0 other, 1 sonar, 2 tilt, 3 odometry */
     uint8_t nav_search : 1; /* pending turn actionable in TRACK: looking for its junction */
     uint8_t nav_offset : 1; /* junction seen: straight on for nav_offset_mm, then turn */

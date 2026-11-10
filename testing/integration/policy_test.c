@@ -56,15 +56,17 @@ static void controller(void) {
     i.junction=1;vc_step(&s,&i);i.junction=0;i.distance_um=90000;vc_step(&s,&i);
     assert(s.phase==VC_NAV_TURN);vc_step(&s,&i);assert(s.command==4 && s.power==10);
     /* Straddle settings: 25 % to 60 deg, a touch there is ignored, then 15 %
-     * until the first touch, which ends a LEFT (+90, S2 LEFT 3) turn. */
+     * until a sensor touches the new line and releases it into the gap
+     * (centred), which ends a LEFT (+90, S2 LEFT 3) turn. */
     s=armed();i=healthy();i.nav_turn_power=25;i.nav_seek_power=15;
     i.nav_turn_min_deg=60;i.nav_turn_max_deg=120;i.nav_uturn_min_deg=150;i.nav_uturn_max_deg=210;
     i.spot_scan_all=1;i.navigation_event=1;i.nav=1;vc_step(&s,&i);i.navigation_event=0;
     i.junction=1;vc_step(&s,&i);i.junction=0;i.distance_um=90000;vc_step(&s,&i);
     assert(s.phase==VC_NAV_TURN && s.turn_deg==90);
-    i.line_touch=1;i.yaw_mdeg=45000;vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
-    i.line_touch=0;i.yaw_mdeg=70000;vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
-    i.line_touch=1;i.yaw_mdeg=82000;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.spot_scan && !s.command);
+    i.line_touch=1;i.line_black_mask=2;i.yaw_mdeg=45000;vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==25);
+    i.line_touch=0;i.line_black_mask=0;i.yaw_mdeg=70000;vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==15);
+    i.line_touch=1;i.line_black_mask=2;i.yaw_mdeg=82000;vc_step(&s,&i);assert(s.phase==VC_NAV_TURN && s.command==3 && s.nav_touched);
+    i.line_touch=0;i.line_black_mask=0;i.yaw_mdeg=88000;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.spot_scan && !s.command);
     vc_step(&s,&i);assert(s.phase==VC_TRACK);
     /* Any close obstacle overrides current steering in the same iteration. */
     s=armed();i=healthy();i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);

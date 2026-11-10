@@ -55,13 +55,21 @@ int main(void) {
     arm[2]=30;arm[3]=0xFF;arm[4]=0xFF;assert(s1_command_offer(arm,6)==E_PAR);
     s3_event_record_t event={.event={.kind=S3_EVENT_FAULT,.command=S3_NAV_UTURN,.symbol='Z',.sequence=UINT32_MAX,.time_ms=UINT32_MAX},.generation=UINT32_MAX};
     uint8_t wire[S3_EVENT_BYTES];s3_event_record_t decoded;
-    assert(s3_event_pack(wire,&event));assert(wire[0]==(4U|(4U<<3)) && wire[1]==5U);
+    assert(s3_event_pack(wire,&event));assert(wire[0]==(4U|(4U<<3)) && wire[1]==26U);
     assert(s3_event_unpack(wire,&decoded));assert(decoded.event.kind==event.event.kind && decoded.generation==UINT32_MAX);
-    for(unsigned n=1;n<=4;++n) {
-        event.event.symbol=(char)('A'+n-1U);event.event.command=n;
-        assert(s3_event_pack(wire,&event) && s3_event_unpack(wire,&decoded));
-        assert(decoded.event.symbol==event.event.symbol && decoded.event.command==n);
+    /* Every letter A..Z with every turn round-trips: any letter can be
+     * mapped from the dashboard (an F used to fail to pack and its turn was
+     * lost). Non-letters and out-of-range codes are rejected. */
+    for(unsigned n=1;n<=26U;++n) for(unsigned cmd=1;cmd<=4U;++cmd) {
+        event.event.kind=S3_EVENT_NAVIGATION;event.event.symbol=(char)('A'+n-1U);event.event.command=(uint8_t)cmd;
+        assert(s3_event_pack(wire,&event) && wire[1]==n && s3_event_unpack(wire,&decoded));
+        assert(decoded.event.symbol==event.event.symbol && decoded.event.command==cmd &&
+               decoded.event.kind==S3_EVENT_NAVIGATION);
     }
+    event.event.symbol='a';assert(!s3_event_pack(wire,&event));
+    event.event.symbol='@';assert(!s3_event_pack(wire,&event));
+    event.event.symbol=0;assert(s3_event_pack(wire,&event) && wire[1]==0U && s3_event_unpack(wire,&decoded) && !decoded.event.symbol);
+    wire[1]=27U;assert(!s3_event_unpack(wire,&decoded));
     unsigned char start[6]={0xC1,3,30,0,0,0};
     assert(s1_command_offer(start,6)==E_OK && s1_command_take(&c)==E_OK && c.wire[1]==3);
     start[3]=1;assert(s1_command_offer(start,6)==E_PAR);

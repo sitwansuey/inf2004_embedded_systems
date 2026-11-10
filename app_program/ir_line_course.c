@@ -5,6 +5,16 @@
 void ir_line_course_reset(ir_line_course_t *s) {
     if(s!=NULL) (void)memset(s,0,sizeof(*s));
 }
+static uint32_t not_after(uint32_t stamp,uint32_t limit) {
+    return (int32_t)(stamp-limit)>0?limit:stamp;
+}
+void ir_line_course_shift(ir_line_course_t *s,uint32_t dt,uint32_t sample_ms) {
+    if(s==NULL || dt==0U) return;
+    s->entered_ms+=dt;
+    s->side_since_ms=not_after(s->side_since_ms+dt,sample_ms);
+    s->side_last_ms=not_after(s->side_last_ms+dt,sample_ms);
+    s->white_since_ms=not_after(s->white_since_ms+dt,sample_ms);
+}
 static unsigned fail(ir_line_course_t *s,unsigned reason) {
     s->fault=(uint8_t)(reason&15U);return IR_LINE_STOP;
 }

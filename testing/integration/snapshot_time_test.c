@@ -22,6 +22,11 @@ static int64_t decoded[TEL_FIELD_COUNT];
 static unsigned extra_loops, loop_index;
 static uint8_t shock_counts[4];
 static int64_t qualities[4];
+/* Line follower view published by the vehicle task (app_state line_*), and
+ * an S3 edge-follow line output that differs from it. */
+static uint8_t test_follow,test_mask;
+static int16_t test_steer;
+static BOOL s3_line_output;
 
 ER tk_get_otm(SYSTIM *time)
 {
@@ -40,6 +45,7 @@ ER app_get_state(app_state_t *state) {
     state->speed_bits=(uint16_t)((uint32_t)test_speed & UINT32_C(0xfff));
     state->odometry_valid=1;state->vehicle.fault=test_fault;state->vehicle.fault_cause=test_cause;
     state->shock_count=shock_counts[loop_index<4U?loop_index:3U];
+    state->line_follow=test_follow&7U;state->line_mask=test_mask&3U;state->line_steer=test_steer;
     s4_result_t result={.calculated_ms=clock_ms,.pitch_cdeg=1234,.roll_cdeg=-5678,
         .height_mm=123,.maximum_mm=456,.terrain=0,.flags=27};
     REQUIRE(s4_result_encode(&result,state->s4_result,sizeof(state->s4_result)));
@@ -53,6 +59,9 @@ ER s2_encoder_get_status(s2_encoder_status_t *state)
 ER s3_status_get(s3_status_t *state)
 {
     *state=(s3_status_t){.configured=1,.acquisition_error=E_OK,.sample_time_ms=line_stamp};
+    if(s3_line_output) {
+        state->output.line.state=S3_LINE_TRACKING;state->output.line.black_mask=2U;state->output.line.error=-300;
+    }
     return E_OK;
 }
 ER s4_sensor_get_record(s4_sensor_cache_t *state) {
@@ -126,6 +135,33 @@ int main(void)
     capture();
     REQUIRE(packets==2 && (qualities[0]&2)==0 && (qualities[1]&2)!=0);
     extra_loops=0;
+    /* Line fields. Straddle builds send the vehicle task's follower (0
+     * straight, 1/2 steer right/left, 3/4 pivot right/left; straddle mask;
+     * steer bounded to the field's +-1000); edge-follow builds S3's view. */
+    s3_line_output=TRUE;
+    static const struct { uint8_t follow,mask;int16_t steer;int64_t error; } lines[]={
+        {4,3,-400,-400},{1,1,250,250},{2,2,-250,-250},{3,1,0,0},{0,0,0,0},{1,1,1500,1000},{2,2,-1500,-1000}};
+    for(unsigned n=0;n<sizeof(lines)/sizeof(lines[0]);++n) {
+        test_follow=lines[n].follow;test_mask=lines[n].mask;test_steer=lines[n].steer;
+        capture();
+        REQUIRE(packets==1 && (decoded[TEL_AVAILABLE]&4)!=0);
+#if BOARD_LINE_STRADDLE
+        REQUIRE(decoded[TEL_LINE_STATE]==lines[n].follow && decoded[TEL_BLACK_MASK]==lines[n].mask &&
+            decoded[TEL_LINE_ERROR]==lines[n].error);
+#else
+        REQUIRE(decoded[TEL_LINE_STATE]==S3_LINE_TRACKING && decoded[TEL_BLACK_MASK]==2 &&
+            decoded[TEL_LINE_ERROR]==-300);
+#endif
+    }
+    line_stamp=960;capture(); /* 40 ms old line sample: no line fields in either build */
+    REQUIRE((decoded[TEL_AVAILABLE]&4)==0 && decoded[TEL_LINE_STATE]==0 &&
+        decoded[TEL_BLACK_MASK]==0 && decoded[TEL_LINE_ERROR]==0);
+    line_stamp=1000;s3_line_output=FALSE;test_follow=test_mask=0;test_steer=0;
+#if BOARD_LINE_STRADDLE
+    puts("Straddle line telemetry: TEL_LINE_STATE/BLACK_MASK/LINE_ERROR from app_state line_follow/mask/steer (+-1000) PASS");
+#else
+    puts("Edge-follow line telemetry: TEL_LINE_STATE/BLACK_MASK/LINE_ERROR from S3, not app_state PASS");
+#endif
     puts("Shock count: a new shock is sent at once with the impact bit PASS");
     puts("INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
     return 0;

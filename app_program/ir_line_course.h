@@ -19,6 +19,12 @@ typedef struct {
 } ir_line_course_t;
 
 void ir_line_course_reset(ir_line_course_t *course);
+/* The robot stood still for dt_ms (a STOP between steps): move every course
+ * timestamp forward by it, so held-side and phase-deadline times count
+ * driving time only and a resume does not jump straight to full steer.
+ * Sample-based stamps never pass sample_ms, the newest line sample (a later
+ * one would wrap the course's unsigned age tests). */
+void ir_line_course_shift(ir_line_course_t *course,uint32_t dt_ms,uint32_t sample_ms);
 /* enabled means an explicitly STARTed line run, never pulse/STOP/PREPARE.
  * Output remains a request to the existing sole motor owner. */
 unsigned ir_line_course_step(ir_line_course_t *course,const ir_line_trace_t *line,

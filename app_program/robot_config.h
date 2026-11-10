@@ -168,17 +168,38 @@
 #ifndef BOARD_LINE_SMOOTH_STEER
 #define BOARD_LINE_SMOOTH_STEER 1
 #endif
+/* 2026-11-10: 150 / 300 ms reacted too gently for tight bends (a sim of the
+ * course lost every 90 deg bend of <=100 mm radius); 250 / 150 ms holds them. */
 #ifndef BOARD_LINE_STEER_MIN
-#define BOARD_LINE_STEER_MIN 150 /* first correction: inner wheel ~74% of the outer */
+#define BOARD_LINE_STEER_MIN 250 /* first correction: inner wheel ~60% of the outer */
 #endif
 #ifndef BOARD_LINE_STEER_MAX
 #define BOARD_LINE_STEER_MAX 400 /* after the ramp: ~141 mm turn radius */
 #endif
 #ifndef BOARD_LINE_STEER_RAMP_MS
-#define BOARD_LINE_STEER_RAMP_MS 300U /* MIN -> MAX while the same sensor stays on black */
+#define BOARD_LINE_STEER_RAMP_MS 150U /* MIN -> MAX while the same sensor stays on black */
+#endif
+/* While a barcode is read (>= 3 elements) the course is off; still steer
+ * gently toward a single straddle sensor on black, up to this (0 = drive
+ * straight as before; reads on a bend used to lose the line). */
+#ifndef BOARD_BARCODE_READ_LINE_STEER
+#define BOARD_BARCODE_READ_LINE_STEER 250
+#endif
+#if BOARD_BARCODE_READ_LINE_STEER < 0 || BOARD_BARCODE_READ_LINE_STEER > 400
+#error BOARD_BARCODE_READ_LINE_STEER must be 0..400
 #endif
 #ifndef BOARD_LINE_PIVOT_AFTER_MS
-#define BOARD_LINE_PIVOT_AFTER_MS 700U /* still touching: tight bend, pivot (0 = never) */
+#define BOARD_LINE_PIVOT_AFTER_MS 450U /* still touching: tight bend, pivot (0 = never); 700 lost sharp bends */
+#endif
+/* S2 steering slew while driving (units/ms, subsystem2/wheel_steering.h).
+ * At 2 the line-steer ramp above was mostly hidden (old and new settings both
+ * reached only ~200 after 100 ms) and sharp bends were lost; 4 reaches the
+ * full 400 in 100 ms. */
+#ifndef S2_STEER_SLEW_PER_MS
+#define S2_STEER_SLEW_PER_MS 4U
+#endif
+#if S2_STEER_SLEW_PER_MS < 1 || S2_STEER_SLEW_PER_MS > 20
+#error S2_STEER_SLEW_PER_MS must be 1..20 steering units per ms
 #endif
 #ifndef BOARD_BARCODE_MIN_RUN_MS
 #define BOARD_BARCODE_MIN_RUN_MS 20U

@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <setjmp.h>
 #include <stdio.h>
+#include <string.h>
 #define BOARD_TICKS_PER_REV 100
 #define BOARD_WHEEL_CIRCUMFERENCE_MM 200
 #define BOARD_TRACK_WIDTH_MM 100
@@ -35,13 +36,74 @@ static unsigned read_count, read_max, normal_count, normal_min;
 #define SHOCK_AT 9U
 static unsigned shock_published, after_shock;
 static bool reset_offered;
+/* Modes 13..15 exist only in the straddle build (BOARD_LINE_STRADDLE): they
+ * feed real GP26/27 ADC samples to the straddle course and START the mission
+ * (no lease), see the scenario block below. */
+#define STRADDLE_FIRST 13U
+#if BOARD_LINE_STRADDLE
+#define MODE_COUNT 16U
+#else
+#define MODE_COUNT 13U
+#endif
+/* Per-tick record of what reached S2 and what the task published. */
+#define LOG_TICKS 128U
+enum { SENT_NONE, SENT_FOLLOW, SENT_MOVE, SENT_REVERSE };
+static uint8_t sent_kind[LOG_TICKS], sent_cmd[LOG_TICKS], sent_power[LOG_TICKS], stopped[LOG_TICKS];
+static int32_t sent_steer[LOG_TICKS];
+static uint8_t pub_seen[LOG_TICKS], pub_follow[LOG_TICKS], pub_mask[LOG_TICKS];
+static uint8_t pub_phase[LOG_TICKS], pub_armed[LOG_TICKS];
+static int16_t pub_steer[LOG_TICKS];
+static void log_send(unsigned kind,unsigned command,UINT power,INT steering)
+{
+    if(iteration>=LOG_TICKS)return;
+    sent_kind[iteration]=(uint8_t)kind;sent_cmd[iteration]=(uint8_t)command;
+    sent_power[iteration]=(uint8_t)power;sent_steer[iteration]=steering;
+}
+#if BOARD_LINE_STRADDLE
+#define TICK_MS 20U /* tk_dly_tsk below */
+/* Mode 13: S3 reads a marker (READING, >= 3 elements) while the straddle
+ * sensors see right, left, both, neither, then right again. */
+#define SR_FROM 12U
+#define SR_UNTIL 24U
+#define SR_ITERATIONS 28U
+static const uint8_t sr_masks[SR_UNTIL-SR_FROM]={1,1,1,2,2,2,3,3,0,0,1,1};
+/* Modes 14/15: the right sensor stays on black from TOUCH_AT; a sonar
+ * dropout (no echo: front not clear, no obstacle) is a TRACK STOP from
+ * STOP_AT for 300 ms (14) / 700 ms (15) with the touch still held. Mode 14
+ * then holds right, then left, for HOLD_TICKS each: long enough to pivot. */
+#define TOUCH_AT 10U
+#define STOP_AT 13U
+#define HOLD_TICKS 40U
+static unsigned stop_ticks(void) { return failure_mode==14U?15U:35U; }
+static unsigned resume_at(void) { return STOP_AT+stop_ticks(); }
+static unsigned left_from(void) { return resume_at()+HOLD_TICKS; }
+static unsigned scenario_mask(unsigned n)
+{
+    if(failure_mode==13U)return n>=SR_FROM && n<SR_UNTIL?sr_masks[n-SR_FROM]:0U;
+    if(failure_mode==14U || failure_mode==15U)
+        return n<TOUCH_AT?0U:failure_mode==14U && n>=left_from()?2U:1U;
+    return 0U; /* modes 7..12: centred, both sensors WHITE */
+}
+static bool scenario_reading(unsigned n) { return failure_mode==13U && n>=SR_FROM && n<SR_UNTIL; }
+static bool scenario_dropout(unsigned n)
+{ return (failure_mode==14U || failure_mode==15U) && n>=STOP_AT && n<resume_at(); }
+#endif
+static unsigned iterations(void)
+{
+#if BOARD_LINE_STRADDLE
+    if(failure_mode==13U)return SR_ITERATIONS;
+    if(failure_mode==14U)return left_from()+HOLD_TICKS;
+    if(failure_mode==15U)return resume_at()+4U;
+#endif
+    return failure_mode==10U?BR_ITERATIONS:failure_mode==11U?20U:12U;
+}
 
 ER tk_get_otm(SYSTIM *t) { t->hi=0;t->lo=clock_ms;return E_OK; }
 ER tk_dly_tsk(UW delay)
 {
     (void)delay;
     if(failure_mode==10U && iteration>BR_MISS_AT && saved.vehicle.phase!=VC_TRACK)++left_track;
-    if (++iteration >= (failure_mode==10U?BR_ITERATIONS:failure_mode==11U?20U:12U)) longjmp(done,1);
+    if (++iteration >= iterations()) longjmp(done,1);
     clock_ms += 20U;
     return E_OK;
 }
@@ -49,8 +111,10 @@ void tk_ext_tsk(void) { assert(0); }
 void s2_controller_bind(void) {}
 ER s3_controller_bind(void) { return E_OK; }
 ER s5_controller_bind(void) { return E_OK; }
-ER s2_emergency_stop(void) { ++stops; return E_OK; }
-ER s2_movement_send(s2_move_command_t command,UINT power)
+ER s2_emergency_stop(void) { ++stops;if(iteration<LOG_TICKS)stopped[iteration]=1;return E_OK; }
+/* Positive drive request accounting shared by S2_MOVE_* and the PID follow
+ * request (forward with steering), which the straddle/PID build uses. */
+static void count_move(s2_move_command_t command,UINT power)
 {
     ++positive_requests;
     if(failure_mode==12U && iteration>SHOCK_AT && command==S2_MOVE_FORWARD && power)++after_shock;
@@ -59,11 +123,18 @@ ER s2_movement_send(s2_move_command_t command,UINT power)
         else {++normal_count;if(power<normal_min)normal_min=power;}
     }
     if(command==S2_MOVE_REVERSE) {++reverse_requests;if(iteration>BR_GLITCH_AT)++reverse_after_glitch;}
-    return E_OK;
+}
+ER s2_movement_send(s2_move_command_t command,UINT power)
+{
+    count_move(command,power);log_send(SENT_MOVE,command,power,0);return E_OK;
+}
+ER s2_follow_send(UINT power,INT steering)
+{
+    count_move(S2_MOVE_FORWARD,power);log_send(SENT_FOLLOW,S2_MOVE_FORWARD,power,steering);return E_OK;
 }
 ER s2_reverse_follow_send(UINT power,INT steering)
 {
-    (void)power;(void)steering;++positive_requests;
+    ++positive_requests;log_send(SENT_REVERSE,S2_MOVE_REVERSE,power,steering);
     ++reverse_requests;if(iteration>BR_GLITCH_AT)++reverse_after_glitch;return E_OK;
 }
 ER s2_motion_get_status(s2_motion_status_t *s)
@@ -87,6 +158,21 @@ ER s3_status_get(s3_status_t *s) {
         s->output.barcode_result=S3_BARCODE_RESULT_READING;
         s->output.barcode_elements=(uint8_t)(iteration<READ_FROM?2U:3U+iteration-READ_FROM);
     }
+#if BOARD_LINE_STRADDLE
+    /* The straddle observer interprets S3's raw scan itself: a complete,
+     * fresh sample at the measured GP26/27 endpoints (GP28 digital WHITE). */
+    if(failure_mode>=7U) {
+        static const uint16_t white[S3_SENSOR_COUNT]=BOARD_IR_ADC_WHITE,black[S3_SENSOR_COUNT]=BOARD_IR_ADC_BLACK;
+        unsigned mask=scenario_mask(iteration);
+        s->sample.raw[0]=(mask&1U)?black[0]:white[0]; /* GP26 right */
+        s->sample.raw[1]=(mask&2U)?black[1]:white[1]; /* GP27 left */
+        s->sample.raw[2]=0U;s->sample.valid_mask=7U;s->sample.time_ms=clock_ms;
+        if(scenario_reading(iteration)) {
+            s->output.barcode_result=S3_BARCODE_RESULT_READING;
+            s->output.barcode_elements=(uint8_t)(3U+iteration-SR_FROM);
+        }
+    }
+#endif
     return E_OK;
 }
 ER s5_get_status(s5_status_t *s) {
@@ -99,6 +185,9 @@ ER s5_get_status(s5_status_t *s) {
             s->state=S5_READY;s->distance_mm=100;s->approach_plan_valid=1;s->object_width_valid=1;
             s->planned_rotate_deg=65537;s->planned_approach_mm=65537;s->planned_return_mm=65537;
         }
+#if BOARD_LINE_STRADDLE
+        if(scenario_dropout(iteration)) {s->valid=0;s->distance_mm=0;} /* fresh, but no echo */
+#endif
     }
     return E_OK;
 }
@@ -127,7 +216,9 @@ ER s1_command_take(control_message_t *c)
     }
     if(failure_mode>=7U && iteration==7U && !reset_offered) {
         *c=(control_message_t){.time_ms=clock_ms};
-        c->wire[1]=1;c->wire[2]=30;c->wire[3]=0xe8;c->wire[4]=3;
+        /* ARM at 30% with a 1000 ms lease; the straddle modes START instead
+         * (mission, no lease) so they can run past one second. */
+        c->wire[1]=failure_mode>=STRADDLE_FIRST?3:1;c->wire[2]=30;c->wire[3]=0xe8;c->wire[4]=3;
         reset_offered=true;return E_OK;
     }
     return E_TMOUT;
@@ -149,6 +240,10 @@ ER s3_event_receive(s3_event_record_t *event) { (void)event;return E_TMOUT; }
 ER app_state_publish(const app_state_t *s)
 {
     saved=*s;
+    if(iteration<LOG_TICKS) {
+        pub_seen[iteration]=1;pub_follow[iteration]=s->line_follow;pub_mask[iteration]=s->line_mask;
+        pub_steer[iteration]=s->line_steer;pub_phase[iteration]=s->vehicle.phase;pub_armed[iteration]=s->vehicle.armed;
+    }
     s4_result_t r;
     if(failure_mode==12U && s4_result_decode(s->s4_result,sizeof(s->s4_result),&r) &&
        (r.flags&S4_RESULT_SHOCK))++shock_published;
@@ -156,9 +251,86 @@ ER app_state_publish(const app_state_t *s)
 }
 ID app_start_task(FP task,PRI priority,UW core,const char *name)
 { (void)task;(void)priority;(void)core;(void)name;return 1; }
+#if BOARD_LINE_STRADDLE
+static unsigned codes_seen; /* line_follow values published across the straddle modes */
+/* (iii) Every tick publishes the follower request that actually reached S2:
+ * 1/2 with the steer for a steered follow, 3/4 for a pivot right/left, 0
+ * otherwise (straight follow, STOP, reverse, spin), plus the observed mask. */
+static void check_published(void)
+{
+    for(unsigned n=0;n<iterations();++n) {
+        unsigned follow=0U;int32_t steer=0;
+        if(sent_kind[n]==SENT_FOLLOW && sent_steer[n]) {follow=sent_steer[n]>0?1U:2U;steer=sent_steer[n];}
+        else if(sent_kind[n]==SENT_MOVE && sent_cmd[n]==S2_MOVE_PIVOT_RIGHT)follow=3U;
+        else if(sent_kind[n]==SENT_MOVE && sent_cmd[n]==S2_MOVE_PIVOT_LEFT)follow=4U;
+        assert(pub_seen[n] && pub_follow[n]==follow && pub_steer[n]==steer);
+        assert(pub_mask[n]==scenario_mask(n));
+        codes_seen|=1U<<pub_follow[n];
+    }
+}
+/* (i) Mode 13: while S3 reads a marker the course is off, but a single
+ * straddle sensor on black steers toward it: right (mask 1) positive, left
+ * (mask 2) negative, capped at BOARD_BARCODE_READ_LINE_STEER and never a
+ * pivot; both or neither on black is straight. (The course, reset on every
+ * reading tick, would steer BOARD_LINE_STEER_MIN: the Makefile's _read150
+ * build sets the cap below that, so only the read path passes the cap.) */
+static void check_read_steer(void)
+{
+    const int32_t cap=BOARD_BARCODE_READ_LINE_STEER;
+    assert(cap>0);
+    unsigned right=0,left=0,straight=0;
+    for(unsigned n=8U;n<SR_ITERATIONS;++n) {
+        assert(pub_armed[n] && pub_phase[n]==VC_TRACK && sent_kind[n]==SENT_FOLLOW);
+        int32_t steer=sent_steer[n];
+        if(!scenario_reading(n)) {assert(steer==0 && sent_power[n]==30U);continue;}
+#if BOARD_BARCODE_RETRY_DRIVE && BOARD_BARCODE_SLOW_WHILE_READING
+        assert(sent_power[n]<30U); /* the marker is read at the slow speed */
+#endif
+        switch(scenario_mask(n)) {
+        case 1U: assert(steer>0 && steer<=cap);++right;break;
+        case 2U: assert(steer<0 && steer>=-cap);++left;break;
+        default: assert(steer==0);++straight;break;
+        }
+    }
+    assert(right==5U && left==3U && straight==4U);
+}
+/* (ii) Modes 14/15: a TRACK STOP inside a held right touch. The resume tick
+ * steers as if the standstill never happened (one tick of ramp past the
+ * pre-stop steer): no jump to full steer (300 ms stop) or a pivot (700 ms). */
+static void check_stop_resume(void)
+{
+    const unsigned r=resume_at();
+    const int32_t step=(BOARD_LINE_STEER_MAX-BOARD_LINE_STEER_MIN)*(int32_t)TICK_MS/(int32_t)BOARD_LINE_STEER_RAMP_MS;
+    int32_t before=sent_steer[STOP_AT-1U],after=sent_steer[r];
+    for(unsigned n=TOUCH_AT;n<STOP_AT;++n)assert(sent_kind[n]==SENT_FOLLOW && sent_steer[n]>0);
+    assert(before>=BOARD_LINE_STEER_MIN && before<BOARD_LINE_STEER_MAX); /* still ramping */
+    /* Standing still in TRACK with the right sensor still on black. */
+    for(unsigned n=STOP_AT;n<r;++n)
+        assert(pub_armed[n] && pub_phase[n]==VC_TRACK && stopped[n] && sent_kind[n]==SENT_NONE && pub_mask[n]==1U);
+    assert(sent_kind[r]==SENT_FOLLOW && after>=before && after<=before+step && after<BOARD_LINE_STEER_MAX);
+    if(failure_mode==14U) {
+        /* Driving time only: each way the pivot comes BOARD_LINE_PIVOT_AFTER_MS
+         * of moving touch after the touch began, the stop excluded. */
+        const unsigned pivot_ticks=(BOARD_LINE_PIVOT_AFTER_MS+TICK_MS-1U)/TICK_MS;
+        unsigned first_right=0,first_left=0;
+        for(unsigned n=r;n<iterations();++n) {
+            assert(pub_armed[n] && pub_phase[n]==VC_TRACK && sent_kind[n]!=SENT_NONE);
+            if(!first_right && sent_kind[n]==SENT_MOVE && sent_cmd[n]==S2_MOVE_PIVOT_RIGHT)first_right=n;
+            if(!first_left && sent_kind[n]==SENT_MOVE && sent_cmd[n]==S2_MOVE_PIVOT_LEFT)first_left=n;
+        }
+        assert(first_right==TOUCH_AT+stop_ticks()+pivot_ticks && first_right<left_from());
+        assert(first_left==left_from()+pivot_ticks && sent_kind[left_from()]==SENT_FOLLOW &&
+               sent_steer[left_from()]<0);
+    }
+}
+#endif
 int main(void)
 {
-    for(failure_mode=0;failure_mode<13;++failure_mode) {
+    for(failure_mode=0;failure_mode<MODE_COUNT;++failure_mode) {
+        memset(sent_kind,0,sizeof(sent_kind));memset(sent_cmd,0,sizeof(sent_cmd));
+        memset(sent_power,0,sizeof(sent_power));memset(sent_steer,0,sizeof(sent_steer));
+        memset(stopped,0,sizeof(stopped));memset(pub_seen,0,sizeof(pub_seen));
+        assert(iterations()<=LOG_TICKS);
         iteration=stops=positive_requests=0;clock_ms=100;reset_offered=false;
         shock_published=after_shock=0;
         reverse_requests=reverse_after_glitch=left_track=0;saved=(app_state_t){0};
@@ -215,7 +387,18 @@ int main(void)
             assert(read_count==READ_UNTIL-READ_FROM && read_max==slow);
             assert(normal_count>=6U && normal_min==30U); /* full speed before and after */
         }
+#if BOARD_LINE_STRADDLE
+        if(failure_mode>=7U)check_published();
+        if(failure_mode==13U)check_read_steer();
+        if(failure_mode==14U || failure_mode==15U)check_stop_resume();
+#endif
     }
+#if BOARD_LINE_STRADDLE
+    assert(codes_seen==0x1FU); /* straight, steer right/left and pivot right/left all published */
+    puts("Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS");
+    puts("Straddle TRACK STOP inside a held side touch: resume steers one tick on, not full steer or a pivot PASS");
+    puts("Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS");
+#endif
     puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");
     puts("Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read PASS");
     puts("Barcode first pass: S3 READING caps the forward power to the re-read speed PASS");

@@ -45,7 +45,7 @@ static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     s->command=0;s->power=0;s->steering=0;
     s->track_wait=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
-    s->nav_search=0;s->nav_offset=0;s->spot_scan=0; /* pending_nav itself is kept */
+    s->nav_search=0;s->nav_offset=0;s->spot_scan=0;s->nav_touched=0; /* pending_nav itself is kept */
     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
     if(continuous) {
         s->command=1;s->power=s->maximum_power>AVOID_POWER?AVOID_POWER:s->maximum_power;
@@ -320,9 +320,13 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             int d=s->turn_progress;
             bool done=(target>0 && d>=target) || (target<0 && d<=target),touched=false,guided=false;
             if (s->phase==VC_NAV_TURN) {
-                /* Line-guided: past the min angle the first straddle touch is
-                 * the new line (earlier ones are the old line or the
-                 * crossing); by the max angle the turn ends regardless. */
+                /* Line-guided: past the min angle a straddle touch is the new
+                 * line (earlier ones are the old line or the crossing). The
+                 * first touch is only the leading sensor reaching its near
+                 * edge (~76 deg with the sensors 90 mm ahead of the axle), so
+                 * keep turning until that sensor releases it into the gap
+                 * between the sensors (centred, ~88 deg) or both sensors are on
+                 * it. By the max angle the turn ends regardless. */
                 bool u=s->turn_deg==180;
                 int reached=target>0?d:-d;
                 int lo=(u?i->nav_uturn_min_deg:i->nav_turn_min_deg)*1000;
@@ -330,7 +334,11 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
                 turn_power=i->nav_turn_power;
                 if (hi) {
                     guided=true;
-                    touched=reached>=lo && i->line_touch;
+                    if (reached>=lo && i->line_fresh) {
+                        unsigned mask=i->line_black_mask&3U;
+                        if (mask==3U || (s->nav_touched && mask==0U)) touched=true;
+                        else if (mask) s->nav_touched=1;
+                    }
                     done=touched || reached>=hi;
                     if (reached>=lo && i->nav_seek_power) turn_power=i->nav_seek_power;
                 }

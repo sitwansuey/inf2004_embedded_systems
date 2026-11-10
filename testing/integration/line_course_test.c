@@ -102,6 +102,55 @@ int main(void) {
          CHECK(t<1250U?output==IR_LINE_FORWARD:output==IR_LINE_STOP);
      }
      CHECK(!scan.active && scan.reason==IR_SCAN_USB_LOST && scan.power==0U);}
+    /* A STOP between steps: shifting by the standstill keeps the held-side
+     * time and the phase deadline to driving time only. */
+    /* The robot keeps sampling the line while stopped; only the course step
+     * is skipped (vehicle.c), then the course is shifted by the standstill. */
+    {ir_line_course_t s={0};ir_line_trace_t line={0};
+     CHECK(tick(&s,&line,1U,1000U)==IR_LINE_RIGHT && s.side_since_ms==1000U);
+     CHECK(tick(&s,&line,1U,1010U)==IR_LINE_RIGHT);
+     for(uint32_t t=1020U;t<1620U;t+=10U) {
+         const uint16_t raw[3]={3214U,189U,2472U};CHECK(ir_line_observe(&line,&cfg,raw,7U,t,t,true));
+     }
+     ir_line_course_shift(&s,600U,1610U);
+     CHECK(tick(&s,&line,1U,1620U)==IR_LINE_RIGHT && s.side_since_ms==1600U && s.side_last_ms==1620U);
+     ir_line_course_t c={0};ir_line_trace_t l2={0};
+     CHECK(tick(&c,&l2,0U,2000U)==IR_LINE_FORWARD);
+     CHECK(tick(&c,&l2,3U,2010U)==IR_LINE_FORWARD && c.phase==IR_COURSE_CROSS_STRAIGHT);
+     for(uint32_t t=2020U;t<2010U+IR_COURSE_CROSS_MAX_MS+10U;t+=10U) {
+         const uint16_t raw[3]={3214U,3177U,2472U};CHECK(ir_line_observe(&l2,&cfg,raw,7U,t,t,true));
+     }
+     ir_line_course_shift(&c,IR_COURSE_CROSS_MAX_MS,2010U+IR_COURSE_CROSS_MAX_MS); /* stood still for a whole deadline */
+     for(uint32_t t=2010U+IR_COURSE_CROSS_MAX_MS+10U;t<2010U+2U*IR_COURSE_CROSS_MAX_MS-20U;t+=10U)
+         CHECK(tick(&c,&l2,3U,t)==IR_LINE_FORWARD && !c.fault); /* driving again, inside the deadline */
+     CHECK(tick(&c,&l2,3U,2010U+2U*IR_COURSE_CROSS_MAX_MS-20U)==IR_LINE_FORWARD && !c.fault);
+     CHECK(ir_line_course_step(&c,&l2,2010U+2U*IR_COURSE_CROSS_MAX_MS,true)==IR_LINE_STOP && c.fault);
+     ir_line_course_shift(NULL,10U,0U);ir_line_course_shift(&c,0U,0U);}
+    /* A corner reached right after a STOP is still a corner: the last side
+     * touch moves with the shift (else it looks 600 ms old: CROSS). */
+    {ir_line_course_t s={0};ir_line_trace_t line={0};
+     for(uint32_t t=1000U;t<=1070U;t+=10U) CHECK(tick(&s,&line,1U,t)==IR_LINE_RIGHT);
+     for(uint32_t t=1080U;t<=1670U;t+=10U) {
+         const uint16_t raw[3]={3214U,189U,2472U};CHECK(ir_line_observe(&line,&cfg,raw,7U,t,t,true));
+     }
+     ir_line_course_shift(&s,600U,1670U);
+     CHECK(tick(&s,&line,3U,1680U)==IR_LINE_RIGHT && s.phase==IR_COURSE_HOLD_RIGHT);}
+    /* A white hold in progress at a STOP is not completed by the standstill. */
+    {ir_line_course_t s={0};ir_line_trace_t line={0};
+     for(uint32_t t=1000U;t<=1070U;t+=10U) (void)tick(&s,&line,1U,t);
+     CHECK(tick(&s,&line,3U,1080U)==IR_LINE_RIGHT && s.phase==IR_COURSE_HOLD_RIGHT);
+     CHECK(tick(&s,&line,0U,1090U)==IR_LINE_RIGHT && s.white_pending);
+     for(uint32_t t=1100U;t<=1690U;t+=10U) {
+         const uint16_t raw[3]={187U,189U,2472U};CHECK(ir_line_observe(&line,&cfg,raw,7U,t,t,true));
+     }
+     ir_line_course_shift(&s,600U,1690U);
+     CHECK(tick(&s,&line,0U,1700U)==IR_LINE_RIGHT && s.phase==IR_COURSE_HOLD_RIGHT);
+     CHECK(tick(&s,&line,0U,1720U)==IR_LINE_FORWARD && s.phase==IR_COURSE_TRACK);}
+    /* Shifted sample stamps never pass the newest sample (no unsigned wrap). */
+    {ir_line_course_t s={0};s.side_since_ms=990U;s.side_last_ms=995U;s.white_since_ms=999U;s.entered_ms=900U;
+     ir_line_course_shift(&s,50U,1000U);
+     CHECK(s.side_since_ms==1000U && s.side_last_ms==1000U && s.white_since_ms==1000U && s.entered_ms==950U);
+     s.side_since_ms=0xfffffff0U;ir_line_course_shift(&s,0x20U,0x8U);CHECK(s.side_since_ms==0x8U);}
     printf("Line course turns/cross: %u checks, %u failures\n",checks,failures);
     return failures?1:0;
 }

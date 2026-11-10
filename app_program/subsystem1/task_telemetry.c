@@ -58,6 +58,12 @@ void telemetry_task(INT code,void *context) {
                 v[field]=l.sample.raw[channel];
             }
             v[TEL_BLACK_MASK]=li?l.output.line.black_mask:0;v[TEL_LINE_ERROR]=li?l.output.line.error:0;
+#if BOARD_LINE_STRADDLE
+            /* S3's edge-follow view does not apply to the straddle robot:
+             * report its line follower instead (app_state.h line_*). */
+            v[TEL_LINE_STATE]=li?s.line_follow:0;v[TEL_BLACK_MASK]=li?s.line_mask:0;
+            v[TEL_LINE_ERROR]=li?bounded(s.line_steer,-1000,1000):0;
+#endif
             v[TEL_BARCODE]=s.barcode;v[TEL_NAVIGATION]=s.navigation;
             v[TEL_AX_MG]=bounded(a.latest.accel.milli_units[0],-2048,2047);
             v[TEL_AY_MG]=bounded(a.latest.accel.milli_units[1],-2048,2047);

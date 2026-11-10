@@ -51,7 +51,10 @@ static unsigned br_abs_um(int32_t a,int32_t b) {
 }
 #endif
 #ifndef VC_TILT_GRACE_MS
-#define VC_TILT_GRACE_MS 300U
+/* 2026-11-10: 300 ms faulted on ordinary fore-aft rocking (stop-and-go from
+ * sonar dropouts, braking); a robot that has really tipped or been lifted
+ * stays without tilt far longer. */
+#define VC_TILT_GRACE_MS 800U
 #endif
 #if !BOARD_IR_MOTOR_SCAN_BENCH
 static void vehicle_task(INT code,void *context) {
@@ -94,9 +97,16 @@ static void vehicle_task(INT code,void *context) {
     s3_config_t straddle_cfg;ir_line_trace_t straddle={0};ir_line_course_t course={0};
     s3_config_defaults(&straddle_cfg);robot_ir_apply_layout(&straddle_cfg);
     if(!robot_ir_apply_adc_calibration(&straddle_cfg)) {s2_emergency_stop();tk_ext_tsk();return;}
+    uint8_t read_side=0;uint32_t read_side_ms=0; /* barcode-read steering: side and since */
+    BOOL track_stopped=FALSE;uint32_t track_stop_ms=0; /* TRACK STOP in progress, since */
 #endif
     for(;;) {
         SYSTIM now;
+#if BOARD_LINE_STRADDLE
+        /* Telemetry view of the follower this tick: 0 straight, 1/2 steer
+         * right/left, 3/4 pivot right/left; steer in S2 units. */
+        uint8_t follow_code=0;int16_t follow_steer=0;
+#endif
         odom_config_t calibration={0}; /* short-lived calculation/API view */
         (void)odom_calibration_unpack(&calibration_record,&calibration);
         s2_motion_status_t motor={0};uint8_t encoder_payload[ENCODER_SNAPSHOT_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
@@ -209,6 +219,14 @@ static void vehicle_task(INT code,void *context) {
          * shock sample is never masked. */
         if(input.terrain_valid) {tilt_ok_ms=now.lo;tilt_seen=TRUE;}
         else if(tilt_seen && !input.shock && now.lo-tilt_ok_ms<VC_TILT_GRACE_MS) input.terrain_valid=1;
+#if BOARD_BARCODE_RETRY_DRIVE
+        /* The barcode re-read brakes, reverses slowly and waits in a straight
+         * line. As for VC_BACKUP, its fore-aft rocking must not fault it: the
+         * GY-511 Y axis is fore-aft, so terrain's 15 deg "roll" limit is
+         * really pitch plus acceleration. */
+        if(state.vehicle.armed && state.vehicle.phase==VC_TRACK && !input.shock &&
+           (br_state==BR_BRAKE || br_state==BR_REVERSE || br_state==BR_WAIT)) input.terrain_valid=1;
+#endif
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
         input.steering=input.line_fresh && line.output.steering_allowed;
         input.line_detected=input.line_fresh &&
@@ -247,6 +265,13 @@ static void vehicle_task(INT code,void *context) {
             } else if(e.event.kind==S3_EVENT_RECOVERY_REQUEST) input.recovery_event=1;
             else input.safety_event=1;
         }
+#if BOARD_LINE_STRADDLE
+        /* Straddle builds do not use S3's line verdicts, but a latched S3
+         * transport error means its events (decoded turns) are being lost and
+         * barcode capture has stopped: fault visibly instead of driving on. */
+        if(state.vehicle.armed && li && line.configured && line.output.error==S3_ERROR_TRANSPORT)
+            input.transport_ok=0;
+#endif
         if(input.curve_hold && input.recovery_event) {
             /* Acknowledge the short dropout so S3 can resume normal observations. */
             if(s3_controller_control(S3_MODE_TRACK,true,100)<E_OK)input.transport_ok=0;
@@ -421,6 +446,7 @@ static void vehicle_task(INT code,void *context) {
 #if BOARD_LINE_STRADDLE
         if(!state.vehicle.armed || state.vehicle.phase!=VC_TRACK || state.vehicle.nav_offset || marker_reading)
             ir_line_course_reset(&course);
+        if(!marker_reading) read_side=0;
 #endif
         s3_mode_t wanted=!state.vehicle.armed?S3_MODE_PAUSED:
             state.vehicle.phase==VC_TRACK?S3_MODE_TRACK:S3_MODE_OVERRIDE;
@@ -503,6 +529,15 @@ static void vehicle_task(INT code,void *context) {
         if(state.vehicle.command==S2_MOVE_STOP) {
             /* An epoch per stopped tick invalidates every old queued movement. */
             s2_emergency_stop();
+#if BOARD_LINE_STRADDLE
+            if(state.vehicle.armed && state.vehicle.phase==VC_TRACK) {
+                /* Standing still ages none of the course's timers. Shift on
+                 * every stopped tick, so the junction/corner test that runs
+                 * before vc_step on the resume tick already sees them. */
+                if(track_stopped) ir_line_course_shift(&course,now.lo-track_stop_ms,straddle.sample_ms);
+                track_stopped=TRUE;track_stop_ms=now.lo;
+            }
+#endif
         } else {
             ER er;
 #if BOARD_LINE_STRADDLE
@@ -512,6 +547,13 @@ static void vehicle_task(INT code,void *context) {
                 state.vehicle.command==S2_MOVE_FORWARD && (state.vehicle.nav_offset || marker_reading);
             BOOL course_on=state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
                 state.vehicle.command==S2_MOVE_FORWARD && input.line_fresh && !junction_offset;
+            if(track_stopped) {
+                /* Resuming after a TRACK STOP (e.g. a sonar dropout): the
+                 * standstill must not count as time on a side or in a phase,
+                 * or the steer resumes at full / a pivot and overshoots. */
+                if(course_on) ir_line_course_shift(&course,now.lo-track_stop_ms,straddle.sample_ms);
+                track_stopped=FALSE;
+            }
             unsigned direction=ir_line_course_step(&course,&straddle,now.lo,course_on);
             if(course_on && course.fault) {
                 s2_emergency_stop();vc_stop(&state.vehicle,VC_LINE);er=E_OK;
@@ -523,14 +565,26 @@ static void vehicle_task(INT code,void *context) {
                     steer=line_steer_amount(now.lo-course.side_since_ms,BOARD_LINE_STEER_MIN,
                         BOARD_LINE_STEER_MAX,BOARD_LINE_STEER_RAMP_MS,BOARD_LINE_PIVOT_AFTER_MS);
                 if(steer==LINE_STEER_PIVOT) {
-                    line_curve=0;
+                    line_curve=0;follow_code=direction==IR_LINE_RIGHT?3U:4U;
                     er=s2_movement_send((s2_move_command_t)direction,state.vehicle.power);
                 } else {
                     line_curve=(INT)(direction==IR_LINE_RIGHT?steer:-steer);
+                    follow_code=direction==IR_LINE_RIGHT?1U:2U;follow_steer=(int16_t)line_curve;
                     er=s2_follow_send(state.vehicle.power,line_curve);
                 }
             } else if((course_on || junction_offset) && BOARD_PID_ENABLED) {
-                line_curve=0;er=s2_follow_send(state.vehicle.power,0);
+                line_curve=0;
+                if(junction_offset && marker_reading && !state.vehicle.nav_offset && input.line_fresh) {
+                    /* Reading a barcode: no course, but keep the line. */
+                    unsigned m=straddle.result.black_mask&3U;
+                    if(m==1U || m==2U) {
+                        if(read_side!=m) {read_side=(uint8_t)m;read_side_ms=now.lo;}
+                        line_curve=(INT)line_marker_steer(m,now.lo-read_side_ms,BOARD_LINE_STEER_MIN,
+                            BOARD_BARCODE_READ_LINE_STEER,BOARD_LINE_STEER_RAMP_MS);
+                        follow_code=line_curve>0?1U:line_curve<0?2U:0U;follow_steer=(int16_t)line_curve;
+                    } else read_side=0;
+                }
+                er=s2_follow_send(state.vehicle.power,line_curve);
             } else
 #endif
             if(state.vehicle.phase==VC_BACKUP && state.vehicle.command==S2_MOVE_REVERSE) {
@@ -558,6 +612,10 @@ static void vehicle_task(INT code,void *context) {
             /* Motor may still be acknowledging the previous STOP. Retry next tick. */
             if(er<0 && er!=E_OBJ) {s2_emergency_stop();vc_stop(&state.vehicle,VC_TRANSPORT);}
         }
+#if BOARD_LINE_STRADDLE
+        state.line_follow=follow_code;state.line_steer=follow_steer;
+        state.line_mask=(uint8_t)(straddle.result.black_mask&3U);
+#endif
         (void)app_state_publish(&state);
         if(next_tick==0)next_tick=now.lo;
         next_tick+=10;tk_get_otm(&now);

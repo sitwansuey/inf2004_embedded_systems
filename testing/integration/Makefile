@@ -3,6 +3,9 @@ CFLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic
 S4_RESULT = ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c
 CORE = $(S4_RESULT) ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/shared/edr.c
 SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_width.c
+# Straddle robot profile: PID drive, ADC line + GP28 digital barcode, and the measured IR endpoints (passes the ADC calibration gate).
+STRADDLE = -DBOARD_LINE_STRADDLE=1 -DBOARD_PID_ENABLED=1 -DBOARD_PID_CALIBRATED=1 -DBOARD_PID_MAX_CPS=1950 -DBOARD_PID_MAX_POWER=35 -DBOARD_PID_KP_MILLI=30 -DBOARD_PID_KI_MILLI=40 -DBOARD_PID_KD_MILLI=0 -DS2_MOTOR1_TRIM_PERCENT=86U -DS2_MOTOR2_TRIM_PERCENT=93U -DBOARD_IR_MODE=3 -include ../../app_program/robot_ir_calibration.h
+STRADDLE_SRC = ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c
 .PHONY: test sanitize
 test:
 	mkdir -p .build
@@ -30,6 +33,10 @@ test:
 	./.build/buddy4_vehicle
 	$(CC) $(CFLAGS) -DBOARD_SHOCK_STOP=0 buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle_shock_ignored
 	./.build/buddy4_vehicle_shock_ignored
+	$(CC) $(CFLAGS) $(STRADDLE) buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(STRADDLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_straddle
+	./.build/buddy4_vehicle_straddle
+	$(CC) $(CFLAGS) $(STRADDLE) -DBOARD_BARCODE_READ_LINE_STEER=150 buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(STRADDLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_straddle_read150
+	./.build/buddy4_vehicle_straddle_read150
 	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/continuous_line
 	./.build/continuous_line
 	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_course_test.c ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/line_course
@@ -62,6 +69,8 @@ test:
 	./.build/sonar_status
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time
 	./.build/snapshot_time
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 $(STRADDLE) -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time_straddle
+	./.build/snapshot_time_straddle
 	$(CC) $(CFLAGS) protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/protocol
 	python3 protocol_test.py
 	$(CC) $(CFLAGS) telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/queue
