@@ -11,8 +11,11 @@
 /* Bend mode: touches on one side with no touch on the other side between
  * them (however far apart) count up in bend_level; the
  * IR_COURSE_BEND_TOUCHES-th sets bend_side, bend mode on that side. It ends
- * only when the other sensor sees black (that touch starts its own count)
- * or both sensors are black. Not time based. */
+ * when the other sensor sees black or both sensors are black. Not time
+ * based. When the other sensor ends a confirmed bend, bend mode carries on
+ * straight away to that side (S-bends); such a chained bend is confirmed by
+ * a touch on its own side, otherwise the next other-side touch returns to
+ * normal tracing (one swerve at most after a bend into a straight). */
 #ifndef IR_COURSE_BEND_TOUCHES
 #define IR_COURSE_BEND_TOUCHES 2U
 #endif
@@ -25,6 +28,7 @@ typedef struct {
     uint8_t phase:2,side:2,side_streak:1,white_pending:1;
     uint8_t fault:4;
     uint8_t bend_level:3,bend_side:2,bend_candidate:2; /* side 1 right, 2 left; bend_side 0: no bend mode */
+    uint8_t bend_chained:1; /* bend mode entered from the opposite bend, not yet confirmed */
 } ir_line_course_t;
 
 void ir_line_course_reset(ir_line_course_t *course);

@@ -628,9 +628,10 @@ static void vehicle_task(INT code,void *context) {
             }
             unsigned direction=ir_line_course_step(&course,&straddle,now.lo,course_on);
             /* Bend mode keeps turning until the other IR sees black; a full
-             * BOARD_LINE_BEND_MAX_TURN_DEG without it means the line is gone. */
+             * BOARD_LINE_BEND_MAX_TURN_DEG with no sensor touching the line
+             * at all means the line is gone (every touch restarts it). */
             BOOL bend_mode=course_on && BOARD_LINE_BEND_STEER && course.bend_side;
-            if(bend_mode && !bend_was) bend_yaw0=odom_turn_mdeg(odom);
+            if(bend_mode && (!bend_was || (straddle.result.black_mask&3U))) bend_yaw0=odom_turn_mdeg(odom);
             bend_was=bend_mode;
             int32_t bend_turned=odom_turn_mdeg(odom)-bend_yaw0;
             if(bend_turned<0) bend_turned=-bend_turned;
