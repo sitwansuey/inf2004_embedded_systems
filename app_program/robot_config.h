@@ -387,6 +387,19 @@
     (BOARD_IMU_FRONT_AXIS)*(BOARD_IMU_LEFT_AXIS)*(BOARD_IMU_UP_AXIS) <= 0
 #error BOARD_IMU_FRONT/LEFT/UP_AXIS must be three different axes, right-handed
 #endif
+/* Straddle follower black/white decision, per mille of each sensor's
+ * calibrated white..black range, with hysteresis: black at or above
+ * BOARD_LINE_BLACK_PERMILLE, white again at or below BOARD_LINE_WHITE_PERMILLE.
+ * S3's own line/barcode logic keeps its defaults. */
+#ifndef BOARD_LINE_BLACK_PERMILLE
+#define BOARD_LINE_BLACK_PERMILLE 600U
+#endif
+#ifndef BOARD_LINE_WHITE_PERMILLE
+#define BOARD_LINE_WHITE_PERMILLE 400U
+#endif
+#if BOARD_LINE_WHITE_PERMILLE >= BOARD_LINE_BLACK_PERMILLE || BOARD_LINE_BLACK_PERMILLE > 1000
+#error Straddle thresholds: WHITE < BLACK <= 1000 per mille
+#endif
 /* Ramp speed handling (phase 5), 0 = off. The terrain tilt is computed
  * from accelerometer samples smoothed over BOARD_IMU_SMOOTH_MS (samples
  * outside BOARD_IMU_SMOOTH_MIN/MAX_MG skipped). While tracking (the line is

@@ -34,25 +34,30 @@ static inline void vehicle_accel_filter(vehicle_accel_filter_t *s, const int32_t
 }
 
 /* Ramp test: FLAT until the smoothed total tilt stays >= start for hold_ms
- * (UP), DOWN once it falls drop below its peak, DONE when it stays <= level
- * for level_ms after UP/DOWN. Inactive resets to FLAT; an invalid tilt
- * changes nothing. */
+ * in one direction (the larger of pitch/roll keeps its axis and sign: a
+ * bump that tips nose-up then nose-down restarts the hold) (UP), DOWN once
+ * it falls drop below its peak, DONE when it stays <= level for level_ms
+ * after UP/DOWN. Inactive resets to FLAT; an invalid tilt changes nothing. */
 enum { RAMP_FLAT, RAMP_UP, RAMP_DOWN, RAMP_DONE };
 typedef struct {
     uint32_t since_ms;
     int32_t peak;
     uint8_t state : 2;
     uint8_t timing : 1;
+    uint8_t dir : 2; /* bit 1: roll larger, bit 0: negative */
 } vehicle_ramp_t;
 
 static inline unsigned vehicle_ramp_step(vehicle_ramp_t *r, uint32_t now, bool active, bool valid,
-    int32_t tilt, int32_t start, int32_t level, int32_t drop, uint32_t hold_ms, uint32_t level_ms)
+    int32_t tilt, int32_t pitch, int32_t roll, int32_t start, int32_t level, int32_t drop,
+    uint32_t hold_ms, uint32_t level_ms)
 {
     if (!active) { *r = (vehicle_ramp_t){0}; return RAMP_FLAT; }
     if (r->state == RAMP_DONE || !valid) return r->state;
     if (r->state == RAMP_FLAT) {
+        int32_t ap = pitch < 0 ? -pitch : pitch, ar = roll < 0 ? -roll : roll;
+        uint8_t dir = ar > ap ? (uint8_t)(2U | (roll < 0)) : (uint8_t)(pitch < 0);
         if (tilt < start) r->timing = 0U;
-        else if (!r->timing) { r->timing = 1U; r->since_ms = now; }
+        else if (!r->timing || dir != r->dir) { r->timing = 1U; r->since_ms = now; r->dir = dir; }
         else if (now - r->since_ms >= hold_ms) { r->state = RAMP_UP; r->peak = tilt; r->timing = 0U; }
         return r->state;
     }

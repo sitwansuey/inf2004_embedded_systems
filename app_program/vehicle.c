@@ -102,6 +102,8 @@ static void vehicle_task(INT code,void *context) {
      * IRLineOnly bench. S3 still owns ADC acquisition; this only interprets it. */
     s3_config_t straddle_cfg;ir_line_trace_t straddle={0};ir_line_course_t course={0};
     s3_config_defaults(&straddle_cfg);robot_ir_apply_layout(&straddle_cfg);
+    straddle_cfg.line.threshold_high=BOARD_LINE_BLACK_PERMILLE;
+    straddle_cfg.line.threshold_low=BOARD_LINE_WHITE_PERMILLE;
     if(!robot_ir_apply_adc_calibration(&straddle_cfg)) {s2_emergency_stop();tk_ext_tsk();return;}
     uint8_t read_side=0;uint32_t read_side_ms=0; /* barcode-read steering: side and since */
     BOOL track_stopped=FALSE;uint32_t track_stop_ms=0; /* TRACK STOP in progress, since */
@@ -518,7 +520,7 @@ static void vehicle_task(INT code,void *context) {
         {
             int32_t p=terrain_pitch_cdeg(&terrain),r=terrain_roll_cdeg(&terrain);
             unsigned rs=vehicle_ramp_step(&ramp,now.lo,state.vehicle.armed,terrain.tilt_valid,
-                (int32_t)lround(sqrt((double)p*p+(double)r*r)),BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
+                (int32_t)lround(sqrt((double)p*p+(double)r*r)),p,r,BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
                 BOARD_RAMP_CREST_DROP_CDEG,BOARD_RAMP_HOLD_MS,BOARD_RAMP_LEVEL_MS);
             if(rs==RAMP_DONE) {
                 /* Level again: the bench test stops; a mission resumes normal
