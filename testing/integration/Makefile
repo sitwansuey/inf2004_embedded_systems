@@ -21,6 +21,8 @@ test:
 	.build/reverse_track
 	$(CC) $(CFLAGS) line_steer_test.c $(LDFLAGS) -o .build/line_steer
 	.build/line_steer
+	$(CC) $(CFLAGS) obstacle_confirm_test.c $(LDFLAGS) -o .build/obstacle_confirm
+	.build/obstacle_confirm
 	$(CC) $(CFLAGS) barcode_retry_test.c $(LDFLAGS) -o .build/barcode_retry
 	.build/barcode_retry
 	$(CC) $(CFLAGS) edr_stream_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/edr_stream

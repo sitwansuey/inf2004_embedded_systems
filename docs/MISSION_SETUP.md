@@ -12,8 +12,13 @@ Use ignored `app_program/robot_config.local.h`. An autonomous mission requires:
 - Build with `S2_ENCODER_ENABLED=1` (the Makefile default), after checking wiring.
 - Measured `BOARD_TICKS_PER_REV` (x1 counts), `BOARD_WHEEL_CIRCUMFERENCE_MM`
   and `BOARD_TRACK_WIDTH_MM`.
-- `BOARD_TERRAIN_CALIBRATED=1` only after verifying sensor mounting and
-  `BOARD_PITCH_ZERO_CDEG` / `BOARD_ROLL_ZERO_CDEG` on level ground.
+- `BOARD_TERRAIN_CALIBRATED=1` only after measuring the GY-511 mounting:
+  `BOARD_IMU_FRONT_AXIS` / `_LEFT_AXIS` / `_UP_AXIS` name the signed sensor
+  axis (1=X 2=Y 3=Z, negative for the minus axis) that points to the robot's
+  front, left and up. Lifting the front must raise the front axis reading,
+  lifting the left side the left one. Then set `BOARD_PITCH_ZERO_CDEG` /
+  `BOARD_ROLL_ZERO_CDEG` to the robot-frame pitch (nose-up positive) and roll
+  (left-up positive) read standing still on level ground.
 - `BOARD_PID_ENABLED=1`, measured `BOARD_PID_MAX_CPS`, and tuned
   `BOARD_PID_KP_MILLI`, `BOARD_PID_KI_MILLI`, `BOARD_PID_KD_MILLI`.
   `BOARD_PID_CALIBRATED=1` confirms the tuning run. Gains are milli-percent PWM

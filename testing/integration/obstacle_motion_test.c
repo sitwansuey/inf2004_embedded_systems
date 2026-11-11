@@ -17,7 +17,8 @@ int main(void) {
  assert(s5_scan_step(&s,&c)==0 && s.state==S5_CENTERING && c.motion_restarts==1 && !s.approach_plan_valid);
  /* Starting a new acquisition must retain the retry budget. */
  s=sample(0);s.state=S5_MONITOR;s.angle_deg=s.sample_angle_deg=0;
- (void)s5_scan_step(&s,&c);assert(s5_scan_step(&s,&c)==30 && c.motion_restarts==1);
+ for(unsigned n=1;n<S5_ACQUISITION_SAMPLES;++n)assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR);
+ assert(s5_scan_step(&s,&c)==30 && c.motion_restarts==1);
  s=sample(4);assert(s5_scan_step(&s,&c)==0 && s.state==S5_CENTERING && c.motion_restarts==2);
  s=sample(4);assert(s5_scan_step(&s,&c)==0 && s.state==S5_BLOCKED && c.motion_restarts==3 && !s.approach_plan_valid);
  /* Motion while widths are held clears the hold and both halves. */

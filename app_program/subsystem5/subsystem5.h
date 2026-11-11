@@ -6,7 +6,11 @@
 #define S5_PRI_MAIN 20
 #define S5_LOCK_WAIT_MS 5
 #define S5_OBSTACLE_MM 200U /* acquisition at 20 cm, inclusive */
-#define S5_ACQUISITION_SAMPLES 2U
+/* Consecutive forward echoes within S5_OBSTACLE_MM that confirm an obstacle
+ * (S5 starts acquisition; the vehicle stops tracking). A far or off-axis
+ * echo restarts the count; a no-echo retry is no reading and neither counts
+ * nor restarts it, but three in a row (open space) do. */
+#define S5_ACQUISITION_SAMPLES 3U
 #define S5_SCAN_MOTION_TOLERANCE_COUNTS 3 /* about 1 mm with measured 631 counts / 220 mm */
 #define S5_SCAN_MOTION_RESTARTS 2U
 #define S5_SCAN_ECHO_FAILURES 3U /* retry at the same angle before resetting */

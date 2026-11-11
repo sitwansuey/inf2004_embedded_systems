@@ -36,12 +36,12 @@ static unsigned read_count, read_max, normal_count, normal_min;
 #define SHOCK_AT 9U
 static unsigned shock_published, after_shock;
 static bool reset_offered;
-/* Modes 13..15 exist only in the straddle build (BOARD_LINE_STRADDLE): they
+/* Modes 13..16 exist only in the straddle build (BOARD_LINE_STRADDLE): they
  * feed real GP26/27 ADC samples to the straddle course and START the mission
  * (no lease), see the scenario block below. */
 #define STRADDLE_FIRST 13U
 #if BOARD_LINE_STRADDLE
-#define MODE_COUNT 16U
+#define MODE_COUNT 17U
 #else
 #define MODE_COUNT 13U
 #endif
@@ -67,8 +67,8 @@ static void log_send(unsigned kind,unsigned command,UINT power,INT steering)
 #define SR_UNTIL 24U
 #define SR_ITERATIONS 28U
 static const uint8_t sr_masks[SR_UNTIL-SR_FROM]={1,1,1,2,2,2,3,3,0,0,1,1};
-/* Modes 14/15: the right sensor stays on black from TOUCH_AT; a sonar
- * dropout (no echo: front not clear, no obstacle) is a TRACK STOP from
+/* Modes 14/15: the right sensor stays on black from TOUCH_AT; the sonar
+ * looking aside (front unknown: not clear, no obstacle) is a TRACK STOP from
  * STOP_AT for 300 ms (14) / 700 ms (15) with the touch still held. Mode 14
  * then holds right, then left, for HOLD_TICKS each: long enough to pivot. */
 #define TOUCH_AT 10U
@@ -87,6 +87,16 @@ static unsigned scenario_mask(unsigned n)
 static bool scenario_reading(unsigned n) { return failure_mode==13U && n>=SR_FROM && n<SR_UNTIL; }
 static bool scenario_dropout(unsigned n)
 { return (failure_mode==14U || failure_mode==15U) && n>=STOP_AT && n<resume_at(); }
+/* Mode 16: forward sonar samples while tracking a centred line, one per
+ * tick from OC_FROM (H: one near echo re-read for several ticks, F far,
+ * N near 150 mm, D no-echo, C close 40 mm, I invalidated by S5 re-centring)
+ * and what TRACK must do (d drive, s hold still, a VC_ACQUIRE): the held
+ * echo counts once; a no-echo holds only right after a near echo and is no
+ * reading; C and I hold; acquisition only on the third near echo. */
+#define OC_FROM 12U
+static const char oc_sample[]="HHHHHFNNDFDCFINNDNNN";
+static const char oc_expect[]="ddddddddsddsdsddsaaa";
+#define OC_ITERATIONS (OC_FROM+sizeof(oc_sample)-1U)
 #endif
 static unsigned iterations(void)
 {
@@ -94,6 +104,7 @@ static unsigned iterations(void)
     if(failure_mode==13U)return SR_ITERATIONS;
     if(failure_mode==14U)return left_from()+HOLD_TICKS;
     if(failure_mode==15U)return resume_at()+4U;
+    if(failure_mode==16U)return OC_ITERATIONS;
 #endif
     return failure_mode==10U?BR_ITERATIONS:failure_mode==11U?20U:12U;
 }
@@ -186,7 +197,18 @@ ER s5_get_status(s5_status_t *s) {
             s->planned_rotate_deg=65537;s->planned_approach_mm=65537;s->planned_return_mm=65537;
         }
 #if BOARD_LINE_STRADDLE
-        if(scenario_dropout(iteration)) {s->valid=0;s->distance_mm=0;} /* fresh, but no echo */
+        if(scenario_dropout(iteration)) {s->angle_deg=s->sample_angle_deg=30;} /* fresh, looking aside */
+        if(failure_mode==16U && iteration>=OC_FROM && iteration<OC_ITERATIONS) {
+            static uint32_t held_ms;
+            switch(oc_sample[iteration-OC_FROM]) {
+            case 'H':if(iteration==OC_FROM)held_ms=clock_ms;s->distance_mm=150;s->time_ms=held_ms;break;
+            case 'N':s->distance_mm=150;break;
+            case 'C':s->distance_mm=40;break;
+            case 'D':s->valid=0;s->distance_mm=0;s->echo_result=S5_ECHO_NO_RISE;break;
+            case 'I':s->valid=0;s->distance_mm=150;break; /* echo OK, distance unusable */
+            default:break;
+            }
+        }
 #endif
     }
     return E_OK;
@@ -391,6 +413,16 @@ int main(void)
         if(failure_mode>=7U)check_published();
         if(failure_mode==13U)check_read_steer();
         if(failure_mode==14U || failure_mode==15U)check_stop_resume();
+        if(failure_mode==16U) {
+            _Static_assert(sizeof(oc_expect)==sizeof(oc_sample),"mode 16 table");
+            for(unsigned n=10U;n<OC_ITERATIONS;++n) {
+                char e=n<OC_FROM?'d':oc_expect[n-OC_FROM];
+                assert(pub_armed[n]);
+                if(e=='a')assert(pub_phase[n]==VC_ACQUIRE);
+                else if(e=='s')assert(pub_phase[n]==VC_TRACK && stopped[n] && sent_kind[n]==SENT_NONE);
+                else assert(pub_phase[n]==VC_TRACK && !stopped[n] && sent_kind[n]==SENT_FOLLOW);
+            }
+        }
 #endif
     }
 #if BOARD_LINE_STRADDLE
@@ -398,6 +430,7 @@ int main(void)
     puts("Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS");
     puts("Straddle TRACK STOP inside a held side touch: resume steers one tick on, not full steer or a pivot PASS");
     puts("Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS");
+    puts("Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 3 consecutive new near echoes acquire PASS");
 #endif
     puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");
     puts("Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read PASS");

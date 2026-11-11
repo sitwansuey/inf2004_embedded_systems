@@ -1,8 +1,10 @@
 #include "../../app_program/vehicle_policy.h"
 #include "../../app_program/subsystem2/odometry.h"
 #include "../../app_program/subsystem4/terrain.h"
+#include "../../app_program/subsystem4/imu_mount.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 static vc_input_t healthy(void) {
@@ -130,11 +132,13 @@ static void terrain(void) {
     for(uint32_t ms=20;ms<=80;ms+=20)terrain_step(&s,ms,a,true,0,true,true,0,0);
     assert(s.state==TERRAIN_FLAT);
     int distance=0;uint32_t time=80;
-    a[0]=-500;a[2]=866;
+    /* Robot frame, +1 g up at rest: nose up 30 deg puts +0.5 g on front. */
+    a[0]=500;a[2]=866;
     for(unsigned n=0;n<5;++n) {distance+=20000;time+=20;terrain_step(&s,time,a,true,distance,true,true,0,0);}
+    assert(terrain_pitch_cdeg(&s)==3000 && terrain_roll_cdeg(&s)==0);
     assert(s.state==TERRAIN_ASCENT && s.peak_um>49000);
     a[0]=0;a[2]=1000;time+=20;terrain_step(&s,time,a,true,distance,true,true,0,0);assert(s.state==TERRAIN_CREST);
-    a[0]=500;a[2]=866;
+    a[0]=-500;a[2]=866;
     for(unsigned n=0;n<5;++n) {distance+=20000;time+=20;terrain_step(&s,time,a,true,distance,true,true,0,0);}
     assert(s.state==TERRAIN_DESCENT && !s.height_valid);
     a[0]=0;a[2]=1000;
@@ -145,4 +149,33 @@ static void terrain(void) {
     time+=20;a[0]=0;terrain_step(&s,time,a,false,distance,true,true,0,0);assert(!s.tilt_valid);
     puts("INT-CR1-03 terrain: calibration gate, ordered hump, maximum, impact and invalid samples PASS");
 }
-int main(void) {controller();odometry();terrain();return 0;}
+static void mount(void) {
+    /* This robot: sensor -Y to the front, +X to the left, +Z up. */
+    int32_t raw[3]={-48,-252,911},r[3];
+    s4_imu_to_robot(raw,r,-2,1,3);assert(r[0]==252 && r[1]==-48 && r[2]==911);
+    s4_imu_to_robot(raw,r,1,2,3);assert(r[0]==-48 && r[1]==-252 && r[2]==911);
+    /* Saturated -2048 on a negated axis stays in the accepted range. */
+    raw[1]=-2048;s4_imu_to_robot(raw,r,-2,1,3);assert(r[0]==2047);
+    raw[1]=2047;s4_imu_to_robot(raw,r,-2,1,3);assert(r[0]==-2047);
+    assert(s4_imu_axis(raw,0)==0 && s4_imu_axis(raw,4)==0 && s4_imu_axis(raw,-4)==0);
+    /* Level, the mounting offset becomes the zeros; lifting the front
+     * ~10 deg then reads positive pitch, lifting the left positive roll. */
+    terrain_t t={0};int32_t lvl[3]={-48,-252,911};
+    s4_imu_to_robot(lvl,r,-2,1,3);terrain_step(&t,0,r,true,0,false,true,1544,-302);
+    assert(t.tilt_valid && abs(terrain_pitch_cdeg(&t))<=2 && abs(terrain_roll_cdeg(&t))<=2);
+    int32_t nose[3]={-48,-406,867};
+    s4_imu_to_robot(nose,r,-2,1,3);terrain_step(&t,20,r,true,0,false,true,1544,-302);
+    assert(t.tilt_valid && terrain_pitch_cdeg(&t)>800 && terrain_pitch_cdeg(&t)<1200);
+    int32_t side[3]={110,-252,905};
+    s4_imu_to_robot(side,r,-2,1,3);terrain_step(&t,40,r,true,0,false,true,1544,-302);
+    assert(t.tilt_valid && terrain_roll_cdeg(&t)>800 && terrain_roll_cdeg(&t)<1300);
+    /* Side tilt past 15 deg drops tilt; the same nose-up does not. */
+    int32_t steep[3]={300,-252,870};
+    s4_imu_to_robot(steep,r,-2,1,3);terrain_step(&t,60,r,true,0,false,true,1544,-302);
+    assert(!t.tilt_valid);
+    int32_t climb[3]={-48,-560,800};
+    s4_imu_to_robot(climb,r,-2,1,3);terrain_step(&t,80,r,true,0,false,true,1544,-302);
+    assert(t.tilt_valid && terrain_pitch_cdeg(&t)>1800);
+    puts("IMU mount: axis remap, saturation, nose-up pitch and side roll PASS");
+}
+int main(void) {controller();odometry();terrain();mount();return 0;}

@@ -54,7 +54,23 @@ int main(void) {
     assert(s5_assess_path(&s,TRUE,20).state==S5_PATH_FORWARD);
     s.sample_angle_deg=10;assert(s5_assess_path(&s,TRUE,20).state!=S5_PATH_FORWARD);
     s.sample_angle_deg=0;s.distance_mm=200;assert(s5_assess_path(&s,TRUE,20).state==S5_PATH_STOP);
-    s5_scan_context_t c={0};assert(s5_scan_step(&s,&c)==0);assert(s5_scan_step(&s,&c)==30);
+    s5_scan_context_t c={0};
+    /* S5_ACQUISITION_SAMPLES consecutive near echoes start the scan. A far
+     * echo restarts the count; a no-echo retry neither counts nor restarts
+     * it, but three in a row (open space) do. */
+    for(unsigned n=1;n<S5_ACQUISITION_SAMPLES;++n)assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR);
+    s.distance_mm=201;assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR);
+    s.distance_mm=200;
+    for(unsigned n=1;n<S5_ACQUISITION_SAMPLES;++n)assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR);
+    s.valid=0;s.distance_mm=0;s.echo_result=S5_ECHO_NO_RISE;
+    for(unsigned n=0;n<S5_SCAN_ECHO_FAILURES;++n)assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR);
+    assert(s5_sample_is_open(&s));
+    s.valid=1;s.distance_mm=200;s.echo_result=S5_ECHO_OK;
+    for(unsigned n=1;n<S5_ACQUISITION_SAMPLES;++n)assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR);
+    s.valid=0;s.distance_mm=0;s.echo_result=S5_ECHO_NO_FALL;
+    assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR); /* one retry: no reading */
+    s.valid=1;s.distance_mm=200;s.echo_result=S5_ECHO_OK;
+    assert(s5_scan_step(&s,&c)==30);
     assert(s.state==S5_SCAN_LEFT);
     /* Three coarse positions: 30, 60, 90 before refinement. */
     s.angle_deg=s.sample_angle_deg=30;s.obstacle_distance_mm=200;
@@ -100,7 +116,7 @@ int main(void) {
     assert(s5_scan_step(&s,&c)==-20 && s.state==S5_VERIFY_CLEAR && c.width_hold && !s.approach_plan_valid);
     s.time_ms=300;assert(s5_scan_step(&s,&c)==0 && s.state==S5_BLOCKED && !c.width_hold);
     assert(!s.approach_plan_valid && !s.object_width_valid && !s.object_left_mm && !s.object_right_mm);
-    puts("INT-CR1-04 scan: wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS");
+    puts("INT-CR1-04 scan: 3 consecutive near echoes start it (far or open resets, a no-echo retry does not), wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS");
     s=(s5_status_t){.object_width_valid=1,.left_bound_valid=1,.right_bound_valid=1,
         .obstacle_distance_mm=150,.left_bound_deg=20,.right_bound_deg=-10,
         .left_bound_distance_mm=160,.right_bound_distance_mm=160};

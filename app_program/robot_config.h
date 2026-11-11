@@ -357,7 +357,85 @@
 #define BOARD_TRACK_WIDTH_MM 0
 #endif
 #ifndef BOARD_TERRAIN_CALIBRATED
-#define BOARD_TERRAIN_CALIBRATED 0 /* sensor X forward, Y left, Z up */
+#define BOARD_TERRAIN_CALIBRATED 0 /* mounting axes and zeros measured */
+#endif
+/* GY-511 accelerometer mounting: the signed sensor axis that points to the
+ * robot's front, its left and up (1=+X 2=+Y 3=+Z, negative = the minus
+ * axis). Terrain works in that robot frame: pitch is positive nose-up,
+ * roll positive left side up, and the zeros below are robot-frame angles
+ * read standing still on level ground. */
+#ifndef BOARD_IMU_FRONT_AXIS
+#define BOARD_IMU_FRONT_AXIS 1
+#endif
+#ifndef BOARD_IMU_LEFT_AXIS
+#define BOARD_IMU_LEFT_AXIS 2
+#endif
+#ifndef BOARD_IMU_UP_AXIS
+#define BOARD_IMU_UP_AXIS 3
+#endif
+#define BOARD_IMU_ABS_(a) ((a)<0?-(a):(a))
+#if BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS)<1 || BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS)>3 || \
+    BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS)<1 || BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS)>3 || \
+    BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)<1 || BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)>3
+#error BOARD_IMU_*_AXIS must be +/-1, +/-2 or +/-3
+#endif
+/* Distinct axes forming a right-handed frame (front x left = up): the
+ * permutation's parity times the three signs must be positive. */
+#if (BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS)-BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS))* \
+    (BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)-BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS))* \
+    (BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)-BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS))* \
+    (BOARD_IMU_FRONT_AXIS)*(BOARD_IMU_LEFT_AXIS)*(BOARD_IMU_UP_AXIS) <= 0
+#error BOARD_IMU_FRONT/LEFT/UP_AXIS must be three different axes, right-handed
+#endif
+/* Ramp speed handling (phase 5), 0 = off. The terrain tilt is computed
+ * from accelerometer samples smoothed over BOARD_IMU_SMOOTH_MS (samples
+ * outside BOARD_IMU_SMOOTH_MIN/MAX_MG skipped). While tracking (the line is
+ * followed throughout), a total tilt (pitch or roll) of at least
+ * BOARD_RAMP_TILT_CDEG held BOARD_RAMP_HOLD_MS is the way up: power capped at
+ * BOARD_RAMP_UP_POWER (0: no cap). Once the tilt falls
+ * BOARD_RAMP_CREST_DROP_CDEG below its peak it is the way down: capped at
+ * BOARD_RAMP_DOWN_POWER. Back at BOARD_RAMP_LEVEL_CDEG for BOARD_RAMP_LEVEL_MS
+ * the ramp is over: normal speed resumes and the next ramp is watched for,
+ * or with BOARD_RAMP_STOP_AFTER 1 (ramp bench test) the run stops (VC_OK). */
+#ifndef BOARD_RAMP_SPEED
+#define BOARD_RAMP_SPEED 0
+#endif
+#ifndef BOARD_RAMP_STOP_AFTER
+#define BOARD_RAMP_STOP_AFTER 0
+#endif
+#ifndef BOARD_IMU_SMOOTH_MS
+#define BOARD_IMU_SMOOTH_MS 400U
+#endif
+#ifndef BOARD_IMU_SMOOTH_MIN_MG
+#define BOARD_IMU_SMOOTH_MIN_MG 700
+#endif
+#ifndef BOARD_IMU_SMOOTH_MAX_MG
+#define BOARD_IMU_SMOOTH_MAX_MG 1200
+#endif
+#ifndef BOARD_RAMP_TILT_CDEG
+#define BOARD_RAMP_TILT_CDEG 400
+#endif
+#ifndef BOARD_RAMP_HOLD_MS
+#define BOARD_RAMP_HOLD_MS 400U /* rejects the ~0.25 s pitch bump at the ramp entry */
+#endif
+#ifndef BOARD_RAMP_CREST_DROP_CDEG
+#define BOARD_RAMP_CREST_DROP_CDEG 150
+#endif
+#ifndef BOARD_RAMP_LEVEL_CDEG
+#define BOARD_RAMP_LEVEL_CDEG 300
+#endif
+#ifndef BOARD_RAMP_LEVEL_MS
+#define BOARD_RAMP_LEVEL_MS 400U
+#endif
+#ifndef BOARD_RAMP_UP_POWER
+#define BOARD_RAMP_UP_POWER 0U
+#endif
+#ifndef BOARD_RAMP_DOWN_POWER
+#define BOARD_RAMP_DOWN_POWER 10U
+#endif
+#if BOARD_RAMP_SPEED && (BOARD_RAMP_UP_POWER > 50 || BOARD_RAMP_DOWN_POWER > 50 || \
+    BOARD_RAMP_LEVEL_CDEG >= BOARD_RAMP_TILT_CDEG || BOARD_IMU_SMOOTH_MS < 1 || BOARD_IMU_SMOOTH_MS > 5000)
+#error Ramp test: powers 0..50 (0 no cap), level below the start tilt, smoothing 1..5000 ms
 #endif
 #ifndef BOARD_PITCH_ZERO_CDEG
 #define BOARD_PITCH_ZERO_CDEG 0

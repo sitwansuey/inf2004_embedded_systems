@@ -102,11 +102,11 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (i->shock || i->safety_event) { vc_stop(s,i->shock?VC_SHOCK:VC_LINE);return; }
     if (!i->transport_ok) { vc_stop(s,VC_TRANSPORT);return; }
     if (!i->motor_ok) { vc_stop(s,VC_MOTOR);return; }
-    /* The GY-511 is mounted with its Y axis fore-aft, so the terrain "roll"
-     * limit (15 deg) is really fore-aft tilt plus acceleration: the obstacle
-     * reverse rocks it out for its whole ~1 s. VC_BACKUP (straight, slow,
-     * odometry-bounded) does not need tilt; TURN_OUT does, after the
-     * stand-still has let the robot settle. */
+    /* Tilt drops when side roll exceeds 15 deg or |a| leaves 0.8..1.2 g.
+     * Before the GY-511 axis remap the obstacle reverse's fore-aft rocking
+     * tripped the roll limit; now only jolts (the norm gate) can. VC_BACKUP
+     * (straight, slow, odometry-bounded) still does not need tilt; TURN_OUT
+     * does, after the stand-still has let the robot settle. */
     bool tilt_ok=i->terrain_valid || s->phase==VC_BACKUP;
     if (!i->sensor_fresh || !tilt_ok || !i->odom_valid) {
         sensor_fault(s,!i->sensor_fresh?VC_CAUSE_SONAR:!tilt_ok?VC_CAUSE_TILT:VC_CAUSE_ODOM);return;

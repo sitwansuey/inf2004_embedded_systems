@@ -8,6 +8,10 @@
 #include "subsystem3/subsystem3.h"
 #include "subsystem4/subsystem4.h"
 #include "subsystem4/encoder_input.h"
+#include "subsystem4/imu_mount.h"
+#include "vehicle_obstacle_confirm.h"
+#include "vehicle_ramp.h"
+#include <math.h>
 #include "subsystem2/s2_data.h"
 #include "subsystem5/subsystem5.h"
 #include "vehicle_reverse_track.h"
@@ -76,6 +80,8 @@ static void vehicle_task(INT code,void *context) {
     BOOL requested_sensor_mode=FALSE;
     uint8_t shown_ok=0;BOOL shown_seen=FALSE; /* last decode count shown on the dashboard */
     uint32_t tilt_ok_ms=0;BOOL tilt_seen=FALSE; /* last valid gravity tilt */
+    vehicle_obstacle_confirm_t obstacle_confirm={0};
+    vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
     BOOL shock_prev=FALSE; /* S4 shock in the previous tick (rising-edge count) */
 #if BOARD_BARCODE_RETRY_DRIVE
     unsigned br_state=BR_IDLE,br_next=BR_IDLE;
@@ -121,9 +127,17 @@ static void vehicle_task(INT code,void *context) {
         if(tk_get_otm(&now)<0) {vc_stop(&state.vehicle,VC_TRANSPORT);s2_emergency_stop();tk_dly_tsk(10);continue;}
         if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&imu);
         state.time_ms=now.lo;++state.sequence;
+        int32_t accel[3];
+        s4_imu_to_robot(imu.latest.accel.milli_units,accel,
+            BOARD_IMU_FRONT_AXIS,BOARD_IMU_LEFT_AXIS,BOARD_IMU_UP_AXIS);
+#if BOARD_RAMP_SPEED
+        vehicle_accel_filter(&accel_filter,accel,imu.latest.accel.read_time_us,
+            im && imu.accel_usable && !imu.latest.accel.overrun,BOARD_IMU_SMOOTH_MS,
+            BOARD_IMU_SMOOTH_MIN_MG,BOARD_IMU_SMOOTH_MAX_MG,accel);
+#endif
         s4_encoder_terrain_step(&encoder_input,&terrain,&calibration,now.lo,
             encoder_payload,sizeof(encoder_payload),en,imu.latest.accel.read_time_us,
-            imu.latest.accel.milli_units,im && imu.accel_usable && !imu.latest.accel.overrun,BOARD_TERRAIN_CALIBRATED,
+            accel,im && imu.accel_usable && !imu.latest.accel.overrun,BOARD_TERRAIN_CALIBRATED,
             BOARD_PITCH_ZERO_CDEG,BOARD_ROLL_ZERO_CDEG);
         s4_result_t result={.calculated_ms=now.lo,
             .pitch_cdeg=terrain_pitch_cdeg(&terrain),.roll_cdeg=terrain_roll_cdeg(&terrain),
@@ -221,9 +235,7 @@ static void vehicle_task(INT code,void *context) {
         else if(tilt_seen && !input.shock && now.lo-tilt_ok_ms<VC_TILT_GRACE_MS) input.terrain_valid=1;
 #if BOARD_BARCODE_RETRY_DRIVE
         /* The barcode re-read brakes, reverses slowly and waits in a straight
-         * line. As for VC_BACKUP, its fore-aft rocking must not fault it: the
-         * GY-511 Y axis is fore-aft, so terrain's 15 deg "roll" limit is
-         * really pitch plus acceleration. */
+         * line. As for VC_BACKUP, its rocking and jolts must not fault it. */
         if(state.vehicle.armed && state.vehicle.phase==VC_TRACK && !input.shock &&
            (br_state==BR_BRAKE || br_state==BR_REVERSE || br_state==BR_WAIT)) input.terrain_valid=1;
 #endif
@@ -235,10 +247,28 @@ static void vehicle_task(INT code,void *context) {
         input.sensor_fresh=so && scan.state!=S5_FAULT &&
             (!scan.valid || (scan.distance_mm>0 && scan.distance_mm<=5000U)) &&
             now.lo-scan.time_ms<(scan.valid?S5_STALE_MS:S5_INVALID_STALE_MS);
+        /* An obstacle needs S5_ACQUISITION_SAMPLES consecutive new forward
+         * echoes within S5_OBSTACLE_MM (S5 starts its scan on the same
+         * count): one stray echo neither starts an acquisition nor stops the
+         * line run. A no-echo retry is no reading (neither counts nor
+         * resets); a far echo, open space (three no-echoes) or an off-axis
+         * echo ends the streak. While tracking the robot also holds for one
+         * echo within the 5 cm guidance distance, for an invalidated sample
+         * (S5 re-centring: no usable distance) and for a no-echo right after
+         * a near echo; a no-echo with no near echo before it does not stop
+         * it. Avoidance phases keep the single-sample checks. */
+        BOOL forward=scan.angle_deg==0 && scan.sample_angle_deg==0;
+        BOOL open=forward && s5_sample_is_open(&scan);
+        BOOL no_echo=!scan.valid && (scan.echo_result==S5_ECHO_NO_RISE || scan.echo_result==S5_ECHO_NO_FALL);
+        BOOL obstacle_confirmed=vehicle_obstacle_confirm_step(&obstacle_confirm,so && (scan.valid || open),
+            scan.time_ms,forward && scan.valid && scan.distance_mm<=S5_OBSTACLE_MM,S5_ACQUISITION_SAMPLES);
         input.front_clear=input.sensor_fresh && scan.angle_deg==0 &&
-            s5_direction_clear(&scan,(state.vehicle.phase==VC_TRACK || state.vehicle.phase==VC_ACQUIRE)?
-                S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM);
-        input.obstacle=input.sensor_fresh && ((scan.valid && scan.angle_deg==0 && scan.distance_mm<=S5_OBSTACLE_MM) ||
+            (state.vehicle.phase==VC_TRACK ?
+                forward && !obstacle_confirmed &&
+                ((scan.valid && scan.distance_mm>S5_GUIDANCE_OBSTACLE_MM) || open ||
+                 (no_echo && !obstacle_confirm.streak)) :
+                s5_direction_clear(&scan,state.vehicle.phase==VC_ACQUIRE?S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM));
+        input.obstacle=input.sensor_fresh && (obstacle_confirmed ||
             s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION);
         input.width_valid=input.sensor_fresh && scan.object_width_valid &&
             scan.object_width_max_mm<=AVOID_MAX_WIDTH_MM;
@@ -484,6 +514,23 @@ static void vehicle_task(INT code,void *context) {
             requested_sensor_mode=TRUE;previous_phase=phase;previous_look=look;
             if(pause || !state.vehicle.armed){state.vehicle.command=0;state.vehicle.power=0;}
         }
+#if BOARD_RAMP_SPEED
+        {
+            int32_t p=terrain_pitch_cdeg(&terrain),r=terrain_roll_cdeg(&terrain);
+            unsigned rs=vehicle_ramp_step(&ramp,now.lo,state.vehicle.armed,terrain.tilt_valid,
+                (int32_t)lround(sqrt((double)p*p+(double)r*r)),BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
+                BOARD_RAMP_CREST_DROP_CDEG,BOARD_RAMP_HOLD_MS,BOARD_RAMP_LEVEL_MS);
+            if(rs==RAMP_DONE) {
+                /* Level again: the bench test stops; a mission resumes normal
+                 * speed and watches for the next ramp. */
+                if(BOARD_RAMP_STOP_AFTER && state.vehicle.armed) {s2_emergency_stop();vc_stop(&state.vehicle,VC_OK);}
+                ramp=(vehicle_ramp_t){0};
+            } else if(state.vehicle.phase==VC_TRACK && state.vehicle.command==S2_MOVE_FORWARD) {
+                unsigned cap=rs==RAMP_UP?BOARD_RAMP_UP_POWER:rs==RAMP_DOWN?BOARD_RAMP_DOWN_POWER:0U;
+                if(cap && state.vehicle.power>cap) state.vehicle.power=(uint8_t)cap;
+            }
+        }
+#endif
 #if BOARD_BARCODE_RETRY_DRIVE
         /* Any fault or obstacle leaves VC_TRACK (or disarms), which ends the
          * sequence; within it, the policy's sonar STOP only gates forward motion. */
@@ -548,7 +595,7 @@ static void vehicle_task(INT code,void *context) {
             BOOL course_on=state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
                 state.vehicle.command==S2_MOVE_FORWARD && input.line_fresh && !junction_offset;
             if(track_stopped) {
-                /* Resuming after a TRACK STOP (e.g. a sonar dropout): the
+                /* Resuming after a TRACK STOP (e.g. sonar re-centring): the
                  * standstill must not count as time on a side or in a phase,
                  * or the steer resumes at full / a pivot and overshoots. */
                 if(course_on) ir_line_course_shift(&course,now.lo-track_stop_ms,straddle.sample_ms);

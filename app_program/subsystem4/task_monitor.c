@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "subsystem4.h"
 #include "terrain.h"
+#include "imu_mount.h"
 
 static INT display_age(uint32_t age)
 {
@@ -41,9 +42,13 @@ void monitor_task(INT start_code, void *p_exinf)
 
             if (s4_sensor_get_status(&status) >= E_OK)
             {
+                int32_t robot[3];
+
+                s4_imu_to_robot(status.latest.accel.milli_units, robot,
+                    BOARD_IMU_FRONT_AXIS, BOARD_IMU_LEFT_AXIS, BOARD_IMU_UP_AXIS);
                 terrain_step(&tilt,
                     (uint32_t)(status.latest.accel.read_time_us / 1000U),
-                    status.latest.accel.milli_units, status.accel_usable,
+                    robot, status.accel_usable,
                     0, false, BOARD_TERRAIN_CALIBRATED,
                     BOARD_PITCH_ZERO_CDEG, BOARD_ROLL_ZERO_CDEG);
                 tm_printf((UB *)"[S4] %u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,"

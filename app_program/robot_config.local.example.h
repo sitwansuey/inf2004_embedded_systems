@@ -16,7 +16,10 @@
 #define BOARD_TICKS_PER_REV 0
 #define BOARD_WHEEL_CIRCUMFERENCE_MM 0
 #define BOARD_TRACK_WIDTH_MM 0
-#define BOARD_TERRAIN_CALIBRATED 0 /* must establish X forward, Y left, Z up */
+#define BOARD_TERRAIN_CALIBRATED 0 /* after measuring the axes and zeros */
+#define BOARD_IMU_FRONT_AXIS 1 /* signed sensor axis to the robot's front */
+#define BOARD_IMU_LEFT_AXIS 2 /* ... to its left (1=X 2=Y 3=Z, - = minus) */
+#define BOARD_IMU_UP_AXIS 3 /* ... and up; must be right-handed */
 #define BOARD_PITCH_ZERO_CDEG 0
 #define BOARD_ROLL_ZERO_CDEG 0
 #define BOARD_BYPASS_VALIDATED 0

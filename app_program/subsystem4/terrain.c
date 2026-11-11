@@ -27,7 +27,9 @@ void terrain_step(terrain_t *s,uint32_t ms,const int32_t a[3],bool av,
     if (norm<800LL*800 || norm>1200LL*1200 || a[2]<=0) {
         abandon(s); s->initialized=0; return;
     }
-    double pitch=atan2(-(double)a[0],sqrt((double)a[1]*a[1]+(double)a[2]*a[2]));
+    /* Robot frame, X front, Y left, Z up, reading +1 g up at rest
+     * (imu_mount.h). Nose-up (climbing) pitch and left-up roll are positive. */
+    double pitch=atan2((double)a[0],sqrt((double)a[1]*a[1]+(double)a[2]*a[2]));
     double roll=atan2((double)a[1],(double)a[2]);
     int pc=(int)lround(pitch*CDEG_PER_RAD)-pzero;
     int rc=(int)lround(roll*CDEG_PER_RAD)-rzero;

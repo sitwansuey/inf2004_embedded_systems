@@ -104,7 +104,7 @@ static void backup(void){
  i.now_ms=AVOID_BACKUP_MS+250+AVOID_BACKUP_STILL_MS-1;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
  i.now_ms=AVOID_BACKUP_MS+250+AVOID_BACKUP_STILL_MS;vc_step(&s,&i);
  assert(s.phase==VC_TURN_OUT && !s.command && s.backup_mm==153 && s.pass_check_mm==175+153); /* 152.001 mm rounds up */
- /* Tilt drops out while reversing (fore-aft rocking): VC_BACKUP carries on,
+ /* Tilt drops out while reversing (a jolt): VC_BACKUP carries on,
   * and the stand-still still ends normally; TURN_OUT then requires tilt again. */
  s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.backup_moving=1,.backup_started_ms=0};i=good();i.terrain_valid=0;
  i.now_ms=AVOID_BACKUP_MS/2;i.distance_um=-60000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.armed);
