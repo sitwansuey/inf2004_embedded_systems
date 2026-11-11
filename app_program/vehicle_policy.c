@@ -262,6 +262,16 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         return;
     } else {
         if (!i->front_clear && !s->look_side) return;
+        /* Line search on the way back from a bypass: in TURN_IN, RETURN and
+         * RESTORE the sensor on the line's side touches it first; once it
+         * releases into the gap between the sensors (or both are on it) the
+         * line is centred, so track it from there rather than finishing the
+         * fixed angle/distance moves past it. */
+        if ((s->phase==VC_TURN_IN || s->phase==VC_RETURN || s->phase==VC_RESTORE) && i->line_fresh) {
+            unsigned mask=i->line_black_mask&3U, lead=s->turn_deg>0?1U:2U;
+            if (mask==3U || (s->nav_touched && mask==0U)) {enter(s,i,VC_TRACK);return;}
+            if (mask&lead) s->nav_touched=1;
+        }
         int target=0;unsigned next=VC_FAULT;
         switch(s->phase) {
         case VC_TURN_OUT: target=s->turn_deg*1000;next=VC_DIAGONAL;break;
@@ -349,7 +359,12 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
                 bool scan=s->phase==VC_NAV_TURN && !touched &&
                     (guided || s->turn_deg==180 || i->spot_scan_all);
                 bool uturn=s->phase==VC_NAV_TURN && s->turn_deg==180;
-                enter(s,i,next);s->spot_scan=scan;
+                /* A bypass that restored its heading without centring on the
+                 * line searches for it (only a sensor on black ends the
+                 * search), toward the line's side first. */
+                bool restored=s->phase==VC_RESTORE;
+                enter(s,i,next);s->spot_scan=scan || restored;
+                if (restored) s->search_right_first=s->turn_deg>0;
                 if (uturn && i->uturn_ignore_mm) {s->uturn_guard=1;s->uturn_end_um=i->distance_um;}
                 return;
             }

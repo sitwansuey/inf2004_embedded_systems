@@ -20,8 +20,11 @@
 #define S5_SETTLE_MS 150
 #define S5_SAMPLE_MS 65 /* datasheet: measurement cycle over 60 ms */
 #define S5_WIDTH_PUBLISH_MS 300U /* widths published, vehicle stopped, before the side is chosen */
-#define S5_MAX_ANGLE 90 /* three 30-degree coarse checks per side */
-#define S5_SCAN_STEP_DEG 30
+#define S5_MAX_ANGLE 90 /* servo and geometry limit */
+/* Acquisition: left at 20, 40, 60 deg until one is clear, then 1 deg at a
+ * time inward to the edge; the right is checked at the mirrored angle. */
+#define S5_SCAN_STEP_DEG 20
+#define S5_SCAN_COARSE_STEPS 3
 #define S5_REFINE_STEP_DEG 1
 #define S5_TARGET_DEPTH_TOLERANCE_MM 20U
 #define S5_SERVO_MS_PER_DEG 10U

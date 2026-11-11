@@ -82,6 +82,8 @@ static void vehicle_task(INT code,void *context) {
     uint32_t tilt_ok_ms=0;BOOL tilt_seen=FALSE; /* last valid gravity tilt */
     vehicle_obstacle_confirm_t obstacle_confirm={0};
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
+    BOOL bc_nullify=FALSE; /* a barcode read that started in a bend: ignore its outcome */
+    BOOL bend_was=FALSE;int32_t bend_yaw0=0; /* bend mode entry heading (360 deg safety) */
     BOOL shock_prev=FALSE; /* S4 shock in the previous tick (rising-edge count) */
 #if BOARD_BARCODE_RETRY_DRIVE
     unsigned br_state=BR_IDLE,br_next=BR_IDLE;
@@ -288,10 +290,18 @@ static void vehicle_task(INT code,void *context) {
             input.line_fresh && line.output.error==S3_ERROR_NONE,
             line.output.line.black_mask & 3U,line.output.line.error);
         input.curve_hold=curve_memory.turning && input.line_fresh;
+#if BOARD_LINE_STRADDLE
+        BOOL bend_now=BOARD_LINE_BEND_STEER && course.bend_side && state.vehicle.armed &&
+            state.vehicle.phase==VC_TRACK;
+#else
+        BOOL bend_now=FALSE;
+#endif
         for(unsigned n=0;n<S3_EVENT_CAPACITY;++n) {
             s3_event_record_t e;ER er=s3_event_receive(&e);if(er==E_TMOUT)break;
             if(er<0) {input.transport_ok=0;break;}
             if(e.event.kind==S3_EVENT_NAVIGATION) {
+                /* A decode from a bend (the line crossing GP28) is ignored. */
+                if(bend_now || bc_nullify) continue;
                 input.navigation_event=1;input.nav=(uint8_t)e.event.command;
                 state.navigation=(uint8_t)e.event.command;state.barcode=(e.event.symbol>='A' && e.event.symbol<='Z')?(uint8_t)(e.event.symbol-'A'+1):0;
             } else if(e.event.kind==S3_EVENT_RECOVERY_REQUEST) input.recovery_event=1;
@@ -330,7 +340,7 @@ static void vehicle_task(INT code,void *context) {
                 course.side_last_ms-course.side_since_ms>=IR_COURSE_SIDE_HOLD_MS &&
                 now.lo-course.side_last_ms<30U);
             input.junction=input.line_fresh && input.line_black_mask==3U &&
-                line.output.barcode_black && !corner;
+                line.output.barcode_black && !corner && !bend_now;
         }
         input.nav_offset_mm=(uint16_t)BOARD_NAV_JUNCTION_OFFSET_MM;
         input.nav_search_mm=(uint16_t)BOARD_NAV_JUNCTION_SEARCH_MM;
@@ -384,6 +394,13 @@ static void vehicle_task(INT code,void *context) {
                         (void)s3_controller_barcode_end();
                 }
                 br_end_result=line.output.barcode_result;
+            }
+            /* Barcode readings are ignored in a bend: a read that starts
+             * there neither re-reads nor turns, until it has ended. */
+            if(bend_now && reading) bc_nullify=TRUE;
+            if(bc_nullify) {
+                hit=miss=full=FALSE;
+                if(!bend_now && !reading && now.lo-br_change_ms>=300U) bc_nullify=FALSE;
             }
             BOOL quiet=now.lo-br_change_ms>=BOARD_BARCODE_RETRY_IDLE_MS;
             unsigned moved=br_abs_um(odom->distance_um,br_origin_um);
@@ -472,7 +489,7 @@ static void vehicle_task(INT code,void *context) {
         /* A barcode is being read (not just a single crossing line): drive
          * straight across it, since the course's time-based cross/corner
          * limits would misjudge its bars at the slow reading speed. */
-        BOOL marker_reading=li && line.configured &&
+        BOOL marker_reading=li && line.configured && !bend_now && !bc_nullify &&
             line.output.barcode_result==S3_BARCODE_RESULT_READING && line.output.barcode_elements>=3U;
         (void)marker_reading; /* unused without straddle or the slow cap */
 #if BOARD_LINE_STRADDLE
@@ -532,6 +549,12 @@ static void vehicle_task(INT code,void *context) {
                 if(cap && state.vehicle.power>cap) state.vehicle.power=(uint8_t)cap;
             }
         }
+#endif
+#if BOARD_LINE_STRADDLE
+        if(BOARD_LINE_BEND_POWER && BOARD_LINE_BEND_STEER && course.bend_side &&
+           state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
+           state.vehicle.command==S2_MOVE_FORWARD && state.vehicle.power>BOARD_LINE_BEND_POWER)
+            state.vehicle.power=(uint8_t)BOARD_LINE_BEND_POWER;
 #endif
 #if BOARD_BARCODE_RETRY_DRIVE
         /* Any fault or obstacle leaves VC_TRACK (or disarms), which ends the
@@ -604,7 +627,16 @@ static void vehicle_task(INT code,void *context) {
                 track_stopped=FALSE;
             }
             unsigned direction=ir_line_course_step(&course,&straddle,now.lo,course_on);
-            if(course_on && course.fault) {
+            /* Bend mode keeps turning until the other IR sees black; a full
+             * BOARD_LINE_BEND_MAX_TURN_DEG without it means the line is gone. */
+            BOOL bend_mode=course_on && BOARD_LINE_BEND_STEER && course.bend_side;
+            if(bend_mode && !bend_was) bend_yaw0=odom_turn_mdeg(odom);
+            bend_was=bend_mode;
+            int32_t bend_turned=odom_turn_mdeg(odom)-bend_yaw0;
+            if(bend_turned<0) bend_turned=-bend_turned;
+            BOOL bend_spun=bend_mode && BOARD_LINE_BEND_MAX_TURN_DEG &&
+                bend_turned>BOARD_LINE_BEND_MAX_TURN_DEG*1000;
+            if(course_on && (course.fault || bend_spun)) {
                 s2_emergency_stop();vc_stop(&state.vehicle,VC_LINE);er=E_OK;
             } else if(course_on && (direction==IR_LINE_LEFT || direction==IR_LINE_RIGHT)) {
                 /* Side touches steer while the course is tracking; corner
@@ -613,6 +645,9 @@ static void vehicle_task(INT code,void *context) {
                 if(BOARD_PID_ENABLED && BOARD_LINE_SMOOTH_STEER && course.phase==IR_COURSE_TRACK)
                     steer=line_steer_amount(now.lo-course.side_since_ms,BOARD_LINE_STEER_MIN,
                         BOARD_LINE_STEER_MAX,BOARD_LINE_STEER_RAMP_MS,BOARD_LINE_PIVOT_AFTER_MS);
+                if(steer!=LINE_STEER_PIVOT && bend_mode &&
+                   course.bend_side==(direction==IR_LINE_RIGHT?1U:2U) && steer<BOARD_LINE_BEND_STEER)
+                    steer=BOARD_LINE_BEND_STEER;
                 if(steer==LINE_STEER_PIVOT) {
                     line_curve=0;follow_code=direction==IR_LINE_RIGHT?3U:4U;
                     er=s2_movement_send((s2_move_command_t)direction,state.vehicle.power);
@@ -623,6 +658,11 @@ static void vehicle_task(INT code,void *context) {
                 }
             } else if((course_on || junction_offset) && BOARD_PID_ENABLED) {
                 line_curve=0;
+                if(bend_mode && course.phase==IR_COURSE_TRACK) {
+                    /* Both sensors white in bend mode: keep the turn. */
+                    line_curve=(INT)(course.bend_side==1U?BOARD_LINE_BEND_STEER:-BOARD_LINE_BEND_STEER);
+                    follow_code=course.bend_side==1U?1U:2U;follow_steer=(int16_t)line_curve;
+                }
                 if(junction_offset && marker_reading && !state.vehicle.nav_offset && input.line_fresh) {
                     /* Reading a barcode: no course, but keep the line. */
                     unsigned m=straddle.result.black_mask&3U;

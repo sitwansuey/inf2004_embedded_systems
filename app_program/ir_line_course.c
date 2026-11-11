@@ -52,6 +52,15 @@ unsigned ir_line_course_step(ir_line_course_t *s,const ir_line_trace_t *line,
     }
     if(mask==1U || mask==2U) {
         if(!s->side_streak || s->side!=mask) {
+            /* A new touch: another on the same side counts up (the third
+             * enters bend mode there); the other side ends bend mode and
+             * starts its own count. */
+            if(s->bend_candidate==mask) {
+                if(s->bend_level<7U) ++s->bend_level;
+            } else {
+                s->bend_level=1U;s->bend_side=0U;s->bend_candidate=(uint8_t)(mask&3U);
+            }
+            if(s->bend_level>=IR_COURSE_BEND_TOUCHES) s->bend_side=(uint8_t)(mask&3U);
             s->side=(uint8_t)(mask&3U);s->side_since_ms=line->sample_ms;
         }
         s->side_streak=1U;s->side_last_ms=line->sample_ms;
@@ -63,6 +72,7 @@ unsigned ir_line_course_step(ir_line_course_t *s,const ir_line_trace_t *line,
     bool corner=s->side_streak &&
         line->sample_ms-s->side_since_ms>=IR_COURSE_SIDE_HOLD_MS &&
         now-s->side_last_ms<30U;
+    s->bend_level=0U;s->bend_side=0U;s->bend_candidate=0U;
     s->phase=corner?(s->side==2U?IR_COURSE_HOLD_LEFT:IR_COURSE_HOLD_RIGHT):
                     IR_COURSE_CROSS_STRAIGHT;
     s->entered_ms=now;s->white_pending=0U;

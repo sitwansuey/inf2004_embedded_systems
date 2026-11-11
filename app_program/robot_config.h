@@ -400,6 +400,25 @@
 #if BOARD_LINE_WHITE_PERMILLE >= BOARD_LINE_BLACK_PERMILLE || BOARD_LINE_BLACK_PERMILLE > 1000
 #error Straddle thresholds: WHITE < BLACK <= 1000 per mille
 #endif
+/* Bend mode (straddle, ir_line_course.h): after IR_COURSE_BEND_TOUCHES
+ * same-side touches the robot keeps turning that way at BOARD_LINE_BEND_STEER
+ * (also between touches, both sensors white) until the other IR sees black.
+ * In bend mode power is capped at BOARD_LINE_BEND_POWER (0 = no cap) and
+ * barcode readings are ignored; turning BOARD_LINE_BEND_MAX_TURN_DEG without
+ * the other IR seeing black stops with a line fault (0 = no limit).
+ * BOARD_LINE_BEND_STEER 0 turns bend mode off. */
+#ifndef BOARD_LINE_BEND_STEER
+#define BOARD_LINE_BEND_STEER 400
+#endif
+#ifndef BOARD_LINE_BEND_POWER
+#define BOARD_LINE_BEND_POWER 20U
+#endif
+#ifndef BOARD_LINE_BEND_MAX_TURN_DEG
+#define BOARD_LINE_BEND_MAX_TURN_DEG 360
+#endif
+#if BOARD_LINE_BEND_STEER < 0 || BOARD_LINE_BEND_STEER > 400 || BOARD_LINE_BEND_POWER > 50
+#error Bend mode: steer 0..400, power 0..50
+#endif
 /* Ramp speed handling (phase 5), 0 = off. The terrain tilt is computed
  * from accelerometer samples smoothed over BOARD_IMU_SMOOTH_MS (samples
  * outside BOARD_IMU_SMOOTH_MIN/MAX_MG skipped). While tracking (the line is

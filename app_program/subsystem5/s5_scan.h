@@ -23,6 +23,8 @@ typedef struct
     uint8_t plan_pending : 1;
     uint8_t width_hold : 1; /* VERIFY_CLEAR publishes widths before the plan */
     uint8_t side_retry : 1; /* the other side was already planned once */
+    uint8_t right_coarse : 1; /* left blocked through 60 deg: right searched coarsely */
+    INT forced_side; /* plan side: 0 smaller half, +1 LEFT, -1 RIGHT */
 } s5_scan_context_t;
 #ifndef S5_EDGE_RETREATS
 #define S5_EDGE_RETREATS 3U

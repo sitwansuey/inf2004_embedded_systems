@@ -8,6 +8,14 @@
 #define IR_COURSE_WHITE_HOLD_MS 30U
 #define IR_COURSE_CROSS_MAX_MS 500U
 #define IR_COURSE_TURN_MAX_MS 800U
+/* Bend mode: touches on one side with no touch on the other side between
+ * them (however far apart) count up in bend_level; the
+ * IR_COURSE_BEND_TOUCHES-th sets bend_side, bend mode on that side. It ends
+ * only when the other sensor sees black (that touch starts its own count)
+ * or both sensors are black. Not time based. */
+#ifndef IR_COURSE_BEND_TOUCHES
+#define IR_COURSE_BEND_TOUCHES 2U
+#endif
 enum {
     IR_COURSE_TRACK, IR_COURSE_CROSS_STRAIGHT,
     IR_COURSE_HOLD_LEFT, IR_COURSE_HOLD_RIGHT
@@ -16,6 +24,7 @@ typedef struct {
     uint32_t entered_ms,side_since_ms,side_last_ms,white_since_ms;
     uint8_t phase:2,side:2,side_streak:1,white_pending:1;
     uint8_t fault:4;
+    uint8_t bend_level:3,bend_side:2,bend_candidate:2; /* side 1 right, 2 left; bend_side 0: no bend mode */
 } ir_line_course_t;
 
 void ir_line_course_reset(ir_line_course_t *course);
