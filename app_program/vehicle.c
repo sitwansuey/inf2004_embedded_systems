@@ -84,6 +84,7 @@ static void vehicle_task(INT code,void *context) {
     vehicle_obstacle_confirm_t obstacle_confirm={0};
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
     BOOL bc_nullify=FALSE; /* a barcode read that started in a bend: ignore its outcome */
+    BOOL lift_timing=FALSE;uint32_t lift_since=0; /* robot lifted (no surface under the IRs) */
     BOOL bend_was=FALSE;int32_t bend_prev_yaw=0,bend_spin=0; /* 360 deg bend safety */
     edge_trace_t edge={0};int32_t edge_lost_turn=0; /* edge tracing; turning while lost */
     uint8_t chain_side=0;int32_t chain_turn=0; /* turning since an S-bend flip */
@@ -488,7 +489,22 @@ static void vehicle_task(INT code,void *context) {
         }
         if(li && line.output.last_symbol>='A' && line.output.last_symbol<='Z')
             state.barcode=(uint8_t)(line.output.last_symbol-'A'+1);
+        /* Lifted (no surface under the line IRs, GP28 black): in the hand the
+         * tilt reading means nothing, so it never faults; BOARD_LIFT_FAULT_MS
+         * of it while running stops with VC_LIFTED instead (a shorter lift
+         * does not fault). */
+        {
+            BOOL lifted=BOARD_LIFT_FAULT_MS && li && line.configured && line.sample.raw[0]>=BOARD_LIFT_RAW &&
+                line.sample.raw[1]>=BOARD_LIFT_RAW && line.output.barcode_black;
+            if(!lifted) lift_timing=FALSE;
+            else if(!lift_timing) {lift_timing=TRUE;lift_since=now.lo;}
+            if(lifted) input.terrain_valid=1;
+        }
         vc_step(&state.vehicle,&input);
+        if(BOARD_LIFT_FAULT_MS && state.vehicle.armed && lift_timing &&
+           now.lo-lift_since>=BOARD_LIFT_FAULT_MS) {
+            s2_emergency_stop();vc_stop(&state.vehicle,VC_LIFTED);
+        }
         /* A barcode is being read (not just a single crossing line): drive
          * straight across it, since the course's time-based cross/corner
          * limits would misjudge its bars at the slow reading speed. */

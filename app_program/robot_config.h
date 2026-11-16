@@ -400,6 +400,15 @@
 #if BOARD_LINE_WHITE_PERMILLE >= BOARD_LINE_BLACK_PERMILLE || BOARD_LINE_BLACK_PERMILLE > 1000
 #error Straddle thresholds: WHITE < BLACK <= 1000 per mille
 #endif
+/* Lifted: while running, both line IRs at or above BOARD_LIFT_RAW (no surface
+ * under them: the ADC near full scale; the black line stays below ~3530) and
+ * GP28 black for BOARD_LIFT_FAULT_MS stops the run with VC_LIFTED (0 = off). */
+#ifndef BOARD_LIFT_RAW
+#define BOARD_LIFT_RAW 3700U
+#endif
+#ifndef BOARD_LIFT_FAULT_MS
+#define BOARD_LIFT_FAULT_MS 2000U
+#endif
 /* Mask-pivot follower (straddle builds), 0 = off. The teammates' working
  * follower: right IR black -> pivot right, left IR black -> pivot left,
  * neither or both -> forward. No bend states, no crossing/corner deadlines

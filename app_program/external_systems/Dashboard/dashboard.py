@@ -23,7 +23,7 @@ WIDTH_TOPICS = ("/width_cm", "/width_left_cm", "/width_right_cm")
 MAP_TURNS = {"ignore": 0, "left": 1, "right": 2, "forward": 3, "uturn": 4}
 MAP_LABELS = ("Ignore", "Left", "Right", "Forward", "U-turn")
 DEFAULT_BARCODE_MAP = {"A": "U-turn", "F": "Left", "Z": "Right"}
-FAULTS = ("none", "sensor", "line", "shock", "transport", "run timeout", "uncalibrated", "motor")
+FAULTS = ("none", "sensor", "line", "shock", "transport", "run timeout", "uncalibrated", "motor", "lifted")
 
 def availability_mask(topic):
     """Only live observations are invalidated; decoded command history persists."""
@@ -105,7 +105,7 @@ class BrokerBridge:
             if getattr(message, "retain", False):
                 return
             data = message.payload
-            if len(data) != 6 or data[0] != 0xC2 or data[2] > 4 or data[3] > 3 or data[4] > 13 or data[5] > 7:
+            if len(data) != 6 or data[0] != 0xC2 or data[2] > 4 or data[3] > 3 or data[4] > 13 or data[5] >= len(FAULTS):
                 return
             with self.ack_condition:
                 entry = self.pending_commands.get(data[1])
@@ -300,14 +300,9 @@ class BrokerBridge:
 
     def snapshot(self):
         with self.lock:
-            now=time.monotonic()
-            for topic, reading in self.readings.items():
-                # Width is a scan result, not a live range sample. Retain it
-                # between reports while the stream is alive and quality valid.
-                keep_width=topic.endswith(WIDTH_TOPICS) and self.width_valid and now-self.last_received_monotonic<=1.0
-                if reading["payload"] is not None and not keep_width and now-reading["received_monotonic"]>1.0:
-                    self.sequence+=1
-                    reading.update(payload=None,sequence=self.sequence)
+            # Every reading keeps its latest value until a new one arrives
+            # (the page marks it stale after a while); only an explicit robot
+            # validity flag or a broker reconnect clears it.
             return {
                 "status": self.status,
                 "mqtt_topic": PACKED_TOPIC,

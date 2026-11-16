@@ -44,8 +44,9 @@ class WidthPipeline(unittest.TestCase):
    with self.assertRaises(ValueError):decode_messages(packet(8,value))
  def test_offline_or_disconnect_clears_width(self):
   b=BrokerBridge();send(b,packet(8,35),10);send(b,packet(9,1),10.1)
+  # No time expiry: the width keeps its latest value while the bridge waits.
   with patch('dashboard.time.monotonic',return_value=12):
-   self.assertTrue(all(x['payload'] is None for x in b.snapshot()['messages']))
+   b.snapshot();self.assertIsNotNone(b.readings[WIDTH]['payload'])
   send(b,packet(8,35),13);b.reset_observations();self.assertFalse(b.width_valid)
   self.assertIsNone(b.readings[WIDTH]['payload'])
   send(b,packet(8,128|5),14);b.reset_observations();self.assertIsNone(b.readings[LEFT]['payload'])

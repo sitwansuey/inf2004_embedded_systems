@@ -70,7 +70,7 @@ const STATUS_TEXT = { current: 'Received', snapshot: 'Snapshot', stale: 'Stale',
 const SUBSYSTEMS = [['motion','Motion','02'],['navigation','Navigation','03'],['terrain','Terrain','04'],['obstacle','Obstacles','05'],['system','Controller','05']];
 const SUBSYSTEM_LABEL = Object.fromEntries(SUBSYSTEMS.map(([id,label])=>[id,label]));
 const SUBSYSTEM_FIELDS = Object.fromEntries(SUBSYSTEMS.map(([id])=>[id,[...new Set(groups.filter(([key])=>key===id).flatMap(group=>group[4]))]]));
-const FAULT_NAMES = ['none','sensor','line','shock','transport','run timeout','uncalibrated','motor'];
+const FAULT_NAMES = ['none','sensor','line','shock','transport','run timeout','uncalibrated','motor','lifted'];
 const DIRECTION_ICON = { FORWARD:['arrow',0], RIGHT:['arrow',90], REVERSE:['arrow',180], LEFT:['arrow',270], PIVOT_RIGHT:['rotate-cw',0], PIVOT_LEFT:['rotate-ccw',0], STOP:['stop',0] };
 const TURN_ICON = { Left:['arrow',270], Right:['arrow',90], Forward:['arrow',0], Straight:['arrow',0], 'U-turn':['rotate-ccw',0] };
 const TURN_VALUES = { Forward:'forward', Left:'left', Right:'right', 'U-turn':'uturn', Ignore:'ignore' };
@@ -694,7 +694,7 @@ function noticeFor(now) {
     : ['stale', 'Dashboard shell · No robot connection. Values appear when telemetry is supplied.'];
   if (receiver.error) return ['stale', 'Start dashboard.py and open its HTTP URL to receive MQTT updates.'];
   if (receiver.status !== 'MQTT subscribed') return ['stale', `${receiver.status} · Displayed values may be from earlier messages.`];
-  const subscribed = `Subscribed to ${receiver.mqttTopic} · ${receiver.receivedPackets} packets decoded · ${receiver.rejectedPackets} rejected · Readings expire after 1 second; mission availability flags indicate sensor validity.`;
+  const subscribed = `Subscribed to ${receiver.mqttTopic} · ${receiver.receivedPackets} packets decoded · ${receiver.rejectedPackets} rejected · Readings keep their latest value (marked stale after 5 s without an update); mission availability flags indicate sensor validity.`;
   if (receiver.lastReceivedAt === null) return ['stale', `Waiting for telemetry · ${subscribed}`];
   if (now - receiver.lastReceivedAt > STALE_AFTER_MS) return ['stale', `No recent packets · ${subscribed}`];
   return ['live', subscribed];

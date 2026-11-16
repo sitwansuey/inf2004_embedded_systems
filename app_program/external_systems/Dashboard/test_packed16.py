@@ -148,9 +148,10 @@ class DashboardTests(unittest.TestCase):
         with self.assertRaises(ValueError): encode_packet(0,14)
         feed(bridge,PACKED_TOPIC,encode_packet(0,10<<8))
         self.assertIsNone(bridge.readings[READINGS[1]]['payload'])
+        # Readings keep their latest value however old: no time expiry.
         with patch('dashboard.time.monotonic',return_value=10**12):
             snapshot=bridge.snapshot()
-        self.assertTrue(all(m['payload'] is None for m in snapshot['messages']))
+        self.assertEqual({m['topic']:m['payload'] for m in snapshot['messages']}[peak],45.5)
 
     def test_barcode_read_history(self):
         bridge=BrokerBridge()
