@@ -171,13 +171,13 @@
 /* 2026-11-10: 150 / 300 ms reacted too gently for tight bends (a sim of the
  * course lost every 90 deg bend of <=100 mm radius); 250 / 150 ms holds them. */
 #ifndef BOARD_LINE_STEER_MIN
-#define BOARD_LINE_STEER_MIN 250 /* first correction: inner wheel ~60% of the outer */
+#define BOARD_LINE_STEER_MIN 200 /* first correction; 150 was too weak for bends, 250 wobbled on straights */
 #endif
 #ifndef BOARD_LINE_STEER_MAX
-#define BOARD_LINE_STEER_MAX 400 /* after the ramp: ~141 mm turn radius */
+#define BOARD_LINE_STEER_MAX 400 /* after the ramp (~141 mm radius); 300 lost sharp bends */
 #endif
 #ifndef BOARD_LINE_STEER_RAMP_MS
-#define BOARD_LINE_STEER_RAMP_MS 150U /* MIN -> MAX while the same sensor stays on black */
+#define BOARD_LINE_STEER_RAMP_MS 150U /* MIN -> MAX while the same sensor stays on black; 300 lost sharp bends */
 #endif
 /* While a barcode is read (>= 3 elements) the course is off; still steer
  * gently toward a single straddle sensor on black, up to this (0 = drive
@@ -400,6 +400,49 @@
 #if BOARD_LINE_WHITE_PERMILLE >= BOARD_LINE_BLACK_PERMILLE || BOARD_LINE_BLACK_PERMILLE > 1000
 #error Straddle thresholds: WHITE < BLACK <= 1000 per mille
 #endif
+/* Mask-pivot follower (straddle builds), 0 = off. The teammates' working
+ * follower: right IR black -> pivot right, left IR black -> pivot left,
+ * neither or both -> forward. No bend states, no crossing/corner deadlines
+ * (junction turns, avoidance and barcode reads are unchanged). Takes
+ * precedence over BOARD_LINE_EDGE_TRACE. */
+#ifndef BOARD_LINE_MASK_PIVOT
+#define BOARD_LINE_MASK_PIVOT 0
+#endif
+/* Edge tracing (straddle builds, vehicle_edge_trace.h), 0 = off (touch
+ * course + bend mode). One IR rides one edge of the line at
+ * BOARD_LINE_EDGE_SET darkness and steers BOARD_LINE_EDGE_KP_MILLI steer
+ * units per 1000 darkness of error (plus _KD_MILLI per sample change), up to
+ * +/-400. BOARD_LINE_EDGE_RIGHT 1: the right IR rides the line's right edge.
+ * Power drops by up to BOARD_LINE_EDGE_SLOW_PERMILLE at full steer. Darkness
+ * is per mille of each sensor's calibrated white..black range. */
+#ifndef BOARD_LINE_EDGE_TRACE
+#define BOARD_LINE_EDGE_TRACE 0
+#endif
+#ifndef BOARD_LINE_EDGE_RIGHT
+#define BOARD_LINE_EDGE_RIGHT 1
+#endif
+#ifndef BOARD_LINE_EDGE_SET
+#define BOARD_LINE_EDGE_SET 500
+#endif
+#ifndef BOARD_LINE_EDGE_KP_MILLI
+#define BOARD_LINE_EDGE_KP_MILLI 800
+#endif
+#ifndef BOARD_LINE_EDGE_KD_MILLI
+#define BOARD_LINE_EDGE_KD_MILLI 0
+#endif
+#ifndef BOARD_LINE_EDGE_DEEP
+#define BOARD_LINE_EDGE_DEEP 920 /* edge IR nearly fully on the line ... */
+#endif
+#ifndef BOARD_LINE_EDGE_DEEP_MS
+#define BOARD_LINE_EDGE_DEEP_MS 250U /* ... this long: pivot toward the edge side */
+#endif
+#ifndef BOARD_LINE_EDGE_SLOW_PERMILLE
+#define BOARD_LINE_EDGE_SLOW_PERMILLE 350
+#endif
+#if BOARD_LINE_EDGE_SET < 100 || BOARD_LINE_EDGE_SET > 900 || BOARD_LINE_EDGE_KP_MILLI < 0 || \
+    BOARD_LINE_EDGE_SLOW_PERMILLE < 0 || BOARD_LINE_EDGE_SLOW_PERMILLE > 900
+#error Edge tracing: set 100..900, kp >= 0, slow 0..900
+#endif
 /* Bend mode (straddle, ir_line_course.h): after IR_COURSE_BEND_TOUCHES
  * same-side touches the robot keeps turning that way at BOARD_LINE_BEND_STEER
  * (also between touches, both sensors white) until the other IR sees black.
@@ -415,6 +458,13 @@
 #endif
 #ifndef BOARD_LINE_BEND_MAX_TURN_DEG
 #define BOARD_LINE_BEND_MAX_TURN_DEG 360
+#endif
+/* A bend chained from the opposite bend (S-bend) is only real once the robot
+ * has turned BOARD_LINE_BEND_CONFIRM_DEG its way (wheel encoders); until
+ * then the next other-side touch returns to normal tracing instead of
+ * flipping again. */
+#ifndef BOARD_LINE_BEND_CONFIRM_DEG
+#define BOARD_LINE_BEND_CONFIRM_DEG 35
 #endif
 #if BOARD_LINE_BEND_STEER < 0 || BOARD_LINE_BEND_STEER > 400 || BOARD_LINE_BEND_POWER > 50
 #error Bend mode: steer 0..400, power 0..50

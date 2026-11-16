@@ -11,6 +11,7 @@
 #include "subsystem4/imu_mount.h"
 #include "vehicle_obstacle_confirm.h"
 #include "vehicle_ramp.h"
+#include "vehicle_edge_trace.h"
 #include <math.h>
 #include "subsystem2/s2_data.h"
 #include "subsystem5/subsystem5.h"
@@ -83,7 +84,9 @@ static void vehicle_task(INT code,void *context) {
     vehicle_obstacle_confirm_t obstacle_confirm={0};
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
     BOOL bc_nullify=FALSE; /* a barcode read that started in a bend: ignore its outcome */
-    BOOL bend_was=FALSE;int32_t bend_yaw0=0; /* bend mode entry heading (360 deg safety) */
+    BOOL bend_was=FALSE;int32_t bend_prev_yaw=0,bend_spin=0; /* 360 deg bend safety */
+    edge_trace_t edge={0};int32_t edge_lost_turn=0; /* edge tracing; turning while lost */
+    uint8_t chain_side=0;int32_t chain_turn=0; /* turning since an S-bend flip */
     BOOL shock_prev=FALSE; /* S4 shock in the previous tick (rising-edge count) */
 #if BOARD_BARCODE_RETRY_DRIVE
     unsigned br_state=BR_IDLE,br_next=BR_IDLE;
@@ -626,18 +629,69 @@ static void vehicle_task(INT code,void *context) {
                 if(course_on) ir_line_course_shift(&course,now.lo-track_stop_ms,straddle.sample_ms);
                 track_stopped=FALSE;
             }
-            unsigned direction=ir_line_course_step(&course,&straddle,now.lo,course_on);
+            /* The mask-pivot follower or edge tracing replaces the touch
+             * course while tracking. */
+            BOOL pivot_on=BOARD_LINE_MASK_PIVOT && course_on;
+            BOOL edge_on=!pivot_on && BOARD_LINE_EDGE_TRACE && course_on;
+            if(!edge_on) edge=(edge_trace_t){0};
+            unsigned direction=ir_line_course_step(&course,&straddle,now.lo,course_on && !edge_on && !pivot_on);
             /* Bend mode keeps turning until the other IR sees black; a full
              * BOARD_LINE_BEND_MAX_TURN_DEG with no sensor touching the line
              * at all means the line is gone (every touch restarts it). */
             BOOL bend_mode=course_on && BOARD_LINE_BEND_STEER && course.bend_side;
-            if(bend_mode && (!bend_was || (straddle.result.black_mask&3U))) bend_yaw0=odom_turn_mdeg(odom);
+            /* Heading change this tick (odometry yaw wraps at 360 deg). */
+            int32_t yaw_now=odom_turn_mdeg(odom),yaw_step=input.odom_valid?yaw_now-bend_prev_yaw:0;
+            bend_prev_yaw=yaw_now;
+            if(yaw_step>180000) yaw_step-=360000; else if(yaw_step< -180000) yaw_step+=360000;
+            if(!bend_mode || !bend_was || (straddle.result.black_mask&3U)) bend_spin=0;
+            else bend_spin+=yaw_step;
             bend_was=bend_mode;
-            int32_t bend_turned=odom_turn_mdeg(odom)-bend_yaw0;
-            if(bend_turned<0) bend_turned=-bend_turned;
+            /* An S-bend flip is confirmed by turning its way (positive yaw is
+             * left), never by its own-side touches alone. */
+            if(bend_mode && course.bend_chained) {
+                if(chain_side!=course.bend_side) {chain_side=course.bend_side;chain_turn=0;}
+                chain_turn+=course.bend_side==2U?yaw_step:-yaw_step;
+                if(chain_turn>=BOARD_LINE_BEND_CONFIRM_DEG*1000) course.bend_chained=0U;
+            } else chain_side=0U;
             BOOL bend_spun=bend_mode && BOARD_LINE_BEND_MAX_TURN_DEG &&
-                bend_turned>BOARD_LINE_BEND_MAX_TURN_DEG*1000;
-            if(course_on && (course.fault || bend_spun)) {
+                (bend_spin>BOARD_LINE_BEND_MAX_TURN_DEG*1000 || bend_spin< -BOARD_LINE_BEND_MAX_TURN_DEG*1000);
+            if(pivot_on) {
+                /* Current mask only: pivot toward a black IR, else forward. */
+                unsigned m=straddle.result.black_mask&3U;
+                line_curve=0;follow_steer=0;
+                if(m==1U || m==2U) {
+                    follow_code=m==1U?3U:4U;
+                    er=s2_movement_send(m==1U?S2_MOVE_PIVOT_RIGHT:S2_MOVE_PIVOT_LEFT,state.vehicle.power);
+                } else {
+                    follow_code=0U;
+                    er=s2_follow_send(state.vehicle.power,0);
+                }
+            } else if(edge_on) {
+                static const edge_trace_config_t edge_cfg={BOARD_LINE_EDGE_SET,BOARD_LINE_BLACK_PERMILLE,
+                    BOARD_LINE_WHITE_PERMILLE,BOARD_LINE_EDGE_DEEP,BOARD_LINE_EDGE_KP_MILLI,
+                    BOARD_LINE_EDGE_KD_MILLI,400,BOARD_LINE_EDGE_DEEP_MS,BOARD_LINE_EDGE_RIGHT};
+                int32_t dark_r=straddle.result.darkness[0],dark_l=straddle.result.darkness[1];
+                int32_t edge_dark=BOARD_LINE_EDGE_RIGHT?dark_r:dark_l,far_dark=BOARD_LINE_EDGE_RIGHT?dark_l:dark_r;
+                edge_action_t act=edge_trace_step(&edge,&edge_cfg,now.lo,edge_dark,far_dark);
+                /* Both IRs white while steering hard toward the far side: the
+                 * line is lost; a full turn of it is a line fault. */
+                if(edge_dark<100 && far_dark<100) edge_lost_turn+=yaw_step; else edge_lost_turn=0;
+                if(edge_lost_turn>360000 || edge_lost_turn< -360000) {
+                    s2_emergency_stop();vc_stop(&state.vehicle,VC_LINE);er=E_OK;
+                } else if(act.kind==EDGE_PIVOT_EDGE || act.kind==EDGE_PIVOT_FAR) {
+                    BOOL right=(act.kind==EDGE_PIVOT_EDGE)==(BOARD_LINE_EDGE_RIGHT!=0);
+                    line_curve=0;follow_code=right?3U:4U;
+                    er=s2_movement_send(right?S2_MOVE_PIVOT_RIGHT:S2_MOVE_PIVOT_LEFT,state.vehicle.power);
+                } else {
+                    int32_t steer=act.kind==EDGE_STRAIGHT?0:act.steer;
+                    int32_t mag=steer<0?-steer:steer;
+                    UINT power=(UINT)(state.vehicle.power*(1000-mag*BOARD_LINE_EDGE_SLOW_PERMILLE/400)/1000);
+                    if(!power) power=1U;
+                    line_curve=(INT)steer;follow_steer=(int16_t)steer;
+                    follow_code=steer>0?1U:steer<0?2U:0U;
+                    er=s2_follow_send(power,line_curve);
+                }
+            } else if(course_on && (course.fault || bend_spun)) {
                 s2_emergency_stop();vc_stop(&state.vehicle,VC_LINE);er=E_OK;
             } else if(course_on && (direction==IR_LINE_LEFT || direction==IR_LINE_RIGHT)) {
                 /* Side touches steer while the course is tracking; corner
@@ -646,8 +700,12 @@ static void vehicle_task(INT code,void *context) {
                 if(BOARD_PID_ENABLED && BOARD_LINE_SMOOTH_STEER && course.phase==IR_COURSE_TRACK)
                     steer=line_steer_amount(now.lo-course.side_since_ms,BOARD_LINE_STEER_MIN,
                         BOARD_LINE_STEER_MAX,BOARD_LINE_STEER_RAMP_MS,BOARD_LINE_PIVOT_AFTER_MS);
-                if(steer!=LINE_STEER_PIVOT && bend_mode &&
-                   course.bend_side==(direction==IR_LINE_RIGHT?1U:2U) && steer<BOARD_LINE_BEND_STEER)
+                /* In bend mode, and on the touch that ends it (the robot has
+                 * turned past the line: a forced correction back), steer at
+                 * least the full bend steer; straights keep the gentle ramp. */
+                if(steer!=LINE_STEER_PIVOT && BOARD_LINE_BEND_STEER && course_on &&
+                   ((bend_mode && course.bend_side==(direction==IR_LINE_RIGHT?1U:2U)) || course.bend_exit) &&
+                   steer<BOARD_LINE_BEND_STEER)
                     steer=BOARD_LINE_BEND_STEER;
                 if(steer==LINE_STEER_PIVOT) {
                     line_curve=0;follow_code=direction==IR_LINE_RIGHT?3U:4U;

@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from packed16 import decode_messages, PACKED_TOPIC
 
 ACK_TOPIC = "csc02/command/ack"
+START_DEMAND = 20  # Start power percent (the teammates' working follower runs at 20)
 TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0)]
 COMMAND_TOPIC = "csc02/command"
 # Scan results retained between reports and cleared by quality bit 0.
@@ -221,7 +222,7 @@ class BrokerBridge:
                 label = MAP_LABELS[MAP_TURNS[turn]]
                 result, phase, fault = self.exchange(4, ord(letter) - 64, MAP_TURNS[turn])
             else:
-                result, phase, fault = self.exchange(opcodes[action], 30 if action == "start" else 0)
+                result, phase, fault = self.exchange(opcodes[action], START_DEMAND if action == "start" else 0)
             if result == 3:
                 raise RuntimeError("RoboPico rejected an expired command. Try again after checking its state.")
             if opcodes[action] == 4:

@@ -53,14 +53,41 @@ controller state, speed, tilt, scan state and hump/current-run maximum to their
 cards. Heading, event text and other untransmitted fields remain blank.
 See `docs/DATA_REPRESENTATION.md` for the ID 0 subtype table and units.
 
+## Layout
+
+The page copies the layout and look of main's React dashboard, rebuilt in
+plain HTML/CSS/JavaScript served by `dashboard.py`: no build step, no npm and
+no fonts or CDN files, so it works offline on the robot hotspot. The Robot
+test card (Reset robot, Start test, STOP, the robot's safety state and tiles
+for mission state, motion, terrain validity, fault code, barcode letter and
+instruction) stays above every tab. The tabs are:
+
+- Overview: power, range and servo dials, motor card, receiver health and
+  subsystem coverage (click a row to open its sensors).
+- Barcodes: Barcode actions form, last barcode, Codebook A–Z and barcode reads.
+- Live views: proximity radar, orientation, line sensor bars and acceleration.
+- Trends: 60 s of this browser session for the wheel encoders, line sensors
+  (left/right IR and line error) and acceleration.
+- Sensors: every display field, filterable by subsystem.
+- Events: events from an imported or demo snapshot.
+
+The selected tab is kept in the URL hash, for example
+http://127.0.0.1:8001/#barcodes. Load demo and Import JSON pause live updates
+until Resume live. Clear display drops this browser's readings and history and
+re-reads the receiver snapshot. Readings are marked stale after 5 seconds
+without an update.
+
 ## Robot commands and barcode actions
 
 The Robot test buttons send RESET/START/STOP frames on `csc02/command` and
 show the robot's ACK from `csc02/command/ack`. The Barcode actions panel sends
 opcode 4 (MAP) to choose what a decoded letter does at the next junction:
 Forward, Left, Right, U-turn or Ignore (read, no turn). Reset to defaults
-restores A U-turn, F Left, Z Right. The table shows the mapping last accepted
-by the robot. Mappings live in robot RAM; after a robot reboot press Send all.
+restores A U-turn, F Left, Z Right. The Codebook A–Z grid on the Barcodes tab
+shows the mapping last accepted by the robot; letters absent from it are read
+without a turn, and a dot marks the last letter read. Clicking a letter only
+loads it and its current action into the form; Send applies it. Mappings live
+in robot RAM; after a robot reboot press Send all.
 `POST /api/command` accepts `{"action":"map","letter":"A","turn":"left"}`,
 `{"action":"map_reset"}` and `{"action":"send_all"}`. Frame layout:
 [MQTT_TOPICS.md](MQTT_TOPICS.md#command-topic-dashboard-buttons-only).

@@ -48,7 +48,7 @@ unsigned ir_line_course_step(ir_line_course_t *s,const ir_line_trace_t *line,
 
     unsigned mask=line->result.black_mask;
     if(mask==0U) {
-        s->side_streak=0U;s->side=0U;return IR_LINE_FORWARD;
+        s->side_streak=0U;s->side=0U;s->bend_exit=0U;return IR_LINE_FORWARD;
     }
     if(mask==1U || mask==2U) {
         if(!s->side_streak || s->side!=mask) {
@@ -57,15 +57,16 @@ unsigned ir_line_course_step(ir_line_course_t *s,const ir_line_trace_t *line,
              * starts its own count. */
             if(s->bend_candidate==mask) {
                 if(s->bend_level<7U) ++s->bend_level;
-                if(s->bend_side==mask) s->bend_chained=0U; /* its own side confirms it */
+                s->bend_exit=0U;
             } else {
                 /* Other side: a confirmed bend flips straight into one on
                  * this side (S-bend); an unconfirmed chained one ends. */
                 bool flip=s->bend_side && !s->bend_chained;
+                s->bend_exit=(uint8_t)(s->bend_side && !flip); /* bend over: forced correction */
                 s->bend_level=1U;s->bend_candidate=(uint8_t)(mask&3U);
                 s->bend_side=(uint8_t)(flip?(mask&3U):0U);s->bend_chained=flip?1U:0U;
             }
-            if(s->bend_level>=IR_COURSE_BEND_TOUCHES) {s->bend_side=(uint8_t)(mask&3U);s->bend_chained=0U;}
+            if(s->bend_level>=IR_COURSE_BEND_TOUCHES && !s->bend_chained) s->bend_side=(uint8_t)(mask&3U);
             s->side=(uint8_t)(mask&3U);s->side_since_ms=line->sample_ms;
         }
         s->side_streak=1U;s->side_last_ms=line->sample_ms;
@@ -77,8 +78,13 @@ unsigned ir_line_course_step(ir_line_course_t *s,const ir_line_trace_t *line,
     bool corner=s->side_streak &&
         line->sample_ms-s->side_since_ms>=IR_COURSE_SIDE_HOLD_MS &&
         now-s->side_last_ms<30U;
-    s->bend_level=0U;s->bend_side=0U;s->bend_candidate=0U;s->bend_chained=0U;
-    s->phase=corner?(s->side==2U?IR_COURSE_HOLD_LEFT:IR_COURSE_HOLD_RIGHT):
+    /* In bend mode both black is the robot crossing the bending line
+     * diagonally, not a junction: pivot on toward the bend (corner hold)
+     * until the line clears both sensors. */
+    unsigned corner_side=s->bend_side?s->bend_side:s->side;
+    if(s->bend_side) corner=true;
+    s->bend_level=0U;s->bend_side=0U;s->bend_candidate=0U;s->bend_chained=0U;s->bend_exit=0U;
+    s->phase=corner?(corner_side==2U?IR_COURSE_HOLD_LEFT:IR_COURSE_HOLD_RIGHT):
                     IR_COURSE_CROSS_STRAIGHT;
     s->entered_ms=now;s->white_pending=0U;
     return phase_direction(s->phase);

@@ -1,29 +1,142 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Robo Pico · Mission dashboard</title><link rel="stylesheet" href="dashboard.css?v=barcode-map-1"></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#060d1e">
+<title>PicoCar · Telemetry dashboard</title>
+<style>html,body{background:#060d1e;color:#e9f0ff}</style>
+<link rel="stylesheet" href="dashboard.css?v=picocar-2">
+</head>
 <body>
-<header><div class="brand">RP<span>ROBO PICO / INF2004</span></div><div id="connection" class="badge">Awaiting data</div></header>
-<main>
-<section class="intro"><div><p class="eyebrow">BUDDY 1 · COMMAND & TELEMETRY</p><h1>Mission dashboard</h1><p class="muted">One view of motion, navigation, terrain and obstacle telemetry.</p></div><div class="tools"><button id="demo">Load demo</button><label class="button">Import JSON<input id="import" type="file" accept=".json,application/json" hidden></label><button id="reset">Clear display</button></div></section>
-<div class="notice" id="notice" role="status">Dashboard shell · No robot connection. Values appear when telemetry is supplied.</div>
-<div class="control-row">
-<section class="robot-controls" aria-label="Robot test controls">
-<div><strong>Robot test</strong><p>Reset while stopped, then Start. No time limit: it runs until STOP or a fault.</p></div>
-<div class="robot-buttons"><button id="robot-reset" type="button">Reset robot</button><button id="robot-start" type="button">Start test</button><button id="robot-stop" type="button">STOP</button></div>
-<p id="command-status" role="status">Commands use the connected MQTT broker.</p>
+<a href="#main" class="skip-link">Skip to telemetry</a>
+<header class="topbar">
+<div class="topbar-inner">
+<span class="brand"><span class="brand-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 2-4h10l2 4M3 9h18v9H3zM5 18v3m14-3v3M6 13h2m8 0h2M3 9l-1-2m19 2 1-2"/><path d="M7 8h10"/></svg></span><strong>PicoCar<span>INF2004 · Mission control</span></strong></span>
+<div class="tabs" id="tablist" role="tablist" aria-label="Dashboard views">
+<button type="button" role="tab" class="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true" tabindex="0">Overview</button>
+<button type="button" role="tab" class="tab" id="tab-barcodes" aria-controls="panel-barcodes" aria-selected="false" tabindex="-1">Barcodes</button>
+<button type="button" role="tab" class="tab" id="tab-live" aria-controls="panel-live" aria-selected="false" tabindex="-1">Live views</button>
+<button type="button" role="tab" class="tab" id="tab-trends" aria-controls="panel-trends" aria-selected="false" tabindex="-1">Trends</button>
+<button type="button" role="tab" class="tab" id="tab-sensors" aria-controls="panel-sensors" aria-selected="false" tabindex="-1">Sensors</button>
+<button type="button" role="tab" class="tab" id="tab-events" aria-controls="panel-events" aria-selected="false" tabindex="-1">Events<span class="tab-count" id="tab-count-events" aria-hidden="true" hidden>0</span></button>
+</div>
+<span id="connection" class="chip connection-badge connection-connecting" title="Awaiting data"><i aria-hidden="true"></i><span id="connection-text">Awaiting data</span></span>
+</div>
+</header>
+
+<main id="main" tabindex="-1">
+<section class="page-intro">
+<div>
+<h1>PicoCar telemetry<span class="heading-dot">.</span></h1>
+<p id="notice" class="notice notice-stale" role="status"><span id="notice-icon" class="notice-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20zM12 10v4M12 17v.5"/></svg></span><span id="notice-text">Dashboard shell · No robot connection. Values appear when telemetry is supplied.</span></p>
+</div>
+<div class="toolbar">
+<button type="button" id="demo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 4 13 8-13 8z"/></svg>Load demo</button>
+<button type="button" id="import-button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/></svg>Import JSON</button>
+<input id="import" type="file" accept=".json,application/json" aria-label="Import telemetry JSON" hidden>
+<button type="button" id="resume" class="primary-button" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h5l3-8 4 16 3-8h5"/></svg>Resume live</button>
+<button type="button" id="reset" title="Clear this browser's readings and reload receiver state"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7"/></svg>Clear display</button>
+</div>
 </section>
-<section class="robot-controls barcode-actions" aria-label="Barcode actions">
-<div><strong>Barcode actions</strong><p>Choose what a decoded letter does at the next junction. Works armed or stopped. Mappings live in robot RAM; after a robot reboot press Send all.</p></div>
-<div class="robot-buttons"><label>Letter <input id="map-letter" type="text" maxlength="1" size="2" autocomplete="off" spellcheck="false" placeholder="A"></label><label>Action <select id="map-turn"><option value="forward">Forward</option><option value="left">Left</option><option value="right">Right</option><option value="uturn">U-turn</option><option value="ignore">Ignore</option></select></label><button id="map-send" type="button">Send</button><button id="map-reset" type="button">Reset to defaults</button><button id="map-send-all" type="button">Send all</button></div>
-<p id="map-status" role="status">Defaults: A U-turn, F Left, Z Right. Other letters are read without a turn.</p>
-<div class="table-wrap"><table><thead><tr><th>Letter</th><th>Action</th></tr></thead><tbody id="barcode-map"></tbody></table></div>
+<p id="import-error" class="import-error" role="alert" hidden></p>
+
+<section id="robot-panel" class="card command-card" aria-labelledby="robot-title">
+<div class="card-header">
+<div><h2 class="card-title" id="robot-title">Robot test</h2><p class="card-meta">Reset while stopped, then Start. No time limit: it runs until STOP or a fault.</p></div>
+<span id="robot-chip" class="chip"><i aria-hidden="true"></i><span id="robot-chip-text">Awaiting</span></span>
+</div>
+<div class="command-body">
+<div class="command-buttons">
+<button type="button" id="robot-reset" class="btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7"/></svg>Reset robot</button>
+<button type="button" id="robot-start" class="btn primary-button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 4 13 8-13 8z"/></svg>Start test</button>
+<button type="button" id="robot-stop" class="btn stop-button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>STOP</button>
+</div>
+<p id="command-status" class="command-status" role="status">Commands use the connected MQTT broker.</p>
+</div>
+<div id="mission-tiles" class="tiles tiles-6" role="group" aria-label="Mission summary"></div>
+</section>
+
+<div id="tab-panels" class="tab-panels">
+<section class="tab-panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" tabindex="0">
+<div class="panel-intro"><p>Key readings and receiver health at a glance.</p></div>
+<div id="summary" class="grid grid-4" role="group" aria-label="Key readings"></div>
+<div class="grid grid-2">
+<section id="receiver-card" class="card receiver-card" aria-label="Telemetry connection" title="Latency measures the HTTP round trip to the dashboard receiver."></section>
+<section id="subsystem-card" class="card subsystem-card" aria-label="Subsystems"></section>
+</div>
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-barcodes" aria-labelledby="tab-barcodes" tabindex="0" hidden>
+<div class="panel-intro"><p>Choose what a decoded letter does at the next junction. Works armed or stopped. Mappings live in robot RAM; after a robot reboot press Send all.</p></div>
+<div class="grid grid-2">
+<section class="card barcode-actions" aria-labelledby="map-title">
+<div class="card-header"><h2 class="card-title" id="map-title">Barcode actions</h2><span class="chip plain">Applies at next junction</span></div>
+<div class="map-form">
+<label>Letter<input id="map-letter" type="text" maxlength="1" size="2" autocomplete="off" spellcheck="false" placeholder="A"></label>
+<label class="map-turn-label">Action<select id="map-turn"><option value="forward">Forward</option><option value="left">Left</option><option value="right">Right</option><option value="uturn">U-turn</option><option value="ignore">Ignore</option></select></label>
+<button type="button" id="map-send" class="btn primary-button">Send</button>
+</div>
+<div class="map-actions">
+<button type="button" id="map-reset" class="btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7"/></svg>Reset to defaults</button>
+<button type="button" id="map-send-all" class="btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/></svg>Send all</button>
+</div>
+<p id="map-status" class="card-caption" role="status">Defaults: A U-turn, F Left, Z Right. Other letters are read without a turn.</p>
+</section>
+<section id="barcode-live" class="card barcode-live" aria-label="Last barcode"></section>
+</div>
+<div class="grid grid-1">
+<section class="card codebook-card" aria-labelledby="codebook-title">
+<div class="card-header"><div><h2 class="card-title" id="codebook-title">Codebook A–Z</h2><p class="card-meta">Pick a letter to load it into Barcode actions. Nothing is sent until you press Send.</p></div><span id="codebook-count" class="chip plain">Not loaded</span></div>
+<div id="barcode-map" class="codebook" role="group" aria-label="Letter actions"></div>
+<p id="codebook-caption" class="card-caption">Mapping appears when dashboard.py is running.</p>
 </section>
 </div>
-<section class="summary" id="summary"></section>
-<div class="section-intro"><p class="eyebrow">SENSOR DATA & SUBSYSTEM OUTPUTS</p><h2>Individual sensor sections</h2><p class="muted">Each card groups the readings received from one sensor or processing stage. Missing readings stay blank until supplied.</p></div>
-<section class="grid" id="panels" aria-label="Sensor readings and subsystem outputs"></section>
-<section class="panel events" id="barcode-reads"><div class="panel-heading"><div><p class="eyebrow">BARCODE HISTORY</p><h2>Barcode reads</h2></div><span id="barcode-count" class="muted">0 reads</span></div><p class="muted">One row per barcode pass: normal speed, reverse re-read, then slow final pass. Elements are bars + spaces; a full barcode is 29. Default codebook: A = U-turn, Z = right, F = left (change it under Barcode actions).</p><div class="table-wrap"><table><thead><tr><th>Time</th><th>Pass</th><th>Elements</th><th>Duration</th><th>Result</th><th>Letter</th><th>Turn</th></tr></thead><tbody id="barcode-history"></tbody></table></div></section>
-<section class="panel events"><div class="panel-heading"><div><p class="eyebrow">MISSION HISTORY</p><h2>Events & faults</h2></div><span id="event-count" class="muted">0 events</span></div><div class="table-wrap"><table><thead><tr><th>Time</th><th>Source</th><th>Level</th><th>Event / message</th></tr></thead><tbody id="events"></tbody></table></div></section>
-<footer><span id="updated">Last received: —</span><span>Commands are sent only by the Robot test and Barcode actions buttons; firmware checks each one</span></footer>
-</main><script src="dashboard.js?v=barcode-map-1"></script>
-</body></html>
+<div class="grid grid-1">
+<section id="barcode-reads" class="card" aria-labelledby="reads-title">
+<div class="card-header"><h2 class="card-title" id="reads-title">Barcode reads</h2><span id="barcode-count" class="chip plain">0 reads</span></div>
+<p class="card-intro">One row per barcode pass: normal speed, reverse re-read, then slow final pass. Elements are bars + spaces; a full barcode is 29. Default codebook: A = U-turn, Z = right, F = left (change it under Barcode actions).</p>
+<div class="table-wrap"><table class="data-table"><thead><tr><th>Time</th><th>Pass</th><th>Elements</th><th>Duration</th><th>Result</th><th>Letter</th><th>Turn</th></tr></thead><tbody id="barcode-history"></tbody></table></div>
+</section>
+</div>
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-live" aria-labelledby="tab-live" tabindex="0" hidden>
+<div class="panel-intro"><p>Each view draws the latest received reading only. It does not reconstruct scans or paths.</p></div>
+<div class="grid grid-2">
+<section id="proximity-radar" class="card visual-card" aria-label="Proximity radar"></section>
+<section id="vehicle-orientation" class="card visual-card" aria-label="Vehicle orientation"></section>
+<section id="line-sensors" class="card visual-card" aria-label="Line sensors"></section>
+<section id="acceleration-vector" class="card visual-card" aria-label="Acceleration vector"></section>
+</div>
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-trends" aria-labelledby="tab-trends" tabindex="0" hidden>
+<div class="panel-intro"><p>Received history for this browser session, plotted against reception time.</p></div>
+<div id="trends-grid" class="grid grid-1" role="group" aria-label="Received telemetry history"></div>
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-sensors" aria-labelledby="tab-sensors" tabindex="0" hidden>
+<div class="panel-intro"><p>A dash means no reading was supplied. Readings are marked stale after 5 seconds without an update to that field.</p>
+<label class="category-filter">Show<select id="category" aria-label="Show subsystem"><option value="all">All subsystems</option><option value="motion">Motion · Buddy 02</option><option value="navigation">Navigation · Buddy 03</option><option value="terrain">Terrain · Buddy 04</option><option value="obstacle">Obstacles · Buddy 05</option><option value="system">Controller · Buddy 05</option></select></label></div>
+<div id="panels" class="masonry" aria-label="Sensor readings and subsystem outputs"></div>
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-events" aria-labelledby="tab-events" tabindex="0" hidden>
+<div class="panel-intro"><p>The EDR16 wire format has no event text. Events appear here when included in an imported or demo snapshot.</p></div>
+<section id="history" class="card events-card" aria-labelledby="events-title">
+<div class="card-header"><h2 class="card-title" id="events-title">Events &amp; faults</h2><span id="event-count" class="chip plain">0 events</span></div>
+<div id="events"></div>
+</section>
+</section>
+</div>
+
+<footer>
+<span>PicoCar · INF2004 · <code>Robopico/sensors/edr16/v1</code></span>
+<span id="updated">Last received: —</span>
+<span>Commands are sent only by the Robot test and Barcode actions buttons; firmware checks each one</span>
+</footer>
+</main>
+<script src="dashboard.js?v=picocar-2"></script>
+</body>
+</html>
