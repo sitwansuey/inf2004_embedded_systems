@@ -50,11 +50,6 @@ EXPORT s5_echo_result_t s5_hw_measure_raw(UW *mm, UW *echo_us)
     return S5_ECHO_OK;
 }
 
-EXPORT s5_echo_result_t s5_hw_measure(UW *mm)
-{
-    return s5_hw_measure_raw(mm, NULL);
-}
-
 /* This kernel uses SysTick, so it never starts the RP2040 hardware timer.
  * Start its watchdog tick source at 1 MHz (12 MHz clk_ref / 12).
  * This enables the tick generator only, not watchdog resets. */

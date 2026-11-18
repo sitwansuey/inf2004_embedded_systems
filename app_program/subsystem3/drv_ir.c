@@ -103,10 +103,6 @@ bool s3_ir_waiting(const s3_ir_t *p_ir)
 
 static ER adc_failure(s3_ir_t *p_ir, ER error)
 {
-#if BOARD_IR_RAW_BENCH
-    tm_printf((UB *)"[S3ADC] client failed error=%d pending=%u\n",
-              error, p_ir->adc_pending ? 1U : 0U);
-#endif
     p_ir->adc_failed = true;
     p_ir->adc_pending = false;
     p_ir->adc_error = error;

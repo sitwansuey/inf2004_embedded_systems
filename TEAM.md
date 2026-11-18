@@ -9,7 +9,7 @@ whole-team CR1 acceptance remain separate.
 | Vehicle Controller | sole motion authority; safety, leases, line/terrain/scan handoffs | 5, core 0 | no direct motor/peripheral writes |
 | Buddy 1 (2500238) | binary telemetry, copied command/telemetry buffers, dashboard | telemetry 13/core 1; LED 12/any | LED GP19 |
 | Buddy 2 (2500613) | PWM/PID output owner, watchdog, encoder IRQ and status | motor 14/core 0; GPIO IRQ 13/core 0 | motor GP8-11 (PWM 4/5); encoder GP16/17 and GP4/5 |
-| Buddy 3 (2500383) | line/barcode sampler and bounded navigation events | sampler 16/core 0; optional ADC worker 17/core 0 | user confirms GP27 left line, GP26 right line, GP28 barcode; raw bench works, calibrated control pending |
+| Buddy 3 (2500383) | line/barcode sampler and bounded navigation events | sampler 16/core 0; optional ADC worker 17/core 0 | user confirms GP27 left line, GP26 right line, GP28 barcode; calibrated ADC line (GP26/27) and digital GP28 barcode in use |
 | Buddy 4 (2500243) | GY-511 acquisition, protected snapshots, terrain algorithm | sensor 18/core 1; monitor 19/any; pure terrain processing called by controller | I2C1 GP2/3 |
 | Buddy 5 (2502324) | ultrasonic/servo owner, stationary edge acquisition, geometry | scan 20/core 1 | trigger GP1, echo GP0 (existing Buddy 5 wiring), servo GP12/PWM slice 6 |
 | Kernel services | USB and CYW43/lwIP/MQTT ownership | USB 3/core 0; network 4/core 0 | radio GP23/24/25/29; USB controller |
@@ -21,10 +21,11 @@ No other task calls the SDK I2C driver, ultrasonic/servo driver, PWM output or
 MQTT API. USB input is delivered by a bounded hook inside the existing USB owner.
 
 All objects are initialized before tasks start. Any startup failure prevents
-the controller from starting. Default configuration is DISARMED, with IR,
-odometry/terrain calibration and autonomous bypass disabled. The motor task
-alone handles the urgent STOP epoch, discards stale queued movement, polls at
-10 ms and checks its independent 1000 ms renewal watchdog. Physical stopping
+the controller from starting. The firmware boots DISARMED;
+`app_program/robot_config.h` holds the measured profile (IR mode 3,
+odometry/terrain calibration, PID and obstacle bypass). The motor task alone
+handles the urgent STOP epoch, discards stale queued movement, polls at 10 ms
+and checks its independent 1000 ms renewal watchdog. Physical stopping
 time still requires measurement; zero PWM is not guaranteed immediate braking.
 
 | Interface | Contract |
@@ -42,23 +43,19 @@ time still requires measurement; zero PWM is not guaranteed immediate braking.
 
 The obsolete sample producer was removed in published main PR #6 and remains
 absent here. Retired sample interfaces are not used as sensor telemetry.
-The old `app_vehicle_request` accepts STOP only; it cannot bypass controller
-policy with positive movement. Controller snapshots are published with a
-nonblocking priority-inheritance mutex. Peripheral ownership is unchanged.
+Controller snapshots are published with a nonblocking priority-inheritance
+mutex. Peripheral ownership is unchanged.
 
 Kernel limits remain those in config/config.h. Application usage is 8 tasks
-(9 with the ADC worker), four application mutexes, one semaphore, two mailboxes,
-one fixed pool, four message buffers (six with ADC), one event flag and one
-cyclic handler, plus the kernel USB/network/device service objects. No new
-scheduler, MPU, resource-sharing redesign or CR2/CR3 feature was introduced.
+(9 with the ADC worker), four application mutexes, one semaphore, one mailbox,
+one fixed pool, four message buffers (six with ADC) and three cyclic handlers,
+plus the kernel USB/network/device service objects. No new scheduler, MPU,
+resource-sharing redesign or CR2/CR3 feature was introduced.
 
-27 October Buddy 4 continuation: see `docs/BUDDY4_IMPLEMENTATION.md` for current
-integration provenance, owner boundaries, verification and limitations. The
-54-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16 records,
-including ID 0 mission status; the retired envelope/aggregate is not accepted
-by the dashboard. See docs/DATA_REPRESENTATION.md and docs/MISSION_SETUP.md.
-See docs/MAIN_RECONCILIATION_20261027.md for adopted S5 storage and retained safety
-contracts, and docs/BUDDY1_RETROSPECTIVE_REVIEW.md for interface review.
+The 54-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16
+records, including ID 0 mission status; the retired envelope/aggregate is not
+accepted by the dashboard. See docs/DATA_REPRESENTATION.md and
+docs/MISSION_SETUP.md.
 
 GP22 is retained for the explicitly selected S5 acquisition diagnostic buzzer;
 it is not used by the default or passive-test profiles.

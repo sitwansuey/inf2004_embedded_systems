@@ -1,6 +1,6 @@
 /*
  * subsystem2.h
- * Buddy 2 -- Open-loop motor control. Student ID: 2500613.
+ * Buddy 2 -- Motor control (PWM, optional wheel-speed PID). Student ID: 2500613.
  */
 
 #ifndef SUBSYSTEM2_H
@@ -112,10 +112,6 @@ IMPORT ER subsystem2_start(void);
 IMPORT void s2_controller_bind(void);
 IMPORT ER s2_emergency_stop(void);
 
-/* Other subsystems submit expiring requests to the vehicle controller. */
-IMPORT ER app_vehicle_request(UINT subsystem, s2_move_command_t command,
-                              UINT power, UW lease_ms);
-
 /* Task context only; moving commands need periodic renewal. */
 IMPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent);
 IMPORT ER s2_follow_send(UINT power_percent, INT steering);
@@ -129,14 +125,10 @@ IMPORT ER s2_motion_get_status(s2_motion_status_t *p_status);
  * Task context on either core. E_OK with valid=0 during startup.
  * Both wheels share a consistent cumulative x1 count snapshot (modulo 32 bits).
  * Forward signs follow the downloaded wiring: motor 1 negative, motor 2 positive.
- * GPIO levels are live samples; these counts do not provide PID or angle control.
+ * GPIO levels are live samples.
  * sampled_ms is tk_get_otm().lo within the successful sequence-checked copy.
  * Clock errors return the error with a zeroed snapshot.
  */
 IMPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status);
-
-#if APP_TEST
-IMPORT void subsystem2_test(void);
-#endif
 
 #endif /* SUBSYSTEM2_H */

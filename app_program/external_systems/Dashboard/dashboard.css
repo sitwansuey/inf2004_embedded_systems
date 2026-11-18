@@ -137,7 +137,6 @@ h1 { font: 680 32px/1.1 var(--font-display); letter-spacing: -.03em; }
 /* NexusUI widgets are read-only displays */
 .nx { pointer-events: none; -webkit-user-select: none; user-select: none; }
 .nx svg { display: block; overflow: visible; cursor: default !important; }
-.nx-wrap { width: 100%; min-width: 0; }
 
 /* Overview: stat cards */
 .stat-body { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 16px; }
@@ -165,7 +164,6 @@ h1 { font: 680 32px/1.1 var(--font-display); letter-spacing: -.03em; }
 .fault-line { display: flex; justify-content: space-between; color: var(--text-3); font-size: 12.5px; }
 .fault-line strong { color: var(--text); font: 600 12.5px var(--font-mono); }
 .fault-bits { margin-top: 10px; }
-.nx-bits rect { rx: 5px; }
 .bit-labels { display: grid; grid-template-columns: repeat(7, 22px); margin-top: 4px; color: var(--text-4); font: 500 9.5px var(--font-mono); text-align: center; }
 .field-state { color: var(--warn); font: 600 10px/1.4 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
 
@@ -193,9 +191,6 @@ h1 { font: 680 32px/1.1 var(--font-display); letter-spacing: -.03em; }
 .bars-chart { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 12px; width: 100%; }
 .bars-scale { position: relative; width: 32px; }
 .bars-scale span { position: absolute; right: 0; color: var(--text-4); font: 500 10px/1 var(--font-mono); transform: translateY(-50%); }
-.nx-bars { border-bottom: 1px solid var(--border-2); }
-.nx-bars svg { overflow: hidden; }
-.nx-bars .nx-grid line { stroke: rgba(150, 175, 230, .1); stroke-dasharray: 2 5; }
 .accel-stage { display: flex; align-items: center; justify-content: center; gap: 22px; }
 .nx-pad {
   flex: none; border: 1px solid var(--border); border-radius: 16px;
@@ -205,10 +200,7 @@ h1 { font: 680 32px/1.1 var(--font-display); letter-spacing: -.03em; }
     radial-gradient(circle closest-side, transparent 48.2%, rgba(150, 175, 230, .3) 48.6%, rgba(150, 175, 230, .3) 49.6%, transparent 50%, transparent 96.8%, rgba(150, 175, 230, .16) 97.2%, rgba(150, 175, 230, .16) 98.2%, transparent 98.6%),
     var(--surface-2);
 }
-.nx-pad circle { filter: drop-shadow(0 0 6px rgba(56, 217, 245, .8)); }
 .accel-rail { display: grid; justify-items: center; gap: 8px; color: var(--text-3); font: 600 11px var(--font-mono); }
-.nx-rail circle { filter: drop-shadow(0 0 5px rgba(165, 139, 255, .8)); }
-.reading-missing .nx-pad circle, .reading-missing .nx-rail circle, .reading-missing .nx-rail rect + rect { opacity: 0; }
 .reading-stale .nx-pad, .reading-stale .nx-rail { opacity: .45; }
 
 /* Trends */
@@ -314,9 +306,10 @@ footer code { color: var(--text-3); }
 }
 
 /* ==========================================================================
-   Robo Pico additions. Everything above is main's stylesheet unchanged.
-   Below: robot test commands, barcode actions, data tables and the plain
-   HTML/SVG stand-ins for main's NexusUI widgets, built on the same tokens.
+   Robo Pico additions. Everything above follows main's stylesheet, minus the
+   NexusUI rules this page never uses. Below: robot test commands, barcode
+   actions, data tables and the plain HTML/SVG stand-ins for main's NexusUI
+   widgets, built on the same tokens.
    ========================================================================== */
 [hidden] { display: none !important; }
 .notice-icon { display: flex; flex: none; }
@@ -337,7 +330,10 @@ footer code { color: var(--text-3); }
 .btn.stop-button svg { color: currentColor; }
 .btn.stop-button svg rect { fill: currentColor; }
 .btn.stop-button:hover { border-color: transparent; background: #ff97a5; }
-.btn:disabled, .toolbar button:disabled { opacity: .5; cursor: not-allowed; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* An odd card out at the end of a two-column grid (Live views) spans both columns */
+.grid-2 > .card:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
 /* Robot test card: shown above every tab */
 .command-card { margin-bottom: var(--gap); }

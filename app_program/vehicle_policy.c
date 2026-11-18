@@ -1,6 +1,5 @@
 #include "vehicle_policy.h"
 #include <stdlib.h>
-#include <string.h>
 /* Commands match S2: STOP=0 FORWARD=1 REVERSE=2 LEFT=3 RIGHT=4 PIVOT_R=5 PIVOT_L=6. */
 bool vc_arm(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power) {
     if (!s || lease==0 || lease>1000 || power<1 || power>50) return false;
@@ -22,6 +21,7 @@ void vc_stop(vc_state_t *s,unsigned reason) {
     s->nav_search=0;s->nav_offset=0;s->spot_scan=0;s->uturn_guard=0;
     s->last_line_side=0;s->search_right_first=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
+    s->clear_run=0;s->line_gap=0;s->sonar_gap=0;s->line_found=0;
     s->fault=(uint8_t)(reason&15U);s->phase=reason?VC_FAULT:VC_DISARMED;
     s->fault_cause=0; /* sensor_fault() sets it after this */
 }
@@ -29,30 +29,47 @@ void vc_stop(vc_state_t *s,unsigned reason) {
 static void sensor_fault(vc_state_t *s,unsigned cause) {
     vc_stop(s,VC_SENSOR);s->fault_cause=(uint8_t)(cause&3U);
 }
+/* VC_LINE with its reason (VC_LINE_CAUSE_*), likewise. */
+static void line_fault(vc_state_t *s,unsigned cause) {
+    vc_stop(s,VC_LINE);s->fault_cause=(uint8_t)(cause&3U);
+}
+/* Line data missing: hold still (no command); VC_LINE (line data) only once
+ * the gap has lasted VC_LINE_GAP_MS. vc_step clears the gap on fresh data. */
+static void line_gap_hold(vc_state_t *s,const vc_input_t *i) {
+    if (!s->line_gap) {s->line_gap=1;s->line_gap_ms=i->now_ms;}
+    else if (i->now_ms-s->line_gap_ms>=VC_LINE_GAP_MS) line_fault(s,VC_LINE_CAUSE_DATA);
+}
 void vc_track_requested(vc_state_t *s,uint32_t now) {
     if (!s) return;
     s->track_requested_ms=now;s->track_wait=1;
     s->command=0;s->power=0;s->steering=0;
 }
 static unsigned soft_start(vc_state_t *s,uint32_t now,bool driving,unsigned demand);
+static int yaw_delta(int32_t now,int32_t origin);
 static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     bool continuous=s->armed && s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE &&
         phase>=VC_TURN_OUT && phase<=VC_RESTORE && !s->look_side && i->front_clear;
+    /* A line touch on the way back carries over TURN_IN -> RETURN -> RESTORE. */
+    bool keep_touch=s->phase>=VC_TURN_IN && s->phase<=VC_RESTORE &&
+        phase>=VC_TURN_IN && phase<=VC_RESTORE;
     s->phase=(uint8_t)phase;s->entered_ms=i->now_ms;
     if (phase==VC_REACQUIRE) s->search_right_first=s->last_line_side==1U;
     s->origin_um=i->distance_um;s->origin_yaw=i->yaw_mdeg;
-    s->turn_progress=0;s->bypass_drive_ms=0;s->last_step_ms=i->now_ms;
+    s->turn_progress=0;
+    if (phase==VC_RESTORE) s->restore_mdeg=yaw_delta(s->avoid_yaw,i->yaw_mdeg);
     s->command=0;s->power=0;s->steering=0;
     s->track_wait=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
-    s->nav_search=0;s->nav_offset=0;s->spot_scan=0;s->nav_touched=0; /* pending_nav itself is kept */
+    s->nav_search=0;s->nav_offset=0;s->spot_scan=0; /* pending_nav itself is kept */
+    if(!keep_touch) s->nav_touched=0;
+    s->clear_run=0;s->line_gap=0;
     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
     if(continuous) {
         s->command=1;s->power=s->maximum_power>AVOID_POWER?AVOID_POWER:s->maximum_power;
         s->power=(uint8_t)soft_start(s,i->now_ms,s->drive_prev,s->power);
         if(i->slope && s->power>20U)s->power=20U;
         if(phase==VC_ALIGN || phase==VC_TURN_IN)s->steering=(int16_t)(s->turn_deg>0?(int)s->bypass_steering:-(int)s->bypass_steering);
-        else if(phase==VC_RESTORE)s->steering=(int16_t)(s->turn_deg>0?-(int)s->bypass_steering:(int)s->bypass_steering);
+        else if(phase==VC_RESTORE)s->steering=(int16_t)(s->restore_mdeg>0?-(int)s->bypass_steering:(int)s->bypass_steering);
     }
 }
 /* Power cap t ms into a ramp: AVOID_BACKUP_START_POWER rising to top over
@@ -79,6 +96,24 @@ static unsigned soft_start(vc_state_t *s,uint32_t now,bool driving,unsigned dema
     unsigned cap=soft_cap(t,AVOID_POWER);
     return demand>cap?cap:demand;
 }
+/* One step of a stopped side look (VC_DIAGONAL end, VC_PASS): 0 waiting,
+ * 1 clear and 2 obstacle (AVOID_SIDE_CONFIRM_SAMPLES new samples in a row),
+ * -1 no answer in AVOID_SIDE_CHECK_TIMEOUT_MS (stopped with VC_SENSOR). */
+static int side_look(vc_state_t *s,const vc_input_t *i) {
+    if(i->now_ms-s->side_check_started_ms>=AVOID_SIDE_CHECK_TIMEOUT_MS){vc_stop(s,VC_SENSOR);return -1;}
+    if(!i->side_observed || (s->side_have_sample && i->side_sample_ms==s->side_last_ms))return 0;
+    s->side_have_sample=1;s->side_last_ms=i->side_sample_ms;
+    if(!i->side_ready){s->side_clear_count=s->side_present_count=0;return 0;}
+    if(i->side_clear){++s->side_clear_count;s->side_present_count=0;}
+    else {++s->side_present_count;s->side_clear_count=0;}
+    if(s->side_clear_count>=AVOID_SIDE_CONFIRM_SAMPLES) return 1;
+    if(s->side_present_count>=AVOID_SIDE_CONFIRM_SAMPLES) return 2;
+    return 0;
+}
+static void start_side_look(vc_state_t *s,const vc_input_t *i) {
+    s->look_side=1;s->side_check_started_ms=i->now_ms;
+    s->side_clear_count=s->side_present_count=s->side_have_sample=0;
+}
 static int yaw_delta(int32_t now,int32_t origin) {
     int d=now-origin; if(d>180000)d-=360000;if(d< -180000)d+=360000;return d;
 }
@@ -88,18 +123,16 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     s->drive_prev=was_driving!=0;
     unsigned turn_power=0; /* VC_NAV_TURN demand, 0: maximum_power */
     unsigned backup_cap=0; /* VC_BACKUP ramp cap, 0: none */
-    uint32_t elapsed=i->now_ms-s->last_step_ms;
-    s->last_step_ms=i->now_ms;
     s->command=0;s->power=0;s->steering=0;
     s->navigation_ack=0;
-    if(s->phase==VC_DIAGONAL && was_driving && elapsed<=100U)
-        s->bypass_drive_ms+=elapsed;
     if (!s->armed) return;
+    if (i->line_fresh && i->steering) s->line_gap=0;
     /* Both-black is straight; retain the last unambiguous search direction. */
     if (i->line_fresh && (i->line_black_mask==1U || i->line_black_mask==2U))
         s->last_line_side=i->line_black_mask;
     if (s->lease_ms && i->now_ms-s->armed_ms>=s->lease_ms) { vc_stop(s,VC_TIMEOUT);return; }
-    if (i->shock || i->safety_event) { vc_stop(s,i->shock?VC_SHOCK:VC_LINE);return; }
+    if (i->shock) { vc_stop(s,VC_SHOCK);return; }
+    if (i->safety_event) { line_fault(s,VC_LINE_CAUSE_EVENT);return; }
     if (!i->transport_ok) { vc_stop(s,VC_TRANSPORT);return; }
     if (!i->motor_ok) { vc_stop(s,VC_MOTOR);return; }
     /* Tilt drops when side roll exceeds 15 deg or |a| leaves 0.8..1.2 g.
@@ -108,8 +141,8 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
      * (straight, slow, odometry-bounded) still does not need tilt; TURN_OUT
      * does, after the stand-still has let the robot settle. */
     bool tilt_ok=i->terrain_valid || s->phase==VC_BACKUP;
-    if (!i->sensor_fresh || !tilt_ok || !i->odom_valid) {
-        sensor_fault(s,!i->sensor_fresh?VC_CAUSE_SONAR:!tilt_ok?VC_CAUSE_TILT:VC_CAUSE_ODOM);return;
+    if (!tilt_ok || !i->odom_valid) {
+        sensor_fault(s,!tilt_ok?VC_CAUSE_TILT:VC_CAUSE_ODOM);return;
     }
     /* S3 removes events on receive. Preserve navigation before obstacle or
      * clearance gates can defer it; never silently overwrite another marker. */
@@ -125,25 +158,33 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         s->pending_nav=i->nav;
     }
+    /* No fresh sonar sample (its task shares a core with the radio): hold
+     * still, after keeping any decoded turn above; a sonar fault only once
+     * the gap lasts VC_SONAR_GAP_MS. */
+    if (!i->sensor_fresh) {
+        if (!s->sonar_gap) {s->sonar_gap=1;s->sonar_gap_ms=i->now_ms;}
+        else if (i->now_ms-s->sonar_gap_ms>=VC_SONAR_GAP_MS) sensor_fault(s,VC_CAUSE_SONAR);
+        return;
+    }
+    s->sonar_gap=0;
     if (s->phase!=VC_TRACK && i->now_ms-s->entered_ms>
         ((s->phase==VC_ACQUIRE || s->phase==VC_PASS)?30000U:(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE)?10000U:5000U)) { vc_stop(s,VC_TIMEOUT);return; }
     if (s->phase==VC_TRACK) {
-        if (i->obstacle) { enter(s,i,VC_ACQUIRE);return; }
+        if (i->obstacle) { enter(s,i,VC_ACQUIRE);s->avoid_yaw=i->yaw_mdeg;return; }
         if (s->track_wait) {
             if (i->line_fresh && i->steering) s->track_wait=0;
             else {
-                if (i->now_ms-s->track_requested_ms>=VC_TRACK_HANDOFF_MS) vc_stop(s,VC_LINE);
+                if (i->now_ms-s->track_requested_ms>=VC_TRACK_HANDOFF_MS) line_fault(s,VC_LINE_CAUSE_DATA);
                 return; /* stay stopped while S3 applies TRACK and samples */
             }
         }
         if (!i->front_clear) return;
-        if (i->recovery_event && !i->curve_hold) { enter(s,i,VC_REACQUIRE);return; }
         if (s->pending_nav && !i->nav_hold) {
             unsigned nav=s->pending_nav;
             if (nav==3) {s->pending_nav=0;s->navigation_ack=1;return;}
             /* Keep following the line to the next junction, then straight on
              * by the sensor-to-wheel offset so the wheels pivot on the crossing
-             * (vehicle.c drives it without course pivots). No junction within
+             * (vehicle.c drives it without follower pivots). No junction within
              * nav_search_mm: turn there anyway. */
             if (!s->nav_search) {s->nav_search=1;s->nav_origin_um=i->distance_um;}
             if (!s->nav_offset && i->junction) {s->nav_offset=1;s->nav_origin_um=i->distance_um;}
@@ -154,20 +195,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
                 enter(s,i,VC_NAV_TURN);return;
             }
         } else {s->nav_search=0;s->nav_offset=0;} /* a re-read reposition restarts the search */
-        /* S3 reports SEARCHING (2) before LOST (3); begin recovery then,
-         * rather than faulting before its recovery event can be delivered. */
-        if (i->line_fresh && i->curve_hold) {
-            s->command=1;s->power=s->maximum_power;return;
-        }
-        if (i->line_fresh && !i->steering && i->line_state==2U) {
-            /* SEARCHING is the short pre-LOST window; bridge brief dropouts. */
-            s->command=1;s->power=s->maximum_power;
-            return;
-        }
-        if (i->line_fresh && !i->steering && i->line_state==3U) {
-            enter(s,i,VC_REACQUIRE);return;
-        }
-        if (!i->line_fresh || !i->steering) { vc_stop(s,VC_LINE);return; }
+        if (!i->line_fresh || !i->steering) { line_gap_hold(s,i);return; }
         /* Either front sensor on black is sufficient to keep following forward. */
         s->command=1;
     } else if (s->phase==VC_ACQUIRE) {
@@ -179,13 +207,10 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         if (!i->turn_deg || abs(i->turn_deg)>80 || !i->approach_mm || i->return_mm>1000) {
             sensor_fault(s,VC_CAUSE_SONAR);return;
         }
-        s->scan_id=i->scan_id;s->turn_deg=i->turn_deg;s->side=i->turn_deg<0;
-        s->pass_check_mm=(uint16_t)((i->obstacle_width_mm+1U)/2U+AVOID_CLEARANCE_MM);
-        if(s->pass_check_mm<AVOID_PASS_CHECK_MIN_MM)s->pass_check_mm=AVOID_PASS_CHECK_MIN_MM;
-        if(s->pass_check_mm>AVOID_PASS_CHECK_MAX_MM)s->pass_check_mm=AVOID_PASS_CHECK_MAX_MM;
+        s->turn_deg=i->turn_deg;s->side=i->turn_deg<0;s->direct_return=0;s->line_found=0;
         /* Mirror the outbound diagonal and arcs to recover the original lateral area. */
         s->approach_mm=i->approach_mm;s->return_mm=i->approach_mm;
-        s->bypass_steering=i->bypass_steering;s->backup_mm=0;s->backup_moving=0;s->backup_braking=0;
+        s->bypass_steering=i->bypass_steering;s->backup_moving=0;s->backup_braking=0;
         s->backup_started_ms=i->now_ms;
         enter(s,i,VC_BACKUP);return;
     } else if (s->phase==VC_BACKUP) {
@@ -211,11 +236,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             uint32_t braking=i->now_ms-s->brake_started_ms;
             if (braking<AVOID_BACKUP_BRAKE_MAX_MS && (braking<AVOID_BACKUP_BRAKE_MS ||
                 i->now_ms-s->brake_moved_ms<AVOID_BACKUP_STILL_MS)) return;
-            /* Coasting counts as reversed distance. */
-            uint32_t mm=back>0?(uint32_t)((back+999)/1000):0U;
-            s->backup_mm=(uint16_t)mm;s->backup_braking=0;
-            /* The obstacle is now further ahead: delay the side look by as much. */
-            mm+=s->pass_check_mm;s->pass_check_mm=(uint16_t)(mm>UINT16_MAX?UINT16_MAX:mm);
+            s->backup_braking=0;
             enter(s,i,VC_TURN_OUT);return;
         }
         uint32_t reversing=i->now_ms-s->backup_started_ms;
@@ -226,7 +247,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         s->command=2;backup_cap=backup_ramp(reversing);
     } else if (s->phase==VC_REACQUIRE) {
         if (!i->front_clear) return;
-        if (!i->line_fresh) { vc_stop(s,VC_LINE);return; }
+        if (!i->line_fresh) { line_gap_hold(s,i);return; }
         /* After a U-turn a straddle sample is "fresh" even off the line: the
          * spot scan only ends when a sensor is actually on black. */
         bool found=s->spot_scan?i->line_touch:(i->line_detected || i->steering);
@@ -250,7 +271,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
          * Fresh forward clearance and sensor checks above gate every step. */
         const int targets[4]={30000,-30000,60000,-60000};
         if (i->now_ms-s->entered_ms>=4000U || s->turn_progress>=4) {
-            vc_stop(s,VC_LINE);return;
+            line_fault(s,VC_LINE_CAUSE_NOT_FOUND);return;
         }
         int progress=yaw_delta(i->yaw_mdeg,s->origin_yaw);
         int target=targets[s->turn_progress];
@@ -263,63 +284,93 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     } else {
         if (!i->front_clear && !s->look_side) return;
         /* Line search on the way back from a bypass: in TURN_IN, RETURN and
-         * RESTORE the sensor on the line's side touches it first; once it
-         * releases into the gap between the sensors (or both are on it) the
-         * line is centred, so track it from there rather than finishing the
-         * fixed angle/distance moves past it. */
-        if ((s->phase==VC_TURN_IN || s->phase==VC_RETURN || s->phase==VC_RESTORE) && i->line_fresh) {
+         * RESTORE the sensor on the line's side touches it first (the touch is
+         * kept across those phases). Once it releases into the gap between the
+         * sensors, or the line reaches the far sensor, or both are on it, the
+         * line is under the robot: arc back to the heading held before the
+         * obstacle (VC_RESTORE), then track. A first touch by the lead sensor
+         * alone does not count. */
+        if ((s->phase==VC_TURN_IN || s->phase==VC_RETURN || s->phase==VC_RESTORE) &&
+            i->line_fresh && !s->line_found) {
             unsigned mask=i->line_black_mask&3U, lead=s->turn_deg>0?1U:2U;
-            if (mask==3U || (s->nav_touched && mask==0U)) {enter(s,i,VC_TRACK);return;}
-            if (mask&lead) s->nav_touched=1;
+            if (mask==3U || (s->nav_touched && mask!=lead)) {
+                s->line_found=1;
+                if (s->phase!=VC_RESTORE) {enter(s,i,VC_RESTORE);return;}
+            } else if (mask&lead) s->nav_touched=1;
         }
         int target=0;unsigned next=VC_FAULT;
         switch(s->phase) {
         case VC_TURN_OUT: target=s->turn_deg*1000;next=VC_DIAGONAL;break;
         case VC_ALIGN: target=-s->turn_deg*1000;next=VC_PASS;break;
-        case VC_TURN_IN: target=-s->turn_deg*1000;next=VC_RETURN;break;
-        case VC_RESTORE: target=s->turn_deg*1000;next=VC_REACQUIRE;break;
+        case VC_TURN_IN: /* from the diagonal (side clear): back through 2x turn_deg */
+            target=-s->turn_deg*(s->direct_return?2000:1000);next=VC_RETURN;break;
+        case VC_RESTORE: /* back to the heading before the obstacle */
+            target=s->restore_mdeg;next=s->line_found?VC_TRACK:VC_REACQUIRE;
+            if (abs(target)<2000) {
+                /* Already on it: track the found line, else search for it. */
+                enter(s,i,next);
+                if (next==VC_REACQUIRE) {s->spot_scan=1;s->search_right_first=s->turn_deg>0;}
+                return;
+            }
+            break;
         case VC_NAV_TURN: target=s->turn_deg*1000;next=VC_REACQUIRE;break;
         case VC_DIAGONAL: {
+            /* End of the out diagonal: stop and look to the obstacle side.
+             * Clear: turn straight back toward the line (no align and no
+             * straight pass). Still there: align and pass it in steps. */
+            if(s->look_side) {
+                int r=side_look(s,i);
+                if(r==1) {s->look_side=0;s->clear_run=1;s->origin_um=i->distance_um;}
+                else if(r==2) {s->look_side=0;enter(s,i,VC_ALIGN);}
+                return;
+            }
+            if(s->clear_run) {
+                /* Clear: a little further on, then straight back. */
+                if ((int64_t)i->distance_um-s->origin_um>=(int64_t)AVOID_CLEAR_RUN_MM*1000) {
+                    unsigned back=s->return_mm+AVOID_CLEAR_RUN_MM;
+                    s->return_mm=(uint16_t)(back>UINT16_MAX?UINT16_MAX:back);
+                    s->direct_return=1;enter(s,i,VC_TURN_IN);return;
+                }
+                s->command=1;break;
+            }
             if ((int64_t)i->distance_um-s->origin_um>=(int64_t)s->approach_mm*1000) {
                 int64_t travel=(int64_t)i->distance_um-s->origin_um;
                 if(travel<=0 || travel>1000000) {vc_stop(s,VC_SENSOR);return;}
                 s->return_mm=(uint16_t)((travel+999)/1000);
-                enter(s,i,VC_ALIGN);return;
+                start_side_look(s,i);return;
             }
             s->command=1;break;
         }
         case VC_RETURN: {
-            if ((int64_t)i->distance_um-s->origin_um>=(int64_t)s->return_mm*1000) {
+            /* Head back until the line is found (handed over above). Only past
+             * the mirrored distance plus AVOID_RETURN_EXTRA_MM, with no touch,
+             * straighten up and search on the spot. */
+            if ((int64_t)i->distance_um-s->origin_um>=
+                ((int64_t)s->return_mm+AVOID_RETURN_EXTRA_MM)*1000) {
                 enter(s,i,VC_RESTORE);return;
             }
             s->command=1;break;
         }
         case VC_PASS:
+            /* Alongside the obstacle: look to its side every AVOID_PASS_STEP_MM. */
             if(s->look_side) {
-                if(i->now_ms-s->side_check_started_ms>=AVOID_SIDE_CHECK_TIMEOUT_MS){vc_stop(s,VC_SENSOR);return;}
-                if(!i->side_observed || (s->side_have_sample && i->side_sample_ms==s->side_last_ms))return;
-                s->side_have_sample=1;s->side_last_ms=i->side_sample_ms;
-                if(!i->side_ready){s->side_clear_count=s->side_present_count=0;return;}
-                if(i->side_clear){++s->side_clear_count;s->side_present_count=0;}
-                else {++s->side_present_count;s->side_clear_count=0;}
-                if(s->side_clear_count>=AVOID_SIDE_CONFIRM_SAMPLES) {
-                    s->look_side=0;enter(s,i,VC_TURN_IN);return;
-                }
-                if(s->side_present_count>=AVOID_SIDE_CONFIRM_SAMPLES) {
-                    /* The reverse offset only delays the first look. */
-                    if(s->backup_mm) {
-                        s->pass_check_mm=(uint16_t)(s->pass_check_mm>s->backup_mm?
-                            (unsigned)(s->pass_check_mm-s->backup_mm):AVOID_PASS_CHECK_MIN_MM);
-                        s->backup_mm=0;
-                    }
+                int r=side_look(s,i);
+                if(r==1) {s->look_side=0;s->clear_run=1;s->origin_um=i->distance_um;}
+                else if(r==2) {
                     s->look_side=0;s->origin_um=i->distance_um;
                     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
                 }
                 return;
             }
-            if ((int64_t)i->distance_um-s->origin_um>=(int64_t)s->pass_check_mm*1000) {
-                s->look_side=1;s->side_check_started_ms=i->now_ms;
-                s->side_clear_count=s->side_present_count=s->side_have_sample=0;return;
+            if(s->clear_run) {
+                /* Clear: a little further on, then turn back. */
+                if ((int64_t)i->distance_um-s->origin_um>=(int64_t)AVOID_CLEAR_RUN_MM*1000) {
+                    enter(s,i,VC_TURN_IN);return;
+                }
+                s->command=1;break;
+            }
+            if ((int64_t)i->distance_um-s->origin_um>=(int64_t)AVOID_PASS_STEP_MM*1000) {
+                start_side_look(s,i);return;
             }
             s->command=1;break;
         default:vc_stop(s,VC_SENSOR);return;
@@ -362,7 +413,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
                 /* A bypass that restored its heading without centring on the
                  * line searches for it (only a sensor on black ends the
                  * search), toward the line's side first. */
-                bool restored=s->phase==VC_RESTORE;
+                bool restored=s->phase==VC_RESTORE && next==VC_REACQUIRE;
                 enter(s,i,next);s->spot_scan=scan || restored;
                 if (restored) s->search_right_first=s->turn_deg>0;
                 if (uturn && i->uturn_ignore_mm) {s->uturn_guard=1;s->uturn_end_um=i->distance_um;}

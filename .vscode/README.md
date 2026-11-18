@@ -15,10 +15,11 @@ Configurations (UI)**. The path must point to ARM GCC. The compiler supplies
 standard headers and built-in definitions; the explicit mode models ARM data
 sizes. See Microsoft's [cross-compiling configuration guide](https://code.visualstudio.com/docs/cpp/configure-intellisense-crosscompilation).
 
-The default editor profile mirrors dual-core production configuration
-(`CNF_SMP=1`, `APP_TEST=0`, encoders disabled). Change `picoDefines` if inspecting
-a different Make profile. Firmware still builds through `build_make`; this
-configuration does not change the firmware or the shared data contract.
+The default editor profile mirrors the dual-core production configuration
+(`CNF_SMP=1`, `APP_TEST=0`, encoders enabled, MQTT mission image). Change
+`picoDefines` if inspecting a different Make profile. Firmware still builds
+through `build_make`; this configuration does not change the firmware or the
+shared data contract.
 
 After adding/updating the configuration, run **C/C++: Reset IntelliSense
 Database**, then **Developer: Reload Window** if VS Code still shows cached

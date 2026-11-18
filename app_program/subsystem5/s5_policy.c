@@ -1,18 +1,6 @@
 /* Public path assessment, kept separate from hardware. */
 #include "s5_policy.h"
 #include "s5_width.h"
-static const UW cosine_q10000[] = {
-        10000U, 9998U, 9994U, 9986U, 9976U, 9962U, 9945U, 9925U, 9903U, 9877U,
-        9848U, 9816U, 9781U, 9744U, 9703U, 9659U, 9613U, 9563U, 9511U, 9455U,
-        9397U, 9336U, 9272U, 9205U, 9135U, 9063U, 8988U, 8910U, 8829U, 8746U,
-        8660U, 8572U, 8480U, 8387U, 8290U, 8192U, 8090U, 7986U, 7880U, 7771U,
-        7660U, 7547U, 7431U, 7314U, 7193U, 7071U, 6947U, 6820U, 6691U, 6561U,
-        6428U, 6293U, 6157U, 6018U, 5878U, 5736U, 5592U, 5446U, 5299U, 5150U,
-        5000U, 4848U, 4695U, 4540U, 4384U, 4226U, 4067U, 3907U, 3746U, 3584U,
-        3420U, 3256U, 3090U, 2924U, 2756U, 2588U, 2419U, 2250U, 2079U, 1908U,
-        1736U, 1564U, 1392U, 1219U, 1045U, 872U, 698U, 523U, 349U, 175U,
-        0U
-    };
 /* In the code's positive-left convention, each outward tangent magnitude
  * is atan2(abs(x), y + offset) + asin(radius / hypot(x, y + offset)).
  * Search whole degrees using the equivalent perpendicular clearance test:
@@ -22,14 +10,14 @@ static INT edge_clearance_heading(INT angle, UW range_mm)
 {
     INT magnitude = angle < 0 ? -angle : angle;
     if (magnitude > S5_MAX_ANGLE || range_mm == 0 || range_mm > 5000) return 0;
-    unsigned long long x = (unsigned long long)range_mm * cosine_q10000[90-magnitude];
-    unsigned long long y = (unsigned long long)range_mm * cosine_q10000[magnitude] +
+    unsigned long long x = (unsigned long long)range_mm * s5_cosine_q10000[90-magnitude];
+    unsigned long long y = (unsigned long long)range_mm * s5_cosine_q10000[magnitude] +
         (unsigned long long)S5_SENSOR_OFFSET_MM * 10000U;
     for (INT degree = 1; degree < 90; ++degree) {
-        long long clearance = (long long)(y * cosine_q10000[90-degree]) -
-                              (long long)(x * cosine_q10000[degree]);
+        long long clearance = (long long)(y * s5_cosine_q10000[90-degree]) -
+                              (long long)(x * s5_cosine_q10000[degree]);
         long long arc = (long long)S5_BYPASS_ARC_RADIUS_MM *
-                        (10000U-cosine_q10000[degree]) * 10000LL;
+                        (10000U-s5_cosine_q10000[degree]) * 10000LL;
         if (clearance-arc >= (long long)S5_CLEARANCE_RADIUS_MM * 100000000LL) return degree;
     }
     return 0;
@@ -42,12 +30,12 @@ static BOOL approach_geometry(s5_path_t *path,const s5_status_t *sensor,UINT deg
     INT bound=left?sensor->left_bound_deg:-sensor->right_bound_deg;
     UW range=left?sensor->left_bound_distance_mm:sensor->right_bound_distance_mm;
     if(bound<0 || bound>80 || !range || range>5000U)return FALSE;
-    UW edge=range*cosine_q10000[90-(UINT)bound]/10000U;
+    UW edge=range*s5_cosine_q10000[90-(UINT)bound]/10000U;
     UW half=(sensor->object_width_max_mm+1U)/2U;
     UW lateral=(edge>half?edge:half)+S5_CLEARANCE_RADIUS_MM;
-    UW arc=2U*S5_BYPASS_ARC_RADIUS_MM*(10000U-cosine_q10000[degree])/10000U;
+    UW arc=2U*S5_BYPASS_ARC_RADIUS_MM*(10000U-s5_cosine_q10000[degree])/10000U;
     UW remaining=lateral>arc?lateral-arc:0U;
-    UW sine=cosine_q10000[90U-degree];
+    UW sine=s5_cosine_q10000[90U-degree];
     if(!sine)return FALSE;
     UW leg=(remaining*10000U+sine-1U)/sine;
     if(leg<50U)leg=50U;

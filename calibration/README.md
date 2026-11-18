@@ -1,15 +1,12 @@
-# RoboPico calibration checkpoint (2026-11-03)
+# RoboPico calibration records
 
-To reproduce the USB wheel or line test on this robot, copy the profile from the repository root before building:
+The robot's current calibration is the set of defaults in `app_program/robot_config.h`, with the IR endpoints in `app_program/robot_ir_calibration.h`. Change the values there. A git-ignored `app_program/robot_config.local.h` is only for optional per-checkout overrides (template `app_program/robot_config.local.example.h`). The files in this folder are the measurement records behind those values.
 
-    Copy-Item calibration/robot_config.local.h app_program/robot_config.local.h
+- Wheel geometry (2026-11-03): 1,889 left and 1,894 right counts over three revolutions. Use 631 counts/rev, 220 mm rollout and 113 mm tyre-centre spacing (`BOARD_TICKS_PER_REV`, `BOARD_WHEEL_CIRCUMFERENCE_MM`, `BOARD_TRACK_WIDTH_MM`).
+- Speed PID and wheel trims: `motor_recalibration_2026-11-06.json` is the accepted straight-drive floor calibration (1088 vs 1094 counts in 2 s at 35%, left trim 86). A 2026-11-09 run then set `BOARD_PID_MAX_CPS` 1950, Ki 40 milli and right trim 93 (left stays 86) so the PID targets match what the feedforward delivers; the comment above the PID settings in `robot_config.h` gives the numbers. `BOARD_PID_CALIBRATED` is 1.
+- IR endpoints (right, left, barcode) are in `app_program/robot_ir_calibration.h`: white 187/189/197, black 3214/3177/2472. The robot runs `BOARD_IR_MODE` 3 (calibrated ADC line on GP26/27, digital GP28 barcode).
+- IMU mounting and level zeros (2026-11-11, robot frame) are `BOARD_IMU_*_AXIS`, `BOARD_PITCH_ZERO_CDEG` and `BOARD_ROLL_ZERO_CDEG` in `robot_config.h`. `imu_level_baseline_20261106.json` is the earlier sensor-frame baseline they replaced.
+- Magnetometer: `imu_heading_calibration_20261106.json` and `imu_heading_calibrated_20261106.h` record a validated hard/soft-iron fit. The firmware does not use a compass heading.
+- `motor_speed_calibrated_20261106.h` is a groupmate's motor-reference calibration, kept as a reference for porting their motor regulation; the firmware does not include it. `navigation.md` is the 2026-11-06 avoidance and heading-assist design note (historical).
 
-Keep any existing local overrides before replacing that file. Build the IRMotorScan or IRLineTrace profile. The settings apply only to those two bench profiles. The reviewed copy under calibration belongs on Git; the active per-checkout copy and config/wifi_secrets.h are ignored. Put subsequent measured changes in the reviewed copy and sync it to the active copy.
-
-- Wheel geometry: 1,889 left and 1,894 right counts over three revolutions. Use 631 counts/rev, 220 mm rollout and 113 mm tyre-centre spacing.
-- Straight-drive baseline: left/right trim 73/98, PID Kp/Ki/Kd 30/10/0 (milli units), 20% output cap. Target was 375 counts/s; the Ki-10 floor run recorded 265 left and 274 right in the final second. Speed calibration is unfinished.
-- Line following: latest firmware applies a further 990/1000 to the right PWM after PID rounding. This is a trial value; short passes did not establish an improvement over 995/1000. The motor and line tests use a 200 mm forward clearance threshold. Intermittent echoes can stop a run.
-- IR endpoints (right, left, barcode) remain in app_program/robot_ir_calibration.h: white 187/189/197, black 3214/3177/2472. Barcode capture and replay are next: GP28 saw contrast but the A sweeps were incomplete. Check one narrow bar and its neighbouring white gap first.
-- Magnetometer reported valid XYZ samples. Original vs returned orientation differed, so no compass-heading offsets have been accepted. Terrain mounting, autonomous bypass and PID calibration are not signed off.
-
-Current speed trial (2026-11-04): dashboard and USB mission Start request 30% (750 counts/s on the existing normalized scale), with a 30% PID output ceiling. Left/right trims remain 73/98, right final PWM remains 990/1000, and PID gains remain 30/10/0. Bend targets share the ceiling proportionally. This is a configuration increase; the historical 20% measurements above remain the last recorded calibration checkpoint. The new speed still needs a floor test.
+History: the 2026-11-03/04 USB bench checkpoint (trims 73/98, `BOARD_PID_MAX_CPS` 2500, Ki 10 and a provisional right-PWM factor) was superseded by the records above. Its bench-only config snapshot and bench build profiles have been removed.

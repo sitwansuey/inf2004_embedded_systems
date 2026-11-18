@@ -6,8 +6,24 @@
 #define AVOID_SIDE_CLEAR_MM 200U
 #define AVOID_SIDE_CONFIRM_SAMPLES 3U
 #define AVOID_SIDE_CHECK_TIMEOUT_MS 4000U
-#define AVOID_PASS_CHECK_MIN_MM 100U
-#define AVOID_PASS_CHECK_MAX_MM 250U
+/* VC_PASS drives this far between side looks (the first look is at the end
+ * of the out diagonal, before aligning). */
+#define AVOID_PASS_STEP_MM 100U
+/* A clear side look (end of the diagonal or in VC_PASS): the servo returns
+ * to the front, the robot drives on this far straight, then turns back. */
+#define AVOID_CLEAR_RUN_MM 20U
+/* Smooth avoidance driving (TURN_OUT..RESTORE, vehicle.c): power rises from 0
+ * to the avoidance power over AVOID_RAMP_POWER_MS (drops stay immediate) and
+ * the arc steering moves at most full scale (400) per AVOID_STEER_RAMP_MS. */
+#define AVOID_RAMP_POWER_MS 400U
+/* After the reverse the bypass heading is re-planned (vehicle.c): the
+ * shallowest heading, not below this, that still clears the obstacle edge. */
+#define AVOID_MIN_TURN_DEG 20U
+#define AVOID_STEER_RAMP_MS 300U
+/* VC_RETURN heads back toward the line until a sensor finds it. The mirrored
+ * diagonal is only where the line is expected: drive on up to this much
+ * further before restoring the heading for an on-the-spot search. */
+#define AVOID_RETURN_EXTRA_MM 250U
 /* VC_BACKUP: straight reverse after the plan is latched, ended by time or
  * by the odometry distance bound, whichever comes first. */
 #define AVOID_BACKUP_MS 1000U

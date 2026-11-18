@@ -36,6 +36,7 @@ ID 0 obstacle and scan fields (local display keys):
 | Subtype / value | Display key | Conversion |
 |---|---|---|
 | 0, low nibble | `Robopico/Actuators/vehicle_controller/state` | phase name; 13 = `Reverse` |
+| 0, high nibble | `Robopico/Actuators/vehicle_controller/fault_code` | controller fault 0–8; 8 = lifted (9–15 rejected) |
 | 8, 0–100 | `Robopico/sensors/ultrasonic_ranger/width_cm` | value × 0.5 cm (total width) |
 | 8, 128–191 | `Robopico/sensors/ultrasonic_ranger/width_left_cm` | (value & 63) × 0.8 cm, centre to left edge |
 | 8, 192–255 | `Robopico/sensors/ultrasonic_ranger/width_right_cm` | (value & 63) × 0.8 cm, centre to right edge |
@@ -43,9 +44,9 @@ ID 0 obstacle and scan fields (local display keys):
 | 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry` (non-zero only while fault code 1, sensor; with fault code 1, `None/other` means an avoidance-step check such as a side-check timeout) |
 | 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
 
-Subtype 8 values 101–127 and bypass side 3 are rejected. The three width
-fields are retained between reports while the stream is live and quality
-bit 0 is set; a quality record with bit 0 clear, or a disconnect, clears them.
+Subtype 8 values 101–127 and bypass side 3 are rejected. Like every reading,
+the three width fields keep their latest value until a new report replaces
+them; a quality record with bit 0 clear, or a broker reconnect, clears them.
 
 The prior packed16/v1 topic, individual sensor topics and JSON/event topics
 are not consumed. Demo/JSON import remain explicit browser-only features.
@@ -60,14 +61,15 @@ Full bit layout: [DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md).
 waits for the matching reply on `csc02/command/ack`. Request (6 bytes):
 `C1 opcode b2 b3 b4 seq`; ACK (6 bytes): `C2 seq opcode result phase fault`
 (result 0 accepted, 1 rejected, 2 Start needs Reset, 3 expired; phase 0–13,
-fault 0–7). Commands older than 100 ms on the robot are answered with result 3.
+fault 0–8, 8 = lifted). Commands older than 100 ms on the robot are answered
+with result 3.
 
 | Opcode | Request | Behaviour |
 |---|---|---|
 | 0 | `C1 00 00 00 00 SS` | STOP |
 | 1 | `C1 01 DD LL LL SS` | timed ARM, demand 1–50, lease 1–1000 ms (not sent by the dashboard) |
 | 2 | `C1 02 00 00 00 SS` | RESET while stopped |
-| 3 | `C1 03 1E 00 00 SS` | autonomous START, demand 30 |
+| 3 | `C1 03 14 00 00 SS` | autonomous START, demand 20 |
 | 4 | `C1 04 LL AA 00 SS` | MAP: barcode letter LL (1–26 = A–Z) performs action AA at the next junction |
 
 Opcode 4 actions: 0 ignore (read, no turn), 1 left, 2 right, 3 forward,
@@ -75,5 +77,6 @@ Opcode 4 actions: 0 ignore (read, no turn), 1 left, 2 right, 3 forward,
 Z right; others no turn) for every letter; any other out-of-range pair is
 rejected (result 1). MAP is accepted in any phase and only changes future
 decodes. Mappings live in robot RAM, so after a robot reboot press **Send all**
-(it sends the codebook reset, then every entry that differs from the default).
+(it writes all 26 letters A..Z from the dashboard's table, one ACKed frame
+each, with no codebook reset first).
 The dashboard's `barcode_map` (in `/api/telemetry`) changes only on result 0.

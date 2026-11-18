@@ -7,15 +7,15 @@ const groups = [
   ['navigation','Left IR','03','Raw left sensor reading.',['ir_left','line_state','black_mask','line_error']],
   ['navigation','Right IR','03','Raw right sensor reading.',['ir_right']],
   ['navigation','Barcode IR','03','GP28 digital barcode sensor. A barcode ends 30 mm after its last bar; elements read (bars + spaces, 29 for a full code) and the decode result are for the current or last barcode.',['ir_barcode','elements_read','decode_result','barcode','navigation']],
-  ['motion','Left wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_left','left_speed_mps']],
-  ['motion','Right wheel encoder','02','Packed counts wrap at 4096; speed requires calibrated wheel feedback.',['encoder_right','right_speed_mps']],
-  ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact','imu_status']],
-  ['terrain','Magnetometer','04','Heading uses the magnetometer. Pitch, roll and turn rate are derived estimates; the GY-511 has no gyroscope.',['mag_x_ut','mag_y_ut','mag_z_ut','heading_deg','pitch_deg','roll_deg','turn_rate_dps','valid']],
-  ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','width_left_cm','width_right_cm','depth_cm','left_clearance_cm','right_clearance_cm']],
-  ['terrain','Terrain & hump analysis','04','Derived motion and hump estimates.',['motion_class','hump_state','hump_height_cm','run_max_height_cm','valid']],
-  ['obstacle','Servo Motor','05','Scan actuator position and avoidance decisions.',['state','servo_angle_deg','scan_state','bypass_side','route']],
-  ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','fault_flags','speed_mps','distance_m','last_error','last_command_ms']],
-  ['system','Vehicle controller','05','Mission state, safety and telemetry timing.',['state','fault_code','fault_cause','fault_message','safety_state','uptime_ms','telemetry_period_ms','latency_ms','sequence','quality','available','dropped']]
+  ['motion','Left wheel encoder','02','Packed counts wrap at 4096. Vehicle speed is under Motor control.',['encoder_left']],
+  ['motion','Right wheel encoder','02','Packed counts wrap at 4096. Vehicle speed is under Motor control.',['encoder_right']],
+  ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact']],
+  ['terrain','Magnetometer','04','Magnetic field from the GY-511. Pitch and roll are tilt estimates from the accelerometer; the GY-511 has no gyroscope.',['mag_x_ut','mag_y_ut','mag_z_ut','pitch_deg','roll_deg']],
+  ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','width_left_cm','width_right_cm']],
+  ['terrain','Terrain & hump analysis','04','Hump state and height estimates. Validity is the height availability flag sent by the robot.',['hump_state','hump_height_cm','run_max_height_cm','valid']],
+  ['obstacle','Servo Motor','05','Scan actuator position and avoidance decisions.',['servo_angle_deg','scan_state','bypass_side']],
+  ['motion','Motor control','02','Commanded PWM output is separate from measured wheel motion.',['state','direction','power_percent','fault_flags','speed_mps']],
+  ['system','Vehicle controller','05','Mission state, faults, safety and telemetry health.',['state','fault_code','fault_cause','safety_state','sequence','quality','available','dropped']]
 ];
 // Topic names are case-sensitive. Keep the two roots exactly as agreed.
 const wireTopic = 'Robopico/sensors/edr16/v1';
@@ -38,19 +38,18 @@ const topicBindings = groups.flatMap(([key,title,,,fields])=>{
   const [category,section]=sectionTopics[title];
   return fields.map(field=>({topic:`${topicRoots[category]}/${section}/${field}`,key,field}));
 });
-const eventTopic = `${topicRoots.actuators}/vehicle_controller/events`;
 let mqttPacket = {};
 const labels = {
   ir_left:['Raw reading'],ir_barcode:['GP28 level (1 = black)'],ir_right:['Raw reading'],
   elements_read:['Elements read','/ 29'],decode_result:['Decoding'],barcode:['Decoded letter'],
-  fault_flags:['Motor fault bits'],encoder_left:['Pulse count (mod 4096)'],encoder_right:['Pulse count (mod 4096)'],left_speed_mps:['Wheel speed','m/s'],right_speed_mps:['Wheel speed','m/s'],
+  fault_flags:['Motor fault bits'],encoder_left:['Pulse count (mod 4096)'],encoder_right:['Pulse count (mod 4096)'],
   accel_x_mps2:['Acceleration X','m/s²'],accel_y_mps2:['Acceleration Y','m/s²'],accel_z_mps2:['Acceleration Z','m/s²'],
   mag_x_ut:['Magnetic field X','µT'],mag_y_ut:['Magnetic field Y','µT'],mag_z_ut:['Magnetic field Z','µT'],
-  heading_deg:['Heading / yaw alias','°'],pitch_deg:['Pitch','°'],roll_deg:['Roll','°'],turn_rate_dps:['Estimated turn rate','°/s'],
-  distance_cm:['Obstacle distance','cm'],width_cm:['Estimated width','cm'],width_left_cm:['Centre to left edge','cm'],width_right_cm:['Centre to right edge','cm'],bypass_side:['Bypass side'],depth_cm:['Depth','cm'],left_clearance_cm:['Left clearance','cm'],right_clearance_cm:['Right clearance','cm'],
+  pitch_deg:['Pitch','°'],roll_deg:['Roll','°'],
+  distance_cm:['Obstacle distance','cm'],width_cm:['Estimated width','cm'],width_left_cm:['Centre to left edge','cm'],width_right_cm:['Centre to right edge','cm'],bypass_side:['Bypass side'],
   line_error:['Line position error'],hump_height_cm:['Current hump peak','cm'],run_max_height_cm:['Run maximum height','cm'],servo_angle_deg:['Servo angle','°'],
-  power_percent:['Commanded power','%'],distance_m:['Travelled distance','m'],last_command_ms:['Command timestamp','ms'],heartbeat_age_ms:['Heartbeat age','ms'],
-  fault_cause:['Fault cause'],uptime_ms:['Robot uptime','ms'],telemetry_period_ms:['Telemetry period','ms'],latency_ms:['Reported delivery latency','ms'],valid:['Estimate validity']
+  power_percent:['Commanded power','%'],speed_mps:['Vehicle speed','m/s'],
+  fault_cause:['Fault cause'],valid:['Estimate validity']
 };
 function fieldLabel(field) { return labels[field] || [field.replaceAll('_',' ').replace(/^./,c=>c.toUpperCase())]; }
 const el = id => document.getElementById(id);
@@ -58,15 +57,12 @@ function text(parent, tag, value, cls) { const n=document.createElement(tag); n.
 function display(v) { return v === null || v === undefined ? '—' : typeof v==='boolean' ? (v ? 'Yes' : 'No') : String(v); }
 
 /* ---------- Design constants (from main's dashboard) ---------- */
-const PALETTE = Object.freeze({
-  navyDeep: '#060d1e', navy: '#0a1530', track: '#132650', slate: '#26407a', text: '#e9f0ff',
-  cyan: '#38d9f5', mint: '#5cf2bf', purple: '#a58bff', azure: '#63a4ff', amber: '#f6c46a', coral: '#ff7d8e'
-});
+const PALETTE = Object.freeze({ navyDeep: '#060d1e', cyan: '#38d9f5', mint: '#5cf2bf', purple: '#a58bff' });
 const COLORS = {
   grid: 'rgba(150, 175, 230, 0.16)', gridStrong: 'rgba(150, 175, 230, 0.3)', label: '#7d8db3',
   cyan: PALETTE.cyan, mint: PALETTE.mint, purple: PALETTE.purple, idle: '#5a6a90'
 };
-const STATUS_TEXT = { current: 'Received', snapshot: 'Snapshot', stale: 'Stale', missing: 'Awaiting', unavailable: 'Unavailable' };
+const STATUS_TEXT = { current: 'Received', snapshot: 'Snapshot', stale: 'Stale', missing: 'Awaiting' };
 const SUBSYSTEMS = [['motion','Motion','02'],['navigation','Navigation','03'],['terrain','Terrain','04'],['obstacle','Obstacles','05'],['system','Controller','05']];
 const SUBSYSTEM_LABEL = Object.fromEntries(SUBSYSTEMS.map(([id,label])=>[id,label]));
 const SUBSYSTEM_FIELDS = Object.fromEntries(SUBSYSTEMS.map(([id])=>[id,[...new Set(groups.filter(([key])=>key===id).flatMap(group=>group[4]))]]));
@@ -77,11 +73,7 @@ const TURN_VALUES = { Forward:'forward', Left:'left', Right:'right', 'U-turn':'u
 const TABS = ['overview','barcodes','live','trends','sensors','events'];
 const STALE_AFTER_MS = 5000, HISTORY_LIMIT = 240, WINDOW_MS = 60000, GUTTER = 48;
 const ICON_PATHS = {
-  car: '<path d="m5 8 2-4h10l2 4M3 9h18v9H3zM5 18v3m14-3v3M6 13h2m8 0h2M3 9l-1-2m19 2 1-2"/><path d="M7 8h10"/>',
   pulse: '<path d="M2 12h5l3-8 4 16 3-8h5"/>',
-  upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-  play: '<path d="m8 4 13 8-13 8z"/>',
-  reset: '<path d="M3 11a9 9 0 1 1 2 7M3 4v7h7"/>',
   arrow: '<path d="M12 20V4m-7 7 7-7 7 7"/>',
   'rotate-cw': '<path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.6M20 3v5.6h-5.6"/>',
   'rotate-ccw': '<path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 3v5.6h5.6"/>',
@@ -98,7 +90,7 @@ const TREND_PANELS = [
   { id: 'trend-accel', title: 'Acceleration', caption: 'Individual axes, with reception time on the horizontal axis.',
     lanes: [['terrain','accel_x_mps2','Axis X',PALETTE.cyan,'m/s²'],['terrain','accel_y_mps2','Axis Y',PALETTE.mint,'m/s²'],['terrain','accel_z_mps2','Axis Z',PALETTE.purple,'m/s²']] }
 ];
-const DEMO_PACKET = {motion:{state:'MOVING',direction:'FORWARD',power_percent:35,left_speed_mps:0.24,right_speed_mps:0.25,distance_m:3.8,encoder_left:420,encoder_right:424,last_error:0,last_command_ms:12000},navigation:{state:'TRACKING',ir_left:650,ir_barcode:2100,ir_right:720,line_error:0.03,barcode:'F',navigation:'Left',decode_result:'Successful',elements_read:29,waypoint:'WP-02',requested_turn:'LEFT'},terrain:{valid:true,heading_deg:92,pitch_deg:4.2,roll_deg:0.8,turn_rate_dps:1.4,accel_x_mps2:0.1,accel_y_mps2:0.02,accel_z_mps2:9.8,motion_class:'CLIMBING',impact:false,hump_state:'ASCENDING',hump_height_cm:2.1,run_max_height_cm:3.6,imu_status:'OK'},obstacle:{state:'SCANNING',distance_cm:32,width_cm:14,depth_cm:20,left_clearance_cm:40,right_clearance_cm:18,servo_angle_deg:60,bypass_side:'LEFT',route:'Pending controller'},system:{state:'LINE_TRACK',fault_code:0,fault_cause:'None',fault_message:'None',safety_state:'NORMAL',uptime_ms:12500,telemetry_period_ms:10,latency_ms:24,sequence:1250},events:[{time:'00:12.4',source:'Buddy 4',level:'INFO',message:'Suspected hump; reduce speed requested.'},{time:'00:12.5',source:'Buddy 5',level:'INFO',message:'Obstacle scan started.'}]};
+const DEMO_PACKET = {motion:{state:'MOVING',direction:'FORWARD',power_percent:35,encoder_left:420,encoder_right:424},navigation:{ir_left:650,ir_barcode:2100,ir_right:720,line_error:0.03,barcode:'F',navigation:'Left',decode_result:'Successful',elements_read:29},terrain:{valid:true,pitch_deg:4.2,roll_deg:0.8,accel_x_mps2:0.1,accel_y_mps2:0.02,accel_z_mps2:9.8,impact:false,hump_state:'ASCENDING',hump_height_cm:2.1,run_max_height_cm:3.6},obstacle:{distance_cm:32,width_cm:14,servo_angle_deg:60,bypass_side:'LEFT'},system:{state:'LINE_TRACK',fault_code:0,fault_cause:'None',safety_state:'NORMAL',sequence:1250},events:[{time:'00:12.4',source:'Buddy 4',level:'INFO',message:'Suspected hump; reduce speed requested.'},{time:'00:12.5',source:'Buddy 5',level:'INFO',message:'Obstacle scan started.'}]};
 
 /* ---------- State ---------- */
 let packet = {}, mode = 'Waiting', renderedAt = null;
@@ -138,7 +130,7 @@ function chip(status, label) {
   return `<span class="chip status-${status}"><i aria-hidden="true"></i><span>${esc(label || STATUS_TEXT[status] || status)}</span></span>`;
 }
 function tile(label, valueHtml, status = '', swatch = '', valueClass = '') {
-  const cls = status === 'missing' || status === 'unavailable' ? ' missing' : status === 'stale' ? ' stale' : '';
+  const cls = status === 'missing' ? ' missing' : status === 'stale' ? ' stale' : '';
   const dot = swatch ? `<i class="swatch" style="background:${swatch}" aria-hidden="true"></i>` : '';
   return `<div class="tile${cls}"><span class="tile-label">${dot}${esc(label)}${status === 'stale' ? ' · stale' : ''}</span><span class="tile-value${valueClass ? ` ${valueClass}` : ''}">${valueHtml}</span></div>`;
 }
@@ -232,7 +224,10 @@ function faultText(system) {
   if (code == null) return '—';
   let label = esc(valueText(code));
   if (Number.isInteger(code) && code >= 0 && code < FAULT_NAMES.length) label += ` · ${FAULT_NAMES[code]}`;
-  const cause = system.fault_cause;
+  let cause = system.fault_cause;
+  // The 2-bit cause field is shared: for a line fault (2) its codes mean
+  // 1 line data stale/unavailable, 2 S3 fault event, 3 line not found.
+  if (code === 2) cause = {Sonar: 'line data stale', Tilt: 'S3 fault event', Odometry: 'line not found'}[cause] || cause;
   if (cause != null && !/^none/i.test(String(cause))) label += ` · ${esc(cause)}`;
   return label;
 }
@@ -440,37 +435,6 @@ function radarHtml(now) {
     + tile('Display range', `${displayRange}<small>cm</small>`)
     + `</div><p class="card-caption${status === 'stale' ? ' stale' : ''}">${status === 'stale' ? `Stale. ${caption}` : caption}</p>`;
 }
-function orientationHtml(now) {
-  const terrain = packet.terrain || {};
-  const hasHeading = finite(terrain.heading_deg);
-  const heading = hasHeading ? ((terrain.heading_deg % 360) + 360) % 360 : 0;
-  const status = hasHeading ? readingState('terrain', 'heading_deg', now) : 'unavailable';
-  const accent = hasHeading ? COLORS.mint : COLORS.idle;
-  const accessibleLabel = hasHeading
-    ? `Vehicle orientation: heading ${number(heading)} degrees${status === 'stale' ? ', stale reading' : ''}`
-    : 'Vehicle orientation: heading unavailable; vehicle shown in a neutral position';
-  const ticks = Array.from({ length: 24 }, (_, index) => index * 15).map(degrees => `<line x1="220" y1="30" x2="220" y2="${degrees % 90 ? 40 : 50}" stroke="${degrees % 90 ? COLORS.grid : COLORS.gridStrong}" transform="rotate(${degrees} 220 220)"/>`).join('');
-  const compass = hasHeading ? `<g fill="${COLORS.label}" font-size="24" font-weight="600" font-family="inherit" text-anchor="middle" aria-hidden="true"><text x="220" y="72" fill="${COLORS.mint}">N</text><text x="376" y="228">E</text><text x="220" y="386">S</text><text x="64" y="228">W</text></g>` : '';
-  const svg = `<svg viewBox="0 0 440 440" role="img" aria-label="${esc(accessibleLabel)}"><defs>`
-    + `<radialGradient id="orient-dial" cx="220" cy="220" r="200" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="${COLORS.purple}" stop-opacity="0.1"/><stop offset="100%" stop-color="${COLORS.purple}" stop-opacity="0.01"/></radialGradient>`
-    + `<linearGradient id="orient-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#26407a"/><stop offset="100%" stop-color="#13244c"/></linearGradient></defs>`
-    + `<circle cx="220" cy="220" r="196" fill="url(#orient-dial)" stroke="${COLORS.gridStrong}" stroke-width="1.5"/>`
-    + `<circle cx="220" cy="220" r="140" fill="none" stroke="${COLORS.grid}" stroke-width="1.5" stroke-dasharray="3 7"/>`
-    + `<g stroke-width="2" stroke-linecap="round">${ticks}</g>${compass}`
-    + `<g transform="rotate(${fx(heading)} 220 220)" opacity="${status === 'stale' ? 0.35 : 1}">`
-    + `<path d="M220 128V106" stroke="${accent}" stroke-width="5" stroke-linecap="round"/><path d="M207 110l13-18 13 18z" fill="${accent}"/>`
-    + '<g fill="#0b1733" stroke="#3a5591" stroke-width="1.5"><rect x="160" y="150" width="20" height="50" rx="7"/><rect x="260" y="150" width="20" height="50" rx="7"/><rect x="160" y="250" width="20" height="50" rx="7"/><rect x="260" y="250" width="20" height="50" rx="7"/></g>'
-    + `<rect x="176" y="128" width="88" height="194" rx="30" fill="url(#orient-body)" stroke="${COLORS.cyan}" stroke-width="3"/>`
-    + '<rect x="192" y="174" width="56" height="66" rx="13" fill="#0a1530" stroke="#4d6aa8" stroke-width="1.5"/><rect x="196" y="258" width="48" height="44" rx="10" fill="#0d1a38"/>'
-    + `<rect x="204" y="136" width="32" height="12" rx="6" fill="${accent}" opacity="0.85"/></g></svg>`;
-  const fields = [['heading_deg', 'Heading', hasHeading ? heading : undefined, 0], ['pitch_deg', 'Pitch', terrain.pitch_deg, 1], ['roll_deg', 'Roll', terrain.roll_deg, 1]];
-  const caption = !hasHeading ? 'Heading unavailable. Waiting for an explicit orientation estimate.'
-    : status === 'stale' ? 'Stale heading. Showing the last received orientation.'
-      : `${status === 'snapshot' ? 'Snapshot' : 'Received'} heading, clockwise from north.`;
-  return `<div class="card-header"><h2 class="card-title">Vehicle orientation</h2>${chip(status)}</div><div class="visual-stage">${svg}</div><div class="tiles tiles-3">`
-    + fields.map(([field, label, value, digits]) => tile(label, `${number(value, digits)}<small class="deg">°</small>`, finite(value) ? readingState('terrain', field, now) : 'missing')).join('')
-    + `</div><p class="card-caption${status === 'stale' ? ' stale' : ''}">${caption}</p>`;
-}
 function lineSensorHtml(now) {
   const navigation = packet.navigation || {};
   const readings = [['ir_left', 'Left IR', PALETTE.cyan], ['ir_barcode', 'Barcode IR', PALETTE.purple], ['ir_right', 'Right IR', PALETTE.mint]]
@@ -493,7 +457,6 @@ function accelerationHtml(now) {
 }
 function renderLive(now) {
   setHTML('proximity-radar', radarHtml(now));
-  setHTML('vehicle-orientation', orientationHtml(now));
   setHTML('line-sensors', lineSensorHtml(now));
   setHTML('acceleration-vector', accelerationHtml(now));
 }
@@ -684,14 +647,15 @@ function renderEvents() {
 /* ---------- Header, notice and footer ---------- */
 function connectionText() {
   if (!isLive()) return mode === 'Demo' ? 'Demo snapshot' : 'Imported snapshot';
-  if (!receiver.polling) return mode === 'MQTT' ? 'MQTT data supplied' : 'Awaiting data';
+  if (!receiver.polling) return mode === 'MQTT' ? 'Readings supplied' : 'Awaiting data';
   return receiver.error ? 'Dashboard receiver unavailable' : String(receiver.status);
 }
 function noticeFor(now) {
   if (!isLive()) return ['preview', `${mode === 'Demo' ? 'DEMO · Synthetic values' : 'IMPORTED · File snapshot'}. Live updates are paused. Resume live to return to the MQTT receiver.`];
+  // Opened as a file (not through dashboard.py): there is no receiver to poll.
   if (!receiver.polling) return mode === 'MQTT'
-    ? ['live', 'MQTT topic updates supplied · Broker connection is managed by the transport adapter.']
-    : ['stale', 'Dashboard shell · No robot connection. Values appear when telemetry is supplied.'];
+    ? ['live', 'Readings supplied to this page directly · No receiver is polled. Open the dashboard.py URL for live robot data.']
+    : ['stale', 'Dashboard shell · No robot connection. Use Load demo or Import JSON, or open the dashboard.py URL for live robot data.'];
   if (receiver.error) return ['stale', 'Start dashboard.py and open its HTTP URL to receive MQTT updates.'];
   if (receiver.status !== 'MQTT subscribed') return ['stale', `${receiver.status} · Displayed values may be from earlier messages.`];
   const subscribed = `Subscribed to ${receiver.mqttTopic} · ${receiver.receivedPackets} packets decoded · ${receiver.rejectedPackets} rejected · Readings keep their latest value (marked stale after 5 s without an update); mission availability flags indicate sensor validity.`;
@@ -757,23 +721,18 @@ el('subsystem-card').addEventListener('click',event=>{
 });
 function receiveMqtt(topic,payload) {
   const binding=topicBindings.find(item=>item.topic===topic);
-  if(!binding && topic!==eventTopic)return false;
+  if(!binding)return false;
   let value=payload;
   if(typeof payload==='string') {
     try { value=JSON.parse(payload); } catch { value=payload; }
   }
-  if(topic===eventTopic) {
-    if(!value || typeof value!=='object' || Array.isArray(value))throw new Error('Event payload must be a JSON object.');
-    mqttPacket.events=[...(mqttPacket.events || []),value].slice(-100);
-  } else {
-    if(value!==null && !['string','number','boolean'].includes(typeof value))throw new Error('Reading payload must be a scalar value.');
-    if(typeof value==='number' && !Number.isFinite(value))throw new Error('Reading must be finite.');
-    mqttPacket[binding.key] ??= {};
-    mqttPacket[binding.key][binding.field]=value;
-    const id=`${binding.key}.${binding.field}`, now=Date.now();
-    if(value!==null)fieldTimes[id]=now;
-    if(typeof value==='number'){const list=samples[id]??=[];list.push({t:now,v:value});if(list.length>HISTORY_LIMIT)list.shift();}
-  }
+  if(value!==null && !['string','number','boolean'].includes(typeof value))throw new Error('Reading payload must be a scalar value.');
+  if(typeof value==='number' && !Number.isFinite(value))throw new Error('Reading must be finite.');
+  mqttPacket[binding.key] ??= {};
+  mqttPacket[binding.key][binding.field]=value;
+  const id=`${binding.key}.${binding.field}`, now=Date.now();
+  if(value!==null)fieldTimes[id]=now;
+  if(typeof value==='number'){const list=samples[id]??=[];list.push({t:now,v:value});if(list.length>HISTORY_LIMIT)list.shift();}
   if(!batching)render(mqttPacket,'MQTT');
   return true;
 }
@@ -811,15 +770,8 @@ el('tablist').addEventListener('keydown', event => {
 buildTrends();
 renderBarcodeHistory([]);
 renderBarcodeMap(null);
-window.dashboard={
-  setTelemetry:packet=>render(validate(packet),'Imported'),
-  renderBarcodeHistory,
-  renderBarcodeMap,
-  receiveMqtt,
-  subscriptions:[wireTopic],
-  topicBindings,
-  eventTopic
-};
+// Used by test_dashboard_display.cjs.
+window.dashboard={ receiveMqtt, subscriptions:[wireTopic] };
 render();
 
 // Browser-only features. The display test runs this file with a minimal DOM that has none of them.

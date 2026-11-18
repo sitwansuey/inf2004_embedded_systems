@@ -2,8 +2,8 @@
 #define CSC02_TELEMETRY_CODEC_H
 #include <stdint.h>
 #include <stdbool.h>
-#define TELEMETRY_BITS 431U
-#define TELEMETRY_BYTES 54U /* 431 data bits + 1 reserved zero bit */
+#define TELEMETRY_BITS 432U
+#define TELEMETRY_BYTES 54U /* 432 data bits, no padding */
 enum {
     TEL_VERSION,
     TEL_SEQUENCE,

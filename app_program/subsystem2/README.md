@@ -1,24 +1,26 @@
-# Shared EDR16 integration
-
-B2 now uses the repository [EDR16 contract](../../docs/DATA_REPRESENTATION.md).
-`s2_motion_encode` returns IDs 11 and 12; `s2_encoder_encode` returns IDs 1 and 2.
-Each adapter writes four bytes containing two independent two-byte records.
-Full-width counters and timestamps remain in local snapshot APIs. B1's collector
-uses these adapters directly. No external variable-length EDR envelope remains.
-
 # Buddy 2 Motion Control
 
 Student ID: 2500613
 
-The shared [external data representation](../../docs/DATA_REPRESENTATION.md)
-defines Buddy 2's two-byte records and shared ID/data layout,
-Python decoding, field ranges and integration rules. Task-context byte adapters
-are declared in `s2_data.h`; they preserve the existing controller and watchdog
-boundaries. See [verification evidence](../../testing/data_representation/TEST_LOG.md).
+PWM motor commands with dual-wheel x1 encoders and an optional calibrated
+wheel-speed PID (`BOARD_PID_ENABLED`): `speed_pid.h` holds the per-wheel
+regulator, `wheel_steering.h` the steering split and `turn_drive.h` the spin
+limits, breakaway kick and stall allowance. The downloaded encoder update is
+merged with the repository's command watchdog, validation, error handling and
+motion-status API.
 
-Open-loop PWM motor commands with optional dual-wheel x1 encoder diagnostics.
-The downloaded encoder update is merged with the repository's command watchdog,
-validation, error handling and motion-status API.
+## Shared EDR16 integration
+
+The shared [external data representation](../../docs/DATA_REPRESENTATION.md)
+(EDR16) defines Buddy 2's two-byte records and shared ID/data layout, Python
+decoding, field ranges and integration rules. B1's telemetry task builds the
+motor and encoder records itself (`subsystem1/telemetry_edr.h`) from
+`s2_motion_get_status()` and `s2_encoder_get_status()`. B2's own task-context
+adapters in `s2_data.h` remain for the host tests: `s2_motion_encode` returns
+IDs 11 and 12, `s2_encoder_encode` IDs 1 and 2, each as four bytes holding two
+independent two-byte records. Full-width counters and timestamps stay in the
+local snapshot APIs. No external variable-length EDR envelope remains. See
+[verification evidence](../../testing/data_representation/TEST_LOG.md).
 
 ## Build and run
 
@@ -38,16 +40,13 @@ test deliberately withholds renewals to check watchdog expiry. Diagnostics
 include both wheels' pulse counts and missing-pulse messages.
 
 Use `TEST=0` to start the motor task and wait for commands without running tests.
-`S2_ENCODER_ENABLED=0` (the default) avoids all encoder GPIO/IRQ access. Build
-options participate in the profile stamp so switching them rebuilds the objects.
+`S2_ENCODER_ENABLED=1` is the make default (the PID needs both encoders);
+`S2_ENCODER_ENABLED=0` avoids all encoder GPIO/IRQ access and requires
+`BOARD_PID_ENABLED 0`. Build options participate in the profile stamp so
+switching them rebuilds the objects.
 
 `S2_ONLY=1` builds and starts only this subsystem. The default `S2_ONLY=0` selects
-the full team application. The obsolete `task_producer.c` sample has been
-removed: it referenced the retired `SAMPLE_MSG`, `sem_slots`, `mpf_samples` and
-`S2_PERIOD_MS` interfaces. Full-team builds use the current Buddy 3 implementation
-from `main`; older branches with the original sample consumer need that update.
-The downloaded `task_motor.c` is another copy of the old sample producer and was
-not added. Vehicle-controller integration remains separate from build readiness.
+the full team application.
 
 ## Wiring and encoders
 
@@ -77,7 +76,10 @@ samples. Check `valid`: enabled startup returns `E_OK` with zero data and
 `valid=0`, then `valid=1` after initialization. Disabled builds zero every field
 and return `E_NOSPT`.
 
-These counts do not implement PID, calibrated distance or rotation to an angle.
+In PID builds these counts feed the wheel-speed regulator. The motor task never
+drives to a distance or angle itself: `odometry.h` turns the counts into
+distance and speed for the vehicle controller and S4, and turns to an angle
+are the vehicle controller's job.
 `S2_MOVE_RIGHT` rotates clockwise (left forward, right reverse); `S2_MOVE_LEFT`
 rotates counterclockwise. These mappings already matched the download. Pivot
 commands run only the outer wheel.
@@ -106,10 +108,8 @@ the send result. PWM off does not guarantee braking, and the watchdog requires
 the motor task to keep running.
 
 Check `subsystem2_init()` and `subsystem2_start()` results. In integrated builds,
-the vehicle-controller task must call `s2_controller_bind()` before sending.
-`app_vehicle_request()` remains an external controller API, not implemented here.
-Controller request leases and motor command expiry are separate: an active
-request still needs periodic motor renewals.
+the vehicle-controller task must call `s2_controller_bind()` before sending,
+and must keep renewing moving commands before they expire.
 
 `s2_motion_get_status()` provides a semaphore-protected snapshot of commanded
 state, effective command/power, error and timestamp. It does not confirm actual

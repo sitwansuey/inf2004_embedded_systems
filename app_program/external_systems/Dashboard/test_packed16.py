@@ -72,7 +72,7 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(bridge.readings[vc+'safety_state']['payload'],'Armed')
             self.assertTrue(bridge.readings['Robopico/sensors/accelerometer/impact']['payload'])
             self.assertEqual(bridge.readings[READINGS[3]]['payload'],'90')
-            self.assertTrue(bridge.width_valid and bridge.readings[width]['payload']==17.5)
+            self.assertEqual(bridge.readings[width]['payload'],17.5)
         # Cause bits alone never stand in for quality bits 0/1/2/4/5.
         feed(bridge,PACKED_TOPIC,encode_packet(0,(9<<8)|(3<<6)))
         self.assertEqual(bridge.readings[vc+'fault_cause']['payload'],'Odometry')
@@ -80,7 +80,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(bridge.readings[vc+'safety_state']['payload'],'Stopped')
         self.assertFalse(bridge.readings['Robopico/sensors/accelerometer/impact']['payload'])
         self.assertIsNone(bridge.readings[READINGS[3]]['payload'])
-        self.assertFalse(bridge.width_valid);self.assertIsNone(bridge.readings[width]['payload'])
+        self.assertIsNone(bridge.readings[width]['payload'])
         self.assertEqual(decode_messages(encode_packet(0,(9<<8)|1|(2<<6)))[-1],(vc+'fault_cause','Tilt'))
 
     def test_all_ids_and_units(self):
@@ -115,8 +115,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(bridge.readings[READINGS[1]]['payload'],'101')
         self.assertNotEqual(bridge.receiver_id,BrokerBridge().receiver_id)
 
-    def test_status_and_expiry(self):
-        from unittest.mock import patch
+    def test_status_records_and_no_expiry(self):
         bridge=populated_bridge()
         feed(bridge,PACKED_TOPIC,encode_packet(0,(7<<8)|91))
         peak='Robopico/sensors/terrain/run_max_height_cm'
@@ -149,9 +148,17 @@ class DashboardTests(unittest.TestCase):
         feed(bridge,PACKED_TOPIC,encode_packet(0,10<<8))
         self.assertIsNone(bridge.readings[READINGS[1]]['payload'])
         # Readings keep their latest value however old: no time expiry.
-        with patch('dashboard.time.monotonic',return_value=10**12):
-            snapshot=bridge.snapshot()
-        self.assertEqual({m['topic']:m['payload'] for m in snapshot['messages']}[peak],45.5)
+        self.assertEqual({m['topic']:m['payload'] for m in bridge.snapshot()['messages']}[peak],45.5)
+
+    def test_lifted_fault_code(self):
+        bridge=populated_bridge();vc='Robopico/Actuators/vehicle_controller/'
+        feed(bridge,PACKED_TOPIC,encode_packet(0,(8<<4)|12))  # phase 12 Fault, fault 8 lifted
+        self.assertEqual(bridge.readings[vc+'state']['payload'],'Fault')
+        self.assertEqual(bridge.readings[vc+'fault_code']['payload'],8)
+        with self.assertRaises(ValueError): encode_packet(0,(9<<4)|12)
+        feed(bridge,PACKED_TOPIC,((((9<<4)|12)<<4)).to_bytes(2,'little'))  # fault 9 is rejected
+        self.assertEqual(bridge.rejected_packets,1)
+        self.assertEqual(bridge.readings[vc+'fault_code']['payload'],8)
 
     def test_barcode_read_history(self):
         bridge=BrokerBridge()

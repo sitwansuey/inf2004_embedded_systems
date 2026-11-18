@@ -13,6 +13,7 @@ static inline void robot_ir_apply_layout(s3_config_t *p_config)
     p_config->line.line_mask = BOARD_IR_LINE_MASK;
     p_config->barcode_sensor = BOARD_BARCODE_SENSOR;
     p_config->barcode_retry = BOARD_BARCODE_RETRY;
+    p_config->max_sample_gap_ms = BOARD_IR_MAX_SAMPLE_GAP_MS;
     /* A marker is complete only once GP28 has not changed for this long. */
     p_config->barcode.end_quiet_ms = BOARD_BARCODE_END_QUIET_MS;
     p_config->map_a = BOARD_MAP_A;
@@ -21,7 +22,7 @@ static inline void robot_ir_apply_layout(s3_config_t *p_config)
     p_config->map_c = BOARD_MAP_C;
     p_config->map_d = BOARD_MAP_D;
     p_config->map_f = BOARD_MAP_F;
-    p_config->line_straddle = BOARD_LINE_STRADDLE != 0;
+    p_config->line_straddle = true; /* the robot is straddle-only (vehicle.c) */
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
         p_config->line.position[i] = positions[i];
 }

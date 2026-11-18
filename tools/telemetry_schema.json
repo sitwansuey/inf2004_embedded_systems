@@ -26,8 +26,8 @@
   {
     "name": "fault",
     "min": 0,
-    "max": 7,
-    "bits": 3
+    "max": 8,
+    "bits": 4
   },
   {
     "name": "command",

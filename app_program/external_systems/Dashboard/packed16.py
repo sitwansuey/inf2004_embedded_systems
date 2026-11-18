@@ -78,9 +78,3 @@ def decode_messages(payload):
                 ("Robopico/Actuators/motors/state",states[motor["state"]]),
                 ("Robopico/Actuators/motors/power_percent",str(motor["power_percent"]))]
     return [(READINGS[record["id"]], str(record["value"]))]
-
-def decode_packet(payload):
-    """Compatibility for single-field consumers; motor records have 3 fields."""
-    messages=decode_messages(payload)
-    if len(messages)!=1: raise ValueError("motor status needs decode_messages")
-    return messages[0]

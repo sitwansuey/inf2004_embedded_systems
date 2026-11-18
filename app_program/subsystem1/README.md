@@ -3,7 +3,7 @@
 `task_telemetry.c` samples copied owner snapshots at 5 Hz, including controller,
 encoder, IR/barcode, IMU/terrain, servo and ultrasonic data. The private 54-byte
 codec preserves internal precision and timestamp/availability. A two-slot RTOS
-mailbox copies these records to the existing single network owner.
+message buffer copies these records to the existing single network owner.
 
 `telemetry_edr.h` translates that snapshot to independent uint16 readings:
 low four bits identify the source, upper twelve bits hold data. Each MQTT
@@ -19,12 +19,14 @@ Commands arrive on `csc02/command` or the USB hook, using the shared checked
 six-byte command format. STOP bypasses a full queue. Timed ARM remains for
 supervised tests; START runs an onboard mission without continued remote input.
 MAP (opcode 4) changes which turn a decoded barcode letter requests, in RAM.
-Local sensor faults, watchdogs and STOP still apply. Default motor/calibration
-locks remain enabled. See `docs/MISSION_SETUP.md` before physical operation.
+Local sensor faults, watchdogs and STOP still apply. `app_program/robot_config.h`
+holds the robot's mission profile (motors enabled, measured calibration); the
+firmware still boots DISARMED and drives only after RESET then START (or a
+timed ARM). See `docs/MISSION_SETUP.md` before physical operation.
 
 The dashboard subscribes only to the EDR16 topic, unmarshals each record and
-routes it to local display keys. Status flags and one-second per-field expiry
-prevent unavailable/stale observations from looking current. Detailed units
+routes it to local display keys. Status flags hide unavailable observations;
+the latest value is kept and marked stale after 5 s without an update. Detailed units
 and subtype mappings are in `docs/DATA_REPRESENTATION.md`.
 
 Tests: `python -B testing/data_representation/run.py --compiler clang` and

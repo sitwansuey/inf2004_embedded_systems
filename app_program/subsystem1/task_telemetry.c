@@ -50,20 +50,17 @@ void telemetry_task(INT code,void *context) {
                 (us?16:0)|(terrain_fresh&&(terrain.flags&S4_RESULT_TILT)?32:0)|
                 (terrain_fresh&&(terrain.flags&S4_RESULT_HEIGHT)?64:0)|(im&&a.mag_usable?128:0);
             v[TEL_LEFT_COUNTS]=e.motor1_forward_counts;v[TEL_RIGHT_COUNTS]=e.motor2_forward_counts;
-            v[TEL_SPEED_MM_S]=bounded(app_speed_mm_s(&s),-2000,2000);v[TEL_LINE_STATE]=li?l.output.line.state:0;
+            v[TEL_SPEED_MM_S]=bounded(app_speed_mm_s(&s),-2000,2000);
             const int16_t positions[S3_SENSOR_COUNT]=BOARD_IR_POSITIONS;
             if(li) for(unsigned channel=0;channel<S3_SENSOR_COUNT;++channel) {
                 unsigned field=channel==BOARD_BARCODE_SENSOR?TEL_IR2:
                     positions[channel]<0?TEL_IR1:TEL_IR0;
                 v[field]=l.sample.raw[channel];
             }
-            v[TEL_BLACK_MASK]=li?l.output.line.black_mask:0;v[TEL_LINE_ERROR]=li?l.output.line.error:0;
-#if BOARD_LINE_STRADDLE
             /* S3's edge-follow view does not apply to the straddle robot:
              * report its line follower instead (app_state.h line_*). */
             v[TEL_LINE_STATE]=li?s.line_follow:0;v[TEL_BLACK_MASK]=li?s.line_mask:0;
             v[TEL_LINE_ERROR]=li?bounded(s.line_steer,-1000,1000):0;
-#endif
             v[TEL_BARCODE]=s.barcode;v[TEL_NAVIGATION]=s.navigation;
             v[TEL_AX_MG]=bounded(a.latest.accel.milli_units[0],-2048,2047);
             v[TEL_AY_MG]=bounded(a.latest.accel.milli_units[1],-2048,2047);
@@ -85,7 +82,7 @@ void telemetry_task(INT code,void *context) {
             v[TEL_WIDTH_LEFT_MM]=width_valid?bounded(o.object_left_mm,0,1000):0;
             v[TEL_WIDTH_RIGHT_MM]=width_valid?bounded(o.object_right_mm,0,1000):0;
             v[TEL_BYPASS_SIDE]=side;
-            v[TEL_FAULT_CAUSE]=s.vehicle.fault==VC_SENSOR?s.vehicle.fault_cause:0;
+            v[TEL_FAULT_CAUSE]=s.vehicle.fault==VC_SENSOR || s.vehicle.fault==VC_LINE?s.vehicle.fault_cause:0;
             if(telemetry_encode(out,v)) {
 #if TM_MQTT
                 (void)s1_binary_send(out);
@@ -94,64 +91,28 @@ void telemetry_task(INT code,void *context) {
                     tm_printf((UB *)"[CSC02] t=%u phase=%u fault=%u armed=%u cmd=%u power=%u flags=%u bytes=%u\n",
                         now.lo,s.vehicle.phase,s.vehicle.fault,s.vehicle.armed,m.command,m.power_percent,
                         (unsigned)v[TEL_AVAILABLE],TELEMETRY_BYTES);
-                /* Passive bench diagnostics use the existing copied snapshots.
-                 * No GPIO/PWM ownership, motor command or binary field changes. */
-                if(BOARD_MOTORS_DISABLED && (count%5)==0) {
-                    tm_printf((UB *)"[S4TERRAIN] t=%u fresh=%u tilt=%u pitch_cdeg=%d roll_cdeg=%d state=%u height_valid=%u height_mm=%u max_mm=%u odom=%u\n",
-                        s.time_ms,(unsigned)terrain_fresh,(unsigned)((terrain.flags&S4_RESULT_TILT)!=0U),
-                        (INT)terrain.pitch_cdeg,(INT)terrain.roll_cdeg,(unsigned)terrain.terrain,
-                        (unsigned)((terrain.flags&S4_RESULT_HEIGHT)!=0U),(unsigned)terrain.height_mm,
-                        (unsigned)terrain.maximum_mm,(unsigned)s.odometry_valid);
-                    tm_printf((UB *)"[S2ENC] valid=%u m1=%d m2=%d m1ab=%u%u m2ab=%u%u\n",
-                        (unsigned)en,e.motor1_forward_counts,e.motor2_forward_counts,
-                        (unsigned)e.motor1_a_level,(unsigned)e.motor1_b_level,
-                        (unsigned)e.a_level,(unsigned)e.b_level);
-                    tm_printf((UB *)"[S5RAW] copied=%u t=%u state=%u fresh=%u valid=%u mm=%u angle=%d sampled=%d echo=%u error=%d\n",
-                        (unsigned)so,o.time_ms,(unsigned)o.state,
-                        (unsigned)(so && now.lo-o.time_ms<S5_STALE_MS),(unsigned)o.valid,
-                        (unsigned)o.distance_mm,(INT)o.angle_deg,(INT)o.sample_angle_deg,(unsigned)o.echo_result,(INT)sonar_copy);
-                }
+                    /* Passive bench diagnostics use the existing copied snapshots.
+                     * No GPIO/PWM ownership, motor command or binary field changes. */
+                    if(BOARD_MOTORS_DISABLED && (count%5)==0) {
+                        tm_printf((UB *)"[S4TERRAIN] t=%u fresh=%u tilt=%u pitch_cdeg=%d roll_cdeg=%d state=%u height_valid=%u height_mm=%u max_mm=%u odom=%u\n",
+                            s.time_ms,(unsigned)terrain_fresh,(unsigned)((terrain.flags&S4_RESULT_TILT)!=0U),
+                            (INT)terrain.pitch_cdeg,(INT)terrain.roll_cdeg,(unsigned)terrain.terrain,
+                            (unsigned)((terrain.flags&S4_RESULT_HEIGHT)!=0U),(unsigned)terrain.height_mm,
+                            (unsigned)terrain.maximum_mm,(unsigned)s.odometry_valid);
+                        tm_printf((UB *)"[S2ENC] valid=%u m1=%d m2=%d m1ab=%u%u m2ab=%u%u\n",
+                            (unsigned)en,e.motor1_forward_counts,e.motor2_forward_counts,
+                            (unsigned)e.motor1_a_level,(unsigned)e.motor1_b_level,
+                            (unsigned)e.a_level,(unsigned)e.b_level);
+                        tm_printf((UB *)"[S5RAW] copied=%u t=%u state=%u fresh=%u valid=%u mm=%u angle=%d sampled=%d echo=%u error=%d\n",
+                            (unsigned)so,o.time_ms,(unsigned)o.state,
+                            (unsigned)(so && now.lo-o.time_ms<S5_STALE_MS),(unsigned)o.valid,
+                            (unsigned)o.distance_mm,(INT)o.angle_deg,(INT)o.sample_angle_deg,(unsigned)o.echo_result,(INT)sonar_copy);
+                    }
                 }
             }
-#if BOARD_IR_CALIBRATED_BENCH || BOARD_IR_MOTOR_SCAN_BENCH
-            {
-                const uint16_t white[3]=BOARD_IR_ADC_WHITE,black[3]=BOARD_IR_ADC_BLACK;
-                uint16_t barcode_darkness=0;
-                BOOL usable=ir_copy==E_OK && l.configured && l.acquisition_error==E_OK &&
-                    l.sample.valid_mask==7U && now.lo-l.sample.time_ms<S3_STATUS_MAX_AGE_MS;
-                if(usable) usable=s3_normalize(l.sample.raw[2],white[2],black[2],4095U,&barcode_darkness);
-                tm_printf((UB *)"[S3IR] copied=%u error=%d t=%u acquisition=%d mask=%u raw=%u,%u,%u configured=%u steering=%u fresh=%u line=%u blackmask=%u lineerror=%d barcode_darkness=%u algorithm_error=%u line_darkness=%u,%u\n",
-                    (unsigned)(ir_copy==E_OK),(INT)ir_copy,l.sample.time_ms,(INT)l.acquisition_error,
-                    (unsigned)l.sample.valid_mask,(unsigned)l.sample.raw[0],(unsigned)l.sample.raw[1],
-                    (unsigned)l.sample.raw[2],(unsigned)l.configured,(unsigned)l.output.steering_allowed,
-                    (unsigned)usable,(unsigned)l.output.line.state,(unsigned)l.output.line.black_mask,
-                    (INT)l.output.line.error,(unsigned)barcode_darkness,(unsigned)l.output.error,
-                    (unsigned)l.output.line.darkness[0],(unsigned)l.output.line.darkness[1]);
-            }
-#endif
             previous=now.lo;old_fault=s.vehicle.fault;old_side=side;old_shock=s.shock_count;
             if(width_valid) {width_scan=o.scan_id;width_left=o.object_left_mm;width_right=o.object_right_mm;}
-            if(BOARD_MOTORS_DISABLED && BOARD_IR_RAW_BENCH) {
-                tm_printf((UB *)"[S3RAW] copied=%u error=%d t=%u acquisition=%d mask=%u raw=%u,%u,%u configured=%u steering=%u fresh=%u\n",
-                    (unsigned)(ir_copy==E_OK),(INT)ir_copy,l.sample.time_ms,(INT)l.acquisition_error,
-                    (unsigned)l.sample.valid_mask,(unsigned)l.sample.raw[0],(unsigned)l.sample.raw[1],
-                    (unsigned)l.sample.raw[2],(unsigned)l.configured,(unsigned)l.output.steering_allowed,
-                    (unsigned)(ir_copy==E_OK && now.lo-l.sample.time_ms<S3_STATUS_MAX_AGE_MS));
-            }
         }
-#if BOARD_IR_BARCODE_CAPTURE
-        /* Drain copied scans outside the acquisition task. Each call is
-         * nonblocking; bounded work preserves all other telemetry duties. */
-        for(unsigned n=0;n<S3_CAPTURE_CAPACITY;++n) {
-            s3_sample_t captured={0};uint32_t dropped=0;
-            ER capture=s3_capture_receive(&captured,&dropped);
-            if(capture==E_TMOUT) break;
-            if(capture<E_OK) {tm_printf((UB *)"[S3BERR] error=%d\n",(INT)capture);break;}
-            tm_printf((UB *)"[S3B] t=%u raw=%u,%u,%u mask=%u dropped=%u\n",
-                captured.time_ms,(unsigned)captured.raw[0],(unsigned)captured.raw[1],
-                (unsigned)captured.raw[2],(unsigned)captured.valid_mask,dropped);
-        }
-#endif
         tk_dly_tsk(10);
     }
 }

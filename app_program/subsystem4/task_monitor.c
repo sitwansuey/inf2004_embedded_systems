@@ -11,9 +11,6 @@ static INT display_age(uint32_t age)
 
 void monitor_task(INT start_code, void *p_exinf)
 {
-    UB text[S4_SUMMARY_MAX + 1];
-    UINT events;
-    INT length;
     UW reports = 0;
     terrain_t tilt = {0};
 
@@ -21,15 +18,6 @@ void monitor_task(INT start_code, void *p_exinf)
     (void)p_exinf;
     for (;;)
     {
-        /* Keep IF-03 without controlling S1 or reading S2/S3 internals. */
-        (void)tk_wai_flg(flg_events, FLG_BATCH, TWF_ORW | TWF_CLR,
-                          &events, TMO_POL);
-        while ((length = tk_rcv_mbf(mbf_summary, text, TMO_POL)) > 0)
-        {
-            text[length] = '\0';
-            (void)s4_note_legacy_line();
-            tm_printf((UB *)"[S4 legacy] %s\n", text);
-        }
         /* Repeat the heading for terminals opened after boot. */
         if ((reports++ % 25u) == 0u)
         {

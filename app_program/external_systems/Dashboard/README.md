@@ -1,8 +1,10 @@
 # Single-topic EDR16 dashboard
 
-The dashboard subscribes only to `Robopico/sensors/edr16/v1` (QoS 0). Every MQTT
-payload is exactly two binary bytes. There are no wildcard subscriptions and
-no per-sensor MQTT subscriptions. Messages on other topics are ignored.
+The dashboard subscribes (QoS 0) to two topics: telemetry on
+`Robopico/sensors/edr16/v1` and command replies on `csc02/command/ack`. Every
+telemetry payload is exactly two binary bytes. There are no wildcard
+subscriptions and no per-sensor MQTT subscriptions. Messages on other topics
+are ignored.
 
 ## Marshalling and unmarshalling
 
@@ -20,8 +22,10 @@ The receiver rejects malformed/old/text/JSON payloads on the wire topic without
 replacing valid readings. Its API includes received/rejected packet counts,
 receiver identity and last reception time. Browser state resets if the receiver
 restarts, allowing sequence numbers to start again. Reception time is a desktop
-time, not a robot measurement timestamp. Every reading expires independently
-after one second; status availability/quality records also clear invalid data.
+time, not a robot measurement timestamp. Every reading keeps its latest value
+until a new one replaces it (the page marks it stale after 5 seconds without an
+update). Status availability/quality records and an MQTT reconnect clear
+invalid data.
 
 ## Run
 
@@ -49,8 +53,10 @@ publish.single(MQTT_TOPIC, payload=encode_packet(1, 100), hostname="localhost", 
 
 Publish the raw bytes, not the four-character string "4106". Firmware reads
 servo/ultrasonic and other owner snapshots. ID 0 adds decoded barcode/navigation,
-controller state, speed, tilt, scan state and hump/current-run maximum to their
-cards. Heading, event text and other untransmitted fields remain blank.
+controller state and fault (0–8, 8 = lifted), speed, tilt, scan state and
+hump/current-run maximum to their cards. The Sensors tab lists only fields the
+robot transmits. Event text is not transmitted: events come only from Load demo
+or Import JSON.
 See `docs/DATA_REPRESENTATION.md` for the ID 0 subtype table and units.
 
 ## Layout
@@ -65,7 +71,7 @@ instruction) stays above every tab. The tabs are:
 - Overview: power, range and servo dials, motor card, receiver health and
   subsystem coverage (click a row to open its sensors).
 - Barcodes: Barcode actions form, last barcode, Codebook A–Z and barcode reads.
-- Live views: proximity radar, orientation, line sensor bars and acceleration.
+- Live views: proximity radar, line sensor bars and acceleration.
 - Trends: 60 s of this browser session for the wheel encoders, line sensors
   (left/right IR and line error) and acceleration.
 - Sensors: every display field, filterable by subsystem.
@@ -98,8 +104,19 @@ in robot RAM; after a robot reboot press Send all.
 python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py" -v
 ```
 
-Tests cover exact-topic subscription/reconnection, all 15 IDs, physical units,
-malformed packets, ignored unrelated topics, HTTP JSON, and field routing.
-With Node.js on PATH, they also execute the real dashboard JavaScript using a
-minimal DOM and verify all 17 display fields. These are simulated tests, not a
-live Pico/broker validation. See [MQTT_TOPICS.md](MQTT_TOPICS.md) for routing.
+- `test_packed16.py`: exact-topic subscription/reconnection, all 15 IDs,
+  physical units, status subtypes (including fault 8, lifted), malformed
+  packets, ignored unrelated topics, barcode read history, HTTP JSON and field
+  routing. With Node.js on PATH it also runs `test_dashboard_display.cjs`,
+  which executes the real dashboard JavaScript with a minimal DOM and checks
+  that all 17 decoded fields appear on the correct cards. CI
+  (`testing/data_representation/run.py`) runs only this file.
+- `test_commands.py`: Reset/Start/STOP frames, ACK matching and validation,
+  MAP, Reset to defaults and Send all, and the origin and JSON checks on
+  `POST /api/command`.
+- `test_obstacle_width.py`: width pages, retention and clearing. Its C producer
+  case is skipped until `make -C testing/integration test` has built
+  `.build/width_avoidance`.
+
+These are simulated tests, not a live Pico/broker validation. See
+[MQTT_TOPICS.md](MQTT_TOPICS.md) for routing.

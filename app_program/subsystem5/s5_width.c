@@ -2,7 +2,7 @@
 #include "s5_width.h"
 _Static_assert(S5_MAX_ANGLE <= 90 && S5_REFINE_STEP_DEG == 1,
                "One-degree bound geometry supports angles through 80 degrees");
-static const UW cosine_q[] = {
+EXPORT const UW s5_cosine_q10000[91] = {
     10000U, 9998U, 9994U, 9986U, 9976U, 9962U, 9945U, 9925U, 9903U, 9877U,
     9848U, 9816U, 9781U, 9744U, 9703U, 9659U, 9613U, 9563U, 9511U, 9455U,
     9397U, 9336U, 9272U, 9205U, 9135U, 9063U, 8988U, 8910U, 8829U, 8746U,
@@ -35,7 +35,7 @@ EXPORT BOOL s5_target_detected(const s5_status_t *sample)
     /* At a perpendicular side look, forward projection is always zero. */
     if (magnitude==90) return sample->distance_mm<=S5_OVERCOME_CLEARANCE_MM;
     /* A closer foreground surface also obstructs this scan direction. */
-    UW forward = sample->distance_mm * cosine_q[magnitude] / 10000U;
+    UW forward = sample->distance_mm * s5_cosine_q10000[magnitude] / 10000U;
     return forward <= sample->obstacle_distance_mm + S5_TARGET_DEPTH_TOLERANCE_MM;
 }
 

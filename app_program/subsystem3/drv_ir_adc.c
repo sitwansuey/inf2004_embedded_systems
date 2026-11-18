@@ -247,10 +247,6 @@ ER s3_adc_worker_once(TMO timeout)
         /* A timed-out conversion can leave a stale FIFO/IRQ. Never retry on
          * this boot. The kernel owner must repair/reset its device safely. */
         worker_failed = true;
-#if BOARD_IR_RAW_BENCH
-        tm_printf((UB *)"[S3ADC] worker failed error=%d request=%u\n",
-                  reply.error, request.sequence);
-#endif
         reply.sample = (s3_sample_t){0};
         er = tk_snd_mbf(h_replies, &reply, (INT)sizeof(reply), TMO_POL);
         return (er < E_OK) ? er : reply.error;

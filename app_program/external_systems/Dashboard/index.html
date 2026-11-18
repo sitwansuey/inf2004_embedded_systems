@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#060d1e">
 <title>PicoCar · Telemetry dashboard</title>
 <style>html,body{background:#060d1e;color:#e9f0ff}</style>
-<link rel="stylesheet" href="dashboard.css?v=picocar-2">
+<link rel="stylesheet" href="dashboard.css?v=picocar-3">
 </head>
 <body>
 <a href="#main" class="skip-link">Skip to telemetry</a>
@@ -41,7 +41,7 @@
 </section>
 <p id="import-error" class="import-error" role="alert" hidden></p>
 
-<section id="robot-panel" class="card command-card" aria-labelledby="robot-title">
+<section class="card command-card" aria-labelledby="robot-title">
 <div class="card-header">
 <div><h2 class="card-title" id="robot-title">Robot test</h2><p class="card-meta">Reset while stopped, then Start. No time limit: it runs until STOP or a fault.</p></div>
 <span id="robot-chip" class="chip"><i aria-hidden="true"></i><span id="robot-chip-text">Awaiting</span></span>
@@ -57,20 +57,20 @@
 <div id="mission-tiles" class="tiles tiles-6" role="group" aria-label="Mission summary"></div>
 </section>
 
-<div id="tab-panels" class="tab-panels">
+<div id="tab-panels">
 <section class="tab-panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" tabindex="0">
 <div class="panel-intro"><p>Key readings and receiver health at a glance.</p></div>
 <div id="summary" class="grid grid-4" role="group" aria-label="Key readings"></div>
 <div class="grid grid-2">
-<section id="receiver-card" class="card receiver-card" aria-label="Telemetry connection" title="Latency measures the HTTP round trip to the dashboard receiver."></section>
-<section id="subsystem-card" class="card subsystem-card" aria-label="Subsystems"></section>
+<section id="receiver-card" class="card" aria-label="Telemetry connection" title="Latency measures the HTTP round trip to the dashboard receiver."></section>
+<section id="subsystem-card" class="card" aria-label="Subsystems"></section>
 </div>
 </section>
 
 <section class="tab-panel" role="tabpanel" id="panel-barcodes" aria-labelledby="tab-barcodes" tabindex="0" hidden>
 <div class="panel-intro"><p>Choose what a decoded letter does at the next junction. Works armed or stopped. Mappings live in robot RAM; after a robot reboot press Send all.</p></div>
 <div class="grid grid-2">
-<section class="card barcode-actions" aria-labelledby="map-title">
+<section class="card" aria-labelledby="map-title">
 <div class="card-header"><h2 class="card-title" id="map-title">Barcode actions</h2><span class="chip plain">Applies at next junction</span></div>
 <div class="map-form">
 <label>Letter<input id="map-letter" type="text" maxlength="1" size="2" autocomplete="off" spellcheck="false" placeholder="A"></label>
@@ -83,17 +83,17 @@
 </div>
 <p id="map-status" class="card-caption" role="status">Defaults: A U-turn, F Left, Z Right. Other letters are read without a turn.</p>
 </section>
-<section id="barcode-live" class="card barcode-live" aria-label="Last barcode"></section>
+<section id="barcode-live" class="card" aria-label="Last barcode"></section>
 </div>
 <div class="grid grid-1">
-<section class="card codebook-card" aria-labelledby="codebook-title">
+<section class="card" aria-labelledby="codebook-title">
 <div class="card-header"><div><h2 class="card-title" id="codebook-title">Codebook A–Z</h2><p class="card-meta">Pick a letter to load it into Barcode actions. Nothing is sent until you press Send.</p></div><span id="codebook-count" class="chip plain">Not loaded</span></div>
 <div id="barcode-map" class="codebook" role="group" aria-label="Letter actions"></div>
 <p id="codebook-caption" class="card-caption">Mapping appears when dashboard.py is running.</p>
 </section>
 </div>
 <div class="grid grid-1">
-<section id="barcode-reads" class="card" aria-labelledby="reads-title">
+<section class="card" aria-labelledby="reads-title">
 <div class="card-header"><h2 class="card-title" id="reads-title">Barcode reads</h2><span id="barcode-count" class="chip plain">0 reads</span></div>
 <p class="card-intro">One row per barcode pass: normal speed, reverse re-read, then slow final pass. Elements are bars + spaces; a full barcode is 29. Default codebook: A = U-turn, Z = right, F = left (change it under Barcode actions).</p>
 <div class="table-wrap"><table class="data-table"><thead><tr><th>Time</th><th>Pass</th><th>Elements</th><th>Duration</th><th>Result</th><th>Letter</th><th>Turn</th></tr></thead><tbody id="barcode-history"></tbody></table></div>
@@ -104,10 +104,9 @@
 <section class="tab-panel" role="tabpanel" id="panel-live" aria-labelledby="tab-live" tabindex="0" hidden>
 <div class="panel-intro"><p>Each view draws the latest received reading only. It does not reconstruct scans or paths.</p></div>
 <div class="grid grid-2">
-<section id="proximity-radar" class="card visual-card" aria-label="Proximity radar"></section>
-<section id="vehicle-orientation" class="card visual-card" aria-label="Vehicle orientation"></section>
-<section id="line-sensors" class="card visual-card" aria-label="Line sensors"></section>
-<section id="acceleration-vector" class="card visual-card" aria-label="Acceleration vector"></section>
+<section id="proximity-radar" class="card" aria-label="Proximity radar"></section>
+<section id="line-sensors" class="card" aria-label="Line sensors"></section>
+<section id="acceleration-vector" class="card" aria-label="Acceleration vector"></section>
 </div>
 </section>
 
@@ -124,7 +123,7 @@
 
 <section class="tab-panel" role="tabpanel" id="panel-events" aria-labelledby="tab-events" tabindex="0" hidden>
 <div class="panel-intro"><p>The EDR16 wire format has no event text. Events appear here when included in an imported or demo snapshot.</p></div>
-<section id="history" class="card events-card" aria-labelledby="events-title">
+<section class="card" aria-labelledby="events-title">
 <div class="card-header"><h2 class="card-title" id="events-title">Events &amp; faults</h2><span id="event-count" class="chip plain">0 events</span></div>
 <div id="events"></div>
 </section>
@@ -137,6 +136,6 @@
 <span>Commands are sent only by the Robot test and Barcode actions buttons; firmware checks each one</span>
 </footer>
 </main>
-<script src="dashboard.js?v=picocar-2"></script>
+<script src="dashboard.js?v=picocar-3"></script>
 </body>
 </html>

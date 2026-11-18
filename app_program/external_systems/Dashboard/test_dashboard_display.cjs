@@ -30,6 +30,6 @@ for(const m of snapshot.messages){
   const expected=value===null?'—':typeof value==='boolean'?(value?'Yes':'No'):String(value);
   assert.equal(row.children[1]._text,expected,m.topic);
 }
-const heading=rows.find(n=>n.title==='Display field: Robopico/sensors/magnetometer/heading_deg');
-assert.equal(heading.children[1]._text,'—','untransmitted fields must remain unavailable');
+assert.ok(!rows.find(n=>n.title==='Display field: Robopico/sensors/magnetometer/heading_deg'),'untransmitted fields are not shown');
+assert.ok(!elements.has('vehicle-orientation'),'the orientation view is not rendered');
 console.log(`PASS: ${snapshot.messages.length} decoded fields displayed on the correct cards`);

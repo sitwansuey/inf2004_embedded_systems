@@ -2,7 +2,8 @@
 #define VEHICLE_REVERSE_TRACK_H
 #include <stdint.h>
 #include <stdbool.h>
-/* Line-tracked reverse for the barcode re-read.
+/* Line-tracked reverse for the barcode re-read; with the line term off
+ * (line_fresh false) it also holds the obstacle reverse (VC_BACKUP) heading.
  *
  * Copying the forward bang-bang rule while reversing is unstable: the straddle
  * sensors trail the axle, so the heading diverges. Instead hold the heading

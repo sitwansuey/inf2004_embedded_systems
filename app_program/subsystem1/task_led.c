@@ -38,8 +38,8 @@ EXPORT void led_task(INT stacd, void *exinf)
 		tk_slp_tsk(TMO_FEVR);
 
 		/* tk_can_wup: discard wake-ups that queued up while we were
-		   not sleeping (e.g. while subsystem 4 had us suspended), so
-		   the LED does not "catch up" with a burst of fast blinks. */
+		   not sleeping, so the LED does not "catch up" with a burst
+		   of fast blinks. */
 		tk_can_wup(TSK_SELF);
 
 		level = !level;

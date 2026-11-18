@@ -5,13 +5,12 @@
 #include "s5_width.h"
 typedef struct
 {
-    INT left_clear, right_clear;
     UINT acquisition_samples;
     UINT motion_restarts;
     UINT echo_failures;
     INT echo_angle;
     BOOL echo_angle_valid;
-    INT fine_hit, fine_clear;
+    INT fine_clear;
     UINT fine_checks;
     BOOL averaging_bound;
     UINT edge_retreats; /* per side: edge moved 1 deg inward after a missed sample */

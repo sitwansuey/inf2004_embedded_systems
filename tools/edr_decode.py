@@ -25,7 +25,7 @@ def unpack_motor(data):
 
 def status_valid(data):
     subtype, value = data >> 8, data & 255
-    if subtype == 0: return (value & 15) <= 13 and (value >> 4) <= 7  # phase | fault << 4
+    if subtype == 0: return (value & 15) <= 13 and (value >> 4) <= 8  # phase | fault << 4 (0..8, 8 = lifted)
     if subtype == 1: return (value & 31) <= 26 and (value >> 5) <= 4
     if subtype == 2: return value <= 63 and (value & 7) <= 4
     if subtype in (3, 4): return 38 <= value <= 218

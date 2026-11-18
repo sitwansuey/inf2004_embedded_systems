@@ -48,8 +48,6 @@ class BrokerBridge:
         self.received_packets = 0
         self.rejected_packets = 0
         self.last_received_at = None
-        self.last_received_monotonic = 0.0
-        self.width_valid = False
         self.command_client = None
         self.command_lock = threading.Lock()
         self.command_sequence = 0
@@ -77,8 +75,6 @@ class BrokerBridge:
                 self.sequence += 1
                 reading.update(payload=None, sequence=self.sequence)
             self.last_received_at = None
-            self.last_received_monotonic = 0.0
-            self.width_valid = False
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         self.reset_observations()
@@ -126,29 +122,23 @@ class BrokerBridge:
         with self.lock:
             self.received_packets += 1
             self.last_received_at = time.time()
-            self.last_received_monotonic = time.monotonic()
-            if len(message.payload)==2 and (int.from_bytes(message.payload,"little") & 0xF00F)==0x8000:
-                self.width_valid=True  # Producer sends width only for a valid scan.
-            if len(message.payload)==2 and (int.from_bytes(message.payload,"little") & 0xF00F)==0x9000:
-                quality=int.from_bytes(message.payload,"little")>>4 & 63  # bits 6..7 = fault cause
-                self.width_valid=bool(quality&1)
+            word = int.from_bytes(message.payload, "little")  # decode_messages accepted exactly 2 bytes
+            if (word & 0xF00F) == 0x9000:
+                quality=word>>4 & 63  # bits 6..7 = fault cause
                 for topic, reading in self.readings.items():
                     required=1 if topic.endswith(WIDTH_TOPICS) else 16 if topic.endswith("/speed_mps") else 32 if topic.endswith("/servo_angle_deg") else 0
                     if required and not quality&required:
                         self.sequence+=1;reading.update(payload=None,sequence=self.sequence)
-            # A status record invalidates affected readings even before expiry.
-            if len(message.payload)==2 and (int.from_bytes(message.payload,"little") & 0xF00F)==0xA000:
-                available=int.from_bytes(message.payload,"little")>>4 & 255
+            # An availability record clears the readings it marks unavailable.
+            if (word & 0xF00F) == 0xA000:
+                available=word>>4 & 255
                 for topic, reading in self.readings.items():
                     required=availability_mask(topic)
                     if required and not available&required:
                         self.sequence+=1;reading.update(payload=None,sequence=self.sequence)
             for topic, payload in messages:
                 self.sequence += 1
-                self.readings[topic] = {
-                    "topic": topic, "payload": payload, "sequence": self.sequence,
-                    "received_monotonic": time.monotonic()
-                }
+                self.readings[topic] = {"topic": topic, "payload": payload, "sequence": self.sequence}
                 self.track_barcode(topic, payload)
 
     def track_barcode(self, topic, payload):
@@ -240,7 +230,7 @@ class BrokerBridge:
                 return {"action": action, "acknowledged": True, "phase": phase, "fault": fault,
                         "barcode_map": table, "message": f"{message} Phase {phase}, fault {FAULTS[fault]}."}
             if result == 2:
-                raise RuntimeError("RoboPico rejected Start: press Reset robot first after MQTT reconnect.")
+                raise RuntimeError("RoboPico rejected Start: press Reset robot first (needed after boot, STOP or an MQTT reconnect).")
             if result != 0:
                 raise RuntimeError(f"RoboPico rejected {action}. Phase {phase}, fault {FAULTS[fault]}. Reset requires stopped motors; Start requires reset and readiness.")
             return {"action": action, "acknowledged": True, "phase": phase, "fault": fault,
@@ -323,13 +313,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path != "/api/telemetry":
             return super().do_GET()
-        data = json.dumps(self.bridge.snapshot()).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        return self.send_json(200, self.bridge.snapshot())
 
     def send_json(self, status, result):
         data = json.dumps(result).encode("utf-8")
@@ -373,7 +357,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             else:
                 result = self.bridge.send_command(payload["action"])
             status = 200
-        except (ValueError, json.JSONDecodeError) as error:
+        except ValueError as error:  # includes json.JSONDecodeError
             result, status = {"error": str(error)}, 400
         except (RuntimeError, OSError) as error:
             result, status = {"error": str(error)}, 503

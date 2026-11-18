@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #define S5_DATA_SIZE 92U
-#define S5_DATA_SOURCE 5U
-#define S5_DATA_KIND 0U
 /* Explicit byte representation; no compiler bit fields or struct copies.
  * Separate buffers required. Failure leaves output untouched.
  * Decode requires exact length; encode accepts capacity >= S5_DATA_SIZE. */

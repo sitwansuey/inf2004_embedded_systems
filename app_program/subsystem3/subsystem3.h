@@ -13,39 +13,15 @@
 #define S3_EVENT_MAX_AGE_MS 100U
 #define S3_EVENT_CAPACITY 4U
 #define S3_CONTROLLER_MAX_LEASE_MS 1000U
-#define S3_BATCH_SIZE 5 /* Retained example interface constant. */
 
-/* Legacy symbols remain link-compatible with the old S4 monitor. The sample
- * producer protocol in S2 no longer exists; these are not IR telemetry. */
-IMPORT ID mbx_samples;
+/* S3 status mutex. */
 IMPORT ID mtx_stats;
-typedef struct
-{
-    UW received;
-    INT min;
-    INT max;
-    W sum;
-} APP_STATS;
-IMPORT APP_STATS app_stats;
 
 typedef struct
 {
     s3_config_t algorithms;
     s3_ir_config_t ir;
 } s3_adapter_config_t;
-
-#if defined(BOARD_IR_MOTOR_SCAN_BENCH) && BOARD_IR_MOTOR_SCAN_BENCH
-typedef struct {
-    uint32_t generation,time_ms,samples;
-    ER error;
-    s3_symbol_t symbol;
-    uint8_t result; /* s3_barcode_status_t, bounded 0..7. */
-} s3_barcode_bench_status_t;
-/* Bound controller may reset/cancel this diagnostic decoder. The sole IR
- * sampler feeds it, under the existing status lock, on every acquisition.
- * No line steering, navigation events, extra task or new buffer. */
-IMPORT ER s3_barcode_bench_control(bool observe,uint32_t *p_generation);
-#endif
 
 typedef struct
 {
@@ -55,9 +31,6 @@ typedef struct
     uint32_t generation;
     ER acquisition_error;
     bool configured;
-#if defined(BOARD_IR_MOTOR_SCAN_BENCH) && BOARD_IR_MOTOR_SCAN_BENCH
-    s3_barcode_bench_status_t bench;
-#endif
 } s3_status_t;
 
 typedef struct
@@ -88,23 +61,10 @@ IMPORT ER s3_controller_barcode_end(void);
  * Applied by the S3 task on its next sample; affects future decodes only. */
 IMPORT ER s3_controller_set_map(UINT letter, UINT nav);
 IMPORT ER s3_event_receive(s3_event_record_t *p_record);
-#if defined(BOARD_IR_MOTOR_SCAN_BENCH) && BOARD_IR_MOTOR_SCAN_BENCH
-/* Bound scan controller only: priority-inheritance state handoff, at most the
- * existing 5 ms requested mutex wait. No device/ADC wait; caller re-ages data. */
-IMPORT ER s3_barcode_bench_status_get(s3_status_t *p_status);
-#endif
 
 /* Snapshots are copied with a nonblocking priority-inheritance mutex. A stale
  * or preempted snapshot always reports steering_allowed=false. */
 IMPORT ER s3_status_get(s3_status_t *p_status);
-
-#if defined(BOARD_IR_BARCODE_CAPTURE) && BOARD_IR_BARCODE_CAPTURE
-#define S3_CAPTURE_CAPACITY 8U
-typedef struct { s3_sample_t sample; uint32_t dropped; } s3_capture_record_t;
-/* Passive diagnostic copies; never ADC/GPIO access or steering authority.
- * Nonblocking. Overflow is counted, never allowed to delay the sampler. */
-IMPORT ER s3_capture_receive(s3_sample_t *p_sample, uint32_t *p_dropped);
-#endif
 
 /* Private sampling task entry and one bounded service iteration. */
 IMPORT void consumer_task(INT stacd, void *exinf);

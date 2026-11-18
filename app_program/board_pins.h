@@ -31,7 +31,7 @@
 #endif
 
 #ifndef BOARD_BUZZER_GPIO
-#define BOARD_BUZZER_GPIO 22U /* S5 explicit left-acquisition diagnostic only. */
+#define BOARD_BUZZER_GPIO 22U /* S5 explicit acquisition diagnostics only (aqcuisition_test.c, acquisition_left_test.c). */
 #endif
 
 #endif /* BOARD_PINS_H */

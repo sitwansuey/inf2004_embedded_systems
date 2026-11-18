@@ -1,6 +1,5 @@
 #include "app_state.h"
-#include "board_pins.h"
-#include "vehicle_curve_memory.h"
+#include "robot_config.h"
 #include "vehicle_motion_handoff.h"
 #include "subsystem1/control.h"
 #include "subsystem2/subsystem2.h"
@@ -15,18 +14,11 @@
 #include <math.h>
 #include "subsystem2/s2_data.h"
 #include "subsystem5/subsystem5.h"
+#include "subsystem5/s5_width.h"
 #include "vehicle_reverse_track.h"
-#ifndef BOARD_LINE_STRADDLE
-#define BOARD_LINE_STRADDLE 0 /* 1: GP26/27 straddle the line; both WHITE = centred */
-#endif
-#if BOARD_LINE_STRADDLE
-#include "ir_line_course.h"
+#include "ir_line_trace.h"
 #include "robot_ir_config.h"
 #include "vehicle_line_steer.h"
-#endif
-#ifndef BOARD_BARCODE_RETRY_DRIVE
-#define BOARD_BARCODE_RETRY_DRIVE 0
-#endif
 #if BOARD_BARCODE_RETRY_DRIVE
 #include "vehicle_barcode_retry.h"
 /* Barcode re-read sequence, layered on VC_TRACK (the policy phase is unchanged).
@@ -61,7 +53,27 @@ static unsigned br_abs_um(int32_t a,int32_t b) {
  * stays without tilt far longer. */
 #define VC_TILT_GRACE_MS 800U
 #endif
-#if !BOARD_IR_MOTOR_SCAN_BENCH
+/* Bypass heading re-planned after the reverse. S5 plans from where the robot
+ * stopped; reversing moves the obstacle edge backup_mm further ahead, so a
+ * shallower, more diagonal heading clears it. Same tests as S5's planner
+ * (s5_policy.c): after the turn-out arc the heading line passes the edge
+ * (lateral x, ahead y from the axle) by S5_CLEARANCE_RADIUS_MM, and the
+ * diagonal leg reaches the planned lateral offset after both arcs. FALSE
+ * keeps the plan (no shallower heading works). */
+static BOOL bypass_replan(UW x,UW y,UW lateral,UW backup_mm,unsigned planned,unsigned *deg,UW *leg) {
+    for(unsigned t=AVOID_MIN_TURN_DEG;t<planned && t<90U;++t) {
+        long long clear=(long long)(y+backup_mm)*s5_cosine_q10000[90U-t]-(long long)x*s5_cosine_q10000[t]-
+            (long long)S5_BYPASS_ARC_RADIUS_MM*(10000LL-(long long)s5_cosine_q10000[t]);
+        if(clear<(long long)S5_CLEARANCE_RADIUS_MM*10000LL) continue;
+        UW arc=2U*S5_BYPASS_ARC_RADIUS_MM*(10000U-s5_cosine_q10000[t])/10000U;
+        UW remaining=lateral>arc?lateral-arc:0U,sine=s5_cosine_q10000[90U-t];
+        UW l=(remaining*10000U+sine-1U)/sine;
+        if(l<50U) l=50U;
+        if(l>1000U) return FALSE;
+        *deg=t;*leg=l;return TRUE;
+    }
+    return FALSE;
+}
 static void vehicle_task(INT code,void *context) {
     (void)code;(void)context;
     s2_controller_bind();
@@ -76,18 +88,18 @@ static void vehicle_task(INT code,void *context) {
     }
     s3_mode_t mode=S3_MODE_PAUSED;
     INT line_curve=0;
-    curve_memory_t curve_memory={0};
+    int32_t avoid_power_m=0,avoid_steer=0; /* smoothed avoidance power (milli-%) and steering */
     uint32_t next_tick=0;unsigned previous_phase=VC_DISARMED,previous_look=0;
     BOOL requested_sensor_mode=FALSE;
     uint8_t shown_ok=0;BOOL shown_seen=FALSE; /* last decode count shown on the dashboard */
     uint32_t tilt_ok_ms=0;BOOL tilt_seen=FALSE; /* last valid gravity tilt */
     vehicle_obstacle_confirm_t obstacle_confirm={0};
+#if BOARD_RAMP_SPEED
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
-    BOOL bc_nullify=FALSE; /* a barcode read that started in a bend: ignore its outcome */
+#endif
     BOOL lift_timing=FALSE;uint32_t lift_since=0; /* robot lifted (no surface under the IRs) */
-    BOOL bend_was=FALSE;int32_t bend_prev_yaw=0,bend_spin=0; /* 360 deg bend safety */
+    int32_t prev_yaw=0; /* yaw at the last follower tick: edge tracing's lost-line turn */
     edge_trace_t edge={0};int32_t edge_lost_turn=0; /* edge tracing; turning while lost */
-    uint8_t chain_side=0;int32_t chain_turn=0; /* turning since an S-bend flip */
     BOOL shock_prev=FALSE; /* S4 shock in the previous tick (rising-edge count) */
 #if BOARD_BARCODE_RETRY_DRIVE
     unsigned br_state=BR_IDLE,br_next=BR_IDLE;
@@ -103,31 +115,40 @@ static void vehicle_task(INT code,void *context) {
     /* Smoothed forward-tracking heading, and the copy held while reversing. */
     int32_t br_yaw_ref=0,br_hold_yaw=0;BOOL br_yaw_seeded=FALSE;
 #endif
-#if BOARD_LINE_STRADDLE
-    /* Team straddle course logic (ir_line_trace/ir_line_course), shared with the
-     * IRLineOnly bench. S3 still owns ADC acquisition; this only interprets it. */
-    s3_config_t straddle_cfg;ir_line_trace_t straddle={0};ir_line_course_t course={0};
+    /* Straddle line observer (ir_line_trace.c). S3 still owns ADC acquisition;
+     * this only interprets it. */
+    s3_config_t straddle_cfg;ir_line_trace_t straddle={0};
     s3_config_defaults(&straddle_cfg);robot_ir_apply_layout(&straddle_cfg);
     straddle_cfg.line.threshold_high=BOARD_LINE_BLACK_PERMILLE;
     straddle_cfg.line.threshold_low=BOARD_LINE_WHITE_PERMILLE;
     if(!robot_ir_apply_adc_calibration(&straddle_cfg)) {s2_emergency_stop();tk_ext_tsk();return;}
     uint8_t read_side=0;uint32_t read_side_ms=0; /* barcode-read steering: side and since */
-    BOOL track_stopped=FALSE;uint32_t track_stop_ms=0; /* TRACK STOP in progress, since */
-#endif
+    s3_status_t line_last={0};uint8_t line_misses=0; /* last S3 snapshot, failed reads since */
+    s5_status_t scan_last={0};uint8_t scan_misses=0; /* last S5 snapshot, failed reads since */
+    /* Bypass edge latched with the plan: lateral, ahead (axle frame), target lateral offset; odometry then. */
+    UW bypass_x=0,bypass_y=0,bypass_lateral=0;int32_t bypass_from_um=0;BOOL bypass_edge=FALSE;
     for(;;) {
         SYSTIM now;
-#if BOARD_LINE_STRADDLE
         /* Telemetry view of the follower this tick: 0 straight, 1/2 steer
          * right/left, 3/4 pivot right/left; steer in S2 units. */
         uint8_t follow_code=0;int16_t follow_steer=0;
-#endif
         odom_config_t calibration={0}; /* short-lived calculation/API view */
         (void)odom_calibration_unpack(&calibration_record,&calibration);
         s2_motion_status_t motor={0};uint8_t encoder_payload[ENCODER_SNAPSHOT_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
         BOOL mo=s2_motion_get_status(&motor)==E_OK;
         BOOL en=s2_encoder_snapshot(encoder_payload,sizeof(encoder_payload))==E_OK;
         BOOL li=s3_status_get(&line)==E_OK;
+        /* S3's status lock is polled, never waited on: a read fails when the
+         * sampler was preempted while publishing (e.g. by network work). Use
+         * the last snapshot for up to 3 such ticks; its sample age still
+         * decides freshness, so stale line data still stops the run. */
+        if(li) {line_last=line;line_misses=0;}
+        else if(line_misses<3U && line_last.configured) {line=line_last;li=TRUE;++line_misses;}
         BOOL so=s5_get_status(&scan)==E_OK;
+        /* S5's status lock waits only 5 ms: on a miss use the last snapshot
+         * for up to 10 ticks; its sample time still decides freshness. */
+        if(so) {scan_last=scan;scan_misses=0;}
+        else if(scan_misses<10U && scan_last.time_ms) {scan=scan_last;so=TRUE;++scan_misses;}
         s4_sensor_cache_t imu_record={0};
         BOOL im=s4_sensor_get_record(&imu_record)==E_OK;
         /* Snapshot APIs may wait briefly. Age them against a time obtained
@@ -215,14 +236,12 @@ static void vehicle_task(INT code,void *context) {
                     state.vehicle.phase,state.vehicle.fault);
             }
         }
-        vc_input_t input={.now_ms=now.lo,.scan_id=scan.scan_id,
+        vc_input_t input={.now_ms=now.lo,
             .distance_um=odom->distance_um,.yaw_mdeg=odom_turn_mdeg(odom),
-            .line_error=line.output.line.error,.line_state=(uint8_t)line.output.line.state,
-            .line_black_mask=(uint8_t)(line.output.line.black_mask & 3U),
             .turn_deg=plan_usable?(int16_t)scan.planned_rotate_deg:0,
             .approach_mm=plan_usable?(uint16_t)scan.planned_approach_mm:0,
             .return_mm=plan_usable?(uint16_t)scan.planned_return_mm:0,
-            .sensor_state=scan.state,.odom_valid=result_ok && (result.flags&S4_RESULT_ODOMETRY),.motor_ok=mo && motor.state!=S2_MOTION_FAULT,
+            .odom_valid=result_ok && (result.flags&S4_RESULT_ODOMETRY),.motor_ok=mo && motor.state!=S2_MOTION_FAULT,
             .terrain_valid=result_ok && (result.flags&S4_RESULT_TILT),.shock=(result.flags&S4_RESULT_SHOCK)!=0U,
             .slope=result.terrain==TERRAIN_ASCENT || result.terrain==TERRAIN_DESCENT,
             .bypass_steering=(uint16_t)(BOARD_TRACK_WIDTH_MM*1000U/(2U*S5_BYPASS_ARC_RADIUS_MM)),
@@ -248,10 +267,6 @@ static void vehicle_task(INT code,void *context) {
            (br_state==BR_BRAKE || br_state==BR_REVERSE || br_state==BR_WAIT)) input.terrain_valid=1;
 #endif
         input.line_fresh=li && line.configured && line.acquisition_error==E_OK && now.lo-line.sample_time_ms<30U;
-        input.steering=input.line_fresh && line.output.steering_allowed;
-        input.line_detected=input.line_fresh &&
-            (line.output.line.state==S3_LINE_TRACKING ||
-             (line.output.line.state==S3_LINE_JUNCTION && line.output.line.black_mask==3U));
         input.sensor_fresh=so && scan.state!=S5_FAULT &&
             (!scan.valid || (scan.distance_mm>0 && scan.distance_mm<=5000U)) &&
             now.lo-scan.time_ms<(scan.valid?S5_STALE_MS:S5_INVALID_STALE_MS);
@@ -270,11 +285,19 @@ static void vehicle_task(INT code,void *context) {
         BOOL no_echo=!scan.valid && (scan.echo_result==S5_ECHO_NO_RISE || scan.echo_result==S5_ECHO_NO_FALL);
         BOOL obstacle_confirmed=vehicle_obstacle_confirm_step(&obstacle_confirm,so && (scan.valid || open),
             scan.time_ms,forward && scan.valid && scan.distance_mm<=S5_OBSTACLE_MM,S5_ACQUISITION_SAMPLES);
+        /* Avoidance arcs (TURN_OUT..RESTORE): with the servo straight ahead,
+         * only a real echo within the guidance distance holds the robot; a
+         * missing echo or the re-sample after a pan does not, so the arcs do
+         * not stop and restart on every gap. A side look still waits for the
+         * servo to come back to the front before moving. */
+        BOOL avoid_arc=state.vehicle.phase>=VC_TURN_OUT && state.vehicle.phase<=VC_RESTORE;
         input.front_clear=input.sensor_fresh && scan.angle_deg==0 &&
             (state.vehicle.phase==VC_TRACK ?
                 forward && !obstacle_confirmed &&
                 ((scan.valid && scan.distance_mm>S5_GUIDANCE_OBSTACLE_MM) || open ||
                  (no_echo && !obstacle_confirm.streak)) :
+             avoid_arc ?
+                !(scan.valid && scan.sample_angle_deg==0 && scan.distance_mm<=S5_GUIDANCE_OBSTACLE_MM) :
                 s5_direction_clear(&scan,state.vehicle.phase==VC_ACQUIRE?S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM));
         input.obstacle=input.sensor_fresh && (obstacle_confirmed ||
             s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION);
@@ -289,40 +312,19 @@ static void vehicle_task(INT code,void *context) {
         input.side_ready=input.side_observed && (scan.valid || s5_sample_is_open(&scan));
         input.side_clear=input.side_ready && s5_direction_clear(&scan,AVOID_SIDE_CLEAR_MM);
         input.side_sample_ms=scan.time_ms;
-        line_curve=curve_memory_update(&curve_memory,now.lo,
-            state.vehicle.armed && state.vehicle.phase==VC_TRACK,
-            input.line_fresh && line.output.error==S3_ERROR_NONE,
-            line.output.line.black_mask & 3U,line.output.line.error);
-        input.curve_hold=curve_memory.turning && input.line_fresh;
-#if BOARD_LINE_STRADDLE
-        BOOL bend_now=BOARD_LINE_BEND_STEER && course.bend_side && state.vehicle.armed &&
-            state.vehicle.phase==VC_TRACK;
-#else
-        BOOL bend_now=FALSE;
-#endif
         for(unsigned n=0;n<S3_EVENT_CAPACITY;++n) {
             s3_event_record_t e;ER er=s3_event_receive(&e);if(er==E_TMOUT)break;
             if(er<0) {input.transport_ok=0;break;}
             if(e.event.kind==S3_EVENT_NAVIGATION) {
-                /* A decode from a bend (the line crossing GP28) is ignored. */
-                if(bend_now || bc_nullify) continue;
                 input.navigation_event=1;input.nav=(uint8_t)e.event.command;
                 state.navigation=(uint8_t)e.event.command;state.barcode=(e.event.symbol>='A' && e.event.symbol<='Z')?(uint8_t)(e.event.symbol-'A'+1):0;
-            } else if(e.event.kind==S3_EVENT_RECOVERY_REQUEST) input.recovery_event=1;
-            else input.safety_event=1;
+            } else if(e.event.kind!=S3_EVENT_RECOVERY_REQUEST) input.safety_event=1; /* straddle S3 never sends recovery */
         }
-#if BOARD_LINE_STRADDLE
-        /* Straddle builds do not use S3's line verdicts, but a latched S3
-         * transport error means its events (decoded turns) are being lost and
-         * barcode capture has stopped: fault visibly instead of driving on. */
+        /* The straddle follower does not use S3's line verdicts, but a latched
+         * S3 transport error means its events (decoded turns) are being lost
+         * and barcode capture has stopped: fault visibly instead of driving on. */
         if(state.vehicle.armed && li && line.configured && line.output.error==S3_ERROR_TRANSPORT)
             input.transport_ok=0;
-#endif
-        if(input.curve_hold && input.recovery_event) {
-            /* Acknowledge the short dropout so S3 can resume normal observations. */
-            if(s3_controller_control(S3_MODE_TRACK,true,100)<E_OK)input.transport_ok=0;
-        }
-#if BOARD_LINE_STRADDLE
         /* Straddle geometry: both sensors WHITE is centred, so S3's edge-follow
          * SEARCHING/LOST/recovery semantics do not apply. Feed the policy a
          * steerable line whenever the straddle observer has a fresh sample. */
@@ -331,21 +333,10 @@ static void vehicle_task(INT code,void *context) {
             li && line.configured && line.acquisition_error==E_OK);
         input.line_fresh=input.line_fresh && straddle_ok;
         input.steering=input.line_fresh;input.line_detected=input.line_fresh;
-        input.line_state=input.line_fresh?(uint8_t)S3_LINE_TRACKING:(uint8_t)S3_LINE_INVALID;
         input.line_black_mask=(uint8_t)(straddle.result.black_mask&3U);
-        input.recovery_event=0;input.curve_hold=0;
         /* A crossing line puts both straddle sensors and GP28 on black: decoded
-         * turns wait for it. (Edge-following S3 withholds steering until a
-         * decoded turn runs, so those builds keep turning at once: 0/0.) */
-        {
-            /* A bend also puts both sensors on black, but only after one side
-             * has touched for a while: the course's own corner test. */
-            BOOL corner=course.phase!=IR_COURSE_TRACK || (course.side_streak &&
-                course.side_last_ms-course.side_since_ms>=IR_COURSE_SIDE_HOLD_MS &&
-                now.lo-course.side_last_ms<30U);
-            input.junction=input.line_fresh && input.line_black_mask==3U &&
-                line.output.barcode_black && !corner && !bend_now;
-        }
+         * turns wait for it. */
+        input.junction=input.line_fresh && input.line_black_mask==3U && line.output.barcode_black;
         input.nav_offset_mm=(uint16_t)BOARD_NAV_JUNCTION_OFFSET_MM;
         input.nav_search_mm=(uint16_t)BOARD_NAV_JUNCTION_SEARCH_MM;
         input.uturn_ignore_mm=(uint16_t)BOARD_NAV_UTURN_IGNORE_MM;
@@ -355,7 +346,6 @@ static void vehicle_task(INT code,void *context) {
         input.nav_turn_max_deg=(uint8_t)BOARD_NAV_TURN_MAX_DEG;
         input.nav_uturn_min_deg=(uint8_t)BOARD_NAV_UTURN_MIN_DEG;
         input.nav_uturn_max_deg=(uint8_t)BOARD_NAV_UTURN_MAX_DEG;
-#endif
         input.nav_turn_power=(uint8_t)BOARD_NAV_TURN_POWER;
         input.nav_seek_power=(uint8_t)BOARD_NAV_TURN_SEEK_POWER;
         input.line_touch=input.line_fresh && input.line_black_mask!=0U;
@@ -398,13 +388,6 @@ static void vehicle_task(INT code,void *context) {
                         (void)s3_controller_barcode_end();
                 }
                 br_end_result=line.output.barcode_result;
-            }
-            /* Barcode readings are ignored in a bend: a read that starts
-             * there neither re-reads nor turns, until it has ended. */
-            if(bend_now && reading) bc_nullify=TRUE;
-            if(bc_nullify) {
-                hit=miss=full=FALSE;
-                if(!bend_now && !reading && now.lo-br_change_ms>=300U) bc_nullify=FALSE;
             }
             BOOL quiet=now.lo-br_change_ms>=BOARD_BARCODE_RETRY_IDLE_MS;
             unsigned moved=br_abs_um(odom->distance_um,br_origin_um);
@@ -500,22 +483,44 @@ static void vehicle_task(INT code,void *context) {
             else if(!lift_timing) {lift_timing=TRUE;lift_since=now.lo;}
             if(lifted) input.terrain_valid=1;
         }
+        unsigned phase_before=state.vehicle.phase;
         vc_step(&state.vehicle,&input);
+        if(phase_before==VC_ACQUIRE && state.vehicle.phase==VC_BACKUP) {
+            /* Plan latched: keep its edge for the re-plan after the reverse. */
+            BOOL left=scan.planned_rotate_deg>0;
+            INT bound=left?scan.left_bound_deg:-scan.right_bound_deg;
+            UW range=left?scan.left_bound_distance_mm:scan.right_bound_distance_mm;
+            bypass_edge=bound>=0 && bound<=80 && range && range<=5000U;
+            if(bypass_edge) {
+                UW half=(scan.object_width_max_mm+1U)/2U;
+                bypass_x=range*s5_cosine_q10000[90-bound]/10000U;
+                bypass_y=range*s5_cosine_q10000[bound]/10000U+S5_SENSOR_OFFSET_MM;
+                bypass_lateral=(bypass_x>half?bypass_x:half)+S5_CLEARANCE_RADIUS_MM;
+                bypass_from_um=odom->distance_um;
+            }
+        } else if(phase_before==VC_BACKUP && state.vehicle.phase==VC_TURN_OUT && bypass_edge) {
+            /* Reverse done: a shallower (diagonal) heading now clears the edge. */
+            int32_t back_um=bypass_from_um-odom->distance_um;
+            UW back=back_um>0?(UW)(back_um/1000):0U;
+            int planned=state.vehicle.turn_deg<0?-state.vehicle.turn_deg:state.vehicle.turn_deg;
+            unsigned deg=0;UW leg=0;
+            if(bypass_replan(bypass_x,bypass_y,bypass_lateral,back,(unsigned)planned,&deg,&leg)) {
+                tm_printf((UB *)"[BYPASS] reversed %u mm: heading %d -> %u deg, diagonal %u -> %u mm\n",
+                    (unsigned)back,planned,deg,(unsigned)state.vehicle.approach_mm,(unsigned)leg);
+                state.vehicle.turn_deg=(int16_t)(state.vehicle.turn_deg<0?-(int)deg:(int)deg);
+                state.vehicle.approach_mm=state.vehicle.return_mm=(uint16_t)leg;
+            }
+            bypass_edge=FALSE;
+        }
         if(BOARD_LIFT_FAULT_MS && state.vehicle.armed && lift_timing &&
            now.lo-lift_since>=BOARD_LIFT_FAULT_MS) {
             s2_emergency_stop();vc_stop(&state.vehicle,VC_LIFTED);
         }
-        /* A barcode is being read (not just a single crossing line): drive
-         * straight across it, since the course's time-based cross/corner
-         * limits would misjudge its bars at the slow reading speed. */
-        BOOL marker_reading=li && line.configured && !bend_now && !bc_nullify &&
+        /* A barcode is being read (>= 3 elements): the follower is off;
+         * line_marker_steer holds the line (BOARD_BARCODE_READ_LINE_STEER). */
+        BOOL marker_reading=li && line.configured &&
             line.output.barcode_result==S3_BARCODE_RESULT_READING && line.output.barcode_elements>=3U;
-        (void)marker_reading; /* unused without straddle or the slow cap */
-#if BOARD_LINE_STRADDLE
-        if(!state.vehicle.armed || state.vehicle.phase!=VC_TRACK || state.vehicle.nav_offset || marker_reading)
-            ir_line_course_reset(&course);
         if(!marker_reading) read_side=0;
-#endif
         s3_mode_t wanted=!state.vehicle.armed?S3_MODE_PAUSED:
             state.vehicle.phase==VC_TRACK?S3_MODE_TRACK:S3_MODE_OVERRIDE;
         ER control=E_OK;
@@ -538,7 +543,10 @@ static void vehicle_task(INT code,void *context) {
         if(phase!=previous_phase || look!=previous_look || !requested_sensor_mode) {
             s5_state_t sensor_mode=S5_MONITOR;int angle=0;
             /* BACKUP keeps the latched plan: never MONITOR, which resets it. */
-            if(phase==VC_BACKUP || phase==VC_TURN_OUT || phase==VC_DIAGONAL || phase==VC_ALIGN)sensor_mode=S5_APPROACH;
+            if(phase==VC_BACKUP || phase==VC_TURN_OUT || phase==VC_DIAGONAL || phase==VC_ALIGN) {
+                /* The end of the diagonal looks to the obstacle side first. */
+                sensor_mode=S5_APPROACH;angle=phase==VC_DIAGONAL && look?side_angle:0;
+            }
             else if(phase==VC_PASS) {sensor_mode=S5_OVERCOME;angle=look?side_angle:0;}
             else if(phase==VC_TURN_IN || phase==VC_RETURN || phase==VC_RESTORE)sensor_mode=S5_REORG;
             BOOL pause=vehicle_sensor_pan_requires_stop(state.vehicle.command,so,
@@ -569,17 +577,15 @@ static void vehicle_task(INT code,void *context) {
             }
         }
 #endif
-#if BOARD_LINE_STRADDLE
-        if(BOARD_LINE_BEND_POWER && BOARD_LINE_BEND_STEER && course.bend_side &&
-           state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
-           state.vehicle.command==S2_MOVE_FORWARD && state.vehicle.power>BOARD_LINE_BEND_POWER)
-            state.vehicle.power=(uint8_t)BOARD_LINE_BEND_POWER;
-#endif
 #if BOARD_BARCODE_RETRY_DRIVE
         /* Any fault or obstacle leaves VC_TRACK (or disarms), which ends the
          * sequence; within it, the policy's sonar STOP only gates forward motion. */
         BOOL br_drive=state.vehicle.armed && state.vehicle.phase==VC_TRACK && br_state!=BR_IDLE;
         unsigned br_slow=state.vehicle.maximum_power*BOARD_BARCODE_RETRY_SPEED_PERCENT/100U;
+        /* The reverse re-read needs more torque than the forward slow read. */
+        unsigned br_back=br_slow>BOARD_BARCODE_RETRY_REVERSE_MIN_POWER?br_slow:
+            (state.vehicle.maximum_power<BOARD_BARCODE_RETRY_REVERSE_MIN_POWER?
+             state.vehicle.maximum_power:BOARD_BARCODE_RETRY_REVERSE_MIN_POWER);
         if(br_slow<BOARD_BARCODE_RETRY_MIN_POWER)
             br_slow=state.vehicle.maximum_power<BOARD_BARCODE_RETRY_MIN_POWER?
                 state.vehicle.maximum_power:BOARD_BARCODE_RETRY_MIN_POWER;
@@ -594,83 +600,47 @@ static void vehicle_task(INT code,void *context) {
             state.vehicle.power=(uint8_t)br_slow;
 #endif
         if(br_drive && (br_state==BR_BRAKE || br_state==BR_REVERSE || br_state==BR_WAIT)) {
-#if BOARD_LINE_STRADDLE
-            ir_line_course_reset(&course);
-#endif
-            line_curve=0;
             if(br_state!=BR_REVERSE) s2_emergency_stop();
             else {
 #if BOARD_PID_ENABLED
                 /* Heading hold plus an inverted line term; the sensors trail. */
                 int32_t yaw=input.odom_valid?odom_turn_mdeg(odom):br_hold_yaw;
                 int32_t steer=reverse_track_steering(yaw,br_hold_yaw,input.line_black_mask,
-                    BOARD_LINE_STRADDLE && input.line_fresh,
+                    input.line_fresh,
                     BOARD_BARCODE_RETRY_REVERSE_YAW_GAIN,BOARD_BARCODE_RETRY_REVERSE_LINE_GAIN,
                     BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT);
-                ER er=s2_reverse_follow_send((UINT)br_slow,(INT)steer);
+                ER er=s2_reverse_follow_send((UINT)br_back,(INT)steer);
 #else
                 (void)br_hold_yaw; /* heading hold needs PID */
-                ER er=s2_movement_send(S2_MOVE_REVERSE,(UINT)br_slow);
+                ER er=s2_movement_send(S2_MOVE_REVERSE,(UINT)br_back);
 #endif
                 /* E_OBJ: motor still acknowledging the brake; retry next tick. */
                 if(er<0 && er!=E_OBJ) {s2_emergency_stop();vc_stop(&state.vehicle,VC_TRANSPORT);}
             }
         } else
 #endif
+        if(state.vehicle.command!=S2_MOVE_FORWARD || state.vehicle.phase<VC_TURN_OUT ||
+           state.vehicle.phase>VC_RESTORE) {avoid_power_m=0;avoid_steer=0;}
         if(state.vehicle.command==S2_MOVE_STOP) {
             /* An epoch per stopped tick invalidates every old queued movement. */
             s2_emergency_stop();
-#if BOARD_LINE_STRADDLE
-            if(state.vehicle.armed && state.vehicle.phase==VC_TRACK) {
-                /* Standing still ages none of the course's timers. Shift on
-                 * every stopped tick, so the junction/corner test that runs
-                 * before vc_step on the resume tick already sees them. */
-                if(track_stopped) ir_line_course_shift(&course,now.lo-track_stop_ms,straddle.sample_ms);
-                track_stopped=TRUE;track_stop_ms=now.lo;
-            }
-#endif
         } else {
             ER er;
-#if BOARD_LINE_STRADDLE
-            /* Junction offset before a decoded turn: straight across the
-             * crossing line, no course pivots or smooth steering. */
+            /* Junction offset before a decoded turn, or a barcode read: follower off. */
             BOOL junction_offset=state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
                 state.vehicle.command==S2_MOVE_FORWARD && (state.vehicle.nav_offset || marker_reading);
-            BOOL course_on=state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
+            BOOL follow_on=state.vehicle.armed && state.vehicle.phase==VC_TRACK &&
                 state.vehicle.command==S2_MOVE_FORWARD && input.line_fresh && !junction_offset;
-            if(track_stopped) {
-                /* Resuming after a TRACK STOP (e.g. sonar re-centring): the
-                 * standstill must not count as time on a side or in a phase,
-                 * or the steer resumes at full / a pivot and overshoots. */
-                if(course_on) ir_line_course_shift(&course,now.lo-track_stop_ms,straddle.sample_ms);
-                track_stopped=FALSE;
-            }
-            /* The mask-pivot follower or edge tracing replaces the touch
-             * course while tracking. */
-            BOOL pivot_on=BOARD_LINE_MASK_PIVOT && course_on;
-            BOOL edge_on=!pivot_on && BOARD_LINE_EDGE_TRACE && course_on;
+            /* Line follower while tracking: mask-pivot (default) or edge
+             * tracing (robot_config.h requires one). */
+            BOOL pivot_on=BOARD_LINE_MASK_PIVOT && follow_on;
+            BOOL edge_on=!pivot_on && BOARD_LINE_EDGE_TRACE && follow_on;
             if(!edge_on) edge=(edge_trace_t){0};
-            unsigned direction=ir_line_course_step(&course,&straddle,now.lo,course_on && !edge_on && !pivot_on);
-            /* Bend mode keeps turning until the other IR sees black; a full
-             * BOARD_LINE_BEND_MAX_TURN_DEG with no sensor touching the line
-             * at all means the line is gone (every touch restarts it). */
-            BOOL bend_mode=course_on && BOARD_LINE_BEND_STEER && course.bend_side;
-            /* Heading change this tick (odometry yaw wraps at 360 deg). */
-            int32_t yaw_now=odom_turn_mdeg(odom),yaw_step=input.odom_valid?yaw_now-bend_prev_yaw:0;
-            bend_prev_yaw=yaw_now;
+            /* Heading change this tick (odometry yaw wraps at 360 deg), for
+             * edge tracing's lost-line turn. */
+            int32_t yaw_now=odom_turn_mdeg(odom),yaw_step=input.odom_valid?yaw_now-prev_yaw:0;
+            prev_yaw=yaw_now;
             if(yaw_step>180000) yaw_step-=360000; else if(yaw_step< -180000) yaw_step+=360000;
-            if(!bend_mode || !bend_was || (straddle.result.black_mask&3U)) bend_spin=0;
-            else bend_spin+=yaw_step;
-            bend_was=bend_mode;
-            /* An S-bend flip is confirmed by turning its way (positive yaw is
-             * left), never by its own-side touches alone. */
-            if(bend_mode && course.bend_chained) {
-                if(chain_side!=course.bend_side) {chain_side=course.bend_side;chain_turn=0;}
-                chain_turn+=course.bend_side==2U?yaw_step:-yaw_step;
-                if(chain_turn>=BOARD_LINE_BEND_CONFIRM_DEG*1000) course.bend_chained=0U;
-            } else chain_side=0U;
-            BOOL bend_spun=bend_mode && BOARD_LINE_BEND_MAX_TURN_DEG &&
-                (bend_spin>BOARD_LINE_BEND_MAX_TURN_DEG*1000 || bend_spin< -BOARD_LINE_BEND_MAX_TURN_DEG*1000);
             if(pivot_on) {
                 /* Current mask only: pivot toward a black IR, else forward. */
                 unsigned m=straddle.result.black_mask&3U;
@@ -707,39 +677,10 @@ static void vehicle_task(INT code,void *context) {
                     follow_code=steer>0?1U:steer<0?2U:0U;
                     er=s2_follow_send(power,line_curve);
                 }
-            } else if(course_on && (course.fault || bend_spun)) {
-                s2_emergency_stop();vc_stop(&state.vehicle,VC_LINE);er=E_OK;
-            } else if(course_on && (direction==IR_LINE_LEFT || direction==IR_LINE_RIGHT)) {
-                /* Side touches steer while the course is tracking; corner
-                 * holds and long touches (tight bends) still pivot. */
-                int32_t steer=LINE_STEER_PIVOT;
-                if(BOARD_PID_ENABLED && BOARD_LINE_SMOOTH_STEER && course.phase==IR_COURSE_TRACK)
-                    steer=line_steer_amount(now.lo-course.side_since_ms,BOARD_LINE_STEER_MIN,
-                        BOARD_LINE_STEER_MAX,BOARD_LINE_STEER_RAMP_MS,BOARD_LINE_PIVOT_AFTER_MS);
-                /* In bend mode, and on the touch that ends it (the robot has
-                 * turned past the line: a forced correction back), steer at
-                 * least the full bend steer; straights keep the gentle ramp. */
-                if(steer!=LINE_STEER_PIVOT && BOARD_LINE_BEND_STEER && course_on &&
-                   ((bend_mode && course.bend_side==(direction==IR_LINE_RIGHT?1U:2U)) || course.bend_exit) &&
-                   steer<BOARD_LINE_BEND_STEER)
-                    steer=BOARD_LINE_BEND_STEER;
-                if(steer==LINE_STEER_PIVOT) {
-                    line_curve=0;follow_code=direction==IR_LINE_RIGHT?3U:4U;
-                    er=s2_movement_send((s2_move_command_t)direction,state.vehicle.power);
-                } else {
-                    line_curve=(INT)(direction==IR_LINE_RIGHT?steer:-steer);
-                    follow_code=direction==IR_LINE_RIGHT?1U:2U;follow_steer=(int16_t)line_curve;
-                    er=s2_follow_send(state.vehicle.power,line_curve);
-                }
-            } else if((course_on || junction_offset) && BOARD_PID_ENABLED) {
+            } else if(junction_offset && BOARD_PID_ENABLED) {
                 line_curve=0;
-                if(bend_mode && course.phase==IR_COURSE_TRACK) {
-                    /* Both sensors white in bend mode: keep the turn. */
-                    line_curve=(INT)(course.bend_side==1U?BOARD_LINE_BEND_STEER:-BOARD_LINE_BEND_STEER);
-                    follow_code=course.bend_side==1U?1U:2U;follow_steer=(int16_t)line_curve;
-                }
-                if(junction_offset && marker_reading && !state.vehicle.nav_offset && input.line_fresh) {
-                    /* Reading a barcode: no course, but keep the line. */
+                if(marker_reading && !state.vehicle.nav_offset && input.line_fresh) {
+                    /* Reading a barcode: the follower is off, but keep the line. */
                     unsigned m=straddle.result.black_mask&3U;
                     if(m==1U || m==2U) {
                         if(read_side!=m) {read_side=(uint8_t)m;read_side_ms=now.lo;}
@@ -749,9 +690,7 @@ static void vehicle_task(INT code,void *context) {
                     } else read_side=0;
                 }
                 er=s2_follow_send(state.vehicle.power,line_curve);
-            } else
-#endif
-            if(state.vehicle.phase==VC_BACKUP && state.vehicle.command==S2_MOVE_REVERSE) {
+            } else if(state.vehicle.phase==VC_BACKUP && state.vehicle.command==S2_MOVE_REVERSE) {
                 /* Heading hold only (no line term) on the yaw latched at ACQUIRE. */
                 line_curve=0;
                 if(BOARD_PID_ENABLED) {
@@ -761,14 +700,19 @@ static void vehicle_task(INT code,void *context) {
                         BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT);
                     er=s2_reverse_follow_send(state.vehicle.power,(INT)steer);
                 } else er=s2_movement_send(S2_MOVE_REVERSE,state.vehicle.power);
-            } else
-            if(!BOARD_LINE_STRADDLE && BOARD_PID_ENABLED && state.vehicle.phase==VC_TRACK &&
-               state.vehicle.command==S2_MOVE_FORWARD && input.line_fresh) {
-                er=s2_follow_send(state.vehicle.power,line_curve);
             } else if (BOARD_PID_ENABLED && state.vehicle.command==S2_MOVE_FORWARD &&
                        state.vehicle.phase>=VC_TURN_OUT && state.vehicle.phase<=VC_RESTORE) {
-                line_curve=state.vehicle.steering;
-                er=s2_follow_send(state.vehicle.power,line_curve);
+                /* Smooth: power ramps up from 0 (decreases are immediate) and
+                 * the arc steering slews, per 10 ms tick. */
+                int32_t want=(int32_t)state.vehicle.power*1000;
+                avoid_power_m+=(int32_t)(AVOID_POWER*1000U*10U/AVOID_RAMP_POWER_MS);
+                if(avoid_power_m>want) avoid_power_m=want;
+                int32_t ds=state.vehicle.steering-avoid_steer,step=(int32_t)(400U*10U/AVOID_STEER_RAMP_MS);
+                if(ds>step) ds=step; else if(ds< -step) ds=-step;
+                avoid_steer+=ds;
+                UINT power=(UINT)((avoid_power_m+999)/1000);
+                line_curve=(INT)avoid_steer;
+                er=s2_follow_send(power?power:1U,line_curve);
             } else {
                 line_curve=0;
                 er=s2_movement_send((s2_move_command_t)state.vehicle.command,state.vehicle.power);
@@ -776,10 +720,8 @@ static void vehicle_task(INT code,void *context) {
             /* Motor may still be acknowledging the previous STOP. Retry next tick. */
             if(er<0 && er!=E_OBJ) {s2_emergency_stop();vc_stop(&state.vehicle,VC_TRANSPORT);}
         }
-#if BOARD_LINE_STRADDLE
         state.line_follow=follow_code;state.line_steer=follow_steer;
         state.line_mask=(uint8_t)(straddle.result.black_mask&3U);
-#endif
         (void)app_state_publish(&state);
         if(next_tick==0)next_tick=now.lo;
         next_tick+=10;tk_get_otm(&now);
@@ -789,12 +731,4 @@ static void vehicle_task(INT code,void *context) {
 }
 ER vehicle_start(void) {
     ID tid=app_start_task((FP)vehicle_task,5,TP_PRC1,"vehicle");return tid<0?tid:E_OK;
-}
-#endif
-/* Retired sample arbitration API: every subsystem may request STOP.
- * Positive movement comes only from the controller's checked policies. */
-ER app_vehicle_request(UINT source,s2_move_command_t command,UINT power,UW lease) {
-    (void)power;(void)lease;
-    if(source<1 || source>5 || command!=S2_MOVE_STOP)return E_PAR;
-    unsigned char stop[6]={0xC1,0,0,0,0,0};return s1_command_offer(stop,sizeof(stop));
 }

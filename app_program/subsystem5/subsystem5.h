@@ -152,14 +152,12 @@ IMPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg);
 /* S5 owns obstacle thresholds and interpretation; main owns motion phases. */
 #define S5_GUIDANCE_OBSTACLE_MM 50U
 #define S5_ROTATE_STOP_MM S5_GUIDANCE_OBSTACLE_MM
-#define S5_ROTATE_WAIT_MS 2000U
 #define S5_ROTATE_MS_PER_DEG 5U
 #define S5_SENSOR_OFFSET_MM 90U
 #define S5_CLEARANCE_RADIUS_MM AVOID_CLEARANCE_MM
 #define S5_BYPASS_ARC_RADIUS_MM 150U /* center path; steering derives from measured axle width */
 #define S5_CRUISE_MM_PER_SECOND 245U /* measured 1.20 rev/s with 65 mm wheels at 30% power */
 #define S5_OVERCOME_CLEARANCE_MM 200U
-#define S5_OBJECT_RANGE_MM 50U
 #define S5_NAVIGATION_TIMEOUT_MS 30000U
 typedef enum
 {
@@ -179,13 +177,6 @@ typedef struct
     UW turn_ms;
     UW approach_mm, return_mm; /* timed diagonal and return-to-line legs */
 } s5_path_t;
-/* Navigation uses the 5 cm limit; ordinary cruise uses 20 cm. */
-static inline UW s5_obstacle_threshold(s5_state_t state)
-{
-    return state == S5_MONITOR || state == S5_CENTERING || state == S5_FAULT
-               ? S5_OBSTACLE_MM
-               : S5_GUIDANCE_OBSTACLE_MM;
-}
 #if APP_S5_MASTER_TEST
 IMPORT void s5_master_test(void);
 #endif

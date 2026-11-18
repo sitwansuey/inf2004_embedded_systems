@@ -2,7 +2,7 @@
 # Included after pico_rp2040.mk so the WiFi source set is already known.
 S4_SDK := $(PICO_SDK_PATH)/src
 ifeq ($(wildcard $(S4_SDK)/rp2_common/hardware_i2c/i2c.c),)
-$(error Buddy 4 needs PICO_SDK_PATH pointing to Pico SDK 2.2.0, including for UART builds)
+$(error Buddy 4 needs PICO_SDK_PATH pointing to Pico SDK 2.2.0 or newer, including for UART builds)
 endif
 
 S4_INCLUDES := common/pico_base_headers common/pico_binary_info common/pico_util \

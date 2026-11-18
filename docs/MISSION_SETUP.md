@@ -1,14 +1,24 @@
 # Integrated mission setup
 
-The default firmware intentionally boots DISARMED with motors locked. Software
-changes cannot establish wheel dimensions, sensor mounting, PID tuning or track
-performance. Do not copy synthetic test constants into the hardware profile.
+The firmware boots DISARMED and drives only after RESET then START (dashboard
+or USB `g`); STOP, watchdogs and faults always apply. The default profile
+enables the motors. Software changes cannot establish wheel dimensions, sensor
+mounting, PID tuning or track performance. Do not copy synthetic test
+constants into the hardware profile.
 
-## Local calibration
+## Calibration profile
 
-Use ignored `app_program/robot_config.local.h`. An autonomous mission requires:
+The measured mission profile is the set of defaults in
+`app_program/robot_config.h`. Per-checkout overrides go in the git-ignored
+`app_program/robot_config.local.h` (template
+`app_program/robot_config.local.example.h`), for example
+`BOARD_MOTORS_DISABLED 1` for USB/sensor bench work. Re-measure and update the
+defaults after changing the hardware. They encode what an autonomous mission
+requires:
 
-- `BOARD_MOTORS_DISABLED=0`, actual `BOARD_IR_MODE` and calibrated IR endpoints.
+- `BOARD_MOTORS_DISABLED=0`, actual `BOARD_IR_MODE` (3: calibrated ADC line on
+  GP26/27, digital GP28 barcode) and calibrated IR endpoints
+  (`app_program/robot_ir_calibration.h`).
 - Build with `S2_ENCODER_ENABLED=1` (the Makefile default), after checking wiring.
 - Measured `BOARD_TICKS_PER_REV` (x1 counts), `BOARD_WHEEL_CIRCUMFERENCE_MM`
   and `BOARD_TRACK_WIDTH_MM`.

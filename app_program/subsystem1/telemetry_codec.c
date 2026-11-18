@@ -1,4 +1,4 @@
-/* PRIVATE queue snapshot, generated from tools/telemetry_schema.json. Never MQTT. */
+/* PRIVATE queue snapshot; field table must match tools/telemetry_schema.json (checked by testing/integration protocol tests). Never MQTT. */
 #include "telemetry_codec.h"
 #include <string.h>
 typedef struct { int64_t min,max; uint8_t bits; } field_t;
@@ -7,7 +7,7 @@ static const field_t fields[TEL_FIELD_COUNT]={
     {0LL,65535LL,16},
     {0LL,4294967295LL,32},
     {0LL,13LL,4},
-    {0LL,7LL,3},
+    {0LL,8LL,4},
     {0LL,6LL,3},
     {0LL,100LL,7},
     {0LL,2LL,2},

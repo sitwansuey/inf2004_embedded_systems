@@ -87,17 +87,3 @@ ER s1_command_take(control_message_t *p) {
     }
     return E_TMOUT;
 }
-
-#if BOARD_IR_MOTOR_SCAN_BENCH
-#include "../ir_motor_scan.h"
-int s1_scan_command_offer(const uint8_t wire[6]) {
-    SYSTIM now;
-    if(!ir_scan_frame_valid(wire)) return E_PAR;
-    if(command_buffer<=0) return E_OBJ;
-    ER er=tk_get_otm(&now);if(er<E_OK)return er;
-    control_message_t m={.time_ms=now.lo,.epoch=__atomic_load_n(&stop_epoch,__ATOMIC_ACQUIRE)};
-    for(unsigned i=0;i<6U;++i)m.wire[i]=wire[i];
-    er=tk_snd_mbf(command_buffer,&m,sizeof(m),TMO_POL);
-    return er;
-}
-#endif

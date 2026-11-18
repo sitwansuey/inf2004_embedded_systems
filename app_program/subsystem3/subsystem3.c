@@ -4,15 +4,9 @@
 #include "event_codec.h"
 
 
-EXPORT ID mbx_samples;
 EXPORT ID mtx_stats;
-EXPORT APP_STATS app_stats;
 
 static ID h_events;
-#if BOARD_IR_BARCODE_CAPTURE
-static ID h_capture;
-static uint32_t capture_dropped;
-#endif
 static ID h_controller;
 static ID h_task;
 static ID h_sample_cycle;
@@ -25,11 +19,6 @@ static s3_adapter_config_t configuration;
 static s3_status_t status;
 static s3_core_t core;
 static s3_ir_t ir;
-#if BOARD_IR_MOTOR_SCAN_BENCH
-static s3_barcode_t bench_decoder;
-static bool bench_observe,bench_have_sample,bench_black;
-static uint32_t bench_requested_ms,bench_last_sample;
-#endif
 static struct
 {
     s3_mode_t mode;
@@ -103,22 +92,13 @@ static bool lease_valid(uint32_t now_ms)
 
 EXPORT ER subsystem3_init(void)
 {
-    T_CMBX mailbox = {0};
     T_CMTX mutex = {0};
     T_CMBF buffer = {0};
     ER er;
 
-    if ((mtx_stats > 0) || (mbx_samples > 0) || (h_events > 0))
+    if ((mtx_stats > 0) || (h_events > 0))
     {
         return E_OBJ;
-    }
-    mailbox.mbxatr = TA_TFIFO | TA_MFIFO;
-    mbx_samples = tk_cre_mbx(&mailbox);
-    if (mbx_samples < E_OK)
-    {
-        er = mbx_samples;
-        mbx_samples = 0;
-        return er;
     }
     mutex.mtxatr = TA_INHERIT;
     mtx_stats = tk_cre_mtx(&mutex);
@@ -126,8 +106,6 @@ EXPORT ER subsystem3_init(void)
     {
         er = mtx_stats;
         mtx_stats = 0;
-        (void)tk_del_mbx(mbx_samples);
-        mbx_samples = 0;
         return er;
     }
     buffer.mbfatr = TA_TFIFO;
@@ -140,33 +118,12 @@ EXPORT ER subsystem3_init(void)
         er = h_events;
         h_events = 0;
         (void)tk_del_mtx(mtx_stats);
-        (void)tk_del_mbx(mbx_samples);
         mtx_stats = 0;
-        mbx_samples = 0;
         return er;
     }
-#if BOARD_IR_BARCODE_CAPTURE
-    buffer.maxmsz = (INT)sizeof(s3_capture_record_t);
-    buffer.bufsz = (INT)(S3_CAPTURE_CAPACITY *
-                        ((sizeof(s3_capture_record_t) + 3U) / 4U * 4U + sizeof(UW)));
-    h_capture = tk_cre_mbf(&buffer);
-    if (h_capture < E_OK)
-    {
-        er = h_capture; h_capture = 0;
-        (void)tk_del_mbf(h_events); h_events = 0;
-        (void)tk_del_mtx(mtx_stats); mtx_stats = 0;
-        (void)tk_del_mbx(mbx_samples); mbx_samples = 0;
-        return er;
-    }
-    capture_dropped = 0U;
-#endif
     configuration = (s3_adapter_config_t){0};
     s3_config_defaults(&configuration.algorithms);
     status = (s3_status_t){0};
-#if BOARD_IR_MOTOR_SCAN_BENCH
-    bench_observe=false;bench_have_sample=false;bench_black=false;
-    bench_requested_ms=0U;bench_last_sample=0U;s3_barcode_init(&bench_decoder);
-#endif
     raw_only = false;
     status.output.error = S3_ERROR_CONFIG;
     status.acquisition_error = E_NOSPT;
@@ -325,48 +282,6 @@ EXPORT ER s3_controller_bind(void)
     return unlock();
 }
 
-#if BOARD_IR_MOTOR_SCAN_BENCH
-EXPORT ER s3_barcode_bench_control(bool observe,uint32_t *p_generation)
-{
-    SYSTIM now;ER er=tk_get_otm(&now);
-    if(er<E_OK) return er;
-    er=lock_sample();if(er<E_OK) return er;
-    if(h_controller<=0 || tk_get_tid()!=h_controller) {(void)unlock();return E_OACV;}
-    if(!started || raw_only || configuration.ir.mode!=S3_IR_ADC ||
-       configuration.algorithms.barcode_sensor!=2U) {(void)unlock();return E_OBJ;}
-    uint32_t generation=status.bench.generation+1U;
-    status.bench=(s3_barcode_bench_status_t){0};status.bench.generation=generation;
-    bench_observe=observe;bench_have_sample=false;bench_black=false;
-    bench_requested_ms=now.lo;s3_barcode_init(&bench_decoder);
-    if(p_generation!=NULL) *p_generation=generation;
-    return unlock();
-}
-/* Called only by the sampler while holding its existing publication lock.
- * Latest status polling is not a sample stream; feed the decoder here so a
- * slower status reader cannot discard short bars or invent acquisition gaps. */
-static void barcode_bench_sample(const s3_sample_t *sample,ER acquisition)
-{
-    uint16_t darkness=0U;
-    if(!bench_observe || sample->time_ms-bench_requested_ms>INT32_MAX) return;
-    status.bench.time_ms=sample->time_ms;
-    if(acquisition<E_OK || (sample->valid_mask&4U)==0U ||
-       !s3_normalize(sample->raw[2],configuration.algorithms.line.white[2],
-                     configuration.algorithms.line.black[2],4095U,&darkness)) {
-        status.bench.error=acquisition<E_OK?acquisition:E_IO;bench_observe=false;return;
-    }
-    if(bench_have_sample && (sample->time_ms-bench_last_sample==0U ||
-       sample->time_ms-bench_last_sample>configuration.algorithms.max_sample_gap_ms)) {
-        status.bench.error=E_TMOUT;bench_observe=false;return;
-    }
-    bench_have_sample=true;bench_last_sample=sample->time_ms;++status.bench.samples;
-    if(darkness>=configuration.algorithms.line.threshold_high) bench_black=true;
-    else if(darkness<=configuration.algorithms.line.threshold_low) bench_black=false;
-    status.bench.result=(uint8_t)s3_barcode_feed(&bench_decoder,
-        &configuration.algorithms.barcode,bench_black,sample->time_ms,&status.bench.symbol);
-    if(status.bench.result!=S3_BARCODE_NONE) bench_observe=false;
-}
-#endif
-
 EXPORT ER s3_controller_control(s3_mode_t mode, bool marker_clear, UW lease_ms)
 {
     SYSTIM now;
@@ -487,26 +402,6 @@ EXPORT ER s3_controller_renew(UW lease_ms)
     return unlock();
 }
 
-#if BOARD_IR_MOTOR_SCAN_BENCH
-EXPORT ER s3_barcode_bench_status_get(s3_status_t *p_status)
-{
-    SYSTIM now;ER er;
-    if(p_status==NULL) return E_PAR;
-    *p_status=(s3_status_t){0};
-    er=lock_sample();if(er<E_OK) return er;
-    if(h_controller<=0 || tk_get_tid()!=h_controller) {(void)unlock();return E_OACV;}
-    /* The publisher may have run during the bounded lock handoff. Read the
-     * clock afterward, then let the controller enforce its 30 ms ADC bound. */
-    er=tk_get_otm(&now);
-    if(er<E_OK) {(void)unlock();return er;}
-    *p_status=status;
-    if(!lease_valid(now.lo) || now.lo-status.sample_time_ms>=S3_STATUS_MAX_AGE_MS)
-        p_status->output.steering_allowed=false;
-    er=unlock();if(er<E_OK) *p_status=(s3_status_t){0};
-    return er;
-}
-#endif
-
 EXPORT ER s3_status_get(s3_status_t *p_status)
 {
     SYSTIM now;
@@ -591,23 +486,6 @@ EXPORT ER s3_event_receive(s3_event_record_t *p_record)
     (void)unlock();
     return E_TMOUT;
 }
-
-#if BOARD_IR_BARCODE_CAPTURE
-EXPORT ER s3_capture_receive(s3_sample_t *p_sample, uint32_t *p_dropped)
-{
-    s3_capture_record_t record = {0};
-    INT length;
-    if (p_sample == NULL || p_dropped == NULL) return E_PAR;
-    *p_sample = (s3_sample_t){0}; *p_dropped = 0U;
-    if (h_capture <= 0) return E_OBJ;
-    /* The kernel message buffer is already a synchronized copied transfer.
-     * No sampler/status mutex is acquired by this cross-core consumer. */
-    length = tk_rcv_mbf(h_capture, &record, TMO_POL);
-    if (length != (INT)sizeof(record)) return length < E_OK ? length : E_IO;
-    *p_sample = record.sample; *p_dropped = record.dropped;
-    return E_OK;
-}
-#endif
 
 EXPORT ER s3_service_once(void)
 {
@@ -799,18 +677,6 @@ EXPORT ER s3_service_once(void)
     status.sample = (acquisition == E_OK) ? sample : (s3_sample_t){0};
     status.sample.time_ms = sample.time_ms;
     status.sample_time_ms = sample.time_ms;
-#if BOARD_IR_MOTOR_SCAN_BENCH
-    barcode_bench_sample(&status.sample,acquisition);
-#endif
-#if BOARD_IR_BARCODE_CAPTURE
-    /* Copy under the existing status lock; no formatting/device wait here.
-     * Invalid acquisitions retain a zero valid mask and cannot be decoded. */
-    {
-        const s3_capture_record_t record = {status.sample, capture_dropped};
-        if (tk_snd_mbf(h_capture, &record, (INT)sizeof(record), TMO_POL) < E_OK &&
-            capture_dropped != UINT32_MAX) ++capture_dropped;
-    }
-#endif
     status.generation = generation;
     status.acquisition_error = acquisition;
     status.configured = !raw_only && configuration.ir.mode != S3_IR_DISABLED;

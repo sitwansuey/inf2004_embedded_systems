@@ -15,8 +15,8 @@ typedef struct {
     /* S4 shocks seen (rising edges, wraps). A shock lasts one 20 ms
      * accelerometer sample, so telemetry sends a frame for each new count. */
     uint8_t shock_count;
-    /* Straddle line follower this tick (straddle builds; telemetry line
-     * fields): 0 straight, 1/2 steer right/left, 3/4 pivot right/left. */
+    /* Straddle line follower this tick (telemetry line fields):
+     * 0 straight, 1/2 steer right/left, 3/4 pivot right/left. */
     uint8_t line_follow : 3;
     uint8_t line_mask : 2; /* straddle sensors on black: 1 right, 2 left */
     int16_t line_steer; /* S2 steering units, positive = right */

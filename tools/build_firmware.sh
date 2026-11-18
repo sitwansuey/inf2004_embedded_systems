@@ -27,14 +27,6 @@ case "$profile" in
     Uart) options=(CONSOLE=uart WIFI=none);;
     S2Bench) options=(S2_ONLY=1 TEST=1);;
     S4Bench) options=(S4_ONLY=1);;
-    IRRawAdc) options=(IR_RAW_MODE=2);;
-    IRRawDigital) options=(IR_RAW_MODE=1);;
-    IRCalibrated) options=(IR_CALIBRATED_BENCH=1);;
-    IRBarcodeCapture) options=(IR_CALIBRATED_BENCH=1 IR_BARCODE_CAPTURE=1);;
-    IRContinuous) options=(IR_MOTOR_SCAN=1 IR_LINE_TRACE=1 IR_LINE_ONLY=1 IR_CONTINUOUS=1 IR_BARCODE_CAPTURE=1 S2_COMMAND_TIMEOUT_MS=150);;
-    IRLineOnly) options=(IR_MOTOR_SCAN=1 IR_LINE_TRACE=1 IR_LINE_ONLY=1 IR_BARCODE_CAPTURE=1 S2_COMMAND_TIMEOUT_MS=150);;
-    IRLineTrace) options=(IR_MOTOR_SCAN=1 IR_LINE_TRACE=1 IR_BARCODE_CAPTURE=1 S2_COMMAND_TIMEOUT_MS=150);;
-    IRMotorScan) options=(IR_MOTOR_SCAN=1 IR_BARCODE_CAPTURE=1 S2_COMMAND_TIMEOUT_MS=150);;
     *) echo 'Unknown build profile';exit 1;;
 esac
 make -C "$repo/build_make" -j8 "${options[@]}"

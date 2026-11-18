@@ -26,13 +26,14 @@
  *  Pins: free for projects are GP0..GP22 and GP26..GP28.  GP0/GP1 are
  *  taken by UART0 when built with "make CRASH_REPORT=1" (see README).
  *  Never use GP23/24/25/29: they are wired to the Pico W radio.
- *  Claim every pin in TEAM.md section 2 before using it.
+ *  Claim every pin in the TEAM.md ownership table before using it.
  * --------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------
  *  Task priorities: 1 is the highest; the kernel's USB console (3) and
  *  WiFi (4) tasks sit above every application task.  Each subsystem
- *  has its own band (TEAM.md section 4), defined in its own header.
+ *  has its own band (the TEAM.md ownership table), defined in its own
+ *  header.
  * --------------------------------------------------------------------- */
 #define TASK_STACK_SIZE		2048	/* bytes; tm_printf needs ~1 KB */
 
@@ -51,7 +52,10 @@ IMPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name);
  *  kernel object exists before any task can use it.
  *    subsystemN_init()   create this subsystem's kernel objects
  *    subsystemN_start()  create and start this subsystem's tasks
- *    subsystemN_test()   on-target tests, only in test builds (make TEST=1)
+ *    subsystemN_test()   on-target tests, only in test builds (make TEST=1):
+ *        usermain calls subsystem5_test (integrated), subsystem2_test
+ *        (S2_ONLY=1) and subsystem4_test (S4_ONLY=1); subsystem1_test and
+ *        subsystem3_test are standalone on-target entry points.
  * --------------------------------------------------------------------- */
 IMPORT ER subsystem1_init(void);
 IMPORT ER subsystem2_init(void);

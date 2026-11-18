@@ -13,14 +13,6 @@
 #define S4_RETRY_US       UINT64_C(1000000)
 #define S4_LOCK_WAIT_MS   5
 
-/* Compatibility with the sample S3 -> S4 text interface (IF-03). This is
- * not the future telemetry/event protocol. New consumers use the snapshot. */
-#define S4_SUMMARY_MAX    48
-#define FLG_BATCH         0x0002
-#define FLG_ALARM         0x0001 /* Reserved legacy bit; no S4 alarm task. */
-IMPORT ID mbf_summary;
-IMPORT ID flg_events;
-
 /* Task-context API; bounded mutex wait. E_OBJ before init, E_PAR for NULL,
  * or a kernel lock error. E_OK copies a coherent snapshot; it does not mean
  * the sensor is connected. Check configured and each *_usable flag. */
@@ -36,6 +28,5 @@ IMPORT void s4_sensor_task(INT start_code, void *p_exinf);
 IMPORT void monitor_task(INT start_code, void *p_exinf);
 IMPORT uint64_t s4_kernel_now_us(void *p_context);
 IMPORT ER s4_status_publish(const s4_sensor_cache_t *p_status);
-IMPORT ER s4_note_legacy_line(void);
 
 #endif

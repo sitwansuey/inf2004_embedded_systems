@@ -8,7 +8,6 @@ from dashboard import BrokerBridge, DashboardHandler
 class Commands(unittest.TestCase):
  def bridge(self):
   b=BrokerBridge();c=Mock();c.is_connected.return_value=True
-  c.publish.return_value=SimpleNamespace(rc=0,wait_for_publish=lambda **kw:None,is_published=lambda:True)
   def publish(topic, frame, **kwargs):
    b.on_message(None,None,SimpleNamespace(topic="csc02/command/ack",retain=False,
                 payload=bytes([194,frame[5],frame[1],0,0,0])))
@@ -96,6 +95,20 @@ class Commands(unittest.TestCase):
   self.assertIsNone(b.pending_commands[7]["reply"])
   b.on_message(None,None,SimpleNamespace(topic="csc02/command/ack",retain=False,payload=bytes([194,7,4,1,9,2])))
   self.assertEqual(b.pending_commands[7]["reply"],(1,9,2))
+  # Fault 8 (lifted) is the highest fault code; 9 is rejected.
+  b.pending_commands[8]={"opcode":2,"reply":None}
+  b.on_message(None,None,SimpleNamespace(topic="csc02/command/ack",retain=False,payload=bytes([194,8,2,1,12,9])))
+  self.assertIsNone(b.pending_commands[8]["reply"])
+  b.on_message(None,None,SimpleNamespace(topic="csc02/command/ack",retain=False,payload=bytes([194,8,2,1,12,8])))
+  self.assertEqual(b.pending_commands[8]["reply"],(1,12,8))
+ def test_lifted_fault_in_reply(self):
+  b,c=self.bridge()
+  def lifted(topic,frame,**kwargs):
+   b.on_message(None,None,SimpleNamespace(topic="csc02/command/ack",retain=False,
+              payload=bytes([194,frame[5],frame[1],1,12,8])))
+   return SimpleNamespace(rc=0,wait_for_publish=lambda **kw:None,is_published=lambda:True)
+  c.publish.side_effect=lifted
+  with self.assertRaisesRegex(RuntimeError,"Phase 12, fault lifted"):b.send_command("reset")
  def test_map_table_changes_only_on_accept(self):
   b,c=self.bridge()
   for result,pattern in [(1,"rejected A = Left"),(3,"expired")]:

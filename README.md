@@ -4,32 +4,39 @@ Pico W / RP2040 firmware using micro T-Kernel 3 SMP. See TEAM.md for hardware
 ownership and task/interface responsibilities. The current implementation
 includes the five subsystems, controller, binary telemetry and dashboard.
 
-Firmware boots DISARMED with `BOARD_MOTORS_DISABLED=1`. Motor calibration trims
-remain 97% (left) and 98% (right). Calibration, physical accuracy, full-course
-behavior, target timing and runtime memory still require validation. GY-511 has
-an accelerometer and magnetometer, no gyroscope. The motor owner includes
-independent wheel-speed PID, enabled only with measured speed scale and tuning.
-Bench profiles retain direct PWM. See [mission setup](docs/MISSION_SETUP.md)
-for calibration, A-D barcode mappings and one-shot autonomous START.
+Firmware boots DISARMED and drives only after RESET then START. The
+`app_program/robot_config.h` defaults are this robot's measured mission profile:
+motors enabled, wheel trims 86% (left) and 93% (right), calibrated wheel-speed
+PID, IR mode 3, terrain calibration and obstacle bypass. Physical accuracy,
+full-course behavior, target timing and runtime memory still require
+validation. GY-511 has an accelerometer and magnetometer, no gyroscope. The
+line follower is the mask-pivot follower; edge tracing is a build option
+(`BOARD_LINE_MASK_PIVOT 0`, `BOARD_LINE_EDGE_TRACE 1`). See
+[mission setup](docs/MISSION_SETUP.md) for calibration, the A-Z barcode
+codebook (A U-turn, F left, Z right) and one-shot autonomous START.
 
 ## Build
 
 Install the Pico SDK (including TinyUSB/CYW43 and lwIP for MQTT), Arm GNU
 compiler, GNU Make and a host compiler/Python for software tests. From the
-repository root on Windows with MSYS2:
+repository root on Windows with MSYS2, build the MQTT mission image:
 
 ```powershell
 .\tools\build_windows.ps1 -Backend Native `
   -ArmToolchainBin "$env:USERPROFILE\.pico-sdk\toolchain\15_2_Rel1\bin" `
-  -PicoSdkPath "$env:USERPROFILE\.pico-sdk\sdk\2.3.0" -Profile Default
+  -PicoSdkPath "$env:USERPROFILE\.pico-sdk\sdk\2.3.0" -Profile Mqtt
 ```
 
 Adjust paths to your installation. The helper builds only; it does not flash.
-`S4Bench` starts IMU application tasks for sensor-only validation. `Mqtt`
-requires ignored `config/wifi_secrets.h` copied from its example. Local board
-calibration belongs in ignored `app_program/robot_config.local.h`. UART builds
-conflict with sonar pins and disable Buddy 5. Explicit motion diagnostic
-profiles have different limits; review their source before use.
+It runs plain `make -C build_make` (here with `NET=lwip MQTT=1`), which also
+works directly with `PICO_SDK_PATH` exported and the Arm compiler on PATH; the
+mission image is `build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc.uf2`.
+`Mqtt` requires ignored `config/wifi_secrets.h` copied from its example. The
+other profiles are `Default` (no MQTT), `PassiveTest`, `SingleCore`, `Uart`,
+`S2Bench` and `S4Bench`; `S4Bench` starts IMU application tasks for sensor-only
+validation. Optional per-checkout overrides go in the ignored
+`app_program/robot_config.local.h` (see `robot_config.local.example.h`). UART
+builds conflict with sonar pins and disable Buddy 5.
 
 ## Software checks
 
@@ -52,15 +59,16 @@ B2's checked 13-byte internal encoder snapshot feeds B4 terrain processing. B4 e
 protected 63-byte acquisition copies and a checked 12-byte terrain result;
 C interfaces and exact field definitions are in subsystem4 headers/code. The
 controller alone authorizes motion; B2 owns PWM/encoder IRQ, B3 owns IR, B4
-owns I2C and B5 owns sonar/servo. B1 queues a private 50-byte snapshot, then the
+owns I2C and B5 owns sonar/servo. B1 queues a private 54-byte snapshot, then the
 network owner marshals each reading into its own two-byte EDR16 MQTT message.
 The private snapshot is never published. Shared speed uses `app_speed_mm_s()`. Preserve
 explicit lengths, validity/fault flags, operating time, STOP and lease behavior.
 
 Dashboard: run `python app_program/external_systems/Dashboard/dashboard.py --broker YOUR_BROKER`
 after installing that folder's requirements. It subscribes to
-`Robopico/sensors/edr16/v1`; readings expire after one second. ID 0 carries
-mission status, while sensor IDs 1-15 retain their meanings. See
+`Robopico/sensors/edr16/v1`; each reading keeps its latest value and is marked
+stale after 5 s. ID 0 carries mission status, while sensor IDs 1-15 retain
+their meanings. See
 [the complete wire contract](docs/DATA_REPRESENTATION.md).
 
 The professor's final ramp is approximately the smaller practice ramp's height.

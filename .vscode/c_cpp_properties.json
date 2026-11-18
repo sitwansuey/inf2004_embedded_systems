@@ -13,11 +13,13 @@
             "APP_TEST=0",
             "APP_S2_ONLY=0",
             "APP_S4_ONLY=0",
-            "S2_ENCODER_ENABLED=0",
+            "S2_ENCODER_ENABLED=1",
             "S2_COMMAND_TIMEOUT_MS=1000",
             "TM_CONSOLE_USB_CDC=1",
             "TM_CONSOLE_UART=0",
             "TM_WIFI_CYW43=1",
+            "TM_NET_LWIP=1",
+            "TM_MQTT=1",
             "BOARD_UART0_FREE=1"
         ]
     },

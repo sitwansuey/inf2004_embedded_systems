@@ -40,7 +40,7 @@ static inline bool edr_status_valid(unsigned data)
 {
     unsigned subtype=data>>8U, value=data&255U;
     switch(subtype) {
-    case 0: return (value&15U)<=13U && (value>>4U)<=7U; /* phase | fault<<4 */
+    case 0: return (value&15U)<=13U && (value>>4U)<=8U; /* phase | fault<<4 (0..8, 8 lifted) */
     case 1: return (value&31U)<=26U && (value>>5U)<=4U; /* A..Z, navigation */
     case 2: return value<=63U && (value&7U)<=4U;
     case 3: case 4: return value>=38U && value<=218U;

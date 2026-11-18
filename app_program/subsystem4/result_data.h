@@ -2,9 +2,7 @@
 #define S4_RESULT_DATA_H
 #include "../shared/edr.h"
 #define S4_RESULT_BITS 93U
-#define S4_RESULT_VERSION 1U
 #define S4_RESULT_SIZE ((S4_RESULT_BITS+7U)/8U)
-#define S4_RESULT_KIND 2U
 #define S4_RESULT_TILT 1U
 #define S4_RESULT_HEIGHT 2U
 #define S4_RESULT_SHOCK 4U

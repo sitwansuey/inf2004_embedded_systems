@@ -13,9 +13,8 @@ data = word >> 4;
 ```
 
 The canonical C definition is `app_program/shared/edr.h`; the canonical Python
-codec is `tools/edr_decode.py`. Buddy 1's packed16 header is a compatibility alias,
-and the dashboard adapter imports the common Python codec. Do not add another
-independent packing scheme in a buddy's folder.
+codec is `tools/edr_decode.py`, which the dashboard adapter imports. Do not add
+another independent packing scheme in a buddy's folder.
 
 | ID | Binary | Owner / reading | Meaning of the 12-bit data |
 |---|---|---|---|
@@ -54,7 +53,7 @@ Angles/speed/line error truncate toward zero; height/width round to nearest
 
 | Subtype | Meaning of value |
 |---|---|
-| 0 | phase in low nibble (0-13; 13 = reverse before turn-out), controller fault in high nibble |
+| 0 | phase in low nibble (0-13; 13 = reverse before turn-out), controller fault in high nibble (0-8; 8 = lifted) |
 | 1 | last decoded barcode in bits 4:0 (0 none, 1-26 = A-Z, mapped to a route or not); navigation in bits 7:5 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
 | 2 | line state bits 2:0; physical IR black mask bits 5:3 |
 | 3 | pitch in whole degrees + 128 |
@@ -82,8 +81,9 @@ valid width or a changed side appears, so the halves reach MQTT first.
 
 Controller phases and faults match `vehicle_policy.h`. Sensor values are sent
 only when their source is usable; mission availability/quality records clear
-invalid dashboard values. Each desktop reading expires after one second,
-independently of traffic from other sensors. Arrival time is not source time.
+invalid dashboard values. The dashboard keeps each reading's latest value and
+marks it stale once it is more than 5 s old, independently of traffic from
+other sensors. Arrival time is not source time.
 
 The telemetry task samples at 5 Hz. The network task sends at most four
 records per poll, retries the same record on backpressure, and discards an
@@ -142,9 +142,9 @@ ID 0 adds the independently decodable mission status fields above.
 
 Full 32-bit encoder counts, local timestamps, validity, leases and freshness
 remain in local control APIs. B3's internal navigation event now uses 14 bytes:
-kind/command, symbol code (0 none, 1-4 A-D, 5 Z), then sequence, operating time
+kind/command, symbol code (0 none, 1-26 = A-Z), then sequence, operating time
 and generation as three little-endian uint32 values. The former two-bit symbol
-field could not carry all four commands. Native structures are never copied
+field could not carry the A-Z codebook. Native structures are never copied
 onto MQTT or the event queue.
 
 EDR16 encoder counts wrap 4095 to 0; reverse count -1 becomes 4095. Inferring a
@@ -152,7 +152,8 @@ signed delta is ambiguous beyond 2047 counts between received observations,
 and reboot is indistinguishable from wrap. Telemetry is not a control input.
 No per-reading source timestamp or checksum is transmitted. QoS 0 can drop
 records; related readings are not atomic. The publisher bounds internal age
-and the receiver expires each field. Keep all control/safety decisions onboard.
+and the receiver marks each field stale after 5 s. Keep all control/safety
+decisions onboard.
 Free-text events and heading are not transmitted; demo/import data remain
 explicitly separate from live MQTT.
 
@@ -172,5 +173,5 @@ status copy). This is the commanded angle, not measured position feedback.
 Motor ID 12 is emitted only with motor availability and preserves timeout (32)
 versus other motor errors (64), using the same mapping as B2's direct adapter.
 Dashboard and audio ignore retained records and clear observations on disconnect
-and reconnect. The private snapshot now uses 431 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side and a 2-bit sensor-fault cause; phase maximum 13) in 54 bytes, keeping reserved zero padding; its
+and reconnect. The private snapshot now uses 432 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side, a 2-bit sensor-fault cause and a 4-bit controller fault 0..8; phase maximum 13) in exactly 54 bytes, with no reserved bit; its
 schema includes a two-bit motor error class. Rebuild firmware components together.

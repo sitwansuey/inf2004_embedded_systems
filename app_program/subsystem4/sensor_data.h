@@ -31,7 +31,7 @@ typedef struct
     uint32_t mag_io_errors;
     uint32_t accel_overruns;
     uint32_t publish_errors;
-    uint32_t legacy_lines_received;
+    uint32_t legacy_lines_received; /* retired IF-03 count, always 0 */
     uint64_t observed_time_us;
 } s4_sensor_status_t;
 
@@ -40,7 +40,7 @@ typedef struct
 enum {
     S4_COUNT_INIT, S4_COUNT_HEARTBEAT, S4_COUNT_ACCEL, S4_COUNT_MAG,
     S4_COUNT_ACCEL_ERROR, S4_COUNT_MAG_ERROR, S4_COUNT_OVERRUN,
-    S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY, S4_COUNT_TOTAL
+    S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY /* retired IF-03, stays 0 */, S4_COUNT_TOTAL
 };
 #define S4_CACHE_BITS (212U + 32U * S4_COUNT_TOTAL)
 #define S4_CACHE_BYTES ((S4_CACHE_BITS + 7U) / 8U)

@@ -2,9 +2,8 @@
  *	subsystem1_test.c
  *	On-target tests for subsystem 1.  Built only with: make TEST=1
  *
- *	Each TEST_CHECK prints a PASS/FAIL line on the console.  Save the
- *	console output to testing/subsystem1/logs/ and record the result
- *	in testing/subsystem1/TEST_LOG.md.  Test IDs: S1-U01, S1-U02, ...
+ *	Each TEST_CHECK prints a PASS/FAIL line on the console.
+ *	Test IDs: S1-U01, S1-U02, ...
  */
 
 #include "subsystem1.h"

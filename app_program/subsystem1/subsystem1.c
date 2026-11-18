@@ -34,7 +34,7 @@ EXPORT ER subsystem1_start(void)
 	if (tid_led < E_OK) {
 		return tid_led;
 	}
-	ID telemetry=app_start_task((FP)telemetry_task,13,TP_PRC2,"telemetry");
+	ID telemetry=app_start_task((FP)telemetry_task,S1_PRI_TELEMETRY,TP_PRC2,"telemetry");
 	if(telemetry<0)return telemetry;
 	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
 }
