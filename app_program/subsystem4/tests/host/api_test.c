@@ -8,12 +8,9 @@
     fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #c); \
     exit(EXIT_FAILURE); } } while (0)
 
-static int fail_flag_create;
-static int fail_buffer_create;
+static int fail_mutex_create;
 static ER lock_result;
 static ER unlock_result;
-static unsigned int deleted_mutexes;
-static unsigned int deleted_flags;
 static unsigned int tasks_started;
 static uint64_t clock_ms;
 static int64_t wall_clock_ms = -INT64_C(473385600000);
@@ -43,17 +40,7 @@ ER tk_get_otm(SYSTIM *p_time)
 ID tk_cre_mtx(const T_CMTX *p_config)
 {
     REQUIRE(p_config->mtxatr == TA_INHERIT);
-    return 10;
-}
-ID tk_cre_flg(const T_CFLG *p_config)
-{
-    REQUIRE(p_config->iflgptn == 0);
-    return fail_flag_create ? E_NOMEM : 11;
-}
-ID tk_cre_mbf(const T_CMBF *p_config)
-{
-    REQUIRE(p_config->maxmsz == S4_SUMMARY_MAX);
-    return fail_buffer_create ? E_NOMEM : 12;
+    return fail_mutex_create ? E_NOMEM : 10;
 }
 ID tk_cre_cyc(const T_CCYC *p_config)
 {
@@ -86,18 +73,6 @@ ER tk_unl_mtx(ID id)
 {
     REQUIRE(id == 10);
     return unlock_result;
-}
-ER tk_del_mtx(ID id)
-{
-    REQUIRE(id == 10);
-    deleted_mutexes++;
-    return E_OK;
-}
-ER tk_del_flg(ID id)
-{
-    REQUIRE(id == 11);
-    deleted_flags++;
-    return E_OK;
 }
 void s4_sensor_task(INT code, void *p_context)
 {
@@ -133,16 +108,14 @@ int main(void)
     REQUIRE(subsystem4_start() == E_OBJ);
     REQUIRE(s4_sensor_get_status(NULL) == E_PAR);
     REQUIRE(s4_sensor_get_status(&output) == E_OBJ);
-    fail_flag_create = 1;
-    REQUIRE(subsystem4_init() == E_NOMEM && deleted_mutexes == 1);
-    fail_flag_create = 0;
-    fail_buffer_create = 1;
-    REQUIRE(subsystem4_init() == E_NOMEM && deleted_mutexes == 2 && deleted_flags == 1);
-    fail_buffer_create = 0;
+    fail_mutex_create = 1; /* the status mutex is S4's only kernel object */
+    REQUIRE(subsystem4_init() == E_NOMEM);
+    REQUIRE(subsystem4_start() == E_OBJ);
+    fail_mutex_create = 0;
     REQUIRE(subsystem4_init() == E_OK);
     REQUIRE(subsystem4_init() == E_OBJ);
     REQUIRE(s4_sensor_get_status(&output) == E_OK && !output.configured);
-    puts("[TEST] S4-U19 PASS  two-phase lifecycle, object cleanup and argument checks");
+    puts("[TEST] S4-U19 PASS  two-phase lifecycle, mutex failure retry and argument checks");
 
     s4_data_reset(&state);
     s4_data_init_result(&state, LSM303_OK);
@@ -158,11 +131,10 @@ int main(void)
     REQUIRE(wall_clock_reads == 0);
     puts("[TEST] S4-U22 PASS  unset/changed wall clock cannot alter shared operating time");
     REQUIRE(s4_status_publish(&state) == E_OK);
-    REQUIRE(s4_note_legacy_line() == E_OK);
     REQUIRE(s4_status_publish(&state) == E_OK);
     REQUIRE(s4_sensor_get_status(&output) == E_OK);
     REQUIRE(output.task_heartbeat == 42 && output.accel_usable);
-    REQUIRE(output.accel_age_ms == 10 && output.legacy_lines_received == 1);
+    REQUIRE(output.accel_age_ms == 10 && output.legacy_lines_received == 0); /* IF-03 retired */
     s4_sensor_cache_t record;
     REQUIRE(s4_sensor_get_record(&record)==E_OK);
     s4_sensor_status_t decoded;

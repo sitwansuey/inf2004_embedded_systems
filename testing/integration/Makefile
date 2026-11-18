@@ -1,11 +1,15 @@
 CC ?= gcc
-CFLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic
+# ROBOT_CONFIG_NO_LOCAL: a git-ignored app_program/robot_config.local.h never
+# leaks into host tests. The robot_config.h defaults are the mission profile
+# (mask-pivot follower, straddle IR mode 3, PID, ramp speed, lift fault);
+# other scenarios are explicit -D flags on their recipe.
+CFLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -DROBOT_CONFIG_NO_LOCAL
 S4_RESULT = ../../app_program/subsystem4/result_data.c ../../app_program/subsystem4/sensor_data.c
 CORE = $(S4_RESULT) ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c ../../app_program/shared/edr.c
 SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_width.c
-# Straddle robot profile: PID drive, ADC line + GP28 digital barcode, and the measured IR endpoints (passes the ADC calibration gate).
-STRADDLE = -DBOARD_LINE_STRADDLE=1 -DBOARD_PID_ENABLED=1 -DBOARD_PID_CALIBRATED=1 -DBOARD_PID_MAX_CPS=1950 -DBOARD_PID_MAX_POWER=35 -DBOARD_PID_KP_MILLI=30 -DBOARD_PID_KI_MILLI=40 -DBOARD_PID_KD_MILLI=0 -DS2_MOTOR1_TRIM_PERCENT=86U -DS2_MOTOR2_TRIM_PERCENT=93U -DBOARD_IR_MODE=3 -include ../../app_program/robot_ir_calibration.h
-STRADDLE_SRC = ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c
+# vehicle.c's straddle line observer and the S3 configuration it validates (S3 owns ADC acquisition).
+STRADDLE_SRC = ../../app_program/ir_line_trace.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c
+VEHICLE_SRC = $(CORE) ../../app_program/subsystem4/encoder_input.c ../../app_program/subsystem5/s5_width.c $(STRADDLE_SRC)
 .PHONY: test sanitize
 test:
 	mkdir -p .build
@@ -17,6 +21,8 @@ test:
 	.build/speed30
 	$(CC) $(CFLAGS) obstacle_bend_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/obstacle_bend
 	.build/obstacle_bend
+	$(CC) $(CFLAGS) bypass_return_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/bypass_return
+	./.build/bypass_return
 	$(CC) $(CFLAGS) -D_USE_MATH_DEFINES reverse_track_test.c $(LDFLAGS) -lm -o .build/reverse_track
 	.build/reverse_track
 	$(CC) $(CFLAGS) line_steer_test.c $(LDFLAGS) -o .build/line_steer
@@ -31,30 +37,12 @@ test:
 	./.build/mission
 	$(CC) $(CFLAGS) nav_junction_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/nav_junction
 	./.build/nav_junction
-	$(CC) $(CFLAGS) buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle
-	./.build/buddy4_vehicle
-	$(CC) $(CFLAGS) -DBOARD_SHOCK_STOP=0 buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(LDFLAGS) -lm -o .build/buddy4_vehicle_shock_ignored
-	./.build/buddy4_vehicle_shock_ignored
-	$(CC) $(CFLAGS) $(STRADDLE) buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(STRADDLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_straddle
-	./.build/buddy4_vehicle_straddle
-	$(CC) $(CFLAGS) $(STRADDLE) -DBOARD_BARCODE_READ_LINE_STEER=150 buddy4_vehicle_test.c $(CORE) ../../app_program/subsystem4/encoder_input.c $(STRADDLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_straddle_read150
-	./.build/buddy4_vehicle_straddle_read150
-	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=30 continuous_line_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/continuous_line
-	./.build/continuous_line
-	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_course_test.c ../../app_program/ir_line_course.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c $(LDFLAGS) -o .build/line_course
-	./.build/line_course
-	$(CC) $(CFLAGS) -DIR_SCAN_MAX_MS=20000 -DIR_SCAN_MAX_POWER=50 line_only_test.c ../../app_program/ir_line_progress.c ../../app_program/ir_motor_scan.c $(LDFLAGS) -o .build/line_only
-	./.build/line_only
-	$(CC) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 line_trace_test.c ../../app_program/ir_line_trace.c ../../app_program/vehicle_line.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o .build/line_trace
+	$(CC) $(CFLAGS) line_trace_test.c $(STRADDLE_SRC) $(LDFLAGS) -o .build/line_trace
 	./.build/line_trace
+	$(CC) $(CFLAGS) -DBOARD_IR_MODE=2 line_trace_test.c $(STRADDLE_SRC) $(LDFLAGS) -o .build/line_trace_mode2
+	./.build/line_trace_mode2
 	$(CC) $(CFLAGS) policy_test.c $(CORE) $(LDFLAGS) -lm -o .build/policy
 	./.build/policy
-	$(CC) $(CFLAGS) -Wshadow -Wconversion ir_motor_scan_test.c ../../app_program/ir_motor_scan.c $(LDFLAGS) -o .build/ir_motor_scan
-	./.build/ir_motor_scan
-	$(CC) $(CFLAGS) ir_scan_usb_test.c ../../app_program/ir_motor_scan.c $(LDFLAGS) -o .build/ir_scan_usb
-	./.build/ir_scan_usb
-	$(CC) $(CFLAGS) -DBOARD_IR_MOTOR_SCAN_BENCH=1 ir_scan_queue_test.c ../../app_program/ir_motor_scan.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/ir_scan_queue
-	./.build/ir_scan_queue
 	$(CC) $(CFLAGS) -include host.h obstacle_motion_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_motion
 	.build/obstacle_motion
 	$(CC) $(CFLAGS) -include host.h obstacle_open_space_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_open_space
@@ -63,21 +51,29 @@ test:
 	.build/obstacle_scan
 	$(CC) $(CFLAGS) -include host.h scan_test.c $(SCAN) $(LDFLAGS) -o .build/scan
 	./.build/scan
-	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_MOTORS_DISABLED=1 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar
 	./.build/sonar
-	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_SERVO_CENTER_US=1300 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar_low_centre
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_SERVO_CENTER_US=1300 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar_low_centre
 	./.build/sonar_low_centre
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_status_test.c ../../app_program/subsystem5/s5_data.c $(LDFLAGS) -o .build/sonar_status
 	./.build/sonar_status
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time
 	./.build/snapshot_time
-	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 $(STRADDLE) -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time_straddle
-	./.build/snapshot_time_straddle
 	$(CC) $(CFLAGS) protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/protocol
 	python3 protocol_test.py
 	$(CC) $(CFLAGS) telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/queue
 	./.build/queue
 	$(CC) $(CFLAGS) -Imocks mqtt_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/mqtt
 	./.build/mqtt
+	$(CC) $(CFLAGS) -include host.h -DBOARD_RAMP_SPEED=0 -DBOARD_LIFT_FAULT_MS=0U buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_no_ramp_lift
+	./.build/buddy4_vehicle_no_ramp_lift
+	$(CC) $(CFLAGS) -include host.h buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle
+	./.build/buddy4_vehicle
+	$(CC) $(CFLAGS) -include host.h -DBOARD_SHOCK_STOP=1 buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_shock_stop
+	./.build/buddy4_vehicle_shock_stop
+	$(CC) $(CFLAGS) -include host.h -DBOARD_LINE_MASK_PIVOT=0 -DBOARD_LINE_EDGE_TRACE=1 buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_edge_trace
+	./.build/buddy4_vehicle_edge_trace
+	$(CC) $(CFLAGS) -include host.h -DBOARD_BARCODE_READ_LINE_STEER=150 buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_read150
+	./.build/buddy4_vehicle_read150
 sanitize:
 	$(MAKE) test CFLAGS='$(CFLAGS) -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='-fsanitize=address,undefined'

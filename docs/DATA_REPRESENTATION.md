@@ -55,14 +55,14 @@ Angles/speed/line error truncate toward zero; height/width round to nearest
 |---|---|
 | 0 | phase in low nibble (0-13; 13 = reverse before turn-out), controller fault in high nibble (0-8; 8 = lifted) |
 | 1 | last decoded barcode in bits 4:0 (0 none, 1-26 = A-Z, mapped to a route or not); navigation in bits 7:5 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
-| 2 | line state bits 2:0; physical IR black mask bits 5:3 |
+| 2 | line state bits 2:0, the line follower's request this tick: 0 straight (or not following), 1 steer right, 2 steer left, 3 pivot right, 4 pivot left (the default mask-pivot follower sends 3/4 only while that IR is on black and 0 when both are white); straddle IR black mask bits 5:3 (1 right, 2 left, 3 both) |
 | 3 | pitch in whole degrees + 128 |
 | 4 | roll in two-degree units + 128 |
 | 5 | bits 2-0 terrain: 0 flat, 1 ascent, 2 crest, 3 descent, 4 shock, 5 invalid; bits 7-3 barcode elements (bars + spaces) read in the current/last barcode, shown as x/29 (0-31, saturating) |
 | 6 | current completed hump height, in 5 mm units |
 | 7 | highest completed hump this run, in 5 mm units |
 | 8 | paged obstacle width: 0-100 total width in 5 mm units; 128-191 centre->left edge half-width, (value&63)*8 mm; 192-255 centre->right edge half-width, same units (saturates at 63 = 504 mm); 101-127 rejected. All three pages are sent only with quality bit 0 (width valid) |
-| 9 | bits 5-0 quality: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5); bits 7-6 sensor-fault cause, sent only while fault = 1 (sensor), else 0: 0 none/other, 1 sonar (stale/fault/blocked scan, width or plan rejected), 2 tilt (terrain invalid), 3 odometry. All 256 values valid; consumers mask quality with 63 |
+| 9 | bits 5-0 quality: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5); bits 7-6 fault cause, sent with fault 1 (sensor): 0 none/other, 1 sonar (stale/fault/blocked scan, width or plan rejected), 2 tilt (terrain invalid), 3 odometry; and with fault 2 (line): 0 other, 1 line data stale (a line-data gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event, 3 line not found (REACQUIRE spot search); 0 with any other fault. All 256 values valid; consumers mask quality with 63 |
 | 10 | availability bits: motor, encoder, IR, acceleration, sonar, tilt, height, magnetic field |
 | 11 | observation sequence modulo 256 |
 | 12 | dropped internal observations, saturated at 255 |
@@ -134,6 +134,35 @@ each returns two independent two-byte readings. `s2_encoder_snapshot` is the
 separate full-precision 13-byte internal handoff used by terrain/odometry.
 The former multi-topic text queue and `s1_telemetry_record` API are retired.
 
+## Robot events
+
+Discrete events for the dashboard's event log use their own topic,
+`Robopico/events/edr16/v1`, one two-byte record per MQTT message in the same
+EDR16 shape (low nibble = event ID, high 12 bits = value). They are not
+telemetry: the vehicle controller (and the MQTT owner, for link events) calls
+`s1_event_post`, subsystem 1 queues up to 16 records (`subsystem1/telemetry.c`)
+and the network owner publishes one per poll after command replies
+(`mqtt_utk.c`). lwIP keeps a dead connection until its keep-alive watchdog
+closes it (~90 s), so once the broker has acknowledged nothing for 3 s the
+events stay in the queue rather than going to lwIP, which would drop them
+unsent; a full queue drops new events. Event IDs are not sensor IDs: decode
+event records with `decode_event`, never `edr_decode`/`decode_packet` (which
+would, for example, reject a hump value above 180 as a servo angle). Layout (`app_program/shared/events.h`,
+`tools/edr_decode.py decode_event`):
+
+| ID | Event | 12-bit value |
+|---|---|---|
+| 1 | Barcode attempt (one per finished read) | bits 0-1 attempt (1 initial scan, 2 reverse scan, 3 final attempt); bits 2-6 bars+spaces read (0..31, a full `*X*` is 29); bits 7-11 letter (0 failed, 1..26 = A..Z) |
+| 2 | Instruction decoded | bits 0-4 letter 1..26; bits 5-7 turn (0 none/not mapped, 1 left, 2 right, 3 straight, 4 U-turn) |
+| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: its highest point in 2 mm; a height of 0 means subsystem 4 lost it); bits 3-11 value |
+| 4 | Obstacle | bits 0-1 kind (1 detected: distance cm; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
+| 5 | Link | bits 0-1 kind (1 reconnected to the broker after N s without it, counted from the first publish it never acknowledged; 2 first connection, N s after boot); bits 2-11 seconds |
+
+An instruction (ID 2) is posted after the barcode attempt (ID 1) that decoded
+it. The dashboard receiver adds its own rows: robot offline (no data for 3 s)
+and back online, its broker link, and each new controller fault code from
+status subtype 0.
+
 ## Migration and limits
 
 Update firmware and Python/dashboard together. The old source/kind/length
@@ -154,8 +183,9 @@ No per-reading source timestamp or checksum is transmitted. QoS 0 can drop
 records; related readings are not atomic. The publisher bounds internal age
 and the receiver marks each field stale after 5 s. Keep all control/safety
 decisions onboard.
-Free-text events and heading are not transmitted; demo/import data remain
-explicitly separate from live MQTT.
+Free-text events are not transmitted, and no compass or magnetometer heading
+is: the only heading sent is the relative turn-out angle in the EV_OBSTACLE
+bypass event. Demo/import data remain explicitly separate from live MQTT.
 
 ## Verification
 

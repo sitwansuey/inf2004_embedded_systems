@@ -13,25 +13,41 @@ static vc_input_t healthy(void) {
         .nav_offset_mm=90,.nav_search_mm=600};
 }
 static vc_state_t armed(void) {vc_state_t s={0};assert(vc_arm(&s,100,1000,30));return s;}
+static vc_state_t started(void) {vc_state_t s={0};assert(vc_start(&s,100,30));return s;}
 static void controller(void) {
     vc_input_t i=healthy();vc_state_t s=armed();vc_step(&s,&i);assert(s.command==1 && s.power==30);
-    i.line_error=-500;vc_step(&s,&i);assert(s.command==1); /* Wheel owner applies differential steering. */
-    i.line_error=500;vc_step(&s,&i);assert(s.command==1);
+    /* Either straddle sensor on black keeps FORWARD (the vehicle task's
+     * follower steers or pivots); the last single side is kept for a search. */
+    i.line_black_mask=1;vc_step(&s,&i);assert(s.command==1 && s.last_line_side==1);
+    i.line_black_mask=3;vc_step(&s,&i);assert(s.command==1 && s.last_line_side==1);
+    i.line_black_mask=2;vc_step(&s,&i);assert(s.command==1 && s.last_line_side==2);
+    i.line_black_mask=0;
     i.slope=1;vc_step(&s,&i);assert(s.power==20);
     for(unsigned n=0;n<8;++n) {
-        s=armed();i=healthy();
+        bool gap=n==0 || n>=6; /* sonar (0) or line data (6, 7) missing */
+        s=gap?started():armed();i=healthy();
         switch(n) {case 0:i.sensor_fresh=0;break;case 1:i.terrain_valid=0;break;
         case 2:i.odom_valid=0;break;case 3:i.motor_ok=0;break;case 4:i.transport_ok=0;break;
         case 5:i.shock=1;break;case 6:i.line_fresh=0;break;case 7:i.steering=0;break;}
-        vc_step(&s,&i);assert(s.command==0 && s.power==0 && !s.armed && s.phase==VC_FAULT);
-        /* sonar 1, tilt 2, odometry 3; non-sensor faults carry no cause */
-        assert(s.fault_cause==(n<3?n+1U:0U) && s.fault==(n<3?VC_SENSOR:s.fault));
-        i.now_ms+=20;vc_step(&s,&i);assert(s.fault_cause==(n<3?n+1U:0U)); /* latched */
+        vc_step(&s,&i);
+        if(gap) {
+            /* A data gap holds still; it faults only once it lasts
+             * VC_SONAR_GAP_MS (sonar) or VC_LINE_GAP_MS (line data). */
+            uint32_t limit=n==0?VC_SONAR_GAP_MS:VC_LINE_GAP_MS;
+            assert(s.command==0 && s.power==0 && s.armed && s.phase==VC_TRACK);
+            i.now_ms+=limit-1U;vc_step(&s,&i);assert(s.command==0 && s.armed && s.phase==VC_TRACK);
+            i.now_ms+=1U;vc_step(&s,&i);
+        }
+        assert(s.command==0 && s.power==0 && !s.armed && s.phase==VC_FAULT);
+        /* VC_SENSOR: sonar 1, tilt 2, odometry 3; VC_LINE: line data 1; others none */
+        unsigned cause=n<3?n+1U:gap?VC_LINE_CAUSE_DATA:0U;
+        assert(s.fault_cause==cause && s.fault==(n<3?VC_SENSOR:gap?VC_LINE:s.fault));
+        i.now_ms+=20;vc_step(&s,&i);assert(s.fault_cause==cause); /* latched */
         assert(!vc_arm(&s,i.now_ms,1000,30));
     }
-    /* Check order: stale sonar before tilt before odometry. */
-    s=armed();i=healthy();i.sensor_fresh=i.terrain_valid=i.odom_valid=0;vc_step(&s,&i);
-    assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+    /* Check order: tilt before odometry, both before a sonar gap (which only holds). */
+    s=armed();i=healthy();i.sensor_fresh=i.odom_valid=0;vc_step(&s,&i);
+    assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_ODOM);
     s=armed();i=healthy();i.terrain_valid=i.odom_valid=0;vc_step(&s,&i);
     assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_TILT);
     /* STOP or RESET clears it; a new start never inherits a stale cause. */
@@ -48,7 +64,7 @@ static void controller(void) {
     i.junction=1;vc_step(&s,&i);assert(s.phase==VC_TRACK && s.nav_offset && s.command==1);
     i.junction=0;i.distance_um=90000;vc_step(&s,&i);
     /* No turn settings (power 0, no angle window): armed power, exactly 180 deg by yaw.
-     * (vehicle.c sends 25 % in every build; the window only in straddle builds.) */
+     * (vehicle.c always sends the robot_config.h power and angle window.) */
     assert(s.phase==VC_NAV_TURN);i.yaw_mdeg=179000;i.line_touch=1;vc_step(&s,&i);
     assert(s.phase==VC_NAV_TURN && s.command==3 && s.power==30);
     i.yaw_mdeg=181000;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command && s.spot_scan);
@@ -83,22 +99,37 @@ static void controller(void) {
     /* Distance bound: stand still before the forward turn-out. */
     i.distance_um=-300000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
     i.now_ms=100+AVOID_BACKUP_BRAKE_MS;vc_step(&s,&i);
-    assert(s.phase==VC_TURN_OUT && !s.command && s.backup_mm==300 && s.pass_check_mm==475);
+    assert(s.phase==VC_TURN_OUT && !s.command && s.approach_mm==200 && s.return_mm==200);
     vc_step(&s,&i);assert(!s.command); /* needs a fresh, forward-facing reading */
     i.front_clear=1;vc_step(&s,&i);assert(s.command==1 && s.steering==-376);
     i.yaw_mdeg=30000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1);
-    i.distance_um=-100000;vc_step(&s,&i);assert(s.phase==VC_ALIGN && s.command==1 && s.return_mm==200);
+    /* End of the out diagonal: stop and look to the obstacle side. */
+    i.distance_um=-100000;vc_step(&s,&i);
+    assert(s.phase==VC_DIAGONAL && !s.command && s.look_side && s.return_mm==200);
+    i.front_clear=0;i.side_observed=i.side_ready=1;i.side_clear=0;
+    for(unsigned n=0;n<3;++n){i.now_ms+=20;i.side_sample_ms=i.now_ms;vc_step(&s,&i);assert(!s.command);}
+    /* Still beside it: align, then pass it looking every AVOID_PASS_STEP_MM. */
+    assert(s.phase==VC_ALIGN && !s.look_side && !s.direct_return);
+    i.front_clear=1;i.side_observed=0;i.now_ms+=20;vc_step(&s,&i);assert(s.command==1 && s.steering==376);
     i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_PASS && !s.look_side && s.command==1);
-    i.distance_um+=475000;vc_step(&s,&i);assert(!s.command && s.look_side);
+    i.distance_um+=AVOID_PASS_STEP_MM*1000-1;vc_step(&s,&i);assert(s.command==1 && !s.look_side);
+    i.distance_um+=1;vc_step(&s,&i);assert(!s.command && s.look_side);
     i.front_clear=0;i.side_observed=i.side_ready=i.side_clear=1;
-    for(unsigned n=0;n<3;++n){i.now_ms=i.side_sample_ms=120U+AVOID_BACKUP_BRAKE_MS+n*20U;vc_step(&s,&i);assert(!s.command);}
-    assert(s.phase==VC_TURN_IN);i.front_clear=1;
+    for(unsigned n=0;n<3;++n){i.now_ms+=20;i.side_sample_ms=i.now_ms;vc_step(&s,&i);assert(!s.command);}
+    /* Clear: AVOID_CLEAR_RUN_MM further on, then turn back. */
+    assert(s.phase==VC_PASS && s.clear_run && !s.look_side);
+    i.front_clear=1;i.side_observed=0;i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1);
+    i.distance_um+=AVOID_CLEAR_RUN_MM*1000;vc_step(&s,&i);
+    assert(s.phase==VC_TURN_IN && s.command==1 && s.steering==376);
     i.yaw_mdeg=-30000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
-    i.distance_um+=200000;vc_step(&s,&i);assert(s.phase==VC_RESTORE && s.command==1);
-    i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command);
-    i.steering=0;vc_step(&s,&i);assert(s.command==3);
-    i.steering=1;vc_step(&s,&i);assert(s.line_settling);
-    i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
+    /* The lead (right) sensor touches the line, then releases it into the
+     * gap: the line is under the robot. Arc back to the heading held before
+     * the obstacle, then track. */
+    i.line_black_mask=1;i.distance_um+=50000;vc_step(&s,&i);
+    assert(s.phase==VC_RETURN && s.command==1 && s.nav_touched && !s.line_found);
+    i.line_black_mask=0;i.distance_um+=10000;vc_step(&s,&i);
+    assert(s.phase==VC_RESTORE && s.line_found && s.restore_mdeg==30000 && s.command==1 && s.steering==-376);
+    i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
     assert(s.pending_nav==2);i.obstacle=0;
     vc_track_requested(&s,i.now_ms);i.steering=0;vc_step(&s,&i);
     assert(!s.command && s.armed && s.pending_nav==2);

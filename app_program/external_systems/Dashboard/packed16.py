@@ -2,7 +2,7 @@
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools"))
-from edr_decode import decode_packet as decode_record, MQTT_TOPIC
+from edr_decode import decode_packet as decode_record, MQTT_TOPIC, EVENT_TOPIC, decode_event
 PACKED_TOPIC = MQTT_TOPIC
 READINGS = {
     1: "Robopico/sensors/left_encoder/encoder_left",
@@ -25,7 +25,11 @@ PHASES = ("Disarmed", "Line tracking", "Acquisition", "Turn out", "Approach", "A
 TERRAIN = ("Flat", "Ascent", "Crest", "Descent", "Shock", "Invalid")
 BARCODE_RESULTS = ("No barcode yet", "Reading...", "Successful", "Unsuccessful")
 BYPASS_SIDES = ("None", "Left", "Right")
-FAULT_CAUSES = ("None/other", "Sonar", "Tilt", "Odometry")  # why the last sensor fault latched; 0 is also an avoidance-step check
+# Status subtype 9 bits 7-6, labelled as a sensor-fault (code 1) cause: why it
+# latched; 0 is also an avoidance-step check. For a line fault (code 2) the
+# same codes mean 0 other, 1 line data stale, 2 S3 fault event, 3 line not
+# found (dashboard.js relabels them); any other fault sends 0.
+FAULT_CAUSES = ("None/other", "Sonar", "Tilt", "Odometry")
 def status_messages(subtype, value):
     sensor="Robopico/sensors/"
     actuator="Robopico/Actuators/"
@@ -49,7 +53,7 @@ def status_messages(subtype, value):
         if value>=128: return one("ultrasonic_ranger","width_right_cm" if value>=192 else "width_left_cm",round((value&63)*0.8,1))
         return one("ultrasonic_ranger","width_cm",value/2)
     if subtype==9:
-        # Bits 0..5 quality flags; bits 6..7 sensor-fault cause.
+        # Bits 0..5 quality flags; bits 6..7 fault cause (see FAULT_CAUSES).
         quality=value&63
         return (one("vehicle_controller","quality",quality,True)+one("vehicle_controller","safety_state","Armed" if quality&4 else "Stopped",True)+
                 one("accelerometer","impact",bool(quality&2))+one("vehicle_controller","fault_cause",FAULT_CAUSES[value>>6],True))
@@ -60,6 +64,50 @@ def status_messages(subtype, value):
     if subtype==14: return one("left_ir","line_error",(value-128)*10)
     return (one("servo_motor","scan_state",value&15,True)+one("barcode_ir","decode_result",BARCODE_RESULTS[(value>>4)&3])+
             one("servo_motor","bypass_side",BYPASS_SIDES[value>>6],True))
+
+ATTEMPTS = {1: "initial scan", 2: "reverse scan", 3: "final attempt"}
+EVENT_TURNS = ("no turn (not mapped)", "Left", "Right", "Straight", "U-turn")
+SIDES = {1: "left", 2: "right"}
+
+def describe_event(payload):
+    """One robot event record -> (source, level, message) for the event log."""
+    e = decode_event(payload)
+    name = e["name"]
+    if name == "barcode":
+        attempt = f"Barcode attempt {e['attempt']} ({ATTEMPTS[e['attempt']]})"
+        bars = f"{e['elements']}/29 bars & spaces read"
+        if e["letter"]:
+            return "Barcode", "INFO", f"{attempt}: decoded {chr(64 + e['letter'])}, {bars}"
+        final = "; marker skipped" if e["attempt"] == 3 else ""
+        return "Barcode", "WARN", f"{attempt}: failed, {bars}{final}"
+    if name == "instruction":
+        return "Barcode", "INFO", f"Instruction decoded: {chr(64 + e['letter'])} -> {EVENT_TURNS[e['turn']]}"
+    if name == "hump":
+        if e["kind"] == 1:
+            return "Terrain", "INFO", f"Hump detected: climbing, tilt {e['value'] / 10:.1f} deg"
+        # Heights in 2 mm; 0 when subsystem 4 lost the hump's height.
+        height = f"{e['value'] * 2 / 10:.1f} cm" if e["value"] else "not measured"
+        if e["kind"] == 2:
+            return "Terrain", "INFO", f"Hump crest: going down slowly, height {height}"
+        return "Terrain", "INFO", f"Hump cleared: level again, highest {height}"
+    if name == "obstacle":
+        kind, side, value = e["kind"], e["side"], e["value"]
+        if kind == 1:
+            return "Obstacle", "WARN", f"Obstacle detected {value} cm ahead"
+        if kind == 2:
+            return "Obstacle", "INFO", f"Obstacle scanned: {value} cm wide, bypass on the {SIDES[side]}"
+        if kind == 3:
+            return "Obstacle", "INFO", f"Bypass started: heading {value} deg to the {SIDES[side]}"
+        if side == 0:
+            return "Obstacle", "WARN", f"Obstacle avoidance stopped after {value} s (fault or STOP)"
+        how = {1: "line found on the way back, heading restored",
+               2: "line found by the on-the-spot search",
+               3: "the obstacle went away"}[side]
+        return "Obstacle", "INFO", f"Back on the line after {value} s ({how})"
+    if e["kind"] == 1:
+        return "Wi-Fi", "WARN", (f"Robot reconnected to the MQTT broker after {e['seconds']} s "
+                                 "without it (Wi-Fi or broker link was down)")
+    return "Wi-Fi", "INFO", f"Robot connected to the MQTT broker ({e['seconds']} s after boot)"
 
 def decode_messages(payload):
     """Unmarshal one little-endian EDR16 record into local display fields.

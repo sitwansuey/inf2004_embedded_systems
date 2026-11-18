@@ -18,6 +18,7 @@
 #include "lwip/apps/mqtt.h"
 #include "lwip/ip_addr.h"
 #include "lwip/timeouts.h"
+#include "lwip/sys.h"
 #include "wifi_secrets.h"
 #include "mqtt_utk.h"
 #include "../../../../app_program/subsystem1/network_bridge.h"
@@ -46,9 +47,24 @@ static unsigned incoming_used;
 static unsigned incoming_total;
 static unsigned incoming_valid;
 static unsigned command_enabled;
+/* Broker link history for EV_LINK: connected once since boot; lost since. */
+static u8_t ever_connected, link_lost;
+static u32_t link_lost_ms;
+/* lwIP completes a QoS 0 publish (publish_done_cb, ERR_OK) when the broker's
+ * TCP ACK arrives. After a Wi-Fi loss lwIP closes the connection only on its
+ * keep-alive watchdog, about 90 s later, so an outage is dated from the first
+ * publish the broker has not acknowledged. Once nothing has been acknowledged
+ * for MQTT_UTK_EVENT_HOLD_MS, robot events stay queued in subsystem 1: lwIP
+ * would drop them, unsent, when it closes the connection. */
+#define MQTT_UTK_EVENT_HOLD_MS  3000U
+static u8_t unacked;
+static u32_t unacked_since_ms;
 
 static void publish_done_cb(void *arg,err_t result);
 static void retry_timeout(void *arg);
+static void published(void) {
+    if(!unacked) {unacked=1;unacked_since_ms=sys_now();}
+}
 
 
 /* All callbacks and publishing remain on cyw43_utk_task. Binary-safe and
@@ -92,7 +108,9 @@ static void subscribe_done_cb(void *arg, err_t result)
 static void publish_done_cb(void *arg, err_t result)
 {
 	(void)arg;
-	if(result != ERR_OK) {
+	if(result == ERR_OK) {
+		unacked = 0; /* the broker acknowledged */
+	} else {
 		tm_printf((UB*)"mqtt: publish failed, err=%d\n", (int)result);
 	}
 }
@@ -109,7 +127,15 @@ void mqtt_utk_poll_telemetry(void) {
     static unsigned ack_pending;
     if(!ack_pending && s1_command_ack_take(ack)==CSC02_ACK_BYTES)ack_pending=1;
     if(ack_pending && mqtt_publish(client,CSC02_ACK_TOPIC,ack,CSC02_ACK_BYTES,
-                                  0,0,publish_done_cb,NULL)==ERR_OK)ack_pending=0;
+                                  0,0,publish_done_cb,NULL)==ERR_OK) {ack_pending=0;published();}
+    /* Then one queued robot event (events survive a link drop): none while
+     * the broker has not acknowledged anything for MQTT_UTK_EVENT_HOLD_MS. */
+    static unsigned char event[EDR_RECORD_SIZE];
+    static unsigned event_pending;
+    int hold=unacked && sys_now()-unacked_since_ms>=MQTT_UTK_EVENT_HOLD_MS;
+    if(!hold && !event_pending && s1_event_take(event)==EDR_RECORD_SIZE)event_pending=1;
+    if(!hold && event_pending && mqtt_publish(client,CSC02_EVENT_TOPIC,event,EDR_RECORD_SIZE,
+                                    0,0,publish_done_cb,NULL)==ERR_OK) {event_pending=0;published();}
 
     if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot)) {
         /* Continue at the unsent field in the fresh snapshot. Width/status
@@ -128,7 +154,7 @@ void mqtt_utk_poll_telemetry(void) {
         if(!telemetry_edr_record(values,(resume+next)%TELEMETRY_EDR_RECORDS,record)) {++next;continue;}
         if(mqtt_publish(client,CSC02_TELEMETRY_TOPIC,record,EDR_RECORD_SIZE,
                         0,0,publish_done_cb,NULL)!=ERR_OK)return;
-        ++next;++budget;
+        published();++next;++budget;
     }
 }
 
@@ -158,6 +184,14 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 		sys_untimeout(retry_timeout, NULL);
 
 		tm_printf((UB*)"mqtt: connected to " MQTT_BROKER_IP "\n");
+		/* Event log: back after an outage, or the first connection. */
+		if(link_lost) {
+			s1_event_post(EV_LINK,ev_link(EV_LINK_RECONNECTED,(unsigned)((sys_now()-link_lost_ms)/1000U)));
+			link_lost=0;
+		} else if(!ever_connected) {
+			s1_event_post(EV_LINK,ev_link(EV_LINK_BOOT,(unsigned)(sys_now()/1000U)));
+		}
+		ever_connected=1;unacked=0;
 
 		/* Commands use a separate inbound topic; observations use EDR16 only. */
 		mqtt_set_inpub_callback(client, incoming_publish_cb,
@@ -177,6 +211,9 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 		/* The application snapshot is the heartbeat; no extra text publication. */
 	} else {
 		command_enabled=0;
+		/* Lost since the first publish the broker never acknowledged. */
+		if(ever_connected && !link_lost) {link_lost=1;link_lost_ms=unacked?unacked_since_ms:sys_now();}
+		unacked=0; /* lwIP has dropped those publishes with the connection */
 		/* Timed ARM expires locally. Autonomous START continues onboard. */
 		/* mqtt_client_connect() reconnects on its own for a dropped
 		 * keepalive; a rejected/never-established connection does not

@@ -15,6 +15,7 @@
 #include "subsystem2/s2_data.h"
 #include "subsystem5/subsystem5.h"
 #include "subsystem5/s5_width.h"
+#include "shared/events.h"
 #include "vehicle_reverse_track.h"
 #include "ir_line_trace.h"
 #include "robot_ir_config.h"
@@ -52,6 +53,13 @@ static unsigned br_abs_um(int32_t a,int32_t b) {
  * sonar dropouts, braking); a robot that has really tipped or been lifted
  * stays without tilt far longer. */
 #define VC_TILT_GRACE_MS 800U
+#endif
+/* Event log: ticks a decoded instruction waits for its decode count (S3's
+ * status can be reused for up to 3 ticks). */
+#define VC_INSTRUCTION_WAIT_TICKS 4U
+#if BOARD_RAMP_SPEED
+/* S4 terrain's shock threshold (terrain.c: |a| > 1.8 g). */
+#define VC_SHOCK_MG 1800
 #endif
 /* Bypass heading re-planned after the reverse. S5 plans from where the robot
  * stopped; reversing moves the obstacle edge backup_mm further ahead, so a
@@ -97,7 +105,9 @@ static void vehicle_task(INT code,void *context) {
 #if BOARD_RAMP_SPEED
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
 #endif
+#if BOARD_LIFT_FAULT_MS
     BOOL lift_timing=FALSE;uint32_t lift_since=0; /* robot lifted (no surface under the IRs) */
+#endif
     int32_t prev_yaw=0; /* yaw at the last follower tick: edge tracing's lost-line turn */
     edge_trace_t edge={0};int32_t edge_lost_turn=0; /* edge tracing; turning while lost */
     BOOL shock_prev=FALSE; /* S4 shock in the previous tick (rising-edge count) */
@@ -127,6 +137,13 @@ static void vehicle_task(INT code,void *context) {
     s5_status_t scan_last={0};uint8_t scan_misses=0; /* last S5 snapshot, failed reads since */
     /* Bypass edge latched with the plan: lateral, ahead (axle frame), target lateral offset; odometry then. */
     UW bypass_x=0,bypass_y=0,bypass_lateral=0;int32_t bypass_from_um=0;BOOL bypass_edge=FALSE;
+    /* Event log (shared/events.h): an obstacle being handled, since, scanned. */
+    BOOL avoid_active=FALSE,avoid_scanned=FALSE;uint32_t avoid_since=0;
+    /* A decoded instruction waiting for its EV_BARCODE attempt: value, ticks left. */
+    unsigned instruction_value=0,instruction_wait=0;
+#if BOARD_RAMP_SPEED
+    unsigned ramp_seen=RAMP_FLAT; /* last hump state reported */
+#endif
     for(;;) {
         SYSTIM now;
         /* Telemetry view of the follower this tick: 0 straight, 1/2 steer
@@ -144,7 +161,7 @@ static void vehicle_task(INT code,void *context) {
          * decides freshness, so stale line data still stops the run. */
         if(li) {line_last=line;line_misses=0;}
         else if(line_misses<3U && line_last.configured) {line=line_last;li=TRUE;++line_misses;}
-        BOOL so=s5_get_status(&scan)==E_OK;
+        BOOL so=s5_get_status(&scan)==E_OK,so_fresh=so;
         /* S5's status lock waits only 5 ms: on a miss use the last snapshot
          * for up to 10 ticks; its sample time still decides freshness. */
         if(so) {scan_last=scan;scan_misses=0;}
@@ -160,9 +177,18 @@ static void vehicle_task(INT code,void *context) {
         s4_imu_to_robot(imu.latest.accel.milli_units,accel,
             BOARD_IMU_FRONT_AXIS,BOARD_IMU_LEFT_AXIS,BOARD_IMU_UP_AXIS);
 #if BOARD_RAMP_SPEED
-        vehicle_accel_filter(&accel_filter,accel,imu.latest.accel.read_time_us,
-            im && imu.accel_usable && !imu.latest.accel.overrun,BOARD_IMU_SMOOTH_MS,
-            BOARD_IMU_SMOOTH_MIN_MG,BOARD_IMU_SMOOTH_MAX_MG,accel);
+        {
+            /* Tilt uses the smoothed sample, which skips anything far from
+             * 1 g. A shock (S4 terrain: above VC_SHOCK_MG) is decided on the
+             * raw sample, so that sample goes to terrain unfiltered. */
+            int32_t smooth[3];
+            int64_t raw_norm=(int64_t)accel[0]*accel[0]+(int64_t)accel[1]*accel[1]+(int64_t)accel[2]*accel[2];
+            vehicle_accel_filter(&accel_filter,accel,imu.latest.accel.read_time_us,
+                im && imu.accel_usable && !imu.latest.accel.overrun,BOARD_IMU_SMOOTH_MS,
+                BOARD_IMU_SMOOTH_MIN_MG,BOARD_IMU_SMOOTH_MAX_MG,smooth);
+            if(raw_norm<=(int64_t)VC_SHOCK_MG*VC_SHOCK_MG)
+                for(unsigned n=0;n<3U;++n) accel[n]=smooth[n];
+        }
 #endif
         s4_encoder_terrain_step(&encoder_input,&terrain,&calibration,now.lo,
             encoder_payload,sizeof(encoder_payload),en,imu.latest.accel.read_time_us,
@@ -318,6 +344,10 @@ static void vehicle_task(INT code,void *context) {
             if(e.event.kind==S3_EVENT_NAVIGATION) {
                 input.navigation_event=1;input.nav=(uint8_t)e.event.command;
                 state.navigation=(uint8_t)e.event.command;state.barcode=(e.event.symbol>='A' && e.event.symbol<='Z')?(uint8_t)(e.event.symbol-'A'+1):0;
+                /* Posted after the EV_BARCODE attempt that decoded it (below). */
+                if(instruction_wait) s1_event_post(EV_INSTRUCTION,instruction_value);
+                instruction_value=ev_instruction(state.barcode,(unsigned)e.event.command);
+                instruction_wait=VC_INSTRUCTION_WAIT_TICKS;
             } else if(e.event.kind!=S3_EVENT_RECOVERY_REQUEST) input.safety_event=1; /* straddle S3 never sends recovery */
         }
         /* The straddle follower does not use S3's line verdicts, but a latched
@@ -392,6 +422,19 @@ static void vehicle_task(INT code,void *context) {
             BOOL quiet=now.lo-br_change_ms>=BOARD_BARCODE_RETRY_IDLE_MS;
             unsigned moved=br_abs_um(odom->distance_um,br_origin_um);
             unsigned previous=br_state;
+            if(hit || miss) {
+                /* Event log: which pass produced this result. 1 the normal
+                 * pass, 2 the reverse re-read (reversing, or stopped waiting
+                 * for its result), 3 the slow final pass. A late report of a
+                 * marker already handled (cooldown, driving past it) is none. */
+                unsigned attempt=previous==BR_SLOW?3U:
+                    (previous==BR_REVERSE || previous==BR_WAIT ||
+                     (previous==BR_BRAKE && br_next!=BR_REVERSE))?2U:
+                    (previous==BR_IDLE && !br_cooldown)?1U:0U;
+                char c=line.output.last_symbol;
+                if(attempt) s1_event_post(EV_BARCODE,ev_barcode(attempt,line.output.barcode_elements,
+                    hit && c>='A' && c<='Z'?(unsigned)(c-'A'+1):0U));
+            }
             if(!state.vehicle.armed || state.vehicle.phase!=VC_TRACK) {br_state=BR_IDLE;br_cooldown=FALSE;}
             else if(br_state!=BR_IDLE && now.lo-br_ms>=BOARD_BARCODE_RETRY_STATE_MS) br_state=BR_IDLE;
             else switch(br_state) {
@@ -465,32 +508,60 @@ static void vehicle_task(INT code,void *context) {
         /* Dashboard shows the last decoded letter A..Z, mapped to a route or not.
          * A decode with no turn (unmapped or set to Ignore) clears the shown
          * turn, so it is not paired with the previous letter's turn. */
+        BOOL decoded_now=FALSE;
         if(li && line.configured) {
-            if(shown_seen && line.output.barcode_ok_count!=shown_ok && !input.navigation_event)
+            decoded_now=shown_seen && line.output.barcode_ok_count!=shown_ok;
+            if(decoded_now && !input.navigation_event)
                 state.navigation=0;
             shown_ok=line.output.barcode_ok_count;shown_seen=TRUE;
+        }
+        /* Event log: an instruction follows the barcode attempt that decoded
+         * it. S3 queues the turn before it publishes the new decode count, so
+         * a turn drained before its decode shows waits a few ticks for it. */
+        if(instruction_wait && (decoded_now || !--instruction_wait)) {
+            s1_event_post(EV_INSTRUCTION,instruction_value);instruction_wait=0;
         }
         if(li && line.output.last_symbol>='A' && line.output.last_symbol<='Z')
             state.barcode=(uint8_t)(line.output.last_symbol-'A'+1);
         /* Lifted (no surface under the line IRs, GP28 black): in the hand the
          * tilt reading means nothing, so it never faults; BOARD_LIFT_FAULT_MS
          * of it while running stops with VC_LIFTED instead (a shorter lift
-         * does not fault). */
+         * does not fault; BOARD_LIFT_FAULT_MS 0: off). */
+#if BOARD_LIFT_FAULT_MS
         {
-            BOOL lifted=BOARD_LIFT_FAULT_MS && li && line.configured && line.sample.raw[0]>=BOARD_LIFT_RAW &&
+            BOOL lifted=li && line.configured && line.sample.raw[0]>=BOARD_LIFT_RAW &&
                 line.sample.raw[1]>=BOARD_LIFT_RAW && line.output.barcode_black;
             if(!lifted) lift_timing=FALSE;
             else if(!lift_timing) {lift_timing=TRUE;lift_since=now.lo;}
             if(lifted) input.terrain_valid=1;
         }
+#endif
         unsigned phase_before=state.vehicle.phase;
         vc_step(&state.vehicle,&input);
+        /* Event log: obstacle detected / back on the line. */
+        if(phase_before==VC_TRACK && state.vehicle.phase==VC_ACQUIRE) {
+            avoid_active=TRUE;avoid_scanned=FALSE;avoid_since=now.lo;
+            s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_DETECTED,0U,
+                scan.valid?(unsigned)((scan.distance_mm+5U)/10U):0U));
+        } else if(avoid_active && state.vehicle.phase==VC_TRACK && phase_before!=VC_TRACK) {
+            unsigned how=!avoid_scanned?3U:phase_before==VC_RESTORE?1U:2U;
+            s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_BACK,how,(now.lo-avoid_since)/1000U));
+            avoid_active=FALSE;
+        }
+        if(avoid_active && !state.vehicle.armed) {
+            /* Avoidance ended by a fault or a STOP (how 0). */
+            s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_BACK,0U,(now.lo-avoid_since)/1000U));
+            avoid_active=FALSE;
+        }
         if(phase_before==VC_ACQUIRE && state.vehicle.phase==VC_BACKUP) {
             /* Plan latched: keep its edge for the re-plan after the reverse. */
             BOOL left=scan.planned_rotate_deg>0;
             INT bound=left?scan.left_bound_deg:-scan.right_bound_deg;
             UW range=left?scan.left_bound_distance_mm:scan.right_bound_distance_mm;
             bypass_edge=bound>=0 && bound<=80 && range && range<=5000U;
+            avoid_scanned=TRUE;
+            s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_SCANNED,left?1U:2U,
+                (unsigned)((scan.object_width_max_mm+5U)/10U)));
             if(bypass_edge) {
                 UW half=(scan.object_width_max_mm+1U)/2U;
                 bypass_x=range*s5_cosine_q10000[90-bound]/10000U;
@@ -512,10 +583,15 @@ static void vehicle_task(INT code,void *context) {
             }
             bypass_edge=FALSE;
         }
-        if(BOARD_LIFT_FAULT_MS && state.vehicle.armed && lift_timing &&
-           now.lo-lift_since>=BOARD_LIFT_FAULT_MS) {
+        if(phase_before==VC_BACKUP && state.vehicle.phase==VC_TURN_OUT) {
+            int heading=state.vehicle.turn_deg<0?-state.vehicle.turn_deg:state.vehicle.turn_deg;
+            s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_BYPASS,state.vehicle.turn_deg>0?1U:2U,(unsigned)heading));
+        }
+#if BOARD_LIFT_FAULT_MS
+        if(state.vehicle.armed && lift_timing && now.lo-lift_since>=BOARD_LIFT_FAULT_MS) {
             s2_emergency_stop();vc_stop(&state.vehicle,VC_LIFTED);
         }
+#endif
         /* A barcode is being read (>= 3 elements): the follower is off;
          * line_marker_steer holds the line (BOARD_BARCODE_READ_LINE_STEER). */
         BOOL marker_reading=li && line.configured &&
@@ -552,20 +628,42 @@ static void vehicle_task(INT code,void *context) {
             BOOL pause=vehicle_sensor_pan_requires_stop(state.vehicle.command,so,
                 scan.angle_deg,scan.sample_angle_deg,angle);
             if(pause)s2_emergency_stop();
-            /* Acquisition runs entirely in S5; do not reset its search. */
+            /* Acquisition runs entirely in S5; do not reset its search. A
+             * reused snapshot (S5's lock was busy this tick) is not sent: the
+             * lock may still be busy or its scan_id old, so the request is
+             * retried next tick instead of stopping with VC_TRANSPORT. */
+            BOOL sent=TRUE;
             if(phase!=VC_ACQUIRE && so) {
-                ER er=s5_navigation_set(scan.scan_id,sensor_mode,angle);
-                if(er<0 && state.vehicle.armed)vc_stop(&state.vehicle,VC_TRANSPORT);
+                if(!so_fresh) sent=FALSE;
+                else {
+                    ER er=s5_navigation_set(scan.scan_id,sensor_mode,angle);
+                    if(er<0 && state.vehicle.armed)vc_stop(&state.vehicle,VC_TRANSPORT);
+                }
             }
-            requested_sensor_mode=TRUE;previous_phase=phase;previous_look=look;
+            requested_sensor_mode=sent;previous_phase=phase;previous_look=look;
             if(pause || !state.vehicle.armed){state.vehicle.command=0;state.vehicle.power=0;}
         }
 #if BOARD_RAMP_SPEED
         {
             int32_t p=terrain_pitch_cdeg(&terrain),r=terrain_roll_cdeg(&terrain);
+            int32_t tilt=(int32_t)lround(sqrt((double)p*p+(double)r*r));
             unsigned rs=vehicle_ramp_step(&ramp,now.lo,state.vehicle.armed,terrain.tilt_valid,
-                (int32_t)lround(sqrt((double)p*p+(double)r*r)),p,r,BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
+                tilt,p,r,BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
                 BOARD_RAMP_CREST_DROP_CDEG,BOARD_RAMP_HOLD_MS,BOARD_RAMP_LEVEL_MS);
+            if(rs!=ramp_seen) {
+                /* Event log: hump climbing, crest (slow down), level again.
+                 * Heights are this hump's, in 2 mm: S4's running peak while
+                 * it tracks the hump (height_mm is set only once a hump has
+                 * completed), its completed height once it has. */
+                BOOL hump_tracked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST ||
+                    terrain.state==TERRAIN_DESCENT;
+                unsigned peak=((unsigned)terrain.peak_um+1000U)/2000U;
+                if(rs==RAMP_UP) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_DETECTED,(unsigned)(tilt/10)));
+                else if(rs==RAMP_DOWN) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_CREST,hump_tracked?peak:0U));
+                else if(rs==RAMP_DONE) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_LEVEL,
+                    terrain.height_valid?(unsigned)terrain.height_mm/2U:peak));
+                ramp_seen=rs;
+            }
             if(rs==RAMP_DONE) {
                 /* Level again: the bench test stops; a mission resumes normal
                  * speed and watches for the next ramp. */
@@ -577,6 +675,9 @@ static void vehicle_task(INT code,void *context) {
             }
         }
 #endif
+        /* Avoidance smoothing restarts from 0 outside a forward avoidance arc. */
+        if(state.vehicle.command!=S2_MOVE_FORWARD || state.vehicle.phase<VC_TURN_OUT ||
+           state.vehicle.phase>VC_RESTORE) {avoid_power_m=0;avoid_steer=0;}
 #if BOARD_BARCODE_RETRY_DRIVE
         /* Any fault or obstacle leaves VC_TRACK (or disarms), which ends the
          * sequence; within it, the policy's sonar STOP only gates forward motion. */
@@ -619,8 +720,6 @@ static void vehicle_task(INT code,void *context) {
             }
         } else
 #endif
-        if(state.vehicle.command!=S2_MOVE_FORWARD || state.vehicle.phase<VC_TURN_OUT ||
-           state.vehicle.phase>VC_RESTORE) {avoid_power_m=0;avoid_steer=0;}
         if(state.vehicle.command==S2_MOVE_STOP) {
             /* An epoch per stopped tick invalidates every old queued movement. */
             s2_emergency_stop();

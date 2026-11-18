@@ -41,12 +41,17 @@ static void flicker_scan(unsigned flickers) {
     }
     assert(done==flickers);
     if(flickers<=S5_EDGE_RETREATS) {
+        /* The mirror check looks at the left's last clear angle: 21 deg
+         * with no flicker (clear: the right edge is measured), the
+         * flickered 20 deg otherwise (the object: the left edge mirrored). */
         assert(s.state==S5_READY && s.approach_plan_valid && s.object_width_valid);
-        assert(s.left_bound_valid && s.right_bound_valid);
-        assert(s.left_bound_deg==20-(int)flickers && s.right_bound_deg==-20);
+        assert(s.left_bound_valid && s.right_bound_valid && s.planned_rotate_deg>0);
+        assert(s.left_bound_deg==20-(int)flickers && s.right_bound_deg==(flickers?-s.left_bound_deg:-20));
     } else {
-        assert(s.state==S5_BLOCKED && !s.approach_plan_valid && !s.object_width_valid);
-        assert(!s.left_bound_valid && s.right_bound_valid && s.right_bound_deg==-20);
+        /* The left side fails: the right is searched coarsely, measured and
+         * planned, with its edge mirrored to the left. */
+        assert(s.state==S5_READY && s.approach_plan_valid && s.object_width_valid && s.planned_rotate_deg<0);
+        assert(s.left_bound_valid && s.right_bound_valid && s.right_bound_deg==-20 && s.left_bound_deg==20);
     }
 }
 int main(void) {
@@ -70,13 +75,15 @@ int main(void) {
     s.valid=0;s.distance_mm=0;s.echo_result=S5_ECHO_NO_FALL;
     assert(s5_scan_step(&s,&c)==0 && s.state==S5_MONITOR); /* one retry: no reading */
     s.valid=1;s.distance_mm=200;s.echo_result=S5_ECHO_OK;
-    assert(s5_scan_step(&s,&c)==30);
+    assert(s5_scan_step(&s,&c)==S5_SCAN_STEP_DEG);
     assert(s.state==S5_SCAN_LEFT);
-    /* Three coarse positions: 30, 60, 90 before refinement. */
-    s.angle_deg=s.sample_angle_deg=30;s.obstacle_distance_mm=200;
-    assert(s5_scan_step(&s,&c)==60);
-    s.angle_deg=s.sample_angle_deg=-30;s.state=S5_SCAN_RIGHT;
-    assert(s5_scan_step(&s,&c)==-60);
+    /* Coarse positions 20, 40, 60 deg; blocked through 60 searches the right. */
+    s.angle_deg=s.sample_angle_deg=20;s.obstacle_distance_mm=200;
+    assert(s5_scan_step(&s,&c)==40 && s.state==S5_SCAN_LEFT);
+    s.angle_deg=s.sample_angle_deg=60;
+    assert(s5_scan_step(&s,&c)==-20 && s.state==S5_SCAN_RIGHT && c.right_coarse);
+    s.angle_deg=s.sample_angle_deg=-20;
+    assert(s5_scan_step(&s,&c)==-40 && s.state==S5_SCAN_RIGHT);
     s.state=S5_SCAN_LEFT;
     s.valid=0;s.echo_result=S5_ECHO_STUCK_HIGH;s.angle_deg=s.sample_angle_deg=10;
     for(unsigned n=0;n<3;++n)(void)s5_scan_step(&s,&c);
@@ -164,6 +171,6 @@ int main(void) {
     assert(s5_scan_step(&s,&c)==0 && s.state==S5_BLOCKED && !s.approach_plan_valid);
     puts("S5 verify fallback: blocked heading re-plans the other side once PASS");
     flicker_scan(0);flicker_scan(1);flicker_scan(3);flicker_scan(4);
-    puts("S5 edge flicker: 1-3 averaging misses retreat the bound inward to READY, 4 fail the side PASS");
+    puts("S5 edge flicker: 1-3 averaging misses retreat the bound inward to READY, 4 fail the side (the right is planned instead) PASS");
     return 0;
 }

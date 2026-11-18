@@ -109,16 +109,19 @@ class Monitor:
 
             line = self._fresh("line", now)
             phase = self._fresh("phase", now)
-            # TRACK=1, REACQUIRE=10, or FAULT=12 with LINE fault=2.
-            # Leaving the line during an intentional turn/bypass is expected.
+            # The front IRs straddle the line: both white is centred while
+            # tracking (TRACK=1), so only the line search (REACQUIRE=10) or a
+            # controller LINE fault (FAULT=12 with fault 2) with neither on
+            # black is off course. Leaving the line during an intentional
+            # turn/bypass is expected.
             phase_allowed = self.all_phases or (phase is not None and (
-                (phase[0] & 15) in (1, 10) or phase[0] == (12 | (2 << 4))))
+                (phase[0] & 15) == 10 or phase[0] == (12 | (2 << 4))))
             usable = (available and available[0] & 4 and line
                       and self._fresh("left_ir", now) and self._fresh("right_ir", now))
             if usable and phase_allowed:
-                state, black_mask = line[0] & 7, line[0] >> 3
+                black_mask = line[0] >> 3  # bits 2:0 are the follower's request
                 # GP26/GP27 = physical IR bits 0/1. Ignore barcode bit 2.
-                missing = state in (2, 3) and (black_mask & 3) == 0
+                missing = (black_mask & 3) == 0
                 self.alerts["off_course"].observe(missing, line[1], now)
             else:
                 self.alerts["off_course"].observe(False, None, now)

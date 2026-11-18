@@ -6,7 +6,7 @@
 #include <stdio.h>
 static vc_input_t healthy(void) {
     return (vc_input_t){.now_ms=100,.sensor_fresh=1,.motor_ok=1,.terrain_valid=1,.odom_valid=1,
-        .transport_ok=1,.front_clear=1,.line_fresh=1,.steering=1,.line_detected=1,.line_state=1,
+        .transport_ok=1,.front_clear=1,.line_fresh=1,.steering=1,.line_detected=1,
         .nav_offset_mm=90,.nav_search_mm=600,
         /* robot_config.h defaults */
         .nav_turn_power=25,.nav_seek_power=15,.nav_turn_min_deg=60,.nav_turn_max_deg=120,

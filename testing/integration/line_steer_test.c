@@ -5,14 +5,19 @@
 #include "../../app_program/robot_config.h"
 #include "../../app_program/vehicle_line_steer.h"
 #include "../../app_program/subsystem2/wheel_steering.h"
-/* The robot_config.h defaults; a change there must update this test. */
-_Static_assert(BOARD_LINE_STEER_MIN==250 && BOARD_LINE_STEER_MAX==400 &&
-               BOARD_LINE_STEER_RAMP_MS==150U && BOARD_LINE_PIVOT_AFTER_MS==450U &&
+/* The robot_config.h defaults used by the barcode-read steering
+ * (line_marker_steer in vehicle.c); a change there must update this test. */
+_Static_assert(BOARD_LINE_STEER_MIN==200 && BOARD_LINE_STEER_RAMP_MS==150U &&
                BOARD_BARCODE_READ_LINE_STEER==250 && S2_STEER_SLEW_PER_MS==4U,
                "line steering defaults changed");
+/* The generic helper with a sample profile: 250 first, ramp to 400 over
+ * 150 ms, pivot after 450 ms. */
+#define STEER_MIN 250
+#define STEER_MAX 400
+#define STEER_RAMP_MS 150U
+#define STEER_PIVOT_AFTER_MS 450U
 static int32_t amount(uint32_t held) {
-    return line_steer_amount(held,BOARD_LINE_STEER_MIN,BOARD_LINE_STEER_MAX,
-                             BOARD_LINE_STEER_RAMP_MS,BOARD_LINE_PIVOT_AFTER_MS);
+    return line_steer_amount(held,STEER_MIN,STEER_MAX,STEER_RAMP_MS,STEER_PIVOT_AFTER_MS);
 }
 
 int main(void) {
@@ -30,7 +35,7 @@ int main(void) {
     assert(line_steer_amount(0U,300,100,300U,700U)==300);
     /* Within S2's accepted range, and the inner wheel keeps driving (no pivot
      * stop): at 30% demand under the 35% ceiling. */
-    for(uint32_t t=0U;t<BOARD_LINE_PIVOT_AFTER_MS;t+=10U) {
+    for(uint32_t t=0U;t<STEER_PIVOT_AFTER_MS;t+=10U) {
         int32_t s=amount(t);
         assert(s>=250 && s<=400);
         unsigned outer=s2_steered_demand_milli(30U,s,0U,35U);
@@ -47,6 +52,11 @@ int main(void) {
     assert(line_marker_steer(1U,0U,400,250,150U)==250); /* minimum above the cap */
     assert(!line_marker_steer(0U,0U,250,250,150U) && !line_marker_steer(3U,0U,250,250,150U));
     assert(!line_marker_steer(1U,0U,250,0,150U) && !line_marker_steer(2U,999U,250,-5,150U));
+    /* The robot's read steering: 200 first, ramp to the 250 cap over 150 ms. */
+    assert(line_marker_steer(1U,0U,BOARD_LINE_STEER_MIN,BOARD_BARCODE_READ_LINE_STEER,BOARD_LINE_STEER_RAMP_MS)==200);
+    assert(line_marker_steer(2U,75U,BOARD_LINE_STEER_MIN,BOARD_BARCODE_READ_LINE_STEER,BOARD_LINE_STEER_RAMP_MS)==-225);
+    assert(line_marker_steer(1U,150U,BOARD_LINE_STEER_MIN,BOARD_BARCODE_READ_LINE_STEER,BOARD_LINE_STEER_RAMP_MS)==250);
+    assert(line_marker_steer(1U,60000U,BOARD_LINE_STEER_MIN,BOARD_BARCODE_READ_LINE_STEER,BOARD_LINE_STEER_RAMP_MS)==250);
     printf("line_steer: ok\n");
     return 0;
 }

@@ -18,6 +18,7 @@ import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+DASHBOARD = ROOT / "app_program/external_systems/Dashboard"
 INPUTS = (
     "app_program/app_state.h",
     "tools/robot_audio.py",
@@ -42,10 +43,8 @@ INPUTS = (
     "testing/subsystem5/test_data.c",
     "testing/subsystem5/host_app.h",
     "tools/edr_decode.py",
-    "app_program/subsystem1/packed16.h",
-    "app_program/subsystem1/tests/host/packed16_test.c",
     "app_program/subsystem1/tests/host/telemetry_host_test.c",
-    "app_program/external_systems/Dashboard/test_packed16.py",
+    "app_program/shared/events.h",
     "app_program/external_systems/Dashboard/test_dashboard_display.cjs",
     "app_program/external_systems/Dashboard/dashboard.js",
     "app_program/subsystem1/telemetry.c",
@@ -63,7 +62,6 @@ INPUTS = (
     "app_program/subsystem2/speed_pid.h",
     "app_program/subsystem2/wheel_steering.h",
     "app_program/subsystem2/turn_drive.h",
-    "app_program/shared/encoder_snapshot.h",
     "app_program/subsystem2/tests/host/run.py",
     "app_program/subsystem2/tests/host/subsystem2_host_test.c",
     "app_program/subsystem2/tests/host/app.h",
@@ -76,8 +74,9 @@ def input_fingerprint() -> dict:
     """Normalize checkout line endings so teammates can compare test inputs."""
     hashes = {}
     paths = set(INPUTS)
-    paths.update(path.relative_to(ROOT).as_posix()
-                 for path in HERE.glob("test_*.py"))
+    for directory in (HERE, DASHBOARD):
+        paths.update(path.relative_to(ROOT).as_posix()
+                     for path in directory.glob("test_*.py"))
     for relative in sorted(paths):
         content = (ROOT / relative).read_text(encoding="utf-8")
         if relative.endswith("vectors.json"):
@@ -145,7 +144,7 @@ def run_codec_tests(compiler: str) -> None:
 
     # S1 queue/binary-length regression tests use the same shared header.
     with tempfile.TemporaryDirectory(prefix="s1-edr-tests-") as directory:
-        for name in ("packed16_test", "telemetry_host_test"):
+        for name in ("telemetry_host_test",):
             executable = Path(directory) / (name + (".exe" if os.name == "nt" else ""))
             subprocess.run([compiler,"-std=c99","-Wall","-Wextra","-Werror",
                 str(ROOT / "app_program/subsystem1/tests/host" / (name+".c")),
@@ -156,7 +155,7 @@ def run_codec_tests(compiler: str) -> None:
 
 def run_python_tests():
     for directory, pattern in ((HERE,"test_*.py"),
-            (ROOT / "app_program/external_systems/Dashboard", "test_packed16.py"),
+            (DASHBOARD, "test_*.py"),
             (ROOT / "testing/audio", "test_robot_audio.py")):
         subprocess.run([sys.executable,"-B","-m","unittest","discover",
                         "-s",str(directory),"-p",pattern,"-v"],cwd=ROOT,check=True)

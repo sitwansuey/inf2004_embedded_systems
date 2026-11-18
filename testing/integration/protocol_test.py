@@ -37,4 +37,4 @@ for raw in [b"", bytes(decoder.SIZE-1), bytes(decoder.SIZE+1), b"\xff" * decoder
         pass
 golden={"schema_bits":decoder.BITS,"bytes":decoder.SIZE,"minimum":lines[0],"maximum":lines[1],"random_cases":300,"rejected_bounds":len(invalid)}
 (R/"testing/integration/protocol_golden.json").write_text(json.dumps(golden,indent=2)+"\n")
-print(f"INT-CR1-05 protocol: {len(cases)} C/Python vectors, {len(invalid)} bound rejections, malformed length/version/padding PASS")
+print(f"INT-CR1-05 protocol: {len(cases)} C/Python vectors, {len(invalid)} bound rejections, malformed length/version/fault PASS")

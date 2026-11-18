@@ -22,12 +22,15 @@ class Subsystem5Tests(unittest.TestCase):
             shutil.copytree(ROOT / "app_program/shared", app / "shared")
             shutil.copyfile(ROOT / "testing/subsystem5/host_app.h", app / "app.h")
             shutil.copyfile(ROOT / "app_program/robot_config.h", app / "robot_config.h")
+            shutil.copyfile(ROOT / "app_program/robot_ir_calibration.h",
+                            app / "robot_ir_calibration.h")
             shutil.copyfile(ROOT / "testing/subsystem5/test_data.c", app / "subsystem5/test_data.c")
             folder = app / "subsystem5"
             exe = Path(temp) / "test.exe"
             for test_mode in (0, 1):
                 subprocess.run([compiler, "-std=c99", "-Wall", "-Wextra", "-Werror",
-                                "-Wno-unused-function", f"-DAPP_TEST={test_mode}",
+                                "-Wno-unused-function", "-DROBOT_CONFIG_NO_LOCAL",
+                                f"-DAPP_TEST={test_mode}",
                                 str(folder / "test_data.c"), str(folder / "s5_data.c"),
                                 str(folder / "s5_policy.c"), str(folder / "s5_scan.c"),
                                 str(folder / "s5_width.c"), str(app / "shared/edr.c"),

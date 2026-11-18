@@ -66,7 +66,7 @@ static void test_disabled_and_lifecycle(void)
     unsigned int failure;
     reset();
     CHECK(subsystem3_start() == E_OBJ);
-    for (failure = 1U; failure <= 3U; ++failure)
+    for (failure = 1U; failure <= 2U; ++failure) /* state mutex, event buffer */
     {
         reset(); fail_create = failure;
         CHECK(subsystem3_init() == E_SYS);

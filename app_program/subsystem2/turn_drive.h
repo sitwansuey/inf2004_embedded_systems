@@ -2,7 +2,7 @@
  * used by navigation turns and the spot scan): tyre scrub needs more torque
  * than straight driving, so a spin gets its own PWM ceiling, a breakaway kick
  * per wheel and a longer no-progress timeout. Straight commands and the line
- * course's pivots (5/6, one wheel stopped) keep their tuned values. */
+ * follower's pivots (5/6, one wheel stopped) keep their tuned values. */
 #ifndef S2_TURN_DRIVE_H
 #define S2_TURN_DRIVE_H
 #include <stdint.h>

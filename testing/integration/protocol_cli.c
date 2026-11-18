@@ -17,7 +17,7 @@ int main(void) {
         uint8_t saved=p[0];p[0]|=0x0F; /* version is reserved except encoded value zero */
         if(telemetry_decode(p,again))return 5;
         p[0]=saved;
-        p[TELEMETRY_BYTES-1]|=0x80;
+        p[7]|=0x0F; /* fault (bits 56-59) 15: above VC_LIFTED (8) */
         if(telemetry_decode(p,again))return 6;
     }
     return 0;

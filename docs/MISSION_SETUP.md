@@ -83,9 +83,10 @@ Command publishers must use non-retained messages. Reconnect clears network
 start authorization and requires RESET before accepting ARM/START. An already
 running autonomous mission continues through a telemetry disconnect; timed ARM
 still expires locally. Both modes retain controller-to-motor watchdog renewal.
-The Python dashboard subscribes to `Robopico/sensors/edr16/v1` and
-`csc02/command/ack`; it publishes only button-pressed RESET/START/STOP and
-MAP frames (see `app_program/external_systems/Dashboard/MQTT_TOPICS.md`).
+The Python dashboard subscribes to `Robopico/sensors/edr16/v1`,
+`Robopico/events/edr16/v1` (the robot event log) and `csc02/command/ack`; it
+publishes only button-pressed RESET/START/STOP and MAP frames (see
+`app_program/external_systems/Dashboard/MQTT_TOPICS.md`).
 
 ## Navigation and completion evidence
 
@@ -93,10 +94,19 @@ The Code39 decoder reads any A-Z in either travel direction; A, B, C, D, F and
 Z can be mapped to turns. Codebook: A U-turn, Z right, F left; B, C, D are
 read and shown but unmapped (no turn). `BOARD_MAP_*`
 can change the course codebook without changing the decoder. Turns use encoder
-yaw. After turning/bypassing or losing the line, recovery checks fresh forward
-clearance and scans +30, -30, +60, -60 degrees around its starting heading, at
-most 15% demand. It stops on missing safety data or after four seconds without
-reacquiring the line. Track geometry and stopping clearance need physical tests.
+yaw. While tracking, the default mask-pivot follower pivots toward a straddle
+IR on black and drives straight when both are white, so losing the line does
+not start a search; only a line-data gap of 250 ms or more stops the run
+(fault 2, line, cause 1). Line reacquisition is entered at START, after a
+navigation turn or a bypass, and when an acquired obstacle goes away; with
+fresh line data it hands straight back to tracking. After a navigation turn
+that ended without a line touch (a U-turn always; left/right with
+`BOARD_NAV_SPOT_SCAN_ALL`) or a bypass that restored its heading without
+finding the line, only a sensor on black ends it: recovery checks fresh
+forward clearance and scans +30, -30, +60, -60 degrees around its starting
+heading (toward the line's side first), at most 15% demand. It stops on
+missing safety data or after four seconds without a sensor on black (fault 2,
+cause 3). Track geometry and stopping clearance need physical tests.
 
 Run `python -B testing/data_representation/run.py --compiler clang` and
 `python -B testing/integration/run.py --compiler clang` (or GCC), plus the

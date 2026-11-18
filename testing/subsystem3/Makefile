@@ -1,6 +1,7 @@
 CC = gcc
 .DEFAULT_GOAL := test
-CPPFLAGS += -I../../app_program/subsystem3
+# ROBOT_CONFIG_NO_LOCAL: a git-ignored robot_config.local.h never leaks into host tests.
+CPPFLAGS += -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL
 CFLAGS = -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2
 ifeq ($(OS),Windows_NT)
 EXEEXT = .exe
@@ -26,9 +27,8 @@ RAW_UNLOCKED = .build/test_raw_unlocked$(EXEEXT)
 ROBOT_LAYOUT = .build/test_robot_ir_layout$(EXEEXT)
 ROBOT_CALIBRATION = .build/test_robot_ir_calibration$(EXEEXT)
 ROBOT_CAL_DEFAULT = .build/test_robot_ir_cal_default$(EXEEXT)
+ROBOT_CAL_OFF = .build/test_robot_ir_cal_off$(EXEEXT)
 PAUSED_TIME = .build/test_paused_time$(EXEEXT)
-BARCODE_CAPTURE = .build/test_barcode_capture$(EXEEXT)
-MOTOR_SCAN_SAMPLER = .build/test_motor_scan_sampler$(EXEEXT)
 SAMPLE_SCHEDULE = .build/test_sample_schedule$(EXEEXT)
 EDGE_BIAS = .build/test_barcode_edge_bias$(EXEEXT)
 RESYNC = .build/test_barcode_resync$(EXEEXT)
@@ -37,13 +37,12 @@ BARCODE_IMPORT = .build/test_barcode_import$(EXEEXT)
 MIXED_BARCODE = .build/test_mixed_barcode$(EXEEXT)
 END_QUIET = .build/test_barcode_end_quiet$(EXEEXT)
 
-.PHONY: test verify-failure check-headers clean barcode-replay
-barcode-replay: .build/replay_barcode_capture$(EXEEXT)
-
-.build/replay_barcode_capture$(EXEEXT): replay_barcode_capture.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h ../../app_program/robot_config.h
-	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 replay_barcode_capture.c $(CORE_SOURCES) $(LDFLAGS) -o $@
-test: $(RESYNC) $(COMPLETION) $(END_QUIET) $(BARCODE_IMPORT) $(MIXED_BARCODE) $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(PAUSED_TIME) $(BARCODE_CAPTURE) $(SAMPLE_SCHEDULE) $(MOTOR_SCAN_SAMPLER)
+# BOARD_IR_MODE 2 builds use the measured ADC endpoints (robot_config.h
+# includes robot_ir_calibration.h for modes 2 and 3; 3 is the mission default).
+# The ADC worker tests sample all three channels, so they pin mode 2 (in the
+# mission's mode 3 GP28 is a digital input; see test_mixed_barcode).
+.PHONY: test verify-failure check-headers clean
+test: $(RESYNC) $(COMPLETION) $(END_QUIET) $(BARCODE_IMPORT) $(MIXED_BARCODE) $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(ROBOT_CAL_OFF) $(PAUSED_TIME) $(SAMPLE_SCHEDULE)
 	./$(BINARY) $(TEST_ARGS)
 	./$(ADAPTER)
 	./$(ADC_TEST)
@@ -54,10 +53,9 @@ test: $(RESYNC) $(COMPLETION) $(END_QUIET) $(BARCODE_IMPORT) $(MIXED_BARCODE) $(
 	./$(ROBOT_LAYOUT)
 	./$(ROBOT_CALIBRATION)
 	./$(ROBOT_CAL_DEFAULT)
+	./$(ROBOT_CAL_OFF)
 	./$(PAUSED_TIME)
-	./$(BARCODE_CAPTURE)
 	./$(SAMPLE_SCHEDULE)
-	./$(MOTOR_SCAN_SAMPLER)
 	./$(EDGE_BIAS)
 	./$(RESYNC)
 	./$(COMPLETION)
@@ -87,31 +85,27 @@ $(MIXED_BARCODE): test_mixed_barcode.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app
 
 $(EDGE_BIAS): test_barcode_edge_bias.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h ../../app_program/robot_config.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_barcode_edge_bias.c $(CORE_SOURCES) $(LDFLAGS) -o $@
-
-$(MOTOR_SCAN_SAMPLER): test_motor_scan_sampler.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h
-	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MOTOR_SCAN_BENCH=1 -DBOARD_MOTORS_DISABLED=0 -DBOARD_IR_MODE=2 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_UART0_FREE=1 -DS2_COMMAND_TIMEOUT_MS=150 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_motor_scan_sampler.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=2 test_barcode_edge_bias.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(SAMPLE_SCHEDULE): test_sample_schedule.c $(ADAPTER_DEPS) $(CORE_SOURCES)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_sample_schedule.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
-
-$(BARCODE_CAPTURE): test_barcode_capture.c $(ADAPTER_DEPS) $(CORE_SOURCES) ../../app_program/robot_ir_config.h ../../app_program/robot_ir_calibration.h
-	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_barcode_capture.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_sample_schedule.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(PAUSED_TIME): test_paused_time.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h ../../app_program/robot_ir_calibration.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_paused_time.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=2 test_paused_time.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(ROBOT_CALIBRATION): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h ../../app_program/robot_ir_calibration.h
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 test_robot_ir_calibration.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=2 test_robot_ir_calibration.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-$(ROBOT_CAL_DEFAULT): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h
+$(ROBOT_CAL_DEFAULT): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h ../../app_program/robot_ir_calibration.h
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) test_robot_ir_calibration.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+
+$(ROBOT_CAL_OFF): test_robot_ir_calibration.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=0 test_robot_ir_calibration.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(ROBOT_LAYOUT): test_robot_ir_layout.c $(CORE_SOURCES) $(CORE_HEADERS) ../../app_program/robot_ir_config.h ../../app_program/robot_config.h
 	mkdir -p .build
@@ -119,31 +113,33 @@ $(ROBOT_LAYOUT): test_robot_ir_layout.c $(CORE_SOURCES) $(CORE_HEADERS) ../../ap
 
 $(RAW_TEST): test_raw.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(RAW_UNLOCKED): test_raw.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=0 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=0 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(BINARY): test_buddy3.c $(CORE_SOURCES) $(CORE_HEADERS)
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) test_buddy3.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
+# BOARD_IR_MODE 0: a board without the IR ADC pins (S3-U21 expects ADC mode
+# to be refused); the mission default (mode 3) is covered by test_mixed_barcode.
 $(ADAPTER): $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -include host_support.h $(ADAPTER_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=0 -include host_support.h $(ADAPTER_SOURCES) $(LDFLAGS) -o $@
 
 $(ADC_TEST): test_adc.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(ADC_TICK): test_adc_tick.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_tick.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_tick.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(ADC_ACQUIRE): test_adc_acquire.c $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_acquire.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_acquire.c ../../app_program/subsystem3/drv_ir.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 verify-failure: $(BINARY) $(ADAPTER) $(ADC_TEST)
 	@if $(MAKE) --no-print-directory test TEST_ARGS=--force-failure; then \
@@ -151,7 +147,7 @@ verify-failure: $(BINARY) $(ADAPTER) $(ADC_TEST)
 	else echo "PASS: test target propagated a real failed assertion"; fi
 
 clean:
-	rm -f $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(PAUSED_TIME) $(BARCODE_CAPTURE) $(SAMPLE_SCHEDULE) $(MOTOR_SCAN_SAMPLER) $(EDGE_BIAS) .build/replay_barcode_capture$(EXEEXT)
+	rm -rf .build
 
 # Host parsing only: kernel MMIO casts are 32-bit, host pointers may be 64-bit.
 # -ffreestanding also selects GCC's standard integer definitions, as firmware does.
@@ -160,7 +156,7 @@ check-headers:
 	    echo "Checking real kernel headers, SMP=$$smp"; \
 	    $(CC) -std=gnu11 -ffreestanding -Wall -Wextra -Werror \
 	      -Wno-int-to-pointer-cast -fsyntax-only -D_PICO_RP2040_ \
-	      -DCNF_SMP=$$smp -DAPP_TEST=1 -DTM_CONSOLE_UART=0 \
+	      -DCNF_SMP=$$smp -DAPP_TEST=1 -DTM_CONSOLE_UART=0 -DROBOT_CONFIG_NO_LOCAL \
 	      -I../../include -I../../config -I../../kernel/knlinc \
 	      ../../app_program/subsystem3/drv_ir.c \
 	      ../../app_program/subsystem3/drv_ir_adc.c \

@@ -43,7 +43,7 @@ static void handoffs(void) {
     s=(vc_state_t){0};assert(vc_start(&s,0,30));vc_track_requested(&s,UINT32_MAX-20U);
     i=healthy();i.steering=0;i.line_fresh=0;i.now_ms=78;
     vc_step(&s,&i);assert(s.armed && !s.command);
-    i.now_ms=79;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_LINE);
+    i.now_ms=79;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_LINE && s.fault_cause==VC_LINE_CAUSE_DATA);
     s=(vc_state_t){0};assert(vc_start(&s,0,30));s.pending_nav=2;vc_track_requested(&s,0);
     i=healthy();i.shock=1;vc_step(&s,&i);
     assert(s.fault==VC_SHOCK && !s.pending_nav && !s.track_wait);
@@ -56,15 +56,19 @@ int main(void) {
     vc_state_t s={0};vc_input_t i=healthy();
     assert(vc_start(&s,0,30));i.now_ms=5000;vc_step(&s,&i);
     assert(s.armed && s.command==1); /* no remote renewal */
-    i.recovery_event=1;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE);
-    i.recovery_event=0;i.steering=0;vc_step(&s,&i);assert(s.command==3 && s.power<=15);
+    /* An obstacle that goes away before S5 has a plan: back to the line
+     * through REACQUIRE's bounded sweep. */
+    i.obstacle=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
+    i.obstacle=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.spot_scan);
+    i.steering=0;vc_step(&s,&i);assert(s.command==3 && s.power<=15);
     i.front_clear=0;vc_step(&s,&i);assert(!s.command);
     i.front_clear=1;i.yaw_mdeg=30000;vc_step(&s,&i);assert(!s.command);
     vc_step(&s,&i);assert(s.command==4); /* sweep across, not endless turn */
     i.line_detected=1;vc_step(&s,&i);assert(s.line_settling);i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
-    i.line_detected=0;i.steering=1;i.recovery_event=1;vc_step(&s,&i);
-    i.recovery_event=0;i.steering=0;i.now_ms+=4000;vc_step(&s,&i);
-    assert(s.phase==VC_FAULT && !s.armed && !s.command);
+    i.line_detected=0;i.steering=1;i.obstacle=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
+    i.obstacle=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE);
+    i.steering=0;i.now_ms+=4000;vc_step(&s,&i);
+    assert(s.phase==VC_FAULT && s.fault==VC_LINE && s.fault_cause==VC_LINE_CAUSE_NOT_FOUND && !s.armed && !s.command);
     speed_pid_t p={0};
     assert(speed_pid_step(&p,100,0,20,20,50,100,10,0)>20);
     assert(speed_pid_step(&p,100,200,20,20,50,100,10,0)<20);

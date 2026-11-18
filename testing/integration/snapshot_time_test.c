@@ -107,8 +107,11 @@ int main(void)
     REQUIRE(decoded[TEL_FAULT_CAUSE]==0);
     test_fault=VC_SENSOR;test_cause=VC_CAUSE_ODOM;capture();
     REQUIRE(decoded[TEL_FAULT]==VC_SENSOR && decoded[TEL_FAULT_CAUSE]==VC_CAUSE_ODOM);
-    test_fault=VC_LINE;capture(); /* cause only describes a sensor fault */
-    REQUIRE(decoded[TEL_FAULT]==VC_LINE && decoded[TEL_FAULT_CAUSE]==0);
+    /* VC_LINE sends its own causes (VC_LINE_CAUSE_*) in the same field. */
+    test_fault=VC_LINE;test_cause=VC_LINE_CAUSE_NOT_FOUND;capture();
+    REQUIRE(decoded[TEL_FAULT]==VC_LINE && decoded[TEL_FAULT_CAUSE]==VC_LINE_CAUSE_NOT_FOUND);
+    test_fault=VC_LIFTED;capture(); /* other faults carry no cause */
+    REQUIRE(decoded[TEL_FAULT]==VC_LIFTED && decoded[TEL_FAULT_CAUSE]==0);
     test_fault=VC_OK;test_cause=0;
     bad_s5_fields=TRUE;capture();
     REQUIRE(packets==1 && (decoded[TEL_AVAILABLE]&16)==0 && (decoded[TEL_QUALITY]&1)==0);
@@ -135,9 +138,9 @@ int main(void)
     capture();
     REQUIRE(packets==2 && (qualities[0]&2)==0 && (qualities[1]&2)!=0);
     extra_loops=0;
-    /* Line fields. Straddle builds send the vehicle task's follower (0
-     * straight, 1/2 steer right/left, 3/4 pivot right/left; straddle mask;
-     * steer bounded to the field's +-1000); edge-follow builds S3's view. */
+    /* Line fields: the vehicle task's follower (0 straight, 1/2 steer
+     * right/left, 3/4 pivot right/left; straddle mask; steer bounded to the
+     * field's +-1000), never S3's own edge-follow line view. */
     s3_line_output=TRUE;
     static const struct { uint8_t follow,mask;int16_t steer;int64_t error; } lines[]={
         {4,3,-400,-400},{1,1,250,250},{2,2,-250,-250},{3,1,0,0},{0,0,0,0},{1,1,1500,1000},{2,2,-1500,-1000}};
@@ -145,23 +148,15 @@ int main(void)
         test_follow=lines[n].follow;test_mask=lines[n].mask;test_steer=lines[n].steer;
         capture();
         REQUIRE(packets==1 && (decoded[TEL_AVAILABLE]&4)!=0);
-#if BOARD_LINE_STRADDLE
         REQUIRE(decoded[TEL_LINE_STATE]==lines[n].follow && decoded[TEL_BLACK_MASK]==lines[n].mask &&
             decoded[TEL_LINE_ERROR]==lines[n].error);
-#else
-        REQUIRE(decoded[TEL_LINE_STATE]==S3_LINE_TRACKING && decoded[TEL_BLACK_MASK]==2 &&
-            decoded[TEL_LINE_ERROR]==-300);
-#endif
     }
-    line_stamp=960;capture(); /* 40 ms old line sample: no line fields in either build */
+    line_stamp=960;capture(); /* 40 ms old line sample: no line fields */
     REQUIRE((decoded[TEL_AVAILABLE]&4)==0 && decoded[TEL_LINE_STATE]==0 &&
         decoded[TEL_BLACK_MASK]==0 && decoded[TEL_LINE_ERROR]==0);
     line_stamp=1000;s3_line_output=FALSE;test_follow=test_mask=0;test_steer=0;
-#if BOARD_LINE_STRADDLE
     puts("Straddle line telemetry: TEL_LINE_STATE/BLACK_MASK/LINE_ERROR from app_state line_follow/mask/steer (+-1000) PASS");
-#else
-    puts("Edge-follow line telemetry: TEL_LINE_STATE/BLACK_MASK/LINE_ERROR from S3, not app_state PASS");
-#endif
+    puts("Fault cause: sent for VC_SENSOR and VC_LINE only; fault 8 (lifted) round-trips PASS");
     puts("Shock count: a new shock is sent at once with the impact bit PASS");
     puts("INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
     return 0;

@@ -31,7 +31,7 @@ class DashboardTests(unittest.TestCase):
         ok=SimpleNamespace(is_failure=False)
         for _ in range(2): bridge.on_connect(client,None,None,ok,None)
         self.assertEqual(calls,[TOPICS,TOPICS])
-        self.assertEqual(TOPICS,[(PACKED_TOPIC,0),("csc02/command/ack",0)])
+        self.assertEqual(TOPICS,[(PACKED_TOPIC,0),("csc02/command/ack",0),("Robopico/events/edr16/v1",0)])
         bridge.on_subscribe(None,None,1,[ok],None)
         self.assertEqual(bridge.snapshot()['status'],'MQTT subscribed')
 
@@ -175,8 +175,8 @@ class DashboardTests(unittest.TestCase):
         motor(1,9);status(15,READING);status(5,27<<3);status(15,FAIL)
         rows=bridge.snapshot()['barcode_history']
         self.assertEqual([(r['pass'],r['elements'],r['result'],r['letter'],r['turn']) for r in rows],
-            [('Normal',29,'Unsuccessful',None,None),('Reverse',29,'Successful','A','U-turn'),
-             ('Slow',27,'Unsuccessful',None,None)])
+            [('Initial',29,'Unsuccessful',None,None),('Reverse',29,'Successful','A','U-turn'),
+             ('Final',27,'Unsuccessful',None,None)])
         self.assertTrue(all(r['time'] and r['seconds']>=0 for r in rows))
         # Repeated result records do not add rows; history is bounded.
         status(15,FAIL);status(15,FAIL)

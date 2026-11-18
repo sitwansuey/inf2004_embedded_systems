@@ -41,15 +41,39 @@ ID 0 obstacle and scan fields (local display keys):
 | 8, 128–191 | `Robopico/sensors/ultrasonic_ranger/width_left_cm` | (value & 63) × 0.8 cm, centre to left edge |
 | 8, 192–255 | `Robopico/sensors/ultrasonic_ranger/width_right_cm` | (value & 63) × 0.8 cm, centre to right edge |
 | 9, bits 5–0 | `Robopico/Actuators/vehicle_controller/quality` | value & 63 (also `safety_state` bit 2, `accelerometer/impact` bit 1) |
-| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry` (non-zero only while fault code 1, sensor; with fault code 1, `None/other` means an avoidance-step check such as a side-check timeout) |
+| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry`: the cause with fault code 1 (sensor; `None/other` means an avoidance-step check such as a side-check timeout). With fault code 2 (line) the same codes mean 0 other, 1 line data stale (gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event, 3 line not found; the browser shows those names. 0 with any other fault |
 | 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
 
 Subtype 8 values 101–127 and bypass side 3 are rejected. Like every reading,
 the three width fields keep their latest value until a new report replaces
 them; a quality record with bit 0 clear, or a broker reconnect, clears them.
 
-The prior packed16/v1 topic, individual sensor topics and JSON/event topics
-are not consumed. Demo/JSON import remain explicit browser-only features.
+The prior packed16/v1 topic, individual sensor topics and JSON topics are
+not consumed. Demo/JSON import remain explicit browser-only features.
+
+## Event topic (Events tab)
+
+**Subscribed:** `Robopico/events/edr16/v1`. One robot event per message, two
+bytes, little-endian, in the same EDR16 shape (low nibble = event ID, high 12
+bits = value); see `app_program/shared/events.h`. The robot queues up to 16
+events, so events from a short link drop arrive after it reconnects: once the
+broker has acknowledged nothing for 3 s the robot keeps them queued instead of
+handing them to lwIP (only those handed over in the last ~3 s before an outage
+can be lost).
+
+| ID | Event | 12-bit value |
+|---|---|---|
+| 1 | Barcode attempt (one per finished read) | bits 0-1 attempt (1 initial scan, 2 reverse scan, 3 final attempt); bits 2-6 bars+spaces read (0..31, a full `*X*` is 29); bits 7-11 letter (0 failed, 1..26 = A..Z) |
+| 2 | Instruction decoded | bits 0-4 letter 1..26; bits 5-7 turn (0 none/not mapped, 1 left, 2 right, 3 straight, 4 U-turn) |
+| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: its highest point in 2 mm; a height of 0 is shown as not measured); bits 3-11 value |
+| 4 | Obstacle | bits 0-1 kind (1 detected: distance cm; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
+| 5 | Link | bits 0-1 kind (1 reconnected to the broker after N s without it, counted from the first publish it never acknowledged; 2 first connection, N s after boot); bits 2-11 seconds |
+
+An instruction (ID 2) follows the barcode attempt (ID 1) that decoded it.
+The receiver keeps the last 200 rows and adds its own: "Robot offline" when
+robot data stops for 3 s (Wi-Fi or broker link lost), "Robot back online",
+"Robot stopped: fault N (name)" once per new controller fault code (status
+subtype 0), and its own broker link lost/restored.
 Supported physical sensors not yet connected remain blank. ID zero supplies decoded navigation, height/maximum, controller state and
 other documented derived fields. Free-text events are not transmitted.
 

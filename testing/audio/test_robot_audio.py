@@ -12,7 +12,7 @@ def packet(sensor, value):
 
 
 class MonitorTests(unittest.TestCase):
-    def send(self, monitor, now, distance=10, mask=0, state=3, phase=1,
+    def send(self, monitor, now, distance=10, mask=0, state=0, phase=10,
              available=20, right=True):
         records = [(0, 0xA00 | available), (0, phase),
                    (0, 0x200 | (mask << 3) | state), (4, distance), (5, 4000)]
@@ -60,17 +60,20 @@ class MonitorTests(unittest.TestCase):
         self.assertIn('off_course', self.activate(Monitor(), mask=4))
         for mask in (1, 2, 3):
             self.assertNotIn('off_course', self.activate(Monitor(), mask=mask))
-        for state in (0, 1, 4):
-            self.assertNotIn('off_course', self.activate(Monitor(), state=state))
+        # Bits 2:0 are the follower's request (0 straight .. 4 pivot left),
+        # not a line verdict: only the black mask decides.
+        for state in (0, 1, 2, 3, 4):
+            self.assertIn('off_course', self.activate(Monitor(), state=state))
 
     def test_line_requires_both_sensors_and_availability(self):
         self.assertNotIn('off_course', self.activate(Monitor(), right=False))
         self.assertNotIn('off_course', self.activate(Monitor(), available=16))
 
     def test_phase_gating(self):
-        for phase in (0, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13):
+        # TRACK (1) with both IRs white is centred on the straddled line.
+        for phase in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 17):
             self.assertNotIn('off_course', self.activate(Monitor(), phase=phase))
-        for phase in (1, 10, 44):
+        for phase in (10, 44):
             self.assertIn('off_course', self.activate(Monitor(), phase=phase))
         self.assertIn('off_course', self.activate(Monitor(all_phases=True), phase=0))
 

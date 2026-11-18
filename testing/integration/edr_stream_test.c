@@ -54,5 +54,21 @@ int main(void) {
     assert(!telemetry_edr_record(decoded,31,word) && !telemetry_edr_record(decoded,32,word)); /* quality bit 0 clear */
     decoded[TEL_AVAILABLE]=128; /* magnetometer is independent of obstacle width */
     assert(telemetry_edr_record(decoded,7,word));
+    {   /* Fault 8 (VC_LIFTED): the 4-bit snapshot field and EDR16 subtype 0
+         * (phase | fault<<4) carry it; 9 and above are rejected. */
+        unsigned id,data;uint8_t bad[2];
+        v[TEL_FAULT]=8;v[TEL_FAULT_CAUSE]=0;v[TEL_PHASE]=12; /* VC_FAULT */
+        assert(telemetry_encode(snapshot,v) && telemetry_decode(snapshot,decoded) && decoded[TEL_FAULT]==8);
+        assert((snapshot[7]&15U)==8U); /* bits 56-59 */
+        assert(telemetry_edr_record(decoded,15,word) && edr_decode(word,2,&id,&data));
+        assert(id==0 && data==(12U|(8U<<4U)));
+        v[TEL_FAULT]=9;assert(!telemetry_encode(snapshot,v));
+        snapshot[7]=(uint8_t)((snapshot[7]&0xF0U)|9U);assert(!telemetry_decode(snapshot,decoded));
+        assert(!edr_encode(0,12U|(9U<<4U),bad,sizeof bad));
+        bad[0]=(uint8_t)(((12U|(9U<<4U))<<4U)&255U);bad[1]=(uint8_t)((12U|(9U<<4U))>>4U);
+        assert(!edr_decode(bad,2,&id,&data));
+        for(unsigned fault=0;fault<=8U;++fault)
+            assert(edr_encode(0,1U|(fault<<4U),bad,sizeof bad) && edr_decode(bad,2,&id,&data) && data==(1U|(fault<<4U)));
+    }
     return 0;
 }

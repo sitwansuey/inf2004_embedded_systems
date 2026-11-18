@@ -37,8 +37,8 @@ time still requires measurement; zero PWM is not guaranteed immediate braking.
 | S4 -> VC/S1 | 63-byte protected acquisition record; per-channel usability/age decoded locally; 12-byte checked terrain result in shared app_state; acquisition remains sole I2C owner |
 | VC -> S5 | controller-bound navigation mode/direction, scan ID, old reading invalidated until servo settles |
 | S5 -> VC/S1 | copied status, matching actual/requested sample angle, freshness, static scan geometry and bounds |
-| VC -> S1 | protected compact controller/terrain snapshot; no network calls |
-| S1 -> network | two-entry copied binary inbox; nonblocking bounded polling on the existing network service |
+| VC -> S1 | protected compact controller/terrain snapshot; bounded robot-event records (s1_event_post, 16-entry message buffer, never blocking; a full queue drops and counts); no network calls |
+| S1 -> network | two-entry copied binary inbox; robot events taken one per poll (s1_event_take) and published on Robopico/events/edr16/v1, the network owner posting its own link events; nonblocking bounded polling on the existing network service |
 | network/USB -> VC | copied commands, urgent STOP outside queue, 100 ms queue age; timed ARM for benches or one-shot autonomous START |
 
 The obsolete sample producer was removed in published main PR #6 and remains
@@ -48,7 +48,7 @@ mutex. Peripheral ownership is unchanged.
 
 Kernel limits remain those in config/config.h. Application usage is 8 tasks
 (9 with the ADC worker), four application mutexes, one semaphore, one mailbox,
-one fixed pool, four message buffers (six with ADC) and three cyclic handlers,
+one fixed pool, five message buffers (seven with ADC; CNF_MAX_MBFID is 12) and three cyclic handlers,
 plus the kernel USB/network/device service objects. No new scheduler, MPU,
 resource-sharing redesign or CR2/CR3 feature was introduced.
 

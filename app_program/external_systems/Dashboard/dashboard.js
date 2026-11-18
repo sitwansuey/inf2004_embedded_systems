@@ -96,7 +96,8 @@ const DEMO_PACKET = {motion:{state:'MOVING',direction:'FORWARD',power_percent:35
 let packet = {}, mode = 'Waiting', renderedAt = null;
 let fieldTimes = {}, samples = {};
 let barcodeMap = null, category = 'all', currentTab = 'overview', batching = false;
-let lastSequence = 0, receiverId = null, lastHistorySignature = null;
+let lastSequence = 0, receiverId = null, lastHistorySignature = null, lastEventSignature = '';
+const EVENT_ROWS = 200; // the receiver keeps the last 200 (dashboard.py EVENT_LIMIT)
 const receiver = {
   polling: location.protocol === 'http:' || location.protocol === 'https:',
   status: 'Connecting to dashboard receiver', error: false, mqttTopic: wireTopic,
@@ -219,15 +220,20 @@ function padHtml(x, y, z) {
 }
 
 /* ---------- Robot test card (shown on every tab) ---------- */
+// The 2-bit cause field is shared: the receiver labels it as a sensor fault
+// (1) cause; for a line fault (2) its codes mean 1 line data stale/unavailable,
+// 2 S3 fault event, 3 line not found. Used by the Robot test tile and Sensors.
+const LINE_FAULT_CAUSES = {Sonar: 'line data stale', Tilt: 'S3 fault event', Odometry: 'line not found'};
+function faultCause(system) {
+  const cause = system.fault_cause;
+  return system.fault_code === 2 ? LINE_FAULT_CAUSES[cause] || cause : cause;
+}
 function faultText(system) {
   const code = system.fault_code;
   if (code == null) return '—';
   let label = esc(valueText(code));
   if (Number.isInteger(code) && code >= 0 && code < FAULT_NAMES.length) label += ` · ${FAULT_NAMES[code]}`;
-  let cause = system.fault_cause;
-  // The 2-bit cause field is shared: for a line fault (2) its codes mean
-  // 1 line data stale/unavailable, 2 S3 fault event, 3 line not found.
-  if (code === 2) cause = {Sonar: 'line data stale', Tilt: 'S3 fault event', Odometry: 'line not found'}[cause] || cause;
+  const cause = faultCause(system);
   if (cause != null && !/^none/i.test(String(cause))) label += ` · ${esc(cause)}`;
   return label;
 }
@@ -613,7 +619,8 @@ function renderSensors(now) {
       row.title=`Display field: ${topicRoots[root]}/${section}/${field}`;
       const dt=text(row,'dt',label);
       if(status==='stale')text(dt,'span','Stale','field-state');
-      const dd=text(row,'dd',display(packet[key]?.[field]));
+      const value=key==='system'&&field==='fault_cause'?faultCause(packet.system||{}):packet[key]?.[field];
+      const dd=text(row,'dd',display(value));
       if(unit)text(dd,'span',unit,unit==='°'?'unit deg':'unit');
     });
     text(card,'p',note,'card-caption');
@@ -629,10 +636,11 @@ function setCategory(id) {
 
 /* ---------- Events ---------- */
 function renderEvents() {
-  const events=Array.isArray(packet.events)?packet.events.slice(-100).reverse():[];
-  el('event-count').textContent=`${events.length} events`;
-  el('tab-count-events').textContent=String(events.length);
-  el('tab-count-events').hidden=!events.length;
+  const all=Array.isArray(packet.events)?packet.events:[];
+  const events=all.slice(-EVENT_ROWS).reverse();
+  el('event-count').textContent=`${all.length} events`;
+  el('tab-count-events').textContent=String(all.length);
+  el('tab-count-events').hidden=!all.length;
   setHTML('events', events.length
     ? `<ol class="event-list">${events.map(event=>{
       const item=event||{};
@@ -703,7 +711,8 @@ function showImportError(message) {
 }
 // Clear this browser's readings and history, return to live mode and re-read the receiver snapshot.
 function resumeLive() {
-  fieldTimes = {}; samples = {}; lastSequence = 0;
+  // lastEventSignature too: the next poll re-applies the receiver's event log.
+  fieldTimes = {}; samples = {}; lastSequence = 0; lastEventSignature = '';
   showImportError('');
   render();
 }
@@ -798,7 +807,7 @@ if(receiver.polling) {
       if(receiverId!==snapshot.receiver_id) {
         if(receiverId!==null){fieldTimes={};samples={};if(isLive())render();}
         receiverId=snapshot.receiver_id;
-        lastSequence=0;
+        lastSequence=0;lastEventSignature='';
       }
       Object.assign(receiver,{error:false,status:String(snapshot.status),mqttTopic:snapshot.mqtt_topic||wireTopic,
         receivedPackets:snapshot.received_packets,rejectedPackets:snapshot.rejected_packets,
@@ -819,7 +828,14 @@ if(receiver.polling) {
       }
       renderBarcodeHistory(snapshot.barcode_history);
       renderBarcodeMap(snapshot.barcode_map);
-      if(applied)render(mqttPacket,'MQTT');else paint();
+      // Event log rows from the receiver (robot events + robot offline/online).
+      const events=Array.isArray(snapshot.events)?snapshot.events:[];
+      const eventSignature=events.length?`${events.length}:${events[events.length-1].epoch}`:'0';
+      let eventsChanged=false;
+      if(isLive() && eventSignature!==lastEventSignature) {
+        lastEventSignature=eventSignature;mqttPacket.events=events;eventsChanged=true;
+      }
+      if(applied || eventsChanged)render(mqttPacket,'MQTT');else paint();
     } catch(error) {
       receiver.error=true;receiver.latency=null;
       paint();

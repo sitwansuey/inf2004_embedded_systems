@@ -891,7 +891,7 @@ static void test_turn_drive_helpers(void)
 {
     for (UINT command = 0; command <= (UINT)S2_MOVE_PIVOT_LEFT; ++command)
     {
-        /* Only in-place spins; the line course's pivots keep their tuning. */
+        /* Only in-place spins; the line follower's pivots keep their tuning. */
         BOOL turn = command == (UINT)S2_MOVE_LEFT || command == (UINT)S2_MOVE_RIGHT;
 
         assert(s2_turn_command(command) == (turn != 0));
@@ -1039,7 +1039,7 @@ static void test_pid_turn_drive(void)
     assert(sim_fault_ms == 0U);
     assert_status(S2_MOTION_STOPPED, E_OK);
 
-    /* The line course's pivots keep their tuning: no kick, the straight
+    /* The line follower's pivots keep their tuning: no kick, the straight
      * PID cap and the 500 ms stall. */
     sim_run(S2_MOVE_PIVOT_LEFT, 1U, 0U);
     assert(sim_first[0] == 0U && sim_first[1] == 0U);

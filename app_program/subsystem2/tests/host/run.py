@@ -85,7 +85,8 @@ def run_tests(compiler: str) -> None:
         for filename in ("edr.c", "edr.h", "encoder_snapshot.h"):
             shutil.copy2(SHARED / filename, shared / filename)
         # Exercise the integrated motor implementation with explicit test-only
-        # drive permission; real firmware retains its default motor lock.
+        # drive permission. This stand-in replaces app_program/robot_config.h,
+        # so no robot_config.local.h override can leak into the host build.
         (temporary / "robot_config.h").write_text(
             "#define BOARD_MOTORS_DISABLED 0\n", encoding="utf-8")
 

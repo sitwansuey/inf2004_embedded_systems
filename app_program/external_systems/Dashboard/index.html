@@ -122,7 +122,7 @@
 </section>
 
 <section class="tab-panel" role="tabpanel" id="panel-events" aria-labelledby="tab-events" tabindex="0" hidden>
-<div class="panel-intro"><p>The EDR16 wire format has no event text. Events appear here when included in an imported or demo snapshot.</p></div>
+<div class="panel-intro"><p>Robot events, newest first: each barcode attempt (1 initial scan, 2 reverse scan, 3 final attempt) with the bars read, decoded instructions, humps, obstacles (including an avoidance ended by a fault or STOP) and Wi-Fi/broker reconnects; and this dashboard's own: robot offline/back online, each new controller fault and its broker link. The receiver keeps the last 200.</p></div>
 <section class="card" aria-labelledby="events-title">
 <div class="card-header"><h2 class="card-title" id="events-title">Events &amp; faults</h2><span id="event-count" class="chip plain">0 events</span></div>
 <div id="events"></div>

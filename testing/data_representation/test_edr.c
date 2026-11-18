@@ -10,10 +10,10 @@ int main(void)
     for (word=0; word<65536U; ++word) {
         unsigned int sid=word & 15U, value=word >> 4U;
         const unsigned lows[16]={0,0,0,38,38,0,0,0,0,0,0,0,0,28,28,0};
-        const unsigned highs[16]={125,154,60,218,218,255,200,200,255,255,255,255,255,228,228,190}; /* 9: quality | cause<<6 */
+        const unsigned highs[16]={141,154,60,218,218,255,200,200,255,255,255,255,255,228,228,190}; /* 9: quality | cause<<6 */
         unsigned subtype=value/256U, status=value%256U;
         bool status_ok=status>=lows[subtype] && status<=highs[subtype];
-        if(subtype==0U) status_ok=status_ok && status%16U<=13U; /* phase | fault<<4 */
+        if(subtype==0U) status_ok=status_ok && status%16U<=13U; /* phase | fault<<4, fault 0..8 (8 lifted) */
         if(subtype==1U) status_ok=status_ok && status%32U<=26U; /* A..Z | navigation<<5 */
         if(subtype==2U) status_ok=status_ok && status%8U<=4U;
         if(subtype==5U) status_ok=status_ok && status%8U<=5U; /* terrain | bars<<3 */
@@ -62,6 +62,11 @@ int main(void)
         assert(!edr_count_delta(0x80000000U,0U,&delta));
         assert(edr_age_is_fresh(3U,0xfffffffeU,5U));
         assert(!edr_age_is_fresh(3U,0xfffffffeU,4U));
+        for (unsigned fault=0U; fault<16U; ++fault) { /* subtype 0: faults 0..8 (8 lifted), 9+ rejected */
+            assert(edr_pack(0U,(fault<<4U)|13U,&packed)==(fault<=8U));
+            assert(edr_decode((const uint8_t[2]){0x00U,(uint8_t)fault},2U,&id,&data)==(fault<=8U));
+            if(fault<=8U) assert(id==0U && data==(fault<<4U));
+        }
     }
     puts("EDR16 C: exhaustive words, golden bytes, motor, boundaries and local arithmetic PASS");
     return 0;

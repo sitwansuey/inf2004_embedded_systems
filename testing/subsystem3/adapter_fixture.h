@@ -43,11 +43,6 @@ static bool race_override;
 static bool auto_renew;
 static s3_event_record_t queue[4];
 static unsigned int queue_count;
-#if BOARD_IR_BARCODE_CAPTURE
-static s3_capture_record_t capture_queue[S3_CAPTURE_CAPACITY];
-static unsigned int capture_count;
-static bool malformed_capture;
-#endif
 static s3_adc_request_t adc_request;
 static s3_adc_reply_t adc_reply;
 static bool have_request;
@@ -81,11 +76,6 @@ ID tk_cre_mtx(const T_CMTX *p_cfg)
 }
 ID tk_cre_mbf(const T_CMBF *p_cfg)
 {
-#if BOARD_IR_BARCODE_CAPTURE
-    if (p_cfg->maxmsz == (INT)sizeof(s3_capture_record_t) &&
-        p_cfg->bufsz == (INT)(S3_CAPTURE_CAPACITY * (sizeof(s3_capture_record_t) + sizeof(UW))))
-        return create_object();
-#endif
     if (p_cfg->maxmsz == (INT)S3_EVENT_BYTES)
     {
         CHECK(p_cfg->bufsz >= (INT)(4U * (16U + sizeof(UW))));
@@ -182,15 +172,6 @@ ER tk_get_otm(SYSTIM *p_time)
 ER tk_snd_mbf(ID object, const void *p_data, INT length, TMO timeout)
 {
     if (object <= 0) { return E_OBJ; }
-#if BOARD_IR_BARCODE_CAPTURE
-    if (object == h_capture)
-    {
-        CHECK(locked && timeout == TMO_POL && length == (INT)sizeof(s3_capture_record_t));
-        if (capture_count == S3_CAPTURE_CAPACITY) return E_TMOUT;
-        (void)memcpy(&capture_queue[capture_count++], p_data, sizeof(s3_capture_record_t));
-        return E_OK;
-    }
-#endif
     if (object == h_requests && h_requests > 0)
     {
         CHECK(length == (INT)sizeof(adc_request) && timeout == TMO_POL && !locked);
@@ -214,17 +195,6 @@ ER tk_snd_mbf(ID object, const void *p_data, INT length, TMO timeout)
 INT tk_rcv_mbf(ID object, void *p_data, TMO timeout)
 {
     if (object <= 0) { return E_OBJ; }
-#if BOARD_IR_BARCODE_CAPTURE
-    if (object == h_capture)
-    {
-        CHECK(!locked && timeout == TMO_POL);
-        if (capture_count == 0U) return E_TMOUT;
-        (void)memcpy(p_data, &capture_queue[0], sizeof(s3_capture_record_t));
-        --capture_count;
-        (void)memmove(capture_queue, capture_queue + 1, capture_count * sizeof(capture_queue[0]));
-        return malformed_capture ? 1 : (INT)sizeof(s3_capture_record_t);
-    }
-#endif
     if (object == h_requests && h_requests > 0)
     {
         CHECK((timeout == TMO_POL || timeout == TMO_FEVR) && !locked);
@@ -305,7 +275,7 @@ UINT gpio_get_val(UINT pin)
 }
 static void reset(void)
 {
-    mbx_samples = 0; mtx_stats = 0; h_events = 0; h_controller = 0; h_task = 0;
+    mtx_stats = 0; h_events = 0; h_controller = 0; h_task = 0;
     started = false; raw_only = false; acquisition_attempted = false; acquisition_open_error = E_OK;
     applied_generation = 0U; applied_map = 0U;
     h_requests = 0; h_replies = 0; h_worker = 0; h_client = 0; h_device = 0;
@@ -331,7 +301,4 @@ static void reset(void)
     cycle_due=0U;wake_credits=0U;sleeps=0U;stop_after_sleeps=0U;task_exits=0U;
     sample_lock_calls=0U;delay_lock_call=0U;state_lock_delay_ms=0U;state_lock_hook=NULL;
     model_delay_guard=false;delay_calls=0U;stop_after_delays=0U;
-#if BOARD_IR_BARCODE_CAPTURE
-    h_capture = 0; capture_dropped = 0U; capture_count = 0U; malformed_capture = false;
-#endif
 }

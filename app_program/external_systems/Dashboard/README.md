@@ -1,8 +1,9 @@
 # Single-topic EDR16 dashboard
 
-The dashboard subscribes (QoS 0) to two topics: telemetry on
-`Robopico/sensors/edr16/v1` and command replies on `csc02/command/ack`. Every
-telemetry payload is exactly two binary bytes. There are no wildcard
+The dashboard subscribes (QoS 0) to three topics: telemetry on
+`Robopico/sensors/edr16/v1`, robot events on `Robopico/events/edr16/v1` and
+command replies on `csc02/command/ack`. Every telemetry and event payload is
+exactly two binary bytes. There are no wildcard
 subscriptions and no per-sensor MQTT subscriptions. Messages on other topics
 are ignored.
 
@@ -55,8 +56,9 @@ Publish the raw bytes, not the four-character string "4106". Firmware reads
 servo/ultrasonic and other owner snapshots. ID 0 adds decoded barcode/navigation,
 controller state and fault (0–8, 8 = lifted), speed, tilt, scan state and
 hump/current-run maximum to their cards. The Sensors tab lists only fields the
-robot transmits. Event text is not transmitted: events come only from Load demo
-or Import JSON.
+robot transmits. Event text is not transmitted: robot events arrive as two-byte
+records on `Robopico/events/edr16/v1` and `packed16.describe_event` turns them
+into log rows.
 See `docs/DATA_REPRESENTATION.md` for the ID 0 subtype table and units.
 
 ## Layout
@@ -75,7 +77,12 @@ instruction) stays above every tab. The tabs are:
 - Trends: 60 s of this browser session for the wheel encoders, line sensors
   (left/right IR and line error) and acceleration.
 - Sensors: every display field, filterable by subsystem.
-- Events: events from an imported or demo snapshot.
+- Events: the receiver's event log, newest first (last 200 rows): robot
+  events from `Robopico/events/edr16/v1` (barcode attempts, decoded
+  instructions, humps, obstacles, Wi-Fi/broker reconnects, decoded by
+  `packed16.describe_event`), plus the receiver's own rows: robot offline (no
+  data for 3 s) / back online, each new controller fault code, and its broker
+  link. Demo and imported events show only while live updates are paused.
 
 The selected tab is kept in the URL hash, for example
 http://127.0.0.1:8001/#barcodes. Load demo and Import JSON pause live updates
@@ -104,19 +111,27 @@ in robot RAM; after a robot reboot press Send all.
 python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py" -v
 ```
 
+- `test_events.py`: every robot event (barcode attempts, instructions, hump,
+  obstacle, link) to its log text, invalid records, the 200-row log, robot
+  offline/back online, new fault codes, the receiver's own broker link, and
+  (with gcc) the real `shared/events.h` packing decoded by
+  `tools/edr_decode.py`.
 - `test_packed16.py`: exact-topic subscription/reconnection, all 15 IDs,
   physical units, status subtypes (including fault 8, lifted), malformed
   packets, ignored unrelated topics, barcode read history, HTTP JSON and field
   routing. With Node.js on PATH it also runs `test_dashboard_display.cjs`,
   which executes the real dashboard JavaScript with a minimal DOM and checks
-  that all 17 decoded fields appear on the correct cards. CI
-  (`testing/data_representation/run.py`) runs only this file.
+  that all 17 decoded fields appear on the correct cards.
 - `test_commands.py`: Reset/Start/STOP frames, ACK matching and validation,
   MAP, Reset to defaults and Send all, and the origin and JSON checks on
   `POST /api/command`.
 - `test_obstacle_width.py`: width pages, retention and clearing. Its C producer
   case is skipped until `make -C testing/integration test` has built
   `.build/width_avoidance`.
+
+CI (`testing/data_representation/run.py`, stage 1) discovers and runs every
+`test_*.py` in this folder; `test_obstacle_width.py`'s C producer case is
+skipped unless the integration `width_avoidance` build exists.
 
 These are simulated tests, not a live Pico/broker validation. See
 [MQTT_TOPICS.md](MQTT_TOPICS.md) for routing.

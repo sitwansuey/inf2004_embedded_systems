@@ -10,13 +10,13 @@ class CodecTests(unittest.TestCase):
     def test_all_words(self):
         for word in range(65536):
             sid,data=word & 15,word >> 4
-            ranges = ((0,125),(0,154),(0,60),(38,218),(38,218),(0,255),
+            ranges = ((0,141),(0,154),(0,60),(38,218),(38,218),(0,255),
                       (0,200),(0,200),(0,255),(0,255),(0,255),(0,255),
                       (0,255),(28,228),(28,228),(0,190))
             subtype, status = data >> 8, data & 255
             low, high = ranges[subtype]
             status_ok = low <= status <= high
-            if subtype == 0: status_ok &= status % 16 <= 13  # phase | fault << 4
+            if subtype == 0: status_ok &= status % 16 <= 13  # phase | fault << 4, fault 0..8 (8 lifted)
             if subtype == 1: status_ok &= status % 32 <= 26
             if subtype == 2: status_ok &= status % 8 <= 4
             if subtype == 5: status_ok &= status % 8 <= 5  # terrain | barcode bars << 3
@@ -46,6 +46,15 @@ class CodecTests(unittest.TestCase):
         self.assertAlmostEqual(edr.decode_packet(edr.encode_packet(13,3048))["value"],9.80665)
         self.assertEqual(edr.decode_packet(edr.encode_packet(11,edr.pack_motor(1,30,1)))["motor"],
                          {"command":1,"power_percent":30,"state":1})
+    def test_mission_faults(self):
+        # Subtype 0 = phase | fault << 4: faults 0..8 (8 = lifted) round-trip, 9+ are rejected.
+        for fault in range(9):
+            for phase in (0, 13):
+                data = fault << 4 | phase
+                self.assertEqual(edr.decode_packet(edr.encode_packet(0, data))["status_value"], data)
+        for fault in range(9, 16):
+            with self.assertRaises(ValueError): edr.encode_packet(0, fault << 4)
+            with self.assertRaises(ValueError): edr.decode_packet(((fault << 8) & 0xfff0).to_bytes(2, "little"))
     def test_cli(self):
         result=subprocess.run([sys.executable,"-B",str(ROOT/"tools/edr_decode.py"),"41 06"],capture_output=True,text=True)
         self.assertEqual(result.returncode,0)

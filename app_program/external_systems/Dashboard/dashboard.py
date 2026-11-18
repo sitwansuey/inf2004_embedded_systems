@@ -11,11 +11,13 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from packed16 import decode_messages, PACKED_TOPIC
+from packed16 import decode_messages, PACKED_TOPIC, EVENT_TOPIC, describe_event
 
 ACK_TOPIC = "csc02/command/ack"
 START_DEMAND = 20  # Start power percent (the teammates' working follower runs at 20)
-TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0)]
+TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0), (EVENT_TOPIC, 0)]
+ROBOT_SILENT_S = 3.0  # no robot data this long while it was sending: log it offline
+EVENT_LIMIT = 200     # event log rows kept (newest last)
 COMMAND_TOPIC = "csc02/command"
 # Scan results retained between reports and cleared by quality bit 0.
 WIDTH_TOPICS = ("/width_cm", "/width_left_cm", "/width_right_cm")
@@ -62,6 +64,42 @@ class BrokerBridge:
         self.barcode_turn = None
         # Letter -> action label as last acknowledged by the robot (RAM only there).
         self.barcode_map = dict(DEFAULT_BARCODE_MAP)
+        # Event log: robot events (EVENT_TOPIC) and this receiver's own
+        # (robot offline/online, broker link). robot_online None = unknown.
+        self.events = []
+        self.robot_online = None
+        self.robot_silent_since = None
+        self.broker_lost = False
+        self.fault_code = None  # last vehicle fault code seen (status subtype 0); None = unknown
+
+    def add_event(self, source, level, message, now=None):
+        """Caller holds self.lock."""
+        now = time.time() if now is None else now
+        self.events.append({"epoch": now, "time": time.strftime("%H:%M:%S", time.localtime(now)),
+                            "source": source, "level": level, "message": message})
+        del self.events[:-EVENT_LIMIT]
+
+    def robot_seen(self, now):
+        """Robot data arrived (caller holds self.lock)."""
+        if self.robot_online is False:
+            gap = now - (self.robot_silent_since or now)
+            self.add_event("Dashboard", "INFO", f"Robot back online after {gap:.0f} s without data", now)
+        self.robot_online = True
+
+    def check_robot(self, now=None):
+        """Log the robot offline once its data stops for ROBOT_SILENT_S."""
+        now = time.time() if now is None else now
+        with self.lock:
+            if self.robot_online and self.last_received_at and now - self.last_received_at >= ROBOT_SILENT_S:
+                self.robot_online = False
+                self.robot_silent_since = self.last_received_at
+                self.add_event("Dashboard", "WARN",
+                               f"Robot offline: no data for {ROBOT_SILENT_S:.0f} s (Wi-Fi or MQTT broker link lost)", now)
+
+    def watch_robot(self, interval=0.5):
+        while True:
+            self.check_robot()
+            time.sleep(interval)
 
     def set_status(self, status):
         with self.lock:
@@ -75,12 +113,17 @@ class BrokerBridge:
                 self.sequence += 1
                 reading.update(payload=None, sequence=self.sequence)
             self.last_received_at = None
+            self.robot_online = None  # unknown until its data arrives again
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         self.reset_observations()
         if reason_code.is_failure:
             self.set_status(f"MQTT rejected: {reason_code}")
             return
+        with self.lock:
+            if self.broker_lost:
+                self.add_event("Dashboard", "INFO", "Dashboard reconnected to the MQTT broker")
+                self.broker_lost = False
         self.set_status("MQTT connected; subscribing")
         result, _ = client.subscribe(TOPICS)
         if result != 0:
@@ -91,6 +134,10 @@ class BrokerBridge:
 
     def on_disconnect(self, client, userdata, flags, reason_code, properties):
         self.reset_observations()
+        with self.lock:
+            if not self.broker_lost:
+                self.add_event("Dashboard", "WARN", "Dashboard lost the MQTT broker; reconnecting")
+                self.broker_lost = True
         self.set_status("MQTT disconnected; reconnecting")
 
     def on_connect_fail(self, client, userdata):
@@ -109,6 +156,21 @@ class BrokerBridge:
                     entry["reply"] = tuple(data[3:])
                     self.ack_condition.notify_all()
             return
+        if message.topic == EVENT_TOPIC:
+            if getattr(message, "retain", False):
+                return
+            try:
+                source, level, text = describe_event(message.payload)
+            except (TypeError, ValueError):
+                with self.lock:
+                    self.rejected_packets += 1
+                return
+            with self.lock:
+                now = time.time()
+                self.last_received_at = now
+                self.robot_seen(now)
+                self.add_event(source, level, text, now)
+            return
         # One wire topic. Names returned by decode_messages are local display
         # keys, never additional subscriptions or broker republishes.
         if message.topic != PACKED_TOPIC or getattr(message, "retain", False):
@@ -122,7 +184,15 @@ class BrokerBridge:
         with self.lock:
             self.received_packets += 1
             self.last_received_at = time.time()
+            self.robot_seen(self.last_received_at)
             word = int.from_bytes(message.payload, "little")  # decode_messages accepted exactly 2 bytes
+            if (word & 0xF00F) == 0x0000:
+                # Status subtype 0: phase | fault << 4. Log each new fault once.
+                fault = (word >> 8) & 15
+                if fault and fault != self.fault_code:
+                    self.add_event("Robot", "ERROR", f"Robot stopped: fault {fault} ({FAULTS[fault]})",
+                                   self.last_received_at)
+                self.fault_code = fault
             if (word & 0xF00F) == 0x9000:
                 quality=word>>4 & 63  # bits 6..7 = fault cause
                 for topic, reading in self.readings.items():
@@ -179,8 +249,9 @@ class BrokerBridge:
                 if payload not in ("Successful", "Unsuccessful") or read["elements"] < 9:
                     return
                 directions = read["directions"]
+                # Attempt 2 reverses; attempt 3 is a slow pass from the start.
                 kind = ("Reverse" if "REVERSE" in directions else
-                        "Slow" if 0 < read["max_power"] <= 12 else "Normal")
+                        "Final" if 0 < read["max_power"] <= 12 else "Initial")
                 ok = payload == "Successful"
                 self.barcode_history.append({
                     "epoch": now, "time": time.strftime("%H:%M:%S", time.localtime(now)),
@@ -302,6 +373,7 @@ class BrokerBridge:
                 "last_received_at": self.last_received_at,
                 "messages": sorted(self.readings.values(), key=lambda item: item["sequence"]),
                 "barcode_history": [dict(row) for row in self.barcode_history],
+                "events": [dict(row) for row in self.events],
                 "barcode_map": dict(sorted(self.barcode_map.items())),
             }
 
@@ -393,8 +465,10 @@ def main():
     with ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:
         client.connect_async(args.broker, args.mqtt_port, keepalive=60)
         client.loop_start()
+        # Logs "robot offline" when its data stops (Wi-Fi or broker link lost).
+        threading.Thread(target=bridge.watch_robot, daemon=True).start()
         print(f"Dashboard: http://127.0.0.1:{args.port}", flush=True)
-        print(f"Broker: {args.broker}:{args.mqtt_port}; topic: {PACKED_TOPIC}", flush=True)
+        print(f"Broker: {args.broker}:{args.mqtt_port}; topics: {PACKED_TOPIC}, {EVENT_TOPIC}", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

@@ -1,7 +1,9 @@
 /* Copied nonblocking handoff, derived from Buddy 1's telemetry inbox design. */
 #include "subsystem1.h"
 #include "control.h"
-static ID telemetry_buffer, command_buffer, ack_buffer;
+#include "network_bridge.h"
+static ID telemetry_buffer, command_buffer, ack_buffer, event_buffer;
+#define S1_EVENT_CAPACITY 16U /* queued events; kept through a short link drop */
 static UW stop_sequence;
 static UW drops, stop_epoch, seen_stop;
 static void dropped(void) { UW n=__atomic_load_n(&drops,__ATOMIC_RELAXED);
@@ -21,7 +23,24 @@ ER s1_binary_init(void) {
         ER er=ack_buffer;tk_del_mbf(command_buffer);tk_del_mbf(telemetry_buffer);
         command_buffer=telemetry_buffer=ack_buffer=0;return er;
     }
+    c.maxmsz=EDR_RECORD_SIZE;c.bufsz=S1_EVENT_CAPACITY*(EDR_RECORD_SIZE+8U);
+    event_buffer=tk_cre_mbf(&c);
+    if(event_buffer<0) {
+        ER er=event_buffer;tk_del_mbf(ack_buffer);tk_del_mbf(command_buffer);tk_del_mbf(telemetry_buffer);
+        command_buffer=telemetry_buffer=ack_buffer=event_buffer=0;return er;
+    }
     return E_OK;
+}
+/* Robot events (shared/events.h): one two-byte record each, never blocking. */
+void s1_event_post(unsigned id,unsigned value) {
+    if(event_buffer<=0 || id==0U || id>15U || value>EDR_DATA_MAX)return;
+    unsigned word=(value<<4U)|id;
+    unsigned char record[EDR_RECORD_SIZE]={(unsigned char)(word&255U),(unsigned char)(word>>8U)};
+    if(tk_snd_mbf(event_buffer,record,sizeof(record),TMO_POL)<0)dropped();
+}
+int s1_event_take(unsigned char *out) {
+    if(!out || event_buffer<=0)return E_OBJ;
+    return tk_rcv_mbf(event_buffer,out,TMO_POL);
 }
 void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault) {
     unsigned char ack[CSC02_ACK_BYTES]={0xC2,(unsigned char)seq,(unsigned char)opcode,

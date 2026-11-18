@@ -66,8 +66,9 @@ explicit lengths, validity/fault flags, operating time, STOP and lease behavior.
 
 Dashboard: run `python app_program/external_systems/Dashboard/dashboard.py --broker YOUR_BROKER`
 after installing that folder's requirements. It subscribes to
-`Robopico/sensors/edr16/v1`; each reading keeps its latest value and is marked
-stale after 5 s. ID 0 carries mission status, while sensor IDs 1-15 retain
+`Robopico/sensors/edr16/v1` (telemetry), `Robopico/events/edr16/v1` (the robot
+event log) and `csc02/command/ack`; each reading keeps its latest value and is
+marked stale after 5 s. ID 0 carries mission status, while sensor IDs 1-15 retain
 their meanings. See
 [the complete wire contract](docs/DATA_REPRESENTATION.md).
 
