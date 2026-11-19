@@ -169,12 +169,80 @@ static void test_clipped_impact(void)
     puts("[TEST] S4-U34 PASS  a current clipped accel sample is reported clipped, never usable");
 }
 
+/* I4/I5: impacts and accel faults are counted on every sample or poll, so
+ * one that lasts a single 10 ms poll is still seen by a 20 ms reader that
+ * compares counts. The magnetometer never counts as an IMU fault. */
+static void test_event_counters(void)
+{
+    s4_sensor_cache_t state;
+    s4_sensor_status_t copy;
+    lsm303_frame_t frame = good_frame(10000);
+    lsm303_frame_t fault = { 0 };
+
+    s4_data_reset(&state);
+    s4_data_init_result(&state, LSM303_OK);
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 15000, &copy);
+    REQUIRE(copy.accel_impacts == 0 && copy.accel_faults == 0);
+    /* A 1.9 g sample, then a normal one before anyone reads. */
+    frame = good_frame(30000);
+    frame.accel.raw[0] = 1900;
+    frame.accel.milli_units[0] = 1900;
+    s4_data_update(&state, &frame, LSM303_OK);
+    frame = good_frame(50000);
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 55000, &copy);
+    REQUIRE(copy.accel_usable && copy.accel_impacts == 1 && copy.accel_faults == 0);
+    /* 1.79 g is not an impact. */
+    frame = good_frame(70000);
+    frame.accel.raw[0] = 1490;
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 75000, &copy);
+    REQUIRE(copy.accel_impacts == 1);
+    /* A clipped sample is an impact and a fault. */
+    frame = good_frame(90000);
+    frame.accel.raw[2] = -2048;
+    frame.accel.valid = false;
+    frame.accel.status = LSM303_DATA_CLIPPED;
+    s4_data_update(&state, &frame, LSM303_OK);
+    frame = good_frame(110000);
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 115000, &copy);
+    REQUIRE(copy.accel_usable && copy.accel_impacts == 2 && copy.accel_faults == 1);
+    /* One accel I/O error followed by a fresh sample: still counted. */
+    fault.accel.status = LSM303_DATA_IO_ERROR;
+    s4_data_update(&state, &fault, LSM303_IO_ERROR);
+    frame = good_frame(130000);
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 135000, &copy);
+    REQUIRE(copy.accel_usable && copy.accel_faults == 2);
+    /* An overrun sample is a fault; a magnetometer error is not. */
+    frame = good_frame(150000);
+    frame.accel.overrun = true;
+    s4_data_update(&state, &frame, LSM303_OK);
+    fault = (lsm303_frame_t){ 0 };
+    fault.mag.status = LSM303_DATA_IO_ERROR;
+    s4_data_update(&state, &fault, LSM303_IO_ERROR);
+    s4_data_snapshot(&state, 155000, &copy);
+    REQUIRE(copy.accel_faults == 3 && copy.mag_io_errors == 1);
+    /* A failed init and a reset of the device count; a good init does not. */
+    s4_data_init_result(&state, LSM303_IO_ERROR);
+    s4_data_snapshot(&state, 160000, &copy);
+    REQUIRE(copy.accel_faults == 4);
+    s4_data_init_result(&state, LSM303_OK);
+    s4_data_invalidate(&state);
+    s4_data_snapshot(&state, 160000, &copy);
+    REQUIRE(copy.accel_faults == 5 && copy.accel_impacts == 2);
+    puts("[TEST] S4-U40 PASS  impacts and accel faults are counted per sample, mag faults never");
+}
+
 int main(void)
 {
     test_empty_and_init();
     test_freshness();
     test_fault_and_recovery();
     test_clipped_impact();
+    test_event_counters();
     test_clipping_and_time_boundaries();
     s4_sensor_cache_t state;s4_sensor_status_t view;
     s4_data_reset(&state);s4_data_init_result(&state,LSM303_OK);

@@ -1,5 +1,9 @@
 #include "adapter_fixture.h"
 
+/* Robot-like barcode profile for the L2 checks: re-arm after a failed
+ * capture, end-of-marker quiet time, fault-cut reads count as failed. */
+static bool l2_profile;
+
 static void setup(void)
 {
     s3_adapter_config_t cfg = {0};
@@ -10,6 +14,12 @@ static void setup(void)
     cfg.algorithms.line.raw_max = 1U;
     cfg.algorithms.line.line_mask = 3U;
     cfg.algorithms.barcode_sensor = 2U;
+    if (l2_profile)
+    {
+        cfg.algorithms.barcode_retry = true;
+        cfg.algorithms.barcode.end_quiet_ms = 300U;
+        cfg.algorithms.barcode_fault_fails = true;
+    }
     cfg.algorithms.map_a = S3_NAV_LEFT; /* Explicitly a test mapping only. */
     cfg.ir.mode = S3_IR_DIGITAL;
     for (i = 0U; i < 3U; ++i)
@@ -187,8 +197,207 @@ static void test_event_handoff_and_staleness(void)
     CHECK(s3_event_receive(&record) == E_TMOUT); /* Event too old. */
     setup(); marker();
     gpio[2] = 2U; (void)tick(false);
+    /* L1: the turn was decoded from a good sample before the sensor fault,
+     * so it is still delivered (the fault that follows stops the vehicle). */
+    CHECK(s3_event_receive(&record) == E_OK);
+    CHECK(record.event.kind == S3_EVENT_NAVIGATION && record.event.symbol == 'A');
     CHECK(s3_event_receive(&record) == E_OK); /* Fault may be received. */
-    CHECK(record.event.kind == S3_EVENT_FAULT); /* Old turn was discarded. */
+    CHECK(record.event.kind == S3_EVENT_FAULT);
+}
+
+/* Marker ticks before the decoding sample, measured by a plain run. */
+static unsigned int decode_lock_base;
+static void marker_find_decode(void)
+{
+    const unsigned int widths[] = {
+        1,3,1,1,3,1,3,1,1,1,3,1,1,1,1,3,1,1,3,1,1,3,1,1,3,1,3,1,1
+    };
+    unsigned int i;
+    unsigned int t;
+    decode_lock_base = 0U;
+    for (i = 0U; i < 22U; ++i) { (void)tick(false); }
+    (void)tick(true);
+    for (i = 0U; i < 29U; ++i)
+    {
+        for (t = 10U; t <= widths[i] * 40U; t += 10U)
+        {
+            bool black = (i % 2U) == 0U;
+            (void)tick(t == widths[i] * 40U ? !black : black);
+        }
+    }
+    for (t = 0U; t < 500U; t += 10U)
+    {
+        unsigned int before = sample_lock_calls;
+        (void)tick(false);
+        if ((queue_count == 1U) && (decode_lock_base == 0U)) decode_lock_base = before;
+    }
+}
+
+/* L1/L6: a decoded turn reaches the controller although the S3 status shows
+ * a later silent latch, is exactly max_sample_gap_ms old, or the decode
+ * itself was published late; S3 shows that it awaits the controller. */
+static void test_turn_survives_latch(void)
+{
+    s3_event_record_t record;
+    s3_status_t snapshot;
+
+    /* (a) The next sample is late: S3 latches STALE silently. */
+    setup(); marker();
+    CHECK(queue_count == 1U);
+    delay_lock_call = sample_lock_calls + 2U; state_lock_delay_ms = 30U;
+    (void)tick(false);
+    CHECK(status.output.error != S3_ERROR_NONE && status.acquisition_error == E_TMOUT);
+    (void)tick(false); /* the next, fresh sample still shows the latch */
+    CHECK(status.output.error != S3_ERROR_NONE && status.acquisition_error == E_OK);
+    CHECK(queue_count == 1U && core.awaiting_controller);
+    CHECK(s3_event_receive(&record) == E_OK && record.event.kind == S3_EVENT_NAVIGATION);
+    CHECK(record.event.symbol == 'A' && record.event.command == S3_NAV_LEFT);
+    /* The controller acknowledges (holding the marker): the latch clears. */
+    CHECK(s3_controller_control(S3_MODE_TRACK, false, 1000U) == E_OK);
+    (void)tick(false);
+    CHECK(status.output.error == S3_ERROR_NONE && status.output.steering_allowed);
+
+    /* (b) Drained when the status is exactly 30 ms (the gap limit) old. S3
+     * itself has no fault: it still waits for the controller. */
+    setup(); marker();
+    fake_now += 30U;
+    CHECK(s3_status_get(&snapshot) == E_OK);
+    CHECK(snapshot.output.awaiting_controller && snapshot.output.error == S3_ERROR_NONE);
+    CHECK(s3_event_receive(&record) == E_OK && record.event.kind == S3_EVENT_NAVIGATION);
+
+    /* (c) The decoding sample itself is published 30 ms late. */
+    setup(); marker_find_decode();
+    CHECK(decode_lock_base != 0U);
+    setup();
+    delay_lock_call = decode_lock_base + 3U; state_lock_delay_ms = 30U;
+    marker();
+    CHECK(core.barcode_ok_count == 1U && core.awaiting_controller);
+    CHECK(status.output.error == S3_ERROR_STALE);
+    CHECK(queue_count == 1U);
+    CHECK(s3_event_receive(&record) == E_OK && record.event.kind == S3_EVENT_NAVIGATION);
+    CHECK(record.event.symbol == 'A');
+    /* A safety directive still wins: OVERRIDE invalidates the turn. */
+    setup(); marker();
+    CHECK(s3_controller_control(S3_MODE_OVERRIDE, false, 0U) == E_OK);
+    CHECK(s3_event_receive(&record) == E_TMOUT);
+}
+
+/* L6: other requests use the sampler's own gap limit (a gap above
+ * max_sample_gap_ms faults), so a 30 ms old status is still current. */
+static void test_request_gap_alignment(void)
+{
+    s3_event_record_t record;
+    unsigned int trial;
+    unsigned int i;
+    for (trial = 0U; trial < 2U; ++trial)
+    {
+        setup(); (void)tick(false);
+        gpio[2] = 0U; /* line gone: LOST, then a recovery request */
+        for (i = 0U; (i < 30U) && (queue_count == 0U); ++i) { (void)tick(false); }
+        CHECK(queue_count == 1U && status.output.error == S3_ERROR_NONE);
+        fake_now += (trial == 0U) ? 30U : 31U;
+        if (trial == 0U)
+        {
+            CHECK(s3_event_receive(&record) == E_OK);
+            CHECK(record.event.kind == S3_EVENT_RECOVERY_REQUEST);
+        }
+        else
+        {
+            CHECK(s3_event_receive(&record) == E_TMOUT);
+        }
+    }
+}
+
+/* L7: mode and lease requests wait briefly for a busy status lock instead of
+ * failing at once; past the bound, E_TMOUT changes nothing. */
+static void test_controller_busy_lock(void)
+{
+    uint32_t generation;
+    uint32_t issued;
+    setup(); (void)tick(false);
+    fake_now += 50U;
+    busy_for_poll = true; /* a telemetry copy holds the lock briefly */
+    CHECK(s3_controller_renew(1000U) == E_OK && last_lock_timeout == S3_STATE_LOCK_WAIT_MS);
+    CHECK(control.issued_ms == fake_now);
+    generation = control.generation;
+    CHECK(s3_controller_control(S3_MODE_TRACK, true, 100U) == E_OK);
+    CHECK(control.generation == generation + 1U && last_lock_timeout == S3_STATE_LOCK_WAIT_MS);
+    busy_for_poll = false;
+    busy_mutex = true; /* still busy after the bounded wait */
+    fake_now += 50U;
+    generation = control.generation; issued = control.issued_ms;
+    CHECK(s3_controller_renew(100U) == E_TMOUT);
+    CHECK(s3_controller_control(S3_MODE_OVERRIDE, false, 0U) == E_TMOUT);
+    CHECK(control.generation == generation && control.issued_ms == issued);
+    CHECK(control.mode == S3_MODE_TRACK && control.lease_ms == 100U);
+    busy_mutex = false;
+    CHECK(s3_controller_renew(100U) == E_OK); /* retried next period */
+    fake_now += 100U;
+    CHECK(s3_controller_renew(100U) == E_OBJ); /* only expiry is final */
+}
+
+/* L2: a capture that ends by itself with 3-8 elements is counted as partial
+ * (status + one USB line), never as a failed read; a read cut short by a
+ * sampler hiccup is a failed read, so the controller can re-read it. */
+static void test_barcode_partial_and_abort(void)
+{
+    s3_status_t snapshot;
+    unsigned int i;
+    unsigned int t;
+    l2_profile = true; setup(); l2_profile = false;
+    for (i = 0U; i < 25U; ++i) { (void)tick(false); }
+    for (i = 0U; i < 5U; ++i)
+    {
+        for (t = 0U; t < 40U; t += 10U) { (void)tick((i % 2U) == 0U); }
+    }
+    for (i = 0U; i < 40U; ++i) { (void)tick(false); }
+    CHECK(s3_status_get(&snapshot) == E_OK);
+    CHECK(snapshot.output.barcode_partial_count == 1U && snapshot.output.barcode_fail_count == 0U);
+    CHECK(snapshot.output.barcode_abort_count == 0U && snapshot.output.barcode_ok_count == 0U);
+    CHECK(snapshot.output.barcode_result == S3_BARCODE_RESULT_NONE);
+    CHECK(snapshot.output.error == S3_ERROR_NONE && queue_count == 0U);
+    CHECK(log_lines == 1U && strstr(log_last, "partial") != NULL);
+    CHECK(strstr(log_last, " 5 elements") != NULL);
+    /* Next marker: 4 elements in, the 5th sample is late (silent STALE). */
+    for (i = 0U; i < 25U; ++i) { (void)tick(false); }
+    for (i = 0U; i < 4U; ++i)
+    {
+        for (t = 0U; t < 40U; t += 10U) { (void)tick((i % 2U) == 0U); }
+    }
+    (void)tick(true);
+    CHECK(status.output.barcode_result == S3_BARCODE_RESULT_READING);
+    CHECK(status.output.barcode_elements == 4U);
+    delay_lock_call = sample_lock_calls + 2U; state_lock_delay_ms = 30U;
+    (void)tick(true);
+    CHECK(s3_status_get(&snapshot) == E_OK);
+    CHECK(snapshot.output.barcode_fail_count == 1U && snapshot.output.barcode_abort_count == 1U);
+    CHECK(snapshot.output.barcode_result == S3_BARCODE_RESULT_FAILED);
+    CHECK(snapshot.output.barcode_elements == 4U && snapshot.output.barcode_bars == 3U);
+    CHECK(snapshot.output.barcode_partial_count == 1U && snapshot.output.error != S3_ERROR_NONE);
+    CHECK(queue_count == 0U); /* silent latch: no FAULT event */
+    CHECK(log_lines == 2U && strstr(log_last, "cut short") != NULL);
+    CHECK(strstr(log_last, " 4 elements") != NULL);
+    /* As the vehicle does after the next fresh sample shows the latch, it
+     * re-arms (TRACK, marker clear): the re-read decodes. */
+    (void)tick(false);
+    CHECK(status.output.barcode_fail_count == 1U && queue_count == 0U);
+    CHECK(s3_controller_control(S3_MODE_TRACK, true, 1000U) == E_OK);
+    marker();
+    CHECK(status.output.barcode_ok_count == 1U && status.output.barcode_fail_count == 1U);
+    CHECK(queue_count == 1U && queue[0].event.kind == S3_EVENT_NAVIGATION);
+    CHECK(queue[0].event.symbol == 'A' && queue[0].generation == control.generation);
+    CHECK(log_lines == 2U); /* a full read logs nothing */
+    /* Default profile: the same hiccup is not counted (no re-read). */
+    setup();
+    for (i = 0U; i < 25U; ++i) { (void)tick(false); }
+    for (i = 0U; i < 4U; ++i)
+    {
+        for (t = 0U; t < 40U; t += 10U) { (void)tick((i % 2U) == 0U); }
+    }
+    delay_lock_call = sample_lock_calls + 2U; state_lock_delay_ms = 30U;
+    (void)tick(true);
+    CHECK(status.output.barcode_fail_count == 0U && status.output.barcode_abort_count == 0U);
+    CHECK(log_lines == 0U);
 }
 
 static void test_controller_set_map(void)
@@ -286,6 +495,10 @@ int main(void)
     RUN("S3-U18 event handoff/staleness", test_event_handoff_and_staleness);
     RUN("S3-U19 event queue full", test_transport_overflow);
     RUN("S3-U51 controller barcode map", test_controller_set_map);
+    RUN("S3-U52 decoded turn survives a later latch (L1/L6)", test_turn_survives_latch);
+    RUN("S3-U53 request gap limit aligned (L6)", test_request_gap_alignment);
+    RUN("S3-U54 controller tolerates a busy lock (L7)", test_controller_busy_lock);
+    RUN("S3-U55 partial and fault-cut barcode reads (L2)", test_barcode_partial_and_abort);
     RUN("S3-U20 sensor configuration", test_sensor_configuration);
     RUN("S3-U21 ADC boundary", test_adc_boundary);
     (void)printf("Buddy 3 adapter: %u groups, %u checks, %u failures\n",

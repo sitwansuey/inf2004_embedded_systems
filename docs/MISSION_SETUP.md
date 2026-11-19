@@ -79,18 +79,21 @@ reboot. Example: F turns right, `c1 04 06 02 00 07`.
 Replies use `csc02/command/ack`: `[0xC2, sequence, opcode, result, phase, fault]`,
 result 0 accepted, 1 rejected (bad fields, queue full, or not allowed now),
 2 RESET required (ARM/START after reconnect), 3 stale (queued 100 ms or more).
-Frames rejected before the vehicle task sees them report phase/fault 0.
-Commands still queued when a STOP arrives are dropped without a reply, and
-STOPs that arrive together are answered once, with the latest sequence.
+Network-side replies carry the last published phase and fault. Commands
+superseded by STOP get result 1. Two STOPs offered before the VC takes one
+are both answered 0; a full ACK buffer drops and counts its oldest reply.
+Dashboard sequences are 0-127. USB uses bit 7, so its ACK cannot answer a
+dashboard command. A timestamp just ahead of the VC clock is fresh.
 
 USB examples at demand 30: START `c1 03 1e 00 00 00`, STOP `c1 00 00 00 00 00`.
 Command publishers must use non-retained messages. Reconnect clears network
 start authorization and requires RESET before accepting ARM/START. An already
 running autonomous mission continues through a telemetry disconnect; timed ARM
 still expires locally. Both modes retain controller-to-motor watchdog renewal.
-After an access-point loss the network owner waits 10 s for the radio to
-recover, then leaves and re-joins the AP (retrying every 5 s while it is
-missing) and drops the MQTT session; MQTT reconnects within about 3 s of the
+Before the first Wi-Fi UP, a stalled join gets 20 s before leave/rejoin.
+After a previous UP, an access-point loss gets 10 s. The owner waits 1 s
+after leaving before joining again. Rejected join requests retry every 5 s.
+A dead bus still parks the network task. Leaving drops the MQTT session; MQTT reconnects within about 3 s of the
 link returning and the event log shows "reconnected after N s".
 The Python dashboard subscribes to `Robopico/sensors/edr16/v1`,
 `Robopico/events/edr16/v1` (the robot event log) and `csc02/command/ack`; it
@@ -126,7 +129,13 @@ A sampler hiccup can latch S3 STALE/SENSOR without an event, which stops
 barcode capture until TRACK is sent again. While tracking on fresh line
 samples the controller re-sends TRACK at most every 100 ms (`VC_S3_REARM_MS`),
 keeping a decoded turn's marker; a latch still returning 1 s after it was
-first seen (`VC_S3_LATCH_MS`) stops the run with fault 2 cause 2.
+first seen (`VC_S3_LATCH_MS`) stops the run with fault 2 cause 2. A decoded
+turn survives a later latch. S3 holding a marker with no pending turn gets
+TRACK again after 100 ms. A late ADC job retries if no driver read overran;
+a driver/device error still latches. `BOARD_BARCODE_FAULT_FAILS` defaults to
+1: a sampler fault cutting a read of at least three elements short reports
+a failed attempt and starts the usual re-read. Other 3-8 element partials
+are counted and logged on USB without a re-read.
 
 Run `python -B testing/data_representation/run.py --compiler clang` and
 `python -B testing/integration/run.py --compiler clang` (or GCC), plus the
@@ -137,3 +146,49 @@ Before the demonstration, record line/barcode success rates (all four commands),
 hump maximum versus measured height, obstacle profiles and bypass/reacquisition,
 Wi-Fi reconnect/dashboard freshness, PID tuning, motion accuracy, task timing
 and memory usage. Host tests cannot establish these physical measurements.
+
+## Checkpoint 8c checks
+
+Integrated builds require IR mode 2 or 3. Modes 0 and 1 fail at compile time.
+A controller bind/calibration failure prints STARTUP FAIL on USB.
+Motor-status copy misses reuse the last status for three ticks; a fourth
+miss or a real S2 FAULT stops. Missing odometry holds stopped for 200 ms
+before fault 1 cause 3. A sonar-held spot search still ends at 4 s with
+fault 2 cause 3. These changes do not change the tuned follower.
+
+On the hump, plain descents get the 20% slope cap. Smoothed pitch keeps
+that cap if height tracking is dropped. A flat top cannot finish the ramp
+while S4 is in ASCENT/CREST. The level event uses the completed height for
+that traversal, or zero. Short unusable runs bridge at most 60 ms; large
+reversals and longer gaps still discard the traversal. The armed lift rule
+never waives tilt. Impacts remain report-only (`BOARD_SHOCK_STOP 0`).
+
+S4 records every fresh impact and accel fault, including ones between VC
+reads. The VC counts counter deltas and its own IMU faults. Magnetometer
+errors do not reset the accelerometer. Ten failed accel polls, or the
+no-data watchdog, trigger a re-init on the next cycle. A failed re-init
+backs off 1 s. A stuck SDA gets up to nine SCL clocks and a STOP.
+
+Calibrate `BOARD_SERVO_US_PER_90` (750 us, allowed 500-1000) using measured
+pulse changes at both +/-45 and +/-90 deg. Pulse limits still apply. S5
+confirms an edge with two outward clear angles and checks the bypass side
+corridor. The first braking restart is free; later motion restarts keep
+the existing bound. Widths and side persist throughout the bypass.
+
+BACKUP waits for a new APPROACH/0 sample, at most
+`AVOID_BACKUP_SETTLE_MS` (1500 ms), then starts its full timed reverse.
+No sample by the bound is fault 1 cause sonar. A shallower reverse replan
+gets a stopped ray check for `AVOID_REPLAN_WAIT_MS` (1000 ms); blocked or
+missing data keeps S5's checked heading. After every side pan the robot
+waits for a clear new forward sample; `AVOID_FRONT_WAIT_MS` (3000 ms)
+bounds that wait. DIAGONAL and ALIGN still have 10 s total limits.
+
+Use the USB `[TIMING]` report every 10 s to record longest run, release
+gap and late/run counts for VC, motor and network. `BOARD_TIMING_STATS 0`
+disables it. Timing and the additional stopped pans need track checks.
+Impact-triggered snapshots are limited to one per 200 ms. Newest queued
+telemetry wins; dropped snapshots pass their flags on and are counted.
+The dashboard holds impact/IMU flags for 2 s and logs their rising edges.
+Broker login/ACL setup is optional and still needed to restrict command
+publishers; see the dashboard README. Reconnect events go out before the
+outage backlog. The six-byte commands and two-byte EDR16 format are unchanged.

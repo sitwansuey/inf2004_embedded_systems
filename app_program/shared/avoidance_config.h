@@ -33,9 +33,23 @@
 #define AVOID_BACKUP_MS 1000U
 #define AVOID_BACKUP_MAX_MM 300U
 #define AVOID_BACKUP_POWER 25U
-/* Stay stopped until S5 has left its scan (its encoder motion guard would
- * otherwise discard the published plan and widths), at most this long. */
-#define AVOID_BACKUP_SETTLE_MS 300U
+/* Stay stopped until a new APPROACH sample at 0 deg follows the pan.
+ * Fault with sonar cause if it has not arrived within this bound. The pan
+ * back from an 80 deg plan alone settles 800 ms (10 ms/deg), after S5 ends
+ * a wait of up to ~160 ms, so 1.5 s leaves margin over the ~1.05 s worst case. */
+#ifndef AVOID_BACKUP_SETTLE_MS
+#define AVOID_BACKUP_SETTLE_MS 1500U
+#endif
+/* Return from a side look: wait for a clear forward sample before driving.
+ * A 90 deg pan back settles ~910 ms; in open space S5 then needs 3 no-echo
+ * pings (~160 ms each) to call it clear: ~1.6 s worst case, so 3 s. */
+#ifndef AVOID_FRONT_WAIT_MS
+#define AVOID_FRONT_WAIT_MS 3000U
+#endif
+/* Ray check of a shallower heading after reversing; timeout keeps S5's plan. */
+#ifndef AVOID_REPLAN_WAIT_MS
+#define AVOID_REPLAN_WAIT_MS 1000U
+#endif
 /* Odometry moving forward by more than this while reversing is a motor fault. */
 #define AVOID_BACKUP_WRONG_WAY_MM 20U
 /* The reverse ramps START_POWER -> POWER over RAMP_MS and back down over its

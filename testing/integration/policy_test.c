@@ -9,7 +9,7 @@
 #include <limits.h>
 static vc_input_t healthy(void) {
     return (vc_input_t){.now_ms=100,.line_fresh=1,.steering=1,.front_clear=1,
-        .sensor_fresh=1,.odom_valid=1,.terrain_valid=1,.motor_ok=1,.transport_ok=1,.width_valid=1,.obstacle_width_mm=200,.bypass_steering=376,
+        .sensor_fresh=1,.backup_ready=1,.odom_valid=1,.terrain_valid=1,.motor_ok=1,.transport_ok=1,.width_valid=1,.obstacle_width_mm=200,.bypass_steering=376,
         .nav_offset_mm=90,.nav_search_mm=600};
 }
 static vc_state_t armed(void) {vc_state_t s={0};assert(vc_arm(&s,100,1000,30));return s;}
@@ -24,7 +24,7 @@ static void controller(void) {
     i.line_black_mask=0;
     i.slope=1;vc_step(&s,&i);assert(s.power==20);
     for(unsigned n=0;n<8;++n) {
-        bool gap=n==0 || n>=6; /* sonar (0) or line data (6, 7) missing */
+        bool gap=n==0 || n==2 || n>=6; /* sonar (0), odometry (2) or line data (6, 7) missing */
         s=gap?started():armed();i=healthy();
         switch(n) {case 0:i.sensor_fresh=0;break;case 1:i.terrain_valid=0;break;
         case 2:i.odom_valid=0;break;case 3:i.motor_ok=0;break;case 4:i.transport_ok=0;break;
@@ -32,8 +32,9 @@ static void controller(void) {
         vc_step(&s,&i);
         if(gap) {
             /* A data gap holds still; it faults only once it lasts
-             * VC_SONAR_GAP_MS (sonar) or VC_LINE_GAP_MS (line data). */
-            uint32_t limit=n==0?VC_SONAR_GAP_MS:VC_LINE_GAP_MS;
+             * VC_SONAR_GAP_MS (sonar), VC_ODOM_GAP_MS (odometry) or
+             * VC_LINE_GAP_MS (line data). */
+            uint32_t limit=n==0?VC_SONAR_GAP_MS:n==2?VC_ODOM_GAP_MS:VC_LINE_GAP_MS;
             assert(s.command==0 && s.power==0 && s.armed && s.phase==VC_TRACK);
             i.now_ms+=limit-1U;vc_step(&s,&i);assert(s.command==0 && s.armed && s.phase==VC_TRACK);
             i.now_ms+=1U;vc_step(&s,&i);
@@ -45,11 +46,24 @@ static void controller(void) {
         i.now_ms+=20;vc_step(&s,&i);assert(s.fault_cause==cause); /* latched */
         assert(!vc_arm(&s,i.now_ms,1000,30));
     }
-    /* Check order: tilt before odometry, both before a sonar gap (which only holds). */
+    /* Check order: tilt faults at once, before the odometry and sonar gaps
+     * (which hold, both timed); the shorter odometry gap faults first. */
     s=armed();i=healthy();i.sensor_fresh=i.odom_valid=0;vc_step(&s,&i);
+    assert(s.armed && !s.command && s.odom_gap && s.sonar_gap);
+    i.now_ms+=VC_ODOM_GAP_MS;vc_step(&s,&i);
     assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_ODOM);
     s=armed();i=healthy();i.terrain_valid=i.odom_valid=0;vc_step(&s,&i);
     assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_TILT);
+    /* C1: one late controller period (or a failed encoder copy) leaves
+     * odometry invalid for two ticks: hold still, keep a decoded turn that
+     * arrives meanwhile, drive on; a new gap is timed from its own start. */
+    s=started();i=healthy();vc_step(&s,&i);assert(s.command==1);
+    i.odom_valid=0;i.now_ms+=20;i.navigation_event=1;i.nav=2;vc_step(&s,&i);
+    assert(s.armed && s.phase==VC_TRACK && !s.command && s.pending_nav==2 && s.odom_gap);
+    i.navigation_event=0;i.nav=0;i.now_ms+=VC_ODOM_GAP_MS-1U;vc_step(&s,&i);assert(s.armed && !s.command);
+    i.odom_valid=1;i.now_ms+=1;vc_step(&s,&i);assert(s.armed && s.command==1 && !s.odom_gap && s.pending_nav==2);
+    i.odom_valid=0;i.now_ms+=20;vc_step(&s,&i);i.now_ms+=VC_ODOM_GAP_MS-1U;vc_step(&s,&i);assert(s.armed);
+    i.now_ms+=1U;vc_step(&s,&i);assert(!s.armed && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_ODOM);
     /* STOP or RESET clears it; a new start never inherits a stale cause. */
     vc_stop(&s,VC_OK);assert(s.phase==VC_DISARMED && !s.fault_cause);
     s.fault_cause=VC_CAUSE_ODOM;assert(vc_start(&s,200,30) && !s.fault_cause);
@@ -249,4 +263,44 @@ static void avoid_ramp(void) {
     vc_avoid_ramp_step(&r,1120U,25U,-376);assert(r.power_m==625 && r.steer==-13);
     puts("Avoidance ramps: real ms at 5/10/20 ms ticks, tested 20 ms steps, drops and slews PASS");
 }
-int main(void) {controller();odometry();terrain();mount();avoid_ramp();return 0;}
+static void sensor_waits(void) {
+    vc_input_t i=healthy();vc_state_t s=started();
+    s.phase=VC_BACKUP;s.entered_ms=100;i.backup_ready=0;i.sensor_acquiring=0;
+    i.now_ms=120;vc_step(&s,&i);assert(!s.command && !s.backup_moving);
+    i.now_ms=100+AVOID_BACKUP_SETTLE_MS-1U;vc_step(&s,&i);assert(s.armed && !s.command);
+    i.backup_ready=1;vc_step(&s,&i);assert(s.command==2 && s.backup_started_ms==i.now_ms);
+    i.now_ms+=AVOID_BACKUP_MS-1U;vc_step(&s,&i);assert(s.command==2);
+    i.now_ms+=1U;vc_step(&s,&i);assert(s.backup_braking && !s.command);
+    s=started();s.phase=VC_BACKUP;s.entered_ms=100;i=healthy();i.backup_ready=0;
+    i.now_ms=100+AVOID_BACKUP_SETTLE_MS;vc_step(&s,&i);
+    assert(!s.armed && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+    for(unsigned phase=VC_TURN_OUT;phase<=VC_RESTORE;++phase) {
+        s=started();s.phase=(uint8_t)phase;s.entered_ms=100;s.turn_deg=40;s.approach_mm=s.return_mm=200;
+        i=healthy();i.front_clear=0;i.front_pending=1;i.now_ms=100;
+        vc_step(&s,&i);assert(s.armed && !s.command && s.front_wait);
+        i.now_ms+=AVOID_FRONT_WAIT_MS-1U;vc_step(&s,&i);assert(s.armed && !s.command);
+        i.now_ms+=1U;vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+    }
+    /* DIAGONAL and ALIGN deadlines also apply during pan and stale-data waits. */
+    for(unsigned phase=VC_DIAGONAL;phase<=VC_ALIGN;++phase) {
+        s=started();s.phase=(uint8_t)phase;s.entered_ms=100;
+        i=healthy();i.now_ms=100+10000U;i.front_clear=0;i.front_pending=1;i.sensor_fresh=0;
+        vc_step(&s,&i);assert(s.armed && !s.command);
+        i.now_ms+=1U;vc_step(&s,&i);assert(s.fault==VC_TIMEOUT && !s.command);
+    }
+    /* Not-ready side echoes preserve both kinds of streak, bounded by 4 s. */
+    for(unsigned clear=0;clear<2U;++clear) {
+        s=started();s.phase=VC_PASS;s.look_side=1;s.side_check_started_ms=100;
+        i=healthy();i.front_clear=0;i.side_observed=1;i.side_clear=clear;
+        for(unsigned n=0;n<5U;++n) {
+            i.now_ms=i.side_sample_ms=120+n*20U;i.side_ready=(n%2U)==0U;
+            vc_step(&s,&i);assert(!s.command);
+        }
+        assert(!s.look_side && s.clear_run==clear);
+    }
+    s=started();s.phase=VC_PASS;s.look_side=1;s.side_check_started_ms=100;
+    i=healthy();i.now_ms=100+AVOID_SIDE_CHECK_TIMEOUT_MS;vc_step(&s,&i);
+    assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+    puts("Sensor waits: APPROACH sample, full reverse, forward pan bound, phase deadlines and intermittent side echoes PASS");
+}
+int main(void) {sensor_waits();controller();odometry();terrain();mount();avoid_ramp();return 0;}

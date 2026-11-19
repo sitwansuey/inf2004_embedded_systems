@@ -32,9 +32,14 @@ void cyw43_utk_task(int32_t stacd, void *exinf);
  * stays off the network until reboot. Once the link has been UP, no UP for
  * WIFI_LOST_REJOIN_US leaves the AP and joins again WIFI_LEAVE_SETTLE_US
  * later, on a later poll, so the leave's own EV_DISASSOC cannot zero the new
- * join's state. Every join restarts the wait: attempts stay >= 5 s apart, for
- * ever. Pure (no driver calls) so the host tests can drive it. */
+ * join's state. Before the first UP the same applies after the longer
+ * WIFI_FIRST_JOIN_US, counted from the boot join (the task calls
+ * wifi_rejoin_joined() for it): an AP that drops the robot during its first
+ * join no longer leaves it off the network until reboot. Every join restarts
+ * the wait: attempts stay >= 5 s apart, for ever. Pure (no driver calls) so
+ * the host tests can drive it. */
 #define WIFI_LOST_REJOIN_US  (10 * 1000 * 1000ull)
+#define WIFI_FIRST_JOIN_US   (20 * 1000 * 1000ull)
 #define WIFI_LEAVE_SETTLE_US (1000 * 1000ull)
 enum { WIFI_REJOIN_WAIT, WIFI_REJOIN_LEAVE, WIFI_REJOIN_JOIN };
 typedef struct { uint64_t alive_us, join_us; uint8_t was_up; } T_WIFI_REJOIN;
@@ -52,14 +57,15 @@ static inline int wifi_rejoin_step(T_WIFI_REJOIN *w, int up, int failed,
         w->join_us = 0; w->alive_us = now_us;
         return WIFI_REJOIN_JOIN;
     }
-    if(!w->was_up || failed || now_us - w->alive_us < WIFI_LOST_REJOIN_US) {
+    if(failed || now_us - w->alive_us <
+       (w->was_up? WIFI_LOST_REJOIN_US: WIFI_FIRST_JOIN_US)) {
         return WIFI_REJOIN_WAIT;
     }
     w->join_us = now_us + WIFI_LEAVE_SETTLE_US;
     return WIFI_REJOIN_LEAVE;
 }
 
-/* The 5 s retry joined: restart the wait from it. */
+/* A join was requested (at boot, or by the 5 s retry): restart the wait. */
 static inline void wifi_rejoin_joined(T_WIFI_REJOIN *w, uint64_t now_us)
 {
     w->alive_us = now_us; w->join_us = 0;

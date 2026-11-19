@@ -139,7 +139,7 @@ int main(void)
     REQUIRE(s4_sensor_get_record(&record)==E_OK);
     s4_sensor_status_t decoded;
     s4_data_snapshot(&record,30000,&decoded);
-    REQUIRE(decoded.accel_usable && decoded.task_heartbeat==42 && sizeof(record)==63);
+    REQUIRE(decoded.accel_usable && decoded.task_heartbeat==42 && sizeof(record)==71);
     lock_result = E_TMOUT;
     output.task_heartbeat = 99;
     REQUIRE(s4_sensor_get_status(&output) == E_TMOUT && output.task_heartbeat == 99);

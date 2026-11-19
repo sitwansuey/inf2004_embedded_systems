@@ -1,8 +1,22 @@
 /* Executes actual Buddy 3 adapter code with deterministic RTOS/GPIO fakes.
  * Does not simulate a robot or establish physical hardware correctness. */
 #include "host_support.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+/* S3's USB log lines (tm_printf on the robot), captured. */
+static unsigned int log_lines;
+static char log_last[160];
+static int s3_test_log(const UB *p_format, ...)
+{
+    va_list args;
+    va_start(args, p_format);
+    (void)vsnprintf(log_last, sizeof(log_last), (const char *)p_format, args);
+    va_end(args);
+    ++log_lines;
+    return 0;
+}
+#define S3_LOG s3_test_log
 #include "../../app_program/subsystem3/subsystem3.c"
 #include "../../app_program/subsystem3/task_consumer.c"
 #include "../../app_program/subsystem3/drv_ir_adc.c"
@@ -25,6 +39,8 @@ static unsigned int deletes;
 static bool fail_start;
 static bool fail_time;
 static bool busy_mutex;
+static bool busy_for_poll; /* held briefly: a TMO_POL attempt fails, a bounded wait gets it */
+static TMO last_lock_timeout;
 static bool locked;
 static unsigned int sample_lock_calls,delay_lock_call;
 static UW state_lock_delay_ms;
@@ -62,6 +78,7 @@ static uint32_t adc_wait_delay_ms;
 static bool adc_fail_clock_after_wait;
 static unsigned int adc_reply_waits;
 static void (*adc_wait_hook)(void);
+static void (*adc_request_wait_hook)(void);
 
 static ID create_object(void)
 {
@@ -104,7 +121,9 @@ ER tk_del_tsk(ID object) { CHECK(object == 42 || object == 43); ++deletes; retur
 ER tk_loc_mtx(ID object, TMO timeout)
 {
     CHECK(object > 0 && (timeout == TMO_POL || timeout == S3_STATE_LOCK_WAIT_MS));
-    if(timeout==S3_STATE_LOCK_WAIT_MS) {
+    last_lock_timeout = timeout;
+    /* Count the sampler task's own waits only (the controller waits too). */
+    if(timeout==S3_STATE_LOCK_WAIT_MS && caller==42) {
         ++sample_lock_calls;
         if(sample_lock_calls==delay_lock_call) {
             fake_now+=state_lock_delay_ms;
@@ -112,6 +131,7 @@ ER tk_loc_mtx(ID object, TMO timeout)
         }
     }
     if (busy_mutex) { return E_TMOUT; }
+    if (busy_for_poll && timeout == TMO_POL) { return E_TMOUT; }
     CHECK(!locked); locked = true; return E_OK;
 }
 ER tk_unl_mtx(ID object)
@@ -198,7 +218,13 @@ INT tk_rcv_mbf(ID object, void *p_data, TMO timeout)
     if (object == h_requests && h_requests > 0)
     {
         CHECK((timeout == TMO_POL || timeout == TMO_FEVR) && !locked);
-        if (!have_request) { return E_TMOUT; }
+        if (!have_request && timeout == TMO_FEVR && adc_request_wait_hook != NULL)
+        {
+            adc_request_wait_hook(); /* other tasks run while the worker waits */
+        }
+        /* A forever wait never times out: with nothing left to serve, model
+         * the wait being released so the worker task ends. */
+        if (!have_request) { return timeout == TMO_FEVR ? E_OBJ : E_TMOUT; }
         (void)memcpy(p_data, &adc_request, sizeof(adc_request));
         have_request = false;
         return malformed_request ? malformed_request : (INT)sizeof(adc_request);
@@ -286,6 +312,7 @@ static void reset(void)
     malformed_request = 0; malformed_reply = 0;
     adc_auto_worker = false; adc_wait_delay_ms = 0U;
     adc_fail_clock_after_wait = false; adc_reply_waits = 0U; adc_wait_hook = NULL;
+    adc_request_wait_hook = NULL;
     adc_values[0] = 0U; adc_values[1] = 4095U; adc_values[2] = 0U;
     (void)memset(&configuration, 0, sizeof(configuration));
     (void)memset(&status, 0, sizeof(status));
@@ -295,6 +322,8 @@ static void reset(void)
     (void)memset(gpio, 0, sizeof(gpio));
     creates = 0U; fail_create = 0U; deletes = 0U; fake_now = 0U; caller = 7;
     fail_start = false; fail_time = false; busy_mutex = false; locked = false;
+    busy_for_poll = false; last_lock_timeout = TMO_POL;
+    logged_partial = 0U; logged_abort = 0U; log_lines = 0U; log_last[0] = '\0';
     gpio_reads = 0U; gpio_configs = 0U; gpio_config_error = E_OK;
     race_override = false; queue_count = 0U; auto_renew = true;
     h_sample_cycle=0;fake_cycle=(T_CCYC){0};fake_cycle_active=false;fail_cycle=false;

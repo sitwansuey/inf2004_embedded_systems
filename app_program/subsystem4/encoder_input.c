@@ -37,10 +37,12 @@ void s4_encoder_terrain_step(s4_encoder_input_t *s, terrain_t *t,
             s->fault = S4_INPUT_HISTORY;
         } else {
             int32_t dl = 0, dr = 0;
+            /* A reversal is robot-level: a pivot's stopped wheel turned back
+             * a count or two by the skid or the slope is not one. */
             if (o->initialized &&
                 (!edr_count_delta(encoder.left_counts, o->left, &dl) ||
                  !edr_count_delta(encoder.right_counts, o->right, &dr) ||
-                 dl < 0 || dr < 0)) forward = false;
+                 (int64_t)dl + dr < -(int64_t)S4_ENCODER_BACKWARD_COUNTS)) forward = false;
             odom_step(o, c, encoder.sampled_ms, encoder.left_counts,
                       encoder.right_counts, true);
             if (!o->valid) {

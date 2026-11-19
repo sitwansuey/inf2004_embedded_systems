@@ -153,6 +153,18 @@ static void sensor_test_task(INT code,void *context) {
 }
 #endif
 #if !APP_S5_DIAGNOSTICS
+/* The VC latches READY's plan, then asks for a navigation state (APPROACH
+ * for the reverse). A sample still taken in READY belongs to that state:
+ * READY's motion guard and heading check must not clear the plan, bounds,
+ * widths and side that the status keeps publishing. */
+static ER navigation_pending(s5_status_t *next)
+{
+    if(next->state!=S5_READY)return E_OK;
+    ER er=tk_loc_mtx(status_mutex,TMO_FEVR);
+    if(er<E_OK)return er;
+    if(navigation_requested && navigation_state!=S5_MONITOR)next->state=navigation_state;
+    return tk_unl_mtx(status_mutex);
+}
 static void scan_task(INT stacd, void *exinf)
 {
     (void)stacd;
@@ -188,10 +200,13 @@ static void scan_task(INT stacd, void *exinf)
         next.time_ms = now.lo;
         s5_state_t sampled_state=next.state;
         UINT old_restarts=scan.motion_restarts;
+        BOOL old_free=scan.brake_restart;
+        if(navigation_pending(&next)<E_OK) {tk_ext_tsk();return;}
         INT target = s5_scan_step(&next, &scan);
-        if(scan.motion_restarts>old_restarts)
-            tm_printf((UB *)"[S5MOTION] restart=%u limit=%u tolerance=%d start=%d,%d end=%d,%d next_state=%u\n",
-                scan.motion_restarts,S5_SCAN_MOTION_RESTARTS,S5_SCAN_MOTION_TOLERANCE_COUNTS,
+        BOOL free_restart=scan.brake_restart && !old_free;
+        if(scan.motion_restarts>old_restarts || free_restart)
+            tm_printf((UB *)"[S5MOTION] restart=%u limit=%u free=%u tolerance=%d start=%d,%d end=%d,%d next_state=%u\n",
+                scan.motion_restarts,S5_SCAN_MOTION_RESTARTS,free_restart,S5_SCAN_MOTION_TOLERANCE_COUNTS,
                 next.motor1_counts_start,next.motor2_counts_start,
                 next.motor1_counts_end,next.motor2_counts_end,next.state);
         if(sampled_state!=next.state || target!=next.angle_deg ||

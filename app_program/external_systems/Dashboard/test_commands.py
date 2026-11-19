@@ -18,6 +18,17 @@ class Commands(unittest.TestCase):
   b,c=self.bridge()
   for action,frame in [('reset',bytes([193,2,0,0,0,0])),('start',bytes([193,3,20,0,0,1])),('stop',bytes([193,0,0,0,0,2]))]:
    b.send_command(action);c.publish.assert_called_with('csc02/command',frame,qos=0,retain=False)
+ def test_sequences_skip_usb_bit(self):
+  # Dashboard sequences are 0..127; the robot marks USB commands with bit 7,
+  # so a USB command's ACK never answers a waiting dashboard command.
+  b,c=self.bridge();b.command_sequence=127
+  b.send_command('reset');self.assertEqual(c.publish.call_args.args[1][5],127)
+  b.send_command('reset');self.assertEqual(c.publish.call_args.args[1][5],0)
+  b.pending_commands[5]={"opcode":3,"reply":None}
+  b.on_message(None,None,SimpleNamespace(topic="csc02/command/ack",retain=False,payload=bytes([194,0x85,3,0,0,0])))
+  self.assertIsNone(b.pending_commands[5]["reply"])
+  b.on_message(None,None,SimpleNamespace(topic="csc02/command/ack",retain=False,payload=bytes([194,5,3,1,12,8])))
+  self.assertEqual(b.pending_commands[5]["reply"],(1,12,8))
  def test_disconnect_and_invalid(self):
   b,c=self.bridge();c.is_connected.return_value=False
   with self.assertRaises(RuntimeError):b.send_command('start')

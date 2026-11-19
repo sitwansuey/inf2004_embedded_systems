@@ -12,9 +12,23 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from packed16 import decode_messages, PACKED_TOPIC, EVENT_TOPIC, describe_event, counter_delta
+from packed16 import decode_messages, PACKED_TOPIC, EVENT_TOPIC, describe_event, counter_delta, IMU_FAULT_TOPIC
 
 ACK_TOPIC = "csc02/command/ack"
+# Command sequences 0..127: the robot marks USB commands with bit 7, so their
+# ACKs (also published on the ACK topic) never answer a dashboard command.
+COMMAND_SEQUENCES = 128
+# One-snapshot flags: the robot sends each one true in a single 200 ms
+# snapshot and the browser polls every 250 ms, so it could miss it. A rising
+# edge is logged once and the flag is shown true for FLAG_HOLD_S; a later
+# false (or unavailable) value is shown when the hold ends.
+IMPACT_TOPIC = "Robopico/sensors/accelerometer/impact"
+FLAG_HOLD_S = 2.0
+HELD_FLAGS = {
+    IMPACT_TOPIC: ("Accelerometer", "WARN", "Impact reported (shock above 1.8 g or a clipped sample)"),
+    IMU_FAULT_TOPIC: ("Accelerometer", "WARN",
+                      "IMU fault reported (I/O error, stale, clipped or overrun sample, or IMU/encoder skew)"),
+}
 START_DEMAND = 20  # Start power percent (the teammates' working follower runs at 20)
 TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0), (EVENT_TOPIC, 0)]
 ROBOT_SILENT_S = 3.0  # no robot data this long while it was sending: log it offline
@@ -81,6 +95,36 @@ class BrokerBridge:
         # the (time, drops) steps inside DROP_WINDOW_S.
         self.drop_counter = None
         self.drop_steps = deque()
+        # Held one-snapshot flags: topic -> [hold until, value waiting, has one].
+        self.flag_hold = {}
+        self.clock = time.time
+
+    def store(self, topic, payload, now):
+        """Set one reading (caller holds self.lock). An impact or IMU fault
+        rising edge is logged once and shown for FLAG_HOLD_S; a false or
+        unavailable value arriving meanwhile waits for the hold to end."""
+        if topic in HELD_FLAGS:
+            hold = self.flag_hold.get(topic)
+            if payload is True:
+                if self.readings.get(topic, {}).get("payload") is not True:
+                    self.add_event(*HELD_FLAGS[topic], now)
+                self.flag_hold[topic] = [now + FLAG_HOLD_S, None, False]
+            elif hold is not None and now < hold[0]:
+                hold[1], hold[2] = payload, True
+                return
+            else:
+                self.flag_hold.pop(topic, None)
+        self.sequence += 1
+        self.readings[topic] = {"topic": topic, "payload": payload, "sequence": self.sequence}
+
+    def release_flags(self, now):
+        """Show the value that waited behind an expired hold (caller holds self.lock)."""
+        for topic, hold in list(self.flag_hold.items()):
+            if now >= hold[0]:
+                del self.flag_hold[topic]
+                if hold[2]:
+                    self.sequence += 1
+                    self.readings[topic] = {"topic": topic, "payload": hold[1], "sequence": self.sequence}
 
     def count_drops(self, counter, now):
         """Drops in the last DROP_WINDOW_S from one subtype-12 counter value.
@@ -136,6 +180,7 @@ class BrokerBridge:
             for reading in self.readings.values():
                 self.sequence += 1
                 reading.update(payload=None, sequence=self.sequence)
+            self.flag_hold.clear()
             self.last_received_at = None
             self.robot_online = None  # unknown until its data arrives again
             self.drop_counter = None
@@ -176,6 +221,8 @@ class BrokerBridge:
             data = message.payload
             if len(data) != 6 or data[0] != 0xC2 or data[2] > 4 or data[3] > 3 or data[4] > 13 or data[5] >= len(FAULTS):
                 return
+            if data[1] >= COMMAND_SEQUENCES:  # a USB command's ACK (bit 7)
+                return
             with self.ack_condition:
                 entry = self.pending_commands.get(data[1])
                 if entry is not None and entry["opcode"] == data[2]:
@@ -209,7 +256,7 @@ class BrokerBridge:
             return
         with self.lock:
             self.received_packets += 1
-            self.last_received_at = time.time()
+            self.last_received_at = self.clock()
             self.robot_seen(self.last_received_at)
             word = int.from_bytes(message.payload, "little")  # decode_messages accepted exactly 2 bytes
             if (word & 0xF00F) == 0x0000:
@@ -228,15 +275,17 @@ class BrokerBridge:
             # An availability record clears the readings it marks unavailable.
             if (word & 0xF00F) == 0xA000:
                 available=word>>4 & 255
-                for topic, reading in self.readings.items():
+                for topic, reading in list(self.readings.items()):
                     required=availability_mask(topic)
                     if required and not available&required:
-                        self.sequence+=1;reading.update(payload=None,sequence=self.sequence)
+                        if topic in HELD_FLAGS:
+                            self.store(topic, None, self.last_received_at)
+                        else:
+                            self.sequence+=1;reading.update(payload=None,sequence=self.sequence)
             for topic, payload in messages:
                 if topic == DROPPED_TOPIC:
                     payload = self.count_drops(payload, self.last_received_at)
-                self.sequence += 1
-                self.readings[topic] = {"topic": topic, "payload": payload, "sequence": self.sequence}
+                self.store(topic, payload, self.last_received_at)
                 self.track_barcode(topic, payload)
 
     def track_barcode(self, topic, payload):
@@ -367,7 +416,7 @@ class BrokerBridge:
             raise RuntimeError("MQTT is disconnected.")
         with self.ack_condition:
             sequence = self.command_sequence
-            self.command_sequence = (sequence + 1) & 255
+            self.command_sequence = (sequence + 1) % COMMAND_SEQUENCES
             entry = {"opcode": opcode, "reply": None}
             self.pending_commands[sequence] = entry
         try:
@@ -391,7 +440,9 @@ class BrokerBridge:
         with self.lock:
             # Every reading keeps its latest value until a new one arrives
             # (the page marks it stale after a while); only an explicit robot
-            # validity flag or a broker reconnect clears it.
+            # validity flag or a broker reconnect clears it. A held impact or
+            # IMU fault shows its waiting value once the hold ends.
+            self.release_flags(self.clock())
             return {
                 "status": self.status,
                 "mqtt_topic": PACKED_TOPIC,
@@ -472,7 +523,10 @@ def main():
     parser.add_argument("--port", type=int, default=8001)
     parser.add_argument("--broker", default="localhost")
     parser.add_argument("--mqtt-port", type=int, default=1883)
-    parser.add_argument("--username", default=os.getenv("MQTT_USERNAME"))
+    # Optional broker login (README "Broker access"); the password is read
+    # from the MQTT_PASSWORD environment variable, never the command line.
+    parser.add_argument("--username", default=os.getenv("MQTT_USERNAME"),
+                        help="broker user name (default: MQTT_USERNAME); password from MQTT_PASSWORD")
     args = parser.parse_args()
     try:
         import paho.mqtt.client as mqtt

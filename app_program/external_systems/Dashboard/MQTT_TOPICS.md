@@ -41,7 +41,7 @@ ID 0 obstacle and scan fields (local display keys):
 | 8, 128–191 | `Robopico/sensors/ultrasonic_ranger/width_left_cm` | (value & 63) × 0.8 cm, centre to left edge |
 | 8, 192–255 | `Robopico/sensors/ultrasonic_ranger/width_right_cm` | (value & 63) × 0.8 cm, centre to right edge |
 | 9, bits 5–0 | `Robopico/Actuators/vehicle_controller/quality` | value & 63 (also `safety_state` bit 2, `accelerometer/impact` bit 1) |
-| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry`: the cause with fault code 1 (sensor; `None/other` means an avoidance-step check such as a side-check timeout). With fault code 2 (line) the same codes mean 0 other, 1 line data stale (gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event (or an S3 sampler latch that keeps coming back for 1 s although the controller re-sends TRACK every 100 ms), 3 line not found (the on-the-spot search after a turn, a bypass, or `BOARD_LINE_LOST_MM` of tracking with neither straddle IR on black); the browser shows those names. 0 with any other fault |
+| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry`: the cause with fault code 1 (sensor; `None/other` means an avoidance-step check such as an invalid manoeuvre distance; side/pan timeouts use Sonar). With fault code 2 (line) the same codes mean 0 other, 1 line data stale (gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event (or an S3 sampler latch that keeps coming back for 1 s although the controller re-sends TRACK every 100 ms), 3 line not found (the on-the-spot search after a turn, a bypass, or `BOARD_LINE_LOST_MM` of tracking with neither straddle IR on black); the browser shows those names. 0 with any other fault |
 | 12 | `Robopico/Actuators/vehicle_controller/dropped` | the robot's internal drop count modulo 256 (wraps, like the subtype 11 sequence); the receiver shows the drops of the last 60 s from the differences between records. The first record after a broker reconnect or a robot silence is only a baseline |
 | 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
 
@@ -56,17 +56,19 @@ not consumed. Demo/JSON import remain explicit browser-only features.
 
 **Subscribed:** `Robopico/events/edr16/v1`. One robot event per message, two
 bytes, little-endian, in the same EDR16 shape (low nibble = event ID, high 12
-bits = value); see `app_program/shared/events.h`. The robot queues up to 16
-events, so events from a short link drop arrive after it reconnects: once the
+bits = value); see `app_program/shared/events.h`. The robot uses a 160-byte event buffer (20 two-byte records with kernel
+overhead), so events from a short link drop arrive after it reconnects: once the
 broker has acknowledged nothing for 3 s the robot keeps them queued instead of
 handing them to lwIP (only those handed over in the last ~3 s before an outage
-can be lost).
+can be lost). The link event (ID 5) is not queued with them: the robot holds
+it separately and publishes it first after a (re)connection, so a queue full
+of outage events cannot drop it.
 
 | ID | Event | 12-bit value |
 |---|---|---|
 | 1 | Barcode attempt (one per finished read) | bits 0-1 attempt (1 initial scan, 2 reverse scan, 3 final attempt); bits 2-6 bars+spaces read (0..31, a full `*X*` is 29); bits 7-11 letter (0 failed, 1..26 = A..Z) |
 | 2 | Instruction decoded | bits 0-4 letter 1..26; bits 5-7 turn (0 none/not mapped, 1 left, 2 right, 3 straight, 4 U-turn) |
-| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: its highest point in 2 mm; a height of 0 is shown as not measured); bits 3-11 value |
+| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: S4's completed height for this traversal in 2 mm, or 0 when no valid hump completed); bits 3-11 value |
 | 4 | Obstacle | bits 0-1 kind (1 detected: distance cm; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
 | 5 | Link | bits 0-1 kind (1 reconnected to the broker after N s without it, counted from the first publish it never acknowledged; 2 first connection, N s after boot); bits 2-11 seconds |
 
@@ -74,7 +76,8 @@ An instruction (ID 2) follows the barcode attempt (ID 1) that decoded it.
 The receiver keeps the last 200 rows and adds its own: "Robot offline" when
 robot data stops for 3 s (Wi-Fi or broker link lost), "Robot back online",
 "Robot stopped: fault N (name)" once per new controller fault code (status
-subtype 0), and its own broker link lost/restored.
+subtype 0), "Impact reported" / "IMU fault reported" once per rising edge
+(each is also shown true for 2 s), and its own broker link lost/restored.
 Supported physical sensors not yet connected remain blank. ID zero supplies decoded navigation, height/maximum, controller state and
 other documented derived fields. Free-text events are not transmitted.
 
@@ -87,7 +90,15 @@ waits for the matching reply on `csc02/command/ack`. Request (6 bytes):
 `C1 opcode b2 b3 b4 seq`; ACK (6 bytes): `C2 seq opcode result phase fault`
 (result 0 accepted, 1 rejected, 2 Start needs Reset, 3 expired; phase 0–13,
 fault 0–8, 8 = lifted). Commands older than 100 ms on the robot are answered
-with result 3.
+with result 3. Every valid six-byte frame gets an ACK: a command queued
+before a STOP the robot then handled is answered 1 (superseded), a full
+command queue 1, and of two STOPs that arrive before the robot takes one the
+first is answered 0 at once (the robot stops once, for both). Replies the
+robot's network side makes itself carry the controller's last published
+phase and fault. The dashboard numbers its frames 0–127; sequence bit 7
+marks a command typed on the USB console, whose ACK is also published here
+and is ignored by the dashboard. When no broker is reachable and the reply
+buffer fills, the robot drops its oldest reply (counted in status subtype 12).
 
 | Opcode | Request | Behaviour |
 |---|---|---|
@@ -105,3 +116,11 @@ decodes. Mappings live in robot RAM, so after a robot reboot press **Send all**
 (it writes all 26 letters A..Z from the dashboard's table, one ACKed frame
 each, with no codebook reset first).
 The dashboard's `barcode_map` (in `/api/telemetry`) changes only on result 0.
+
+A flat-top hump posts one detected/crest/level cycle. The level height is
+latched at traversal completion, so a later jolt cannot substitute a stale
+height. Plain descents have no hump height. S4 impact/fault counters cover
+samples between controller reads. The two-slot telemetry queue selects the
+newest snapshot and carries impact/IMU bits across discarded snapshots.
+Shock-triggered extras are limited to one per 200 ms. These changes keep
+the existing EDR16 layout and the 2 s dashboard flag hold.

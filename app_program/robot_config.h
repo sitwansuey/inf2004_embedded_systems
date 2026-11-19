@@ -40,9 +40,22 @@
 #ifndef APP_S5_ENABLED
 #define APP_S5_ENABLED BOARD_UART0_FREE
 #endif
+/* Loop timing (shared/task_timing.h): the vehicle controller, motor and
+ * network loops record their longest run and late releases; the controller
+ * prints them on the USB console every 10 s ("[TIMING] ..."). 0: no hooks. */
+#ifndef BOARD_TIMING_STATS
+#define BOARD_TIMING_STATS 1
+#endif
 /* S3 bounded barcode resync (s3_config_t.barcode_retry). */
 #ifndef BOARD_BARCODE_RETRY
 #define BOARD_BARCODE_RETRY 1
+#endif
+/* A marker capture of 3 or more elements cut short by an S3 sampler hiccup
+ * (a latched STALE/SENSOR fault) counts as a failed read
+ * (s3_config_t.barcode_fault_fails): EV_BARCODE and the re-read follow, as
+ * for any miss. 0: such a marker is skipped silently (8b behaviour). */
+#ifndef BOARD_BARCODE_FAULT_FAILS
+#define BOARD_BARCODE_FAULT_FAILS 1
 #endif
 /* Physical barcode re-read: miss at normal speed -> reverse at 30% speed
  * (read backwards); hit -> forward at normal speed without re-reading;
@@ -554,6 +567,10 @@
  * 2026-11-10 with an object centred in front of the robot: at 1500 us its
  * edges read +40/-27 deg (and every logged run leaned the same way), so
  * 1500 us aims ~6.5 deg right; 6.5 deg * 750 us / 90 deg = 54 us. */
+/* Pulse change for 90 deg. Measure at both +/-45 and +/-90 deg. */
+#ifndef BOARD_SERVO_US_PER_90
+#define BOARD_SERVO_US_PER_90 750
+#endif
 #ifndef BOARD_SERVO_CENTER_US
 #define BOARD_SERVO_CENTER_US 1554
 #endif

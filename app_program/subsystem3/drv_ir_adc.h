@@ -26,6 +26,11 @@ typedef struct
     uint32_t sequence;
     s3_sample_t sample;
     ER error;
+    /* error E_TMOUT only: the deadline passed before any conversion of this
+     * scan started, so no device state was touched. The worker keeps serving;
+     * the client drops this scan and submits a new one. Otherwise a failed
+     * reply means the worker has stopped for this boot. */
+    bool retry;
 } s3_adc_reply_t;
 
 /* Start from the sampling task, once. No device calls in the client path.
@@ -37,7 +42,9 @@ ER s3_adc_receive(s3_adc_reply_t *p_reply);
 /* Bounded kernel wait, sampling client only. With a 10 ms tick this timeout
  * can take 20 ms plus dispatch jitter; completion normally wakes it sooner. */
 ER s3_adc_receive_wait(s3_adc_reply_t *p_reply);
-/* Worker-only entry points. The legacy device read may block in this task. */
+/* Worker-only entry points. The legacy device read may block in this task.
+ * worker_once returns E_TMOUT with the worker still healthy only for a scan
+ * dropped before any conversion (reply.retry); every other error stops it. */
 ER s3_adc_worker_once(TMO timeout);
 void s3_adc_worker(INT stacd, void *exinf);
 

@@ -23,7 +23,8 @@ void monitor_task(INT start_code, void *p_exinf)
         {
             tm_printf((UB *)"[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,"
                               "mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,"
-                              "a_seen,m_seen,a_errors,m_errors,heartbeat\n");
+                              "a_seen,m_seen,a_errors,m_errors,heartbeat,"
+                              "a_impacts,a_faults,inits\n");
         }
         {
             s4_sensor_status_t status;
@@ -40,7 +41,7 @@ void monitor_task(INT start_code, void *p_exinf)
                     0, false, BOARD_TERRAIN_CALIBRATED,
                     BOARD_PITCH_ZERO_CDEG, BOARD_ROLL_ZERO_CDEG);
                 tm_printf((UB *)"[S4] %u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,"
-                                  "%u,%u,%u,%u,%u\n",
+                                  "%u,%u,%u,%u,%u,%u,%u,%u\n",
                           (UW)(status.observed_time_us / 1000u),
                           (INT)status.init_result,
                           (INT)status.accel_usable, (INT)status.mag_usable,
@@ -54,7 +55,9 @@ void monitor_task(INT start_code, void *p_exinf)
                           display_age(status.mag_age_ms),
                           (UW)status.accel_samples, (UW)status.mag_samples,
                           (UW)status.accel_io_errors, (UW)status.mag_io_errors,
-                          (UW)status.task_heartbeat);
+                          (UW)status.task_heartbeat,
+                          (UW)status.accel_impacts, (UW)status.accel_faults,
+                          (UW)status.init_attempts);
                 tm_printf((UB *)"[S4TILT] calibrated=%u valid=%u pitch_cdeg=%d roll_cdeg=%d\n",
                     (unsigned)BOARD_TERRAIN_CALIBRATED, (unsigned)tilt.tilt_valid,
                     (INT)terrain_pitch_cdeg(&tilt), (INT)terrain_roll_cdeg(&tilt));

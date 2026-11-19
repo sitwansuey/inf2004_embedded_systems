@@ -8,6 +8,11 @@
 /* A rejected capture shorter than one framed character (9 elements) is a
  * line crossing or speck, not a barcode that failed to decode. */
 #define S3_BARCODE_FAIL_MIN_RUNS 9U
+/* From this many elements the vehicle treats a capture as a marker being read
+ * (follower off). A capture that ends by itself with this many but fewer than
+ * S3_BARCODE_FAIL_MIN_RUNS is counted as partial, not as a failed read; one
+ * cut short by a sampler fault is a failed read (see barcode_fault_fails). */
+#define S3_BARCODE_MARKER_MIN_RUNS 3U
 /* Dashboard summary of the barcode reader. */
 #define S3_BARCODE_RESULT_NONE 0U
 #define S3_BARCODE_RESULT_READING 1U
@@ -75,6 +80,10 @@ typedef struct
     /* Line sensors straddle the line: both WHITE is centred, so all-white is
      * not LOST and barcode capture is not gated on single-sensor TRACKING. */
     bool line_straddle;
+    /* A TRACK capture of >= S3_BARCODE_MARKER_MIN_RUNS elements cut short by
+     * s3_core_fault (a sampler hiccup) counts as a failed read: fail counter,
+     * FAILED result, so the controller re-reads the marker. Off by default. */
+    bool barcode_fault_fails;
 } s3_config_t;
 
 typedef struct
@@ -110,6 +119,13 @@ typedef struct
      * a full *X* marker is 29. Saturates at 255. */
     uint8_t barcode_elements;
     uint8_t barcode_result; /* S3_BARCODE_RESULT_* */
+    /* Wrapping: captures that ended by themselves with
+     * S3_BARCODE_MARKER_MIN_RUNS..S3_BARCODE_FAIL_MIN_RUNS-1 elements. Not a
+     * read and not in barcode_fail_count; for read-rate measurement only. */
+    uint8_t barcode_partial_count;
+    /* Wrapping: reads cut short by a sampler fault (barcode_fault_fails);
+     * each one is also in barcode_fail_count. */
+    uint8_t barcode_abort_count;
 } s3_output_t;
 
 typedef struct
@@ -133,6 +149,9 @@ typedef struct
     uint8_t last_bars;
     uint8_t last_elements;
     uint8_t last_result;
+    uint8_t barcode_partial_count;
+    uint8_t barcode_abort_count;
+    uint8_t partial_elements; /* elements of the last partial capture */
     /* Operator letter -> s3_navigation_t, A..Z; S3_MAP_DEFAULT = codebook. */
     uint8_t map_override[26];
 } s3_core_t;
@@ -144,6 +163,9 @@ bool s3_core_init(s3_core_t *p_core, const s3_config_t *p_config);
 /* Explicit TRACK is resume/acknowledgement, clears a fault/recovery hold.
  * Call only for a new controller directive, not every sampling cycle. */
 bool s3_core_control(s3_core_t *p_core, s3_mode_t mode, bool marker_clear);
+/* Latch an error and abort any capture. With config.barcode_fault_fails, a
+ * TRACK capture of >= S3_BARCODE_MARKER_MIN_RUNS elements it cuts short is
+ * counted as a failed read (barcode_fail_count, barcode_abort_count). */
 void s3_core_fault(s3_core_t *p_core, s3_error_t error);
 /* Finish a running barcode capture at the next edge-free sample (the
  * controller measured the end of the marker by distance). No-op otherwise. */

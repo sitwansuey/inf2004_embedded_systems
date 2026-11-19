@@ -36,13 +36,14 @@ COMPLETION = .build/test_barcode_completion$(EXEEXT)
 BARCODE_IMPORT = .build/test_barcode_import$(EXEEXT)
 MIXED_BARCODE = .build/test_mixed_barcode$(EXEEXT)
 END_QUIET = .build/test_barcode_end_quiet$(EXEEXT)
+FAULT_FAIL = .build/test_barcode_fault_fail$(EXEEXT)
 
 # BOARD_IR_MODE 2 builds use the measured ADC endpoints (robot_config.h
 # includes robot_ir_calibration.h for modes 2 and 3; 3 is the mission default).
 # The ADC worker tests sample all three channels, so they pin mode 2 (in the
 # mission's mode 3 GP28 is a digital input; see test_mixed_barcode).
 .PHONY: test verify-failure check-headers clean
-test: $(RESYNC) $(COMPLETION) $(END_QUIET) $(BARCODE_IMPORT) $(MIXED_BARCODE) $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(ROBOT_CAL_OFF) $(PAUSED_TIME) $(SAMPLE_SCHEDULE)
+test: $(RESYNC) $(COMPLETION) $(END_QUIET) $(FAULT_FAIL) $(BARCODE_IMPORT) $(MIXED_BARCODE) $(EDGE_BIAS) $(BINARY) $(ADAPTER) $(ADC_TEST) $(ADC_TICK) $(ADC_ACQUIRE) $(RAW_TEST) $(RAW_UNLOCKED) $(ROBOT_LAYOUT) $(ROBOT_CALIBRATION) $(ROBOT_CAL_DEFAULT) $(ROBOT_CAL_OFF) $(PAUSED_TIME) $(SAMPLE_SCHEDULE)
 	./$(BINARY) $(TEST_ARGS)
 	./$(ADAPTER)
 	./$(ADC_TEST)
@@ -60,6 +61,7 @@ test: $(RESYNC) $(COMPLETION) $(END_QUIET) $(BARCODE_IMPORT) $(MIXED_BARCODE) $(
 	./$(RESYNC)
 	./$(COMPLETION)
 	./$(END_QUIET)
+	./$(FAULT_FAIL)
 	./$(BARCODE_IMPORT)
 	./$(MIXED_BARCODE)
 
@@ -74,6 +76,10 @@ $(COMPLETION): test_barcode_completion.c test_barcode_resync.c $(CORE_HEADERS) .
 $(END_QUIET): test_barcode_end_quiet.c $(CORE_SOURCES) $(CORE_HEADERS)
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) test_barcode_end_quiet.c $(CORE_SOURCES) $(LDFLAGS) -o $@
+
+$(FAULT_FAIL): test_barcode_fault_fail.c $(CORE_SOURCES) $(CORE_HEADERS)
+	mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) test_barcode_fault_fail.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
 $(BARCODE_IMPORT): test_barcode_import.c $(CORE_SOURCES) $(CORE_HEADERS)
 	mkdir -p .build

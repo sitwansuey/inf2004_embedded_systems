@@ -101,9 +101,19 @@ static void test_wait_failures(void)
         if (failure == 1U) adc_fail_clock_after_wait = true;
         if (failure == 2U) malformed_reply = 1;
         CHECK(s3_service_once() == expected);
-        CHECK(ir.adc_failed && !status.output.steering_allowed);
+        /* L3: a worker held off 30 ms drops the scan; only clock and
+         * transport failures latch. */
+        CHECK(ir.adc_failed == (failure != 0U) && !status.output.steering_allowed);
         CHECK(status.acquisition_error == expected && status.sample.valid_mask == 0U);
         CHECK(adc_reply_waits == 1U);
+        if (failure == 0U)
+        {
+            CHECK(s3_ir_waiting(&ir) && have_request && adc_reads == 0U);
+            adc_wait_delay_ms = 0U;
+            fake_now += 10U;
+            CHECK(s3_service_once() == E_OK && status.acquisition_error == E_OK);
+            CHECK(status.sample.valid_mask == 7U && adc_reads == 3U && adc_reply_waits == 2U);
+        }
     }
     CHECK(s3_adc_receive_wait(NULL) == E_PAR);
     fail_time = false;
@@ -119,9 +129,19 @@ static void test_bounded_absent_reply(void)
     CHECK(s3_service_once() == E_TMOUT && fake_now == 20U);
     CHECK(adc_reply_waits == 1U && adc_reads == 0U && s3_ir_waiting(&ir));
     CHECK(!status.output.steering_allowed && status.sample.valid_mask == 0U);
+    /* L3: each call waits once, boundedly; a starved worker never latches. */
     fake_now = 40U;
-    CHECK(s3_service_once() == E_TMOUT && ir.adc_failed);
-    CHECK(adc_reply_waits == 1U && adc_reads == 0U);
+    CHECK(s3_service_once() == E_TMOUT && !ir.adc_failed && s3_ir_waiting(&ir));
+    CHECK(adc_reply_waits == 2U && adc_reads == 0U && fake_now == 60U);
+    /* The worker finally runs, too late to convert: the scan is dropped. */
+    caller = 43;
+    CHECK(s3_adc_worker_once(TMO_POL) == E_TMOUT && !worker_failed && adc_reads == 0U);
+    caller = 42; fake_now = 70U;
+    CHECK(s3_service_once() == E_TMOUT && !ir.adc_failed && adc_request.issued_ms == 70U);
+    /* The core is free again: the resubmitted scan converts. */
+    adc_auto_worker = true; adc_wait_delay_ms = 0U; fake_now = 80U;
+    CHECK(s3_service_once() == E_OK && status.acquisition_error == E_OK);
+    CHECK(status.sample.valid_mask == 7U && status.sample.time_ms == 80U && adc_reads == 3U);
 }
 
 static void test_calibrated_paused_jitter(void)

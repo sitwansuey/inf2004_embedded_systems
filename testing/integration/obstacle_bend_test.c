@@ -3,7 +3,7 @@
 #include "../../app_program/vehicle_policy.h"
 /* An obstacle met on a bend (the left straddle sensor on black). */
 static vc_input_t input(void) {
- vc_input_t i={0};i.motor_ok=i.transport_ok=i.sensor_fresh=1;
+ vc_input_t i={0};i.motor_ok=i.transport_ok=i.sensor_fresh=i.backup_ready=1;
  i.terrain_valid=i.odom_valid=i.front_clear=i.line_fresh=i.steering=1;
  i.line_black_mask=2;i.bypass_enabled=1;i.bypass_steering=376;i.width_valid=1;i.obstacle_width_mm=200;
  return i;
@@ -15,10 +15,10 @@ static void route(int sign) {
  vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
  /* Straight reverse, ramped, then under the 16% cap mid-way, while the obstacle is still ahead. */
  i.now_ms=20;i.distance_um=-10000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_START_POWER && !s.steering);
- i.now_ms=10+AVOID_BACKUP_MS/2;i.distance_um=-50000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==16 && !s.steering);
- const uint32_t t=AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;
+ i.now_ms=20+AVOID_BACKUP_MS/2;i.distance_um=-50000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==16 && !s.steering);
+ const uint32_t t=10+AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;
  /* Reverse done: stand still, then turn out (the plan is mirrored for the return). */
- i.now_ms=10+AVOID_BACKUP_MS;i.distance_um=-100000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
+ i.now_ms=20+AVOID_BACKUP_MS;i.distance_um=-100000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
  i.now_ms=10+t;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command && s.approach_mm==300 && s.return_mm==300);
  i.now_ms=t+20;i.obstacle=i.scan_ready=0;i.front_clear=1;i.line_black_mask=0;
  vc_step(&s,&i);assert(s.command==1 && s.steering==-sign*376 && s.power==AVOID_BACKUP_START_POWER);

@@ -58,40 +58,96 @@ static int16_t decode_mag(const uint8_t *p_bytes)
     return (int16_t)value;
 }
 
+static lsm303_result_t write_verified(const lsm303_bus_t *p_bus,
+                                      const config_register_t *p_config,
+                                      size_t count)
+{
+    uint8_t value;
+    size_t index;
+
+    for (index = 0; index < count; index++)
+    {
+        if (!p_bus->write(p_bus->p_context, p_config[index].address,
+                          p_config[index].reg, p_config[index].value) ||
+            !p_bus->read(p_bus->p_context, p_config[index].address,
+                         p_config[index].reg, &value, 1))
+        {
+            return LSM303_IO_ERROR;
+        }
+        if (value != p_config[index].value)
+        {
+            return LSM303_CONFIG_ERROR;
+        }
+    }
+    return LSM303_OK;
+}
+
 lsm303_result_t lsm303dlhc_init(lsm303_device_t *p_device,
                               const lsm303_bus_t *p_bus)
 {
-    /* Configure while both converters are stopped, then start them last. */
+    /* Configure the converter while it is stopped, then start it last. */
     static const config_register_t config[] =
     {
         { LSM303_ACCEL_ADDRESS, ACCEL_CTRL1, 0x07 },
-        { LSM303_MAG_ADDRESS, MAG_MODE, 0x03 },
         { LSM303_ACCEL_ADDRESS, ACCEL_CTRL2, 0x00 },
         { LSM303_ACCEL_ADDRESS, ACCEL_CTRL3, 0x00 },
         { LSM303_ACCEL_ADDRESS, ACCEL_CTRL4, 0x88 },
         { LSM303_ACCEL_ADDRESS, ACCEL_CTRL5, 0x00 },
         { LSM303_ACCEL_ADDRESS, ACCEL_CTRL6, 0x00 },
         { LSM303_ACCEL_ADDRESS, ACCEL_FIFO_CTRL, 0x00 },
-        { LSM303_MAG_ADDRESS, MAG_CRA, 0x14 },
-        { LSM303_MAG_ADDRESS, MAG_CRB, 0x20 },
-        { LSM303_ACCEL_ADDRESS, ACCEL_CTRL1, 0x47 },
-        { LSM303_MAG_ADDRESS, MAG_MODE, 0x00 }
+        { LSM303_ACCEL_ADDRESS, ACCEL_CTRL1, 0x47 }
     };
-    uint8_t identity[3];
-    uint8_t value;
-    size_t index;
+    lsm303_result_t result;
 
     if (p_device == NULL)
     {
         return LSM303_BAD_ARGUMENT;
     }
     p_device->initialized = false;
+    p_device->mag_ready = false;
     if ((p_bus == NULL) || (p_bus->read == NULL) || (p_bus->write == NULL) ||
         (p_bus->now_us == NULL))
     {
         return LSM303_BAD_ARGUMENT;
     }
     p_device->bus = *p_bus;
+    /* The DLHC datasheet reserves accel addresses 0x00..0x1f. Do not
+     * require an undocumented WHO_AM_I at 0x0f. Verify configuration. */
+    result = write_verified(p_bus, config, sizeof(config) / sizeof(config[0]));
+    if (result != LSM303_OK)
+    {
+        return result;
+    }
+    p_device->initialized = true;
+    /* Telemetry only: its failure leaves mag_ready false, nothing else. */
+    (void)lsm303dlhc_init_mag(p_device);
+    return LSM303_OK;
+}
+
+lsm303_result_t lsm303dlhc_init_mag(lsm303_device_t *p_device)
+{
+    /* Configure the converter while it sleeps, then start it last. */
+    static const config_register_t config[] =
+    {
+        { LSM303_MAG_ADDRESS, MAG_MODE, 0x03 },
+        { LSM303_MAG_ADDRESS, MAG_CRA, 0x14 },
+        { LSM303_MAG_ADDRESS, MAG_CRB, 0x20 },
+        { LSM303_MAG_ADDRESS, MAG_MODE, 0x00 }
+    };
+    const lsm303_bus_t *p_bus;
+    uint8_t identity[3];
+    lsm303_result_t result;
+
+    if (p_device == NULL)
+    {
+        return LSM303_BAD_ARGUMENT;
+    }
+    if (!p_device->initialized)
+    {
+        return LSM303_NOT_INITIALIZED;
+    }
+    p_device->mag_ready = false;
+    p_bus = &p_device->bus;
     if (!p_bus->read(p_bus->p_context, LSM303_MAG_ADDRESS, MAG_ID,
                      identity, sizeof(identity)))
     {
@@ -102,24 +158,9 @@ lsm303_result_t lsm303dlhc_init(lsm303_device_t *p_device,
     {
         return LSM303_WRONG_ID;
     }
-    /* The DLHC datasheet reserves accel addresses 0x00..0x1f. Do not
-     * require an undocumented WHO_AM_I at 0x0f. Verify configuration. */
-    for (index = 0; index < (sizeof(config) / sizeof(config[0])); index++)
-    {
-        if (!p_bus->write(p_bus->p_context, config[index].address,
-                          config[index].reg, config[index].value) ||
-            !p_bus->read(p_bus->p_context, config[index].address,
-                         config[index].reg, &value, 1))
-        {
-            return LSM303_IO_ERROR;
-        }
-        if (value != config[index].value)
-        {
-            return LSM303_CONFIG_ERROR;
-        }
-    }
-    p_device->initialized = true;
-    return LSM303_OK;
+    result = write_verified(p_bus, config, sizeof(config) / sizeof(config[0]));
+    p_device->mag_ready = (result == LSM303_OK);
+    return result;
 }
 
 static bool poll_accel(const lsm303_bus_t *p_bus, lsm303_sample_t *p_sample)
@@ -235,6 +276,7 @@ lsm303_result_t lsm303dlhc_poll(lsm303_device_t *p_device,
         return LSM303_NOT_INITIALIZED;
     }
     accel_ok = poll_accel(&p_device->bus, &p_frame->accel);
-    mag_ok = poll_mag(&p_device->bus, &p_frame->mag);
+    /* A magnetometer that failed set-up is not polled (NO_DATA). */
+    mag_ok = !p_device->mag_ready || poll_mag(&p_device->bus, &p_frame->mag);
     return (accel_ok && mag_ok) ? LSM303_OK : LSM303_IO_ERROR;
 }

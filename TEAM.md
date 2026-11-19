@@ -42,11 +42,11 @@ ticks assume 20 ms. The S3 and S4 cyclic samplers run at exactly 10 ms.
 | S2 -> VC/S1 | bounded protected commanded-status and consistent encoder snapshots; operating-clock timestamps; measured x1 scale |
 | S2 -> S4 in VC | exact 13-byte internal encoder snapshot; checked validity, age, IMU skew, count/time wrap and interval continuity; no native struct fusion |
 | VC <-> S3 | single controller binding, modes/100 ms lease, fresh snapshot (<30 ms), bounded 14-byte events (<100 ms), explicit marker acknowledgement |
-| S4 -> VC/S1 | 63-byte protected acquisition record; per-channel usability/age decoded locally; 12-byte checked terrain result in shared app_state; acquisition remains sole I2C owner |
+| S4 -> VC/S1 | 71-byte protected acquisition record with monotonic impact/fault counters; per-channel usability/age decoded locally; 12-byte checked terrain result in shared app_state; acquisition remains sole I2C owner |
 | VC -> S5 | controller-bound navigation mode/direction, scan ID, old reading invalidated until servo settles |
 | S5 -> VC/S1 | copied status, matching actual/requested sample angle, freshness, static scan geometry and bounds |
-| VC -> S1 | protected compact controller/terrain snapshot; bounded robot-event records (s1_event_post, 16-entry message buffer, never blocking; a full queue drops and counts); no network calls |
-| S1 -> network | two-entry copied binary inbox; robot events taken one per poll (s1_event_take) and published on Robopico/events/edr16/v1, the network owner posting its own link events; nonblocking bounded polling on the existing network service |
+| VC -> S1 | protected compact controller/terrain snapshot; bounded robot-event records (s1_event_post, 160-byte message buffer (20 two-byte records including kernel overhead), never blocking; a full queue drops and counts); no network calls |
+| S1 -> network | two-entry copied binary inbox, newest first with old drops counted and flags preserved; robot events taken one per poll (s1_event_take) on Robopico/events/edr16/v1; link events held separately and sent first; nonblocking bounded polling on the existing network service |
 | network/USB -> VC | copied commands, urgent STOP outside queue, 100 ms queue age; timed ARM for benches or one-shot autonomous START |
 
 The obsolete sample producer was removed in published main PR #6 and remains
@@ -67,3 +67,21 @@ docs/MISSION_SETUP.md.
 
 GP22 is retained for the explicitly selected S5 acquisition diagnostic buzzer;
 it is not used by the default or passive-test profiles.
+
+The VC tolerates three consecutive motor-status copy misses; a published
+FAULT still stops at once. An odometry gap holds stopped for at most 200 ms.
+S3 lock timeouts retry within the existing 100 ms lease. Navigation survives
+a later sampler latch. A marker held with no pending turn is re-armed after
+100 ms. Fault-cut reads of at least three elements count as failed attempts
+(`BOARD_BARCODE_FAULT_FAILS 1`); short partials get USB logs only.
+
+S4 bridges up to 60 ms of unusable terrain input and keeps completed hump
+height separately. Its counters feed VC shock and IMU-fault counts. The
+armed lift detector never waives tilt. S5 retains its plan after READY, allows
+one free initial braking restart, and checks the side corridor before READY.
+The VC also ray-checks a shallower reverse replan and waits for forward data
+after pans. Peripheral ownership and all STOP/lease checks stay in force.
+
+With `BOARD_TIMING_STATS 1`, a USB `[TIMING]` line every 10 s gives maximum
+run time, release gap and late/run counts for VC, motor and network. A gap
+over 25 ms counts as late. The motor measurement excludes direction dead time.

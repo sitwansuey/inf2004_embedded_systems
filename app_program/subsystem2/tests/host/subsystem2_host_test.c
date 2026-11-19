@@ -33,8 +33,10 @@ static INT expected_right;
 static INT lock_count;
 static UINT lock_timeouts; /* next status-lock waits that time out */
 static UINT failing_pin; /* gpio_set_pin fails for this pin */
+static UINT fault_prints; /* "[S2 FAULT]" lines printed */
 static jmp_buf task_exit;
 static void (*p_receive_hook)(void);
+static void (*p_delay_hook)(void); /* one shot: runs at the end of a delay */
 #if S2_ENCODER_ENABLED
 static void (*p_gpio_read_hook)(void);
 static UINT gpio_input_reads;
@@ -99,7 +101,18 @@ static void reset_fixture(void)
     failing_pin = UINT32_MAX;
     status_unpublished = FALSE;
     p_receive_hook = NULL;
+    p_delay_hook = NULL;
+    fault_prints = 0;
     renewal_command = S2_MOVE_FORWARD;
+#if BOARD_PID_ENABLED
+    {
+        /* A FAULT word clears the regulator, as after a real fault. */
+        uint16_t fault;
+
+        assert(edr_motor_pack(0U, 0U, S2_MOTION_FAULT, &fault));
+        assert(motor_regulate(fault) == E_OK);
+    }
+#endif
 #if S2_ENCODER_ENABLED
     p_gpio_read_hook = NULL;
     gpio_input_reads = 0;
@@ -162,6 +175,14 @@ ER tk_get_otm(SYSTIM *p_time)
 ER tk_dly_tsk(UW delay)
 {
     now_ms += delay;
+    if (p_delay_hook != NULL)
+    {
+        /* Something (the VC) ran on the tick this delay ended. */
+        void (*hook)(void) = p_delay_hook;
+
+        p_delay_hook = NULL;
+        hook();
+    }
     return E_OK;
 }
 
@@ -310,7 +331,10 @@ ID app_start_task(FP p_task, UINT priority, UINT core, const char *p_name)
 
 int tm_printf(UB *p_format, ...)
 {
-    (void)p_format;
+    if (strncmp((const char *)p_format, "[S2 FAULT]", 10U) == 0)
+    {
+        ++fault_prints;
+    }
     return 0;
 }
 
@@ -1041,6 +1065,75 @@ static void test_stop_epoch(void)
 #endif
 }
 
+/* C3: the VC sends STOP on the tick that a drive-command change's dead time
+ * ends (sonar hold, obstacle, line gap). That is a STOP, not a fault: the
+ * task publishes STOPPED and never prints "[S2 FAULT]". */
+static void vc_stop_now(void)
+{
+    assert(s2_emergency_stop() == E_OK);
+}
+
+static void dead_time_switch_hook(void)
+{
+    if (receive_count == 2U)
+    {
+        /* FORWARD runs; the follower switches to a pivot and the STOP
+         * lands in that switch's dead time. */
+        assert_status(S2_MOTION_MOVING, E_OK);
+        assert(s2_movement_send(S2_MOVE_PIVOT_LEFT, 30) == E_OK);
+        p_delay_hook = vc_stop_now;
+    }
+}
+
+#if BOARD_PID_ENABLED
+static void regulate_stop_hook(void)
+{
+    if (receive_count == 2U)
+    {
+        /* The STOP preempts the next speed update mid-way. */
+        assert_status(S2_MOTION_MOVING, E_OK);
+        p_gpio_read_hook = vc_stop_now;
+    }
+}
+#endif
+
+static void test_stop_in_dead_time(void)
+{
+    /* STOP -> FORWARD: the STOP lands in the start's dead time. */
+    setup();
+    p_delay_hook = vc_stop_now;
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    run_task();
+    assert_status(S2_MOTION_STOPPED, E_OK);
+    assert(fault_prints == 0U && nonzero_writes == 0U);
+
+    /* FORWARD -> PIVOT_LEFT: the follower's switch. */
+    setup();
+    p_receive_hook = dead_time_switch_hook;
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    run_task();
+    assert_status(S2_MOTION_STOPPED, E_OK);
+    assert(fault_prints == 0U && nonzero_writes == 2U);
+    assert(stop_epoch == stopped_epoch);
+#if BOARD_PID_ENABLED
+    setup();
+    p_receive_hook = regulate_stop_hook;
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    run_task();
+    assert(p_gpio_read_hook == NULL);
+    assert_status(S2_MOTION_STOPPED, E_OK);
+    assert(fault_prints == 0U);
+#endif
+    /* A real fault still prints its line. */
+    setup();
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    now_ms = S2_COMMAND_TIMEOUT_MS;
+    run_task();
+    assert_status(S2_MOTION_FAULT, E_TMOUT);
+    assert(fault_prints == 1U);
+    puts("STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS");
+}
+
 static void test_turn_drive_helpers(void)
 {
     for (UINT command = 0; command <= (UINT)S2_MOVE_PIVOT_LEFT; ++command)
@@ -1097,15 +1190,14 @@ static UW sim_late_max[4];
 static UW sim_late[4];
 static UINT sim_lock_at; /* receive that queues 3 status-lock timeouts, 0: none */
 
-static void sim_wheels_hook(void)
+/* Turns the wheels that the published command drives, except sim_still;
+ * records the first FAULT. Returns the published state. */
+static UINT sim_wheels(void)
 {
     UW counts = (now_ms - sim_moved_ms) / 2U;
-    UINT state = (motion_status.motor >> 10U) & 3U;
+    uint8_t command, power, state;
 
-    if (sim_lock_at != 0U && receive_count == sim_lock_at)
-    {
-        lock_timeouts = 3U; /* this receive's renewal copy and two retries */
-    }
+    assert(edr_motor_unpack(motion_status.motor, &command, &power, &state));
     sim_moved_ms += counts * 2U;
     if (state == S2_MOTION_FAULT && sim_fault_ms == 0U)
     {
@@ -1113,13 +1205,26 @@ static void sim_wheels_hook(void)
     }
     if (state != S2_MOTION_MOVING)
     {
-        return;
+        return state;
     }
     /* Left forward counts = negative - positive; right = positive - negative. */
-    if (sim_still != 0U && sim_left[sim_command] > 0) encoder1_negative += counts;
-    if (sim_still != 0U && sim_left[sim_command] < 0) encoder1_positive += counts;
-    if (sim_still != 1U && sim_right[sim_command] > 0) encoder_positive += counts;
-    if (sim_still != 1U && sim_right[sim_command] < 0) encoder_negative += counts;
+    if (sim_still != 0U && sim_left[command] > 0) encoder1_negative += counts;
+    if (sim_still != 0U && sim_left[command] < 0) encoder1_positive += counts;
+    if (sim_still != 1U && sim_right[command] > 0) encoder_positive += counts;
+    if (sim_still != 1U && sim_right[command] < 0) encoder_negative += counts;
+    return state;
+}
+
+static void sim_wheels_hook(void)
+{
+    if (sim_lock_at != 0U && receive_count == sim_lock_at)
+    {
+        lock_timeouts = 3U; /* this receive's renewal copy and two retries */
+    }
+    if (sim_wheels() != S2_MOTION_MOVING)
+    {
+        return;
+    }
     for (UINT pin = 0; pin < 4U; ++pin)
     {
         UW duty = duties[8U + pin];
@@ -1220,6 +1325,208 @@ static void test_pid_turn_drive(void)
     assert(sim_fault_ms > 500U && sim_fault_ms <= 520U);
     puts("PID spins: kick until real motion, re-kick, raised ceiling, longer stall; straight and pivots unchanged PASS");
 }
+
+/* C6: the stall time is driven time without progress. It must not start
+ * again at each FORWARD <-> PIVOT switch or short STOP for a wheel that is
+ * driven the same way, and a wheel a pivot does not drive is never checked.
+ * These call motor_regulate directly at chosen times. */
+static ER regulate_at(UW t, s2_move_command_t command, s2_motion_state_t state)
+{
+    uint16_t word;
+
+    now_ms = t;
+    motor_stop(); /* motor_apply turns PWM off on each command change */
+    assert(edr_motor_pack((uint8_t)command,
+                          state == S2_MOTION_MOVING ? 25U : 0U,
+                          (uint8_t)state, &word));
+    return motor_regulate(word);
+}
+
+/* Forward counts for wheel 0 (left) or 1 (right); negative is reverse. */
+static void turn_wheel(UINT wheel, INT counts)
+{
+    if (wheel == 0U && counts > 0) encoder1_negative += (UW)counts;
+    if (wheel == 0U && counts < 0) encoder1_positive += (UW)-counts;
+    if (wheel == 1U && counts > 0) encoder_positive += (UW)counts;
+    if (wheel == 1U && counts < 0) encoder_negative += (UW)-counts;
+}
+
+/* Steps command every 20 ms from t to before end; wheels in move[] turn
+ * 10 counts a step in their direction. Returns the first stall time, or 0. */
+static UW regulate_until(UW t, UW end, s2_move_command_t command,
+                         const INT move[2])
+{
+    for (; t < end; t += 20U)
+    {
+        ER er;
+
+        turn_wheel(0U, move[0] * 10);
+        turn_wheel(1U, move[1] * 10);
+        er = regulate_at(t, command, S2_MOTION_MOVING);
+        if (er == E_TMOUT) return t;
+        assert(er == E_OK);
+    }
+    return 0U;
+}
+
+/* Fresh regulator, encoders ready, the clock at 0. */
+static void stall_setup(void)
+{
+    setup();
+    run_task(); /* initialises the encoders, then idles */
+    now_ms = 0U;
+    assert(regulate_at(0U, S2_MOVE_STOP, S2_MOTION_FAULT) == E_OK);
+}
+
+static void test_pid_stall_carry(void)
+{
+    static const INT both[2] = {1, 1}, left_only[2] = {1, 0};
+    static const INT right_only[2] = {0, 1}, spin[2] = {0, -1};
+    ER er = E_OK;
+    UW t;
+
+    /* Right wheel held while the follower switches FORWARD <-> PIVOT_LEFT
+     * every other VC tick: each switch's dead time leaves no full speed
+     * update, so only the command changes see the wheel. Before C6 the
+     * window restarted at each switch and never ran out. */
+    stall_setup();
+    for (t = 0U; t <= 2000U && er == E_OK; t += 40U)
+    {
+        BOOL pivot = (t / 40U) % 2U != 0U;
+
+        if (pivot) turn_wheel(0U, 20); /* the left wheel ran in FORWARD */
+        er = regulate_at(t, pivot ? S2_MOVE_PIVOT_LEFT : S2_MOVE_FORWARD,
+                         S2_MOTION_MOVING);
+    }
+    assert(er == E_TMOUT && t - 40U == 520U);
+
+    /* The same switching with both wheels turning never faults: progress
+     * is seen across each switch too. */
+    stall_setup();
+    for (t = 0U; t <= 2000U; t += 40U)
+    {
+        BOOL pivot = (t / 40U) % 2U != 0U;
+
+        turn_wheel(1U, 20);
+        if (pivot) turn_wheel(0U, 20);
+        assert(regulate_at(t, pivot ? S2_MOVE_PIVOT_LEFT : S2_MOVE_FORWARD,
+                           S2_MOTION_MOVING) == E_OK);
+    }
+
+    /* A wheel the pivot does not drive is never checked: left held, right
+     * turning, 2 s of PIVOT_LEFT. */
+    stall_setup();
+    assert(regulate_until(0U, 2000U, S2_MOVE_PIVOT_LEFT, right_only) == 0U);
+
+    /* Left held, switching every 100 ms with full speed updates: only the
+     * FORWARD halves count (driven time), so it faults after 500 ms of
+     * them, not 500 ms of wall time and not never. */
+    stall_setup();
+    t = 0U;
+    for (UW at = 0U; at < 2000U && t == 0U; at += 200U)
+    {
+        t = regulate_until(at, at + 100U, S2_MOVE_FORWARD, right_only);
+        if (t == 0U) t = regulate_until(at + 100U, at + 200U, S2_MOVE_PIVOT_LEFT, right_only);
+    }
+    assert(t == 1020U);
+
+    /* A short STOP keeps the count of a wheel that turned and was then
+     * held: right turns to 80 ms, is held to the STOP at 320 ms (220 ms),
+     * a 100 ms STOP, then FORWARD faults after the remaining 280 ms at
+     * 720 ms (before: 500 ms after the STOP, at 940 ms). */
+    stall_setup();
+    assert(regulate_until(0U, 100U, S2_MOVE_FORWARD, both) == 0U);
+    assert(regulate_until(100U, 320U, S2_MOVE_FORWARD, left_only) == 0U);
+    for (t = 320U; t < 420U; t += 20U)
+        assert(regulate_at(t, S2_MOVE_STOP, S2_MOTION_STOPPED) == E_OK);
+    assert(regulate_until(420U, 1500U, S2_MOVE_FORWARD, left_only) == 720U);
+
+    /* A start that has not turned yet starts again after a STOP, as before:
+     * the VC restarts its avoidance power ramp from about 1 % after a STOP. */
+    stall_setup();
+    assert(regulate_until(0U, 320U, S2_MOVE_FORWARD, left_only) == 0U);
+    for (t = 320U; t < 420U; t += 20U)
+        assert(regulate_at(t, S2_MOVE_STOP, S2_MOTION_STOPPED) == E_OK);
+    assert(regulate_until(420U, 1500U, S2_MOVE_FORWARD, left_only) == 940U);
+
+    /* A STOP longer than the 500 ms allowance starts it again (as before). */
+    stall_setup();
+    assert(regulate_until(0U, 100U, S2_MOVE_FORWARD, both) == 0U);
+    assert(regulate_until(100U, 320U, S2_MOVE_FORWARD, left_only) == 0U);
+    for (t = 320U; t < 1000U; t += 20U)
+        assert(regulate_at(t, S2_MOVE_STOP, S2_MOTION_STOPPED) == E_OK);
+    assert(regulate_until(1000U, 2000U, S2_MOVE_FORWARD, left_only) == 1520U);
+
+    /* A FAULT forgets it: the next FORWARD gets a full window. */
+    stall_setup();
+    assert(regulate_until(0U, 1000U, S2_MOVE_FORWARD, left_only) == 520U);
+    assert(regulate_at(540U, S2_MOVE_STOP, S2_MOTION_FAULT) == E_OK);
+    assert(regulate_until(560U, 1500U, S2_MOVE_FORWARD, both) == 0U);
+    assert(regulate_until(1500U, 2500U, S2_MOVE_FORWARD, left_only) == 2000U);
+
+    /* Spins keep their own 1.2 s allowance and a spin -> FORWARD change
+     * starts the count again, as before: left held 700 ms in a RIGHT spin,
+     * then FORWARD faults 520 ms later, not at once. */
+    stall_setup();
+    assert(regulate_until(0U, 700U, S2_MOVE_RIGHT, spin) == 0U);
+    assert(regulate_until(700U, 2000U, S2_MOVE_FORWARD, right_only) == 1220U);
+    puts("Stall time: kept across FORWARD<->PIVOT and short STOPs, idle wheel unchecked, spins unchanged PASS");
+}
+
+/* C6 on the real task: the follower switches FORWARD <-> PIVOT_LEFT every
+ * alt_period_ms until alt_end_ms, then STOPs. */
+static UW alt_period_ms, alt_next_ms, alt_end_ms;
+static UINT alt_index;
+
+static void alt_hook(void)
+{
+    static const s2_move_command_t commands[2] =
+    {
+        S2_MOVE_FORWARD, S2_MOVE_PIVOT_LEFT
+    };
+
+    if (sim_wheels() != S2_MOTION_MOVING) return;
+    if (now_ms >= alt_end_ms)
+    {
+        assert(s2_emergency_stop() == E_OK);
+    }
+    else if (now_ms >= alt_next_ms)
+    {
+        alt_index ^= 1U;
+        alt_next_ms += alt_period_ms;
+        assert(s2_movement_send(commands[alt_index], 25U) == E_OK);
+    }
+}
+
+static void alt_run(UINT still, UW period_ms, UW end_ms)
+{
+    setup();
+    sim_still = still;
+    sim_moved_ms = 0U;
+    sim_fault_ms = 0U;
+    alt_period_ms = period_ms;
+    alt_next_ms = period_ms;
+    alt_end_ms = end_ms;
+    alt_index = 0U;
+    p_receive_hook = alt_hook;
+    assert(s2_movement_send(S2_MOVE_FORWARD, 25U) == E_OK);
+    run_task();
+}
+
+static void test_pid_follower_stall(void)
+{
+    /* Right wheel held (driven in both): fault 7 within about 0.6 s. */
+    alt_run(1U, 100U, 3000U);
+    assert(sim_fault_ms > 500U && sim_fault_ms <= 600U);
+    assert_status(S2_MOTION_FAULT, E_TMOUT);
+    assert(fault_prints == 1U);
+
+    /* Both wheels free, fast switching: no fault. */
+    alt_run(2U, 30U, 2000U);
+    assert(sim_fault_ms == 0U && fault_prints == 0U);
+    assert_status(S2_MOTION_STOPPED, E_OK);
+    puts("Follower FORWARD<->PIVOT with a held wheel: fault within 0.6 s; free wheels never fault PASS");
+}
 #endif
 
 int main(void)
@@ -1229,6 +1536,9 @@ int main(void)
     /* The scenarios below model open-loop wheels; speed regulation would
      * fault their motionless encoders, so this profile checks turns only. */
     test_pid_turn_drive();
+    test_stop_in_dead_time();
+    test_pid_stall_carry();
+    test_pid_follower_stall();
     if (BOARD_PID_ENABLED)
     {
         puts("Motor-control host checks passed");
@@ -1248,6 +1558,7 @@ int main(void)
     test_encoder_mode();
     test_data_adapters();
     test_stop_epoch();
+    test_stop_in_dead_time();
     puts("Motor-control host checks passed");
     return 0;
 }

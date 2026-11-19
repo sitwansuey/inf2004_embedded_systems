@@ -2,6 +2,7 @@
 #include "s5_hardware_host.h"
 #include <assert.h>
 #include <setjmp.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #define BOARD_TICKS_PER_REV 100
@@ -10,23 +11,53 @@
 #define BOARD_TERRAIN_CALIBRATED 1
 #define BOARD_MOTORS_DISABLED 0
 #define BOARD_BYPASS_VALIDATED 1 /* synthetic policy fixture only */
+/* Loop timing report every 1 s here (10 s on the robot), so a mode sees it. */
+#define VC_TIMING_REPORT_MS 1000U
 ID app_start_task(FP task, PRI priority, UW core, const char *name);
 #include "../../app_program/vehicle.c"
 #include "../../app_program/subsystem5/s5_scan.h" /* mode 15 runs S5's real acquisition step */
 #if !BOARD_LINE_MASK_PIVOT && !BOARD_LINE_EDGE_RIGHT
 #error The edge-trace scenarios below ride the right edge (BOARD_LINE_EDGE_RIGHT 1)
 #endif
+#if BOARD_TIMING_STATS && !VC_TIMING
+#error The vehicle task must build its loop timing hook here (BOARD_TIMING_STATS, TIMER_TIMERAWL)
+#endif
 /* Mode 0 also offers MAP frames: valid, invalid letter, stale. */
 static unsigned acks,ack_log[4][3],map_calls,map_letter,map_nav,map_step;
+static unsigned last_ack_seq,last_ack_opcode,last_ack_result; /* any opcode */
 void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault)
 {
     (void)phase;(void)fault;
+    last_ack_seq=seq;last_ack_opcode=opcode;last_ack_result=result;
     if(opcode==4U && acks<4U) {ack_log[acks][0]=seq;ack_log[acks][1]=opcode;ack_log[acks++][2]=result;}
 }
-INT tm_printf(UB *format, ...) { (void)format;return 0; }
+/* USB console lines the checks look at: the loop timing report and the
+ * re-sent TRACK for a marker S3 held with no turn pending. */
+static char timing_line[256];static unsigned timing_lines,orphan_lines;
+INT tm_printf(UB *format, ...)
+{
+    char line[256];va_list ap;va_start(ap,format);
+    vsnprintf(line,sizeof(line),(const char *)format,ap);va_end(ap);
+    if(!strncmp(line,"[TIMING]",8)) {++timing_lines;memcpy(timing_line,line,sizeof(line));}
+    if(!strncmp(line,"[VC] S3 held",12))++orphan_lines;
+    return 0;
+}
 static jmp_buf done;
 static app_state_t saved;
 static uint32_t clock_ms, iteration;
+/* The loop timing records (app_main.c on the robot) and the 1 MHz hardware
+ * timer: each read in a tick is 250 us after the previous one, so the VC's
+ * run (one read at its release, one when it is done) is 250 us. */
+#if VC_TIMING
+task_timing_t app_task_timing[TASK_TIMING_COUNT];
+#endif
+static uint32_t timer_tick_ms=~0U,timer_reads;
+UW in_w(UW address)
+{
+    assert(address==TIMER_TIMERAWL);
+    if(clock_ms!=timer_tick_ms) {timer_tick_ms=clock_ms;timer_reads=0;}
+    return (UW)(clock_ms*1000U+250U*timer_reads++);
+}
 static unsigned failure_mode, stops, positive_requests;
 /* Robot events posted for the dashboard's event log (shared/events.h). */
 #define EVENT_LOG 16U
@@ -61,10 +92,10 @@ static bool reset_offered;
 /* Modes 7, 13..20 and 22..27 START the mission (no lease) so they can run
  * past one second; the others ARM at 30% with a 1000 ms lease. */
 static bool starts(void) { return failure_mode==7U || (failure_mode>=13U && failure_mode<=20U) || failure_mode>=22U; }
-#define MODE_COUNT 29U
+#define MODE_COUNT 46U
 #define TICK_MS 20U /* tk_dly_tsk below */
 /* Per-tick record of what reached S2 and what the task published. */
-#define LOG_TICKS 300U
+#define LOG_TICKS 500U
 enum { SENT_NONE, SENT_FOLLOW, SENT_MOVE, SENT_REVERSE };
 static uint8_t sent_kind[LOG_TICKS], sent_cmd[LOG_TICKS], sent_power[LOG_TICKS], stopped[LOG_TICKS];
 static int32_t sent_steer[LOG_TICKS];
@@ -193,7 +224,9 @@ static void oc_s5_publish(s5_status_t *s,char sample)
  * level for 400 ms the end (EV_HUMP level; normal power). */
 #define HUMP_FROM 10U
 #define HUMP_LEVEL 70U
-#define HUMP_ITERATIONS 125U
+#define HUMP_DOWN 140U
+#define HUMP_BOTTOM 200U
+#define HUMP_ITERATIONS 300U
 #define HUMP_COUNTS_PER_TICK 5U /* 10 mm per tick: S4 integrates the height */
 static bool scenario_nose_up(unsigned n) { return failure_mode==17U && n>=HUMP_FROM && n<HUMP_LEVEL; }
 /* The mask-pivot follower drives the 1.2 m centred (both IRs white): a
@@ -201,7 +234,7 @@ static bool scenario_nose_up(unsigned n) { return failure_mode==17U && n>=HUMP_F
  * BOARD_LINE_LOST_MM of the line. */
 #define HUMP_CROSS_TICKS 20U
 _Static_assert(!BOARD_LINE_LOST_MM || HUMP_CROSS_TICKS*HUMP_COUNTS_PER_TICK*2U<BOARD_LINE_LOST_MM,"mode 17 line contact");
-static bool hump_cross(unsigned n) { return BOARD_LINE_MASK_PIVOT && failure_mode==17U && n%HUMP_CROSS_TICKS==0U; }
+static bool hump_cross(unsigned n) { return BOARD_LINE_MASK_PIVOT && (failure_mode==17U || failure_mode==38U) && n%HUMP_CROSS_TICKS==0U; }
 /* Mode 18: two decoded markers (straight on). S3 queues the first turn one
  * tick before its status shows the decode (DEC1_AT, then DEC1_AT+1); the
  * second turn and its decode arrive in the same tick (DEC2_AT). The event log
@@ -227,10 +260,16 @@ static unsigned nav_set_busy, nav_set_after;
  * capture until the VC sends TRACK again. The VC reads the next, fresh
  * sample with the latch.
  * Mode 22: one STALE latch at LATCH_AT, in the middle of a *B* marker (GP28,
- * narrow 1 tick, wide 3, the robot at 2 mm per tick): the VC re-sends TRACK
- * (marker clear) at once and keeps driving, and the next marker decodes.
+ * narrow 1 tick, wide 3, the robot at 2 mm per tick). With
+ * BOARD_BARCODE_FAULT_FAILS (and the re-read drive) S3 counts the cut-short
+ * capture (5 elements) as a failed read: EV_BARCODE attempt 1, and the
+ * re-read brakes, then reverses; TRACK (marker clear) is re-sent as the
+ * reverse starts and the next marker decodes during it (attempt 2). Without
+ * it, the VC re-sends TRACK at once and keeps driving, and the next marker
+ * decodes.
  * Mode 23: a turn is pending (F, left: no junction yet) and S3 latches
- * SENSOR again on every sample from LATCH_AT: TRACK (holding the marker) is
+ * SENSOR again on every sample from LATCH_AT (cutting the *B* short as in
+ * mode 22, so its re-read brakes first): TRACK (holding the marker) is
  * re-sent at most every VC_S3_REARM_MS, then VC_LINE cause event after
  * VC_S3_LATCH_MS.
  * Mode 24: as mode 10 (synthetic S3), with the status latched STALE from the
@@ -243,6 +282,14 @@ static unsigned nav_set_busy, nav_set_after;
 #define LATCH_TICKS (VC_S3_LATCH_MS/TICK_MS)
 #define REARM_TICKS (VC_S3_REARM_MS/TICK_MS)
 #define REVERSE_AT (BR_MISS_AT+BOARD_BARCODE_RETRY_BRAKE_MS/TICK_MS)
+#if BOARD_BARCODE_FAULT_FAILS && BOARD_BARCODE_RETRY_DRIVE
+#define LATCH_READ_FAILS 1 /* the latch cuts mode 22/23's first *B*: a failed read, re-read */
+#define LATCH_REARM_AT (LATCH_AT+BOARD_BARCODE_RETRY_BRAKE_MS/TICK_MS) /* the re-read brakes first */
+#else
+#define LATCH_READ_FAILS 0
+#define LATCH_REARM_AT LATCH_AT
+#endif
+#define MARKER2_READ_AT (MARKER2_AT+63U) /* the second *B* decodes 63 ticks after it starts */
 /* Mode 22 drives 2 mm a tick centred (both IRs white) to the end. */
 _Static_assert(!BOARD_LINE_LOST_MM || (MARKER2_AT+70U)*2U<BOARD_LINE_LOST_MM,"mode 22 line contact");
 static bool real_s3(void) { return failure_mode==22U || failure_mode==23U; }
@@ -261,7 +308,44 @@ static bool real_s3(void) { return failure_mode==22U || failure_mode==23U; }
 #define LL_FOUND_AFTER 3U
 #define MR_FROM 20U
 #define MR_UNTIL (MR_FROM+70U)
-static bool kinematic(void) { return failure_mode>=25U; }
+static bool obstacle_mode(void) {return failure_mode>=41U;}
+static bool kinematic(void) { return (failure_mode>=25U && failure_mode<=28U) || obstacle_mode(); }
+static s5_state_t nav_mode;static int nav_angle,old_sample_angle;
+static unsigned pan_at,probe_at,probe_angle,side_looks;
+static bool pan_blocked[LOG_TICKS];
+/* Modes 29..35 (START, centred line): short timing faults that must not stop
+ * the run, the same faults when they last, and S3 holding a marker.
+ * Mode 29: one failed encoder copy (ENC_FAIL_AT) and one late controller
+ * period (LATE_AT: the clock jumps LATE_EXTRA_MS more, so two encoder
+ * snapshots are 70 ms apart) each leave odometry invalid for two ticks: the
+ * VC holds still, then drives on (C1). The motor status copy fails for two
+ * ticks (MOTOR_BUSY_AT: the last status is reused, C2); S3's lock is busy
+ * for the first mode request and for three renewals (RENEW_BUSY_AT: retried,
+ * L7); a MAP frame stamped 10 ms after the VC read its clock is accepted
+ * (FUTURE_AT, W6). The timing report shows the late period (C5).
+ * Mode 30: the encoder copy fails from FAULT_AT on: fault 1 cause 3 after
+ * VC_ODOM_GAP_MS. Mode 31: the motor status copy fails from FAULT_AT on:
+ * fault 7 after VC_MOTOR_STATUS_MISSES reused ticks. Mode 32: renewals are
+ * busy from FAULT_AT on: fault 4 once the lease would have run out. Mode
+ * 33: S2 publishes FAULT at FAULT_AT: fault 7 at once.
+ * Mode 34: from ORPHAN_AT S3 shows a decoded marker held (awaiting the
+ * controller, no error) with no turn event: TRACK (marker clear) is re-sent
+ * VC_S3_REARM_MS later, once (L6). Mode 35: a turn (Z, right) arrives at
+ * ORPHAN_AT with S3 latched STALE in the same sample; S3 then holds its
+ * marker: the turn stays pending, TRACK re-sent for the latch holds the
+ * marker, and the orphan re-send never fires (L1). */
+#define ENC_FAIL_AT 12U
+#define LATE_AT 20U
+#define LATE_EXTRA_MS 50U
+#define MOTOR_BUSY_AT 30U
+#define RENEW_BUSY_AT 40U
+#define FUTURE_AT 50U
+#define FAULT_AT 12U
+#define ORPHAN_AT 20U
+static bool timing_mode(void) { return failure_mode>=29U && failure_mode<=33U; }
+static unsigned control_busy; /* mode 29: S3 control requests refused as busy */
+static bool future_offered; /* mode 29: the future-stamped MAP frame was taken */
+static bool orphan_cleared; /* modes 34, 35: TRACK with marker clear after ORPHAN_AT */
 static unsigned lost_tick; /* first VC_REACQUIRE published after START (0 none) */
 static uint32_t kin_counts[2];static int32_t kin_mm[LOG_TICKS]; /* odometry each tick */
 /* Forward or a follow 10 mm (a follow's steer splits the wheels), a pivot
@@ -322,7 +406,7 @@ static unsigned scenario_mask(unsigned n)
     if(failure_mode==13U)return n>=SR_FROM && n<SR_UNTIL?sr_masks[n-SR_FROM]:0U;
     if(hump_cross(n))return 3U;
     if(failure_mode==25U || failure_mode==26U) {int32_t r,l;scenario_dark(n,&r,&l);return r==1000?1U:0U;}
-    return scenario_lifted(n)?3U:0U; /* otherwise centred */
+    return (scenario_lifted(n) || ((failure_mode==39U || failure_mode==40U) && n>=20U))?3U:0U; /* otherwise centred */
 }
 static bool scenario_reading(unsigned n) { return failure_mode==13U && n>=SR_FROM && n<SR_UNTIL; }
 static bool scenario_dropout(unsigned n) { const follow_step_t *f=follow_step(n);return f && f->stop; }
@@ -340,11 +424,18 @@ static unsigned iterations(void)
     case 18U: return DEC_ITERATIONS;
     case 20U: return 14U;
     case 22U: return MARKER2_AT+70U; /* the decode is 63 ticks after it starts */
-    case 23U: return LATCH_AT+LATCH_TICKS+3U;
+    case 23U: return LATCH_REARM_AT+LATCH_TICKS+3U;
     case 24U: return REVERSE_AT+LATCH_TICKS+3U;
     case 25U: return 120U;
     case 26U: case 27U: return LOG_TICKS;
     case 28U: return MR_UNTIL+70U;
+    case 29U: return 110U; /* two 1 s timing reports */
+    case 30U: case 31U: case 32U: case 33U: return 30U;
+    case 34U: case 35U: return 60U;
+    case 36U: case 37U: return 16U;
+    case 38U: return 160U;
+    case 39U: case 40U: return 150U;
+    case 41U: case 42U: case 43U: case 44U: case 45U: return 450U;
     default: return 12U;
     }
 }
@@ -357,6 +448,7 @@ ER tk_dly_tsk(UW delay)
     kin_step();
     if (++iteration >= iterations()) longjmp(done,1);
     clock_ms += TICK_MS;
+    if(failure_mode==29U && iteration==LATE_AT)clock_ms+=LATE_EXTRA_MS; /* one late period */
     return E_OK;
 }
 void tk_ext_tsk(void) { assert(0); }
@@ -397,7 +489,14 @@ ER s2_reverse_follow_send(UINT power,INT steering)
     ++reverse_requests;if(iteration>BR_GLITCH_AT)++reverse_after_glitch;return E_OK;
 }
 ER s2_motion_get_status(s2_motion_status_t *s)
-{ *s=(s2_motion_status_t){0};return E_OK; }
+{
+    /* A timed-out copy (busy semaphore) leaves nothing behind. */
+    if((failure_mode==29U && (iteration==MOTOR_BUSY_AT || iteration==MOTOR_BUSY_AT+1U)) ||
+       (failure_mode==31U && iteration>=FAULT_AT)) {*s=(s2_motion_status_t){.state=S2_MOTION_FAULT};return E_TMOUT;}
+    *s=(s2_motion_status_t){0};
+    if(failure_mode==33U && iteration>=FAULT_AT)s->state=S2_MOTION_FAULT;
+    return E_OK;
+}
 ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
 {
     uint32_t stamp=clock_ms;
@@ -410,7 +509,8 @@ ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
     }
     assert(encoder_snapshot_encode(&e,p,capacity));
     /* A failed provider deliberately leaves old-looking data behind. */
-    return failure_mode==2U && iteration>=8U?E_SYS:E_OK;
+    return (failure_mode==2U && iteration>=8U) || (failure_mode==29U && iteration==ENC_FAIL_AT) ||
+        (failure_mode==30U && iteration>=FAULT_AT)?E_SYS:E_OK;
 }
 ER s3_status_get(s3_status_t *s) {
     *s=(s3_status_t){0};
@@ -443,13 +543,19 @@ ER s3_status_get(s3_status_t *s) {
         for(unsigned i=0;i<2U;++i) /* rounded up, so S3 normalises back to exactly dark[i] */
             s->sample.raw[i]=(uint16_t)(white[i]+((uint32_t)(black[i]-white[i])*(uint32_t)dark[i]+999U)/1000U);
         s->sample.raw[2]=0U;s->sample.valid_mask=7U;s->sample.time_ms=clock_ms;
-        if(scenario_lifted(iteration)) { /* no surface under the IRs, GP28 black */
+        if(scenario_lifted(iteration) || ((failure_mode==39U || failure_mode==40U) && iteration>=20U)) { /* no surface under the IRs, GP28 black */
             s->sample.raw[0]=s->sample.raw[1]=4000U;s->sample.raw[2]=1U;s->output.barcode_black=1;
         }
         if(scenario_reading(iteration)) {
             s->output.barcode_result=S3_BARCODE_RESULT_READING;
             s->output.barcode_elements=(uint8_t)(3U+iteration-SR_FROM);
         }
+    }
+    /* Modes 34/35: S3 holds a decoded marker (awaiting the controller) until
+     * a TRACK with marker clear; mode 35 latched STALE in the decode's tick. */
+    if((failure_mode==34U || failure_mode==35U) && iteration>=ORPHAN_AT && !orphan_cleared) {
+        s->output.awaiting_controller=1;
+        if(failure_mode==35U && iteration==ORPHAN_AT)s->output.error=S3_ERROR_STALE;
     }
     if(real_s3()) { /* this sample through S3's own core */
         s->sample.raw[2]=(uint16_t)(marker_black(iteration)?BOARD_BARCODE_DIGITAL_BLACK_LEVEL:
@@ -487,11 +593,40 @@ ER s5_get_status(s5_status_t *s) {
             oc_s5_publish(s,oc_sample[iteration-OC_FROM]);
         }
     }
+    if(obstacle_mode()) {
+        s->scan_id=7;s->state=nav_mode;s->angle_deg=nav_angle;s->sample_angle_deg=nav_angle;
+        s->valid=1;s->distance_mm=4000;s->obstacle_distance_mm=150;
+        s->left_bound_valid=s->right_bound_valid=s->object_width_valid=1;
+        s->left_bound_deg=30;s->right_bound_deg=-30;
+        s->left_bound_distance_mm=s->right_bound_distance_mm=173;
+        s->object_width_mm=172;s->object_width_max_mm=181;
+        if(iteration>=8U && nav_mode==S5_MONITOR) {
+            s->state=S5_READY;s->approach_plan_valid=1;s->planned_rotate_deg=50;
+            s->planned_approach_mm=s->planned_return_mm=180;s->distance_mm=150;
+            s->angle_deg=s->sample_angle_deg=50;
+        } else if(nav_angle==90 || nav_angle==-90) {
+            /* Alternating missing and present echoes must still resolve O8. */
+            s->distance_mm=150;
+            if(iteration%2U) {s->valid=0;s->echo_result=S5_ECHO_NO_RISE;}
+        } else if(nav_angle!=0 && failure_mode==42U)s->distance_mm=300;
+        bool waiting=pan_at && iteration-pan_at<15U;
+        if((failure_mode==43U && probe_at && nav_angle!=0 && abs(nav_angle)<90) ||
+           (failure_mode==44U && side_looks && nav_angle==0) ||
+           (failure_mode==45U && nav_mode==S5_APPROACH && !probe_at))waiting=true;
+        if(waiting) {s->valid=0;s->sample_angle_deg=old_sample_angle;}
+        pan_blocked[iteration]=waiting && nav_angle==0;
+    }
     return E_OK;
 }
 ER s4_sensor_get_record(s4_sensor_cache_t *s)
 {
-    s4_data_reset(s);s4_data_init_result(s,LSM303_OK);
+    if(failure_mode==37U && iteration==SHOCK_AT+2U)return E_TMOUT; /* VC-local fault */
+    static s4_sensor_cache_t cache;
+    if(iteration==0U) {
+        s4_data_reset(&cache);s4_data_init_result(&cache,LSM303_OK);
+        if(failure_mode==36U)s4_cache_set_count(&cache,S4_COUNT_IMPACT,UINT32_MAX-1U);
+        if(failure_mode==37U)s4_cache_set_count(&cache,S4_COUNT_FAULT,UINT32_MAX-1U);
+    }
     lsm303_frame_t frame={0};frame.accel.fresh=frame.accel.valid=1;
     frame.accel.read_time_us=(uint64_t)(clock_ms-(failure_mode==3U?40U:0U))*1000U;
     /* Standing level on the floor with this robot's mounting (the
@@ -504,7 +639,28 @@ ER s4_sensor_get_record(s4_sensor_cache_t *s)
     if(failure_mode==21U && iteration==SHOCK_AT) { /* what the driver returns for a +2 g left hit */
         frame.accel.raw[0]=2047;frame.accel.valid=0;frame.accel.status=LSM303_DATA_CLIPPED;
     }
-    s4_data_update(s,&frame,LSM303_OK);return E_OK;
+    if(failure_mode==17U && iteration>=HUMP_DOWN && iteration<HUMP_BOTTOM) {
+        frame.accel.raw[1]=-88;frame.accel.raw[2]=948; /* 10 deg nose-down */
+    }
+    /* Drop the current height after completion, before ramp DONE (I3). */
+    if(failure_mode==17U && iteration>=HUMP_BOTTOM+35U && iteration<HUMP_BOTTOM+40U)frame.accel.overrun=1;
+    if(failure_mode==38U && iteration>=20U && iteration<100U) {
+        frame.accel.raw[1]=-88;frame.accel.raw[2]=948;
+        frame.accel.overrun=iteration>=60U && iteration<65U; /* traversal abandoned */
+    }
+    if((failure_mode==39U || failure_mode==40U) && iteration>=20U) {
+        if(failure_mode==39U) {frame.accel.raw[0]=900;frame.accel.raw[2]=100;}
+        else frame.accel.raw[2]=-909;
+    }
+    if(iteration==SHOCK_AT && failure_mode==36U) {
+        lsm303_frame_t hit=frame;hit.accel.raw[0]=1900;
+        s4_data_update(&cache,&hit,LSM303_OK);s4_data_update(&cache,&hit,LSM303_OK);
+    }
+    if(iteration==SHOCK_AT && failure_mode==37U) {
+        lsm303_frame_t bad=frame;bad.accel.status=LSM303_DATA_IO_ERROR;bad.accel.fresh=0;
+        for(unsigned n=0;n<3U;++n)s4_data_update(&cache,&bad,LSM303_IO_ERROR);
+    }
+    s4_data_update(&cache,&frame,LSM303_OK);*s=cache;return E_OK;
 }
 
 ER s1_command_take(control_message_t *c)
@@ -523,6 +679,14 @@ ER s1_command_take(control_message_t *c)
         *c=(control_message_t){.time_ms=clock_ms};c->wire[1]=0; /* STOP */
         reset_offered=false;return E_OK;
     }
+    if(failure_mode==29U && iteration==FUTURE_AT && !future_offered) {
+        /* MAP stamped one tick after the VC read its clock: the network task
+         * (priority 4) offered it while the VC (5) was running. */
+        static const uint8_t frame[6]={0xC1,4,3,2,0,42};
+        *c=(control_message_t){.time_ms=clock_ms+10U};
+        for(unsigned i=0;i<6U;++i)c->wire[i]=frame[i];
+        future_offered=true;return E_OK;
+    }
     if(failure_mode>=7U && iteration==7U && !reset_offered) {
         /* START (mission, no lease) or ARM, both at 30%; ARM's lease is 1000 ms. */
         *c=(control_message_t){.time_ms=clock_ms};
@@ -534,12 +698,21 @@ ER s1_command_take(control_message_t *c)
 ER s3_controller_control(s3_mode_t mode,bool clear,UW lease)
 {
     (void)lease;
+    /* Mode 29: the first request finds S3's status lock busy (nothing changes). */
+    if(failure_mode==29U && !control_busy) {++control_busy;return E_TMOUT;}
     if(mode==S3_MODE_TRACK && track_calls<16U) {track_tick[track_calls]=iteration;track_clear[track_calls]=clear;}
     if(mode==S3_MODE_TRACK)++track_calls;
+    if(mode==S3_MODE_TRACK && clear && iteration>=ORPHAN_AT)orphan_cleared=true;
     if(real_s3())(void)s3_core_control(&s3c,mode,clear); /* S3 applies it before its next sample */
     return E_OK;
 }
-ER s3_controller_renew(UW lease) { (void)lease;return E_OK; }
+ER s3_controller_renew(UW lease)
+{
+    (void)lease;
+    if((failure_mode==29U && iteration>=RENEW_BUSY_AT && iteration<RENEW_BUSY_AT+3U) ||
+       (failure_mode==32U && iteration>=FAULT_AT))return E_TMOUT; /* lock busy past its wait */
+    return E_OK;
+}
 ER s3_controller_barcode_end(void) { if(real_s3())s3_core_barcode_end(&s3c);return E_OK; }
 ER s3_controller_set_map(UINT letter,UINT nav)
 {
@@ -548,7 +721,15 @@ ER s3_controller_set_map(UINT letter,UINT nav)
 }
 ER s5_navigation_set(uint32_t id,s5_state_t mode,INT angle)
 {
-    (void)id;(void)mode;(void)angle;
+    (void)id;
+    if(obstacle_mode()) {
+        if(angle!=nav_angle || (nav_mode==S5_MONITOR && iteration>=8U)) {
+            old_sample_angle=nav_mode==S5_MONITOR?50:nav_angle;pan_at=iteration;
+            if(angle && abs(angle)<90) {probe_at=iteration;probe_angle=(unsigned)abs(angle);}
+            if(abs(angle)==90)++side_looks;
+        }
+        nav_mode=mode;nav_angle=angle;
+    }
     if(s5_busy(iteration)) {++nav_set_busy;return E_TMOUT;} /* the same lock */
     if(failure_mode==20U && iteration>=S5_BUSY_UNTIL)++nav_set_after;
     return E_OK;
@@ -559,6 +740,12 @@ ER s3_event_receive(s3_event_record_t *event)
         nav_given=iteration;*event=(s3_event_record_t){0};
         event->event.kind=S3_EVENT_NAVIGATION;event->event.command=S3_NAV_STRAIGHT;
         event->event.symbol=iteration==DEC1_AT?'F':'B';event->event.time_ms=clock_ms;
+        return E_OK;
+    }
+    if(failure_mode==35U && iteration==ORPHAN_AT && nav_given!=iteration) { /* Z: turn right */
+        nav_given=iteration;*event=(s3_event_record_t){0};
+        event->event.kind=S3_EVENT_NAVIGATION;event->event.command=S3_NAV_RIGHT;
+        event->event.symbol='Z';event->event.time_ms=clock_ms;
         return E_OK;
     }
     if(failure_mode==23U && iteration==NAV_AT && nav_given!=iteration) { /* F: turn left */
@@ -576,6 +763,10 @@ ER s3_event_receive(s3_event_record_t *event)
 ER app_state_publish(const app_state_t *s)
 {
     saved=*s;
+    if((failure_mode==36U || failure_mode==37U) && iteration==SHOCK_AT) {
+        s4_result_t r;assert(s4_result_decode(s->s4_result,sizeof(s->s4_result),&r));
+        assert(failure_mode==36U?(r.flags&S4_RESULT_SHOCK)!=0U:(r.faults&EDR_FAULT_IMU)!=0U);
+    }
     if(kinematic() && !lost_tick && iteration>7U && s->vehicle.phase==VC_REACQUIRE)lost_tick=iteration;
     if(iteration<LOG_TICKS) {
         pub_seen[iteration]=1;pub_follow[iteration]=s->line_follow;pub_mask[iteration]=s->line_mask;
@@ -599,7 +790,7 @@ static void check_published(void)
 {
     for(unsigned n=0;n<iterations();++n) {
         unsigned follow=0U;int32_t steer=0;
-        if(sent_kind[n]==SENT_FOLLOW && sent_steer[n]) {follow=sent_steer[n]>0?1U:2U;steer=sent_steer[n];}
+        if(pub_phase[n]==VC_TRACK && sent_kind[n]==SENT_FOLLOW && sent_steer[n]) {follow=sent_steer[n]>0?1U:2U;steer=sent_steer[n];}
         else if(sent_kind[n]==SENT_MOVE && sent_cmd[n]==S2_MOVE_PIVOT_RIGHT)follow=3U;
         else if(sent_kind[n]==SENT_MOVE && sent_cmd[n]==S2_MOVE_PIVOT_LEFT)follow=4U;
         assert(pub_seen[n] && pub_follow[n]==follow && pub_steer[n]==steer);
@@ -648,29 +839,46 @@ static void check_follower(void)
 }
 /* (iv) Modes 22..24: a silent S3 latch while tracking. The START sends
  * TRACK at tick 7 (marker clear); the VC then re-sends it for the latch. */
+static bool reversing(unsigned n)
+{
+    return sent_kind[n]==SENT_REVERSE || (sent_kind[n]==SENT_MOVE && sent_cmd[n]==S2_MOVE_REVERSE);
+}
+/* Modes 22, 23 tick n: following until the latch; with LATCH_READ_FAILS the
+ * cut-short marker's re-read then brakes (stopped) and reverses. */
+static void check_latch_drive(unsigned n)
+{
+    if(!LATCH_READ_FAILS || n<LATCH_AT)assert(!stopped[n] && sent_kind[n]==SENT_FOLLOW);
+    else if(n<LATCH_REARM_AT)assert(stopped[n] && sent_kind[n]==SENT_NONE);
+    else assert(!stopped[n] && reversing(n));
+}
 static void check_latch(void)
 {
-    unsigned from=failure_mode==24U?REVERSE_AT:LATCH_AT;
+    unsigned from=failure_mode==24U?REVERSE_AT:LATCH_REARM_AT;
     assert(track_calls>=2U && track_tick[0]==7U && track_clear[0]);
     if(failure_mode==22U) {
-        /* Once, at once, clearing the marker: S3 re-arms and the next *B*
-         * decodes; the robot never stopped or left TRACK. */
-        assert(track_calls==2U && track_tick[1]==LATCH_AT && track_clear[1]);
+        /* Once, clearing the marker (at once, or as the cut marker's re-read
+         * starts reversing): S3 re-arms and the next *B* decodes; the robot
+         * never left TRACK. */
+        assert(track_calls==2U && track_tick[1]==LATCH_REARM_AT && track_clear[1]);
         assert(s3c.barcode_ok_count==1U && s3c.latched_error==S3_ERROR_NONE && saved.barcode==2U);
-        for(unsigned n=8U;n<iterations();++n)
-            assert(pub_armed[n] && pub_phase[n]==VC_TRACK && !stopped[n] && sent_kind[n]==SENT_FOLLOW);
+        assert(s3c.barcode_fail_count==LATCH_READ_FAILS && s3c.barcode_abort_count==LATCH_READ_FAILS);
+        for(unsigned n=8U;n<iterations();++n) {
+            assert(pub_armed[n] && pub_phase[n]==VC_TRACK);
+            if(n<MARKER2_READ_AT)check_latch_drive(n);
+        }
         assert(saved.vehicle.armed && saved.vehicle.fault==VC_OK);
         return;
     }
-    /* From the first tracking tick that sees the latch (mode 24: not while
-     * braking), every VC_S3_REARM_MS, holding mode 23's pending turn
-     * (no marker clear); VC_S3_LATCH_MS after it, VC_LINE cause event. */
+    /* From the first tracking tick that sees the latch (mode 24, and mode 23
+     * with LATCH_READ_FAILS: not while the re-read brakes), every
+     * VC_S3_REARM_MS, holding mode 23's pending turn (no marker clear);
+     * VC_S3_LATCH_MS after it, VC_LINE cause event. */
     assert(track_calls==1U+LATCH_TICKS/REARM_TICKS);
     for(unsigned k=1U;k<track_calls;++k)
         assert(track_tick[k]==from+(k-1U)*REARM_TICKS && track_clear[k]==(failure_mode==24U));
     for(unsigned n=8U;n<from+LATCH_TICKS;++n) {
         assert(pub_armed[n] && pub_phase[n]==VC_TRACK);
-        if(failure_mode==23U)assert(!stopped[n] && sent_kind[n]==SENT_FOLLOW);
+        if(failure_mode==23U)check_latch_drive(n);
     }
     assert(!pub_armed[from+LATCH_TICKS] && pub_phase[from+LATCH_TICKS]==VC_FAULT);
     assert(saved.vehicle.fault==VC_LINE && saved.vehicle.fault_cause==VC_LINE_CAUSE_EVENT);
@@ -743,6 +951,78 @@ static void check_line_lost(void)
                 saved.vehicle.fault_cause==VC_LINE_CAUSE_OTHER);
 #endif
 }
+/* (vi) Modes 29..33: short timing faults ride through, lasting ones stop. */
+static void check_timing_faults(void)
+{
+#if VC_TIMING
+    const task_timing_t *vc=&app_task_timing[TASK_TIMING_VC];
+#endif
+    if(failure_mode==29U) {
+        /* Each odometry gap (a failed encoder copy, a 70 ms period) holds
+         * still for its two invalid ticks; nothing else stops the run. */
+        for(unsigned n=10U;n<iterations();++n) {
+            bool hold=n==ENC_FAIL_AT || n==ENC_FAIL_AT+1U || n==LATE_AT || n==LATE_AT+1U;
+            assert(pub_armed[n] && pub_phase[n]==VC_TRACK);
+            if(hold)assert(stopped[n] && sent_kind[n]==SENT_NONE);
+            else assert(!stopped[n] && sent_kind[n]==SENT_FOLLOW && sent_power[n]==30U);
+        }
+        assert(saved.vehicle.armed && saved.vehicle.fault==VC_OK && saved.odometry_valid);
+        /* The busy first mode request was retried next tick. */
+        assert(control_busy==1U && track_calls==1U && track_tick[0]==8U);
+        /* The MAP frame stamped 10 ms ahead was applied (result 0, not 3 expired). */
+        assert(future_offered && last_ack_seq==42U && last_ack_opcode==4U && last_ack_result==0U &&
+               map_letter==3U && map_nav==2U);
+#if VC_TIMING
+        /* Loop timing: every run 250 us; one release 70 ms after the last, late. */
+        assert(vc->runs==iterations() && vc->late==1U && vc->max_run_us==250U &&
+               vc->max_gap_us==(TICK_MS+LATE_EXTRA_MS)*1000U);
+        unsigned v[12];
+        assert(timing_lines==2U && sscanf(timing_line,
+            "[TIMING] max run us, max gap ms, late/runs: vc %u %u %u/%u, motor %u %u %u/%u, net %u %u %u/%u",
+            &v[0],&v[1],&v[2],&v[3],&v[4],&v[5],&v[6],&v[7],&v[8],&v[9],&v[10],&v[11])==12);
+        assert(v[0]==250U && v[1]==TICK_MS+LATE_EXTRA_MS && v[2]==1U && v[3]==99U); /* report at tick 98 */
+        for(unsigned k=4U;k<12U;++k)assert(v[k]==0U); /* no motor or network loop on the host */
+#else
+        assert(!timing_lines); /* BOARD_TIMING_STATS 0: no hooks, no report */
+#endif
+        return;
+    }
+    /* 30..33: driving until FAULT_AT, then the fault after its allowance. */
+    unsigned at=failure_mode==30U?FAULT_AT+VC_ODOM_GAP_MS/TICK_MS:
+        failure_mode==31U?FAULT_AT+VC_MOTOR_STATUS_MISSES:
+        failure_mode==32U?FAULT_AT+VC_S3_LEASE_MS/TICK_MS-1U:FAULT_AT;
+    unsigned fault=failure_mode==30U?VC_SENSOR:failure_mode==32U?VC_TRANSPORT:VC_MOTOR;
+    for(unsigned n=10U;n<at;++n) {
+        assert(pub_armed[n] && pub_phase[n]==VC_TRACK);
+        /* Odometry missing: hold still. A reused motor status or a busy
+         * renewal: drive on. */
+        if(failure_mode==30U && n>=FAULT_AT)assert(stopped[n] && sent_kind[n]==SENT_NONE);
+        else assert(!stopped[n] && sent_kind[n]==SENT_FOLLOW);
+    }
+    assert(!pub_armed[at] && pub_phase[at]==VC_FAULT && stopped[at] && sent_kind[at]==SENT_NONE);
+    assert(saved.vehicle.fault==fault && saved.vehicle.fault_cause==(failure_mode==30U?VC_CAUSE_ODOM:0U));
+#if VC_TIMING
+    assert(vc->late==0U && vc->max_gap_us==TICK_MS*1000U);
+#endif
+}
+/* (vii) Modes 34, 35: S3 holding a decoded marker. */
+static void check_marker_hold(void)
+{
+    for(unsigned n=10U;n<iterations();++n)
+        assert(pub_armed[n] && pub_phase[n]==VC_TRACK && !stopped[n] && sent_kind[n]==SENT_FOLLOW);
+    assert(saved.vehicle.armed && saved.vehicle.fault==VC_OK && track_calls==2U && track_tick[0]==7U);
+    if(failure_mode==34U) {
+        /* No turn here: TRACK with marker clear VC_S3_REARM_MS later, once,
+         * with one console line; S3 then reads markers again. */
+        assert(track_tick[1]==ORPHAN_AT+VC_S3_REARM_MS/TICK_MS && track_clear[1] && orphan_cleared);
+        assert(orphan_lines==1U && !saved.vehicle.pending_nav);
+    } else {
+        /* The turn delivered with the latch stays pending; the latch's TRACK
+         * holds its marker; no orphan re-send while it is pending. */
+        assert(track_tick[1]==ORPHAN_AT && !track_clear[1] && !orphan_cleared);
+        assert(orphan_lines==0U && saved.vehicle.pending_nav==S3_NAV_RIGHT);
+    }
+}
 int main(void)
 {
     for(failure_mode=0;failure_mode<MODE_COUNT;++failure_mode) {
@@ -757,6 +1037,14 @@ int main(void)
         read_count=read_max=normal_count=0;normal_min=~0U;
         track_calls=0;s3_pending=(s3_event_t){0};
         lost_tick=0;kin_counts[0]=kin_counts[1]=1000U;memset(kin_mm,0,sizeof(kin_mm));
+        control_busy=0;future_offered=orphan_cleared=false;timing_lines=orphan_lines=0;
+        last_ack_seq=last_ack_opcode=last_ack_result=0;
+#if VC_TIMING
+        memset(app_task_timing,0,sizeof(app_task_timing));
+#endif
+        nav_mode=S5_MONITOR;nav_angle=old_sample_angle=0;pan_at=probe_at=probe_angle=side_looks=0;
+        memset(pan_blocked,0,sizeof(pan_blocked));
+        timer_tick_ms=~0U;
         if(real_s3()) { /* configured as app_main.c configures S3 */
             s3_config_t c;s3_config_defaults(&c);robot_ir_apply_layout(&c);
             assert(robot_ir_apply_adc_calibration(&c) && s3_core_init(&s3c,&c));
@@ -780,7 +1068,7 @@ int main(void)
         if(failure_mode==6)assert((result.flags&S4_RESULT_SHOCK) &&
                                   !(result.faults&EDR_FAULT_IMU) && !(result.flags&S4_RESULT_TILT));
         assert(stops);
-        if(failure_mode>=9U && failure_mode!=19U)assert(positive_requests>0);
+        if(failure_mode>=9U && failure_mode!=19U && failure_mode!=45U)assert(positive_requests>0);
         else assert(!positive_requests);
         if(failure_mode==7U) {
             /* No usable sonar sample: tracking holds still (armed, stopped)
@@ -868,14 +1156,31 @@ int main(void)
             assert(event_id[n]==EV_INSTRUCTION && event_value[n]==ev_instruction(2U,S3_NAV_STRAIGHT) &&
                    event_tick[n]==DEC2_AT);
         }
-        else if(failure_mode==23U)
-            assert(event_count==1U && event_id[0]==EV_INSTRUCTION && event_value[0]==ev_instruction(6U,S3_NAV_LEFT));
+        else if(failure_mode==23U) {
+            /* The pending turn's instruction, then (LATCH_READ_FAILS) the
+             * *B* cut short at 5 elements: a failed first read. */
+            assert(event_count==1U+LATCH_READ_FAILS && event_id[0]==EV_INSTRUCTION &&
+                   event_value[0]==ev_instruction(6U,S3_NAV_LEFT));
+            if(LATCH_READ_FAILS)
+                assert(event_id[1]==EV_BARCODE && event_value[1]==ev_barcode(1U,5U,0U) && event_tick[1]==LATCH_AT);
+        }
+        else if(failure_mode==35U) /* the delivered turn is logged: Z, right */
+            assert(event_count==1U && event_id[0]==EV_INSTRUCTION && event_value[0]==ev_instruction(26U,S3_NAV_RIGHT) &&
+                   event_tick[0]==ORPHAN_AT+VC_INSTRUCTION_WAIT_TICKS-1U);
 #if BOARD_BARCODE_RETRY_DRIVE
-        /* Mode 22: only the second marker is read (the normal pass, 29
-         * elements, B), 30 mm after its last edge. Mode 24: the miss. */
-        else if(failure_mode==22U)
-            assert(event_count==1U && event_id[0]==EV_BARCODE && event_value[0]==ev_barcode(1U,29U,2U) &&
-                   event_tick[0]==MARKER2_AT+63U);
+        /* Mode 22: with LATCH_READ_FAILS the first *B*, cut short at 5
+         * elements, is a failed first read, and the second is read during
+         * the re-read (attempt 2); otherwise only the second marker is read
+         * (the normal pass). Each 29 elements, B, 30 mm after its last edge.
+         * Mode 24: the miss. */
+        else if(failure_mode==22U) {
+            assert(event_count==1U+LATCH_READ_FAILS);
+            if(LATCH_READ_FAILS)
+                assert(event_id[0]==EV_BARCODE && event_value[0]==ev_barcode(1U,5U,0U) && event_tick[0]==LATCH_AT);
+            assert(event_id[LATCH_READ_FAILS]==EV_BARCODE &&
+                   event_value[LATCH_READ_FAILS]==ev_barcode(1U+LATCH_READ_FAILS,29U,2U) &&
+                   event_tick[LATCH_READ_FAILS]==MARKER2_READ_AT);
+        }
         else if(failure_mode==24U)
             assert(event_count==1U && event_id[0]==EV_BARCODE && event_value[0]==ev_barcode(1U,0U,0U) &&
                    event_tick[0]==BR_MISS_AT);
@@ -896,8 +1201,25 @@ int main(void)
              * it), the level its highest point. */
             unsigned crest=event_value[1]>>3U,level=event_value[2]>>3U;
             assert(crest>=20U && crest<=level && level<=60U);
+            assert(event_tick[2]>HUMP_BOTTOM); /* no DONE on the flat top */
         }
 #endif
+        else if(failure_mode==38U) {
+#if BOARD_RAMP_SPEED
+            assert(event_count==3U && (event_value[2]&7U)==EV_HUMP_LEVEL && (event_value[2]>>3U)==0U);
+#else
+            assert(event_count==0U);
+#endif
+        }
+        else if(obstacle_mode()) {
+            unsigned bypasses=0;
+            for(unsigned e=0;e<event_count && e<EVENT_LOG;++e)if(event_id[e]==EV_OBSTACLE && (event_value[e]&3U)==EV_OBSTACLE_BYPASS) {
+                ++bypasses;
+                unsigned heading=event_value[e]>>4U;
+                assert(heading==((failure_mode==41U || failure_mode==44U)?probe_angle:50U));
+            }
+            assert(bypasses==(failure_mode==45U?0U:1U));
+        }
         else assert(event_count==0U);
         if(failure_mode==11U) {
             unsigned slow=30U;
@@ -919,7 +1241,9 @@ int main(void)
         if(failure_mode==13U)check_read_steer();
         if(failure_mode==14U)check_follower();
         if(failure_mode>=22U && failure_mode<=24U)check_latch();
-        if(kinematic())check_line_lost();
+        if(kinematic() && !obstacle_mode())check_line_lost();
+        if(timing_mode())check_timing_faults();
+        if(failure_mode==34U || failure_mode==35U)check_marker_hold();
         if(failure_mode==15U) {
             _Static_assert(sizeof(oc_expect)==sizeof(oc_sample),"mode 15 table");
             for(unsigned n=10U;n<OC_ITERATIONS;++n) {
@@ -945,6 +1269,32 @@ int main(void)
                 if(sent_power[n]==20U) {++slope_ticks;assert(n>=HUMP_FROM);}
             }
             assert(slope_ticks>0U && sent_power[HUMP_ITERATIONS-1U]==30U);
+        }
+        if(failure_mode==36U) {
+            assert(saved.shock_count==2U);
+#if BOARD_SHOCK_STOP
+            assert(saved.vehicle.fault==VC_SHOCK);
+#else
+            assert(saved.vehicle.armed);
+#endif
+        }
+        if(failure_mode==37U) {assert(saved.imu_fault_count==4U && saved.vehicle.armed);}
+        if(failure_mode==3U || failure_mode==5U || failure_mode==21U)assert(saved.imu_fault_count>0U);
+        if(failure_mode==38U) {
+            assert(saved.vehicle.armed && saved.imu_fault_count>=5U);
+#if BOARD_RAMP_SPEED
+            for(unsigned n=55U;n<90U;++n)if(sent_kind[n]!=SENT_NONE)assert(sent_power[n]<=20U);
+#endif
+        }
+        if(failure_mode==39U || failure_mode==40U) {
+            assert(saved.vehicle.fault==VC_SENSOR && saved.vehicle.fault_cause==VC_CAUSE_TILT);
+            unsigned first=0;for(unsigned n=20U;n<iterations();++n)if(!pub_armed[n]){first=n;break;}
+            assert(first>20U && first<20U+LIFT_TICKS);
+        }
+        if(obstacle_mode()) {
+            for(unsigned n=9U;n<iterations();++n)if(pan_blocked[n])assert(stopped[n] && sent_kind[n]==SENT_NONE);
+            if(failure_mode==45U || failure_mode==44U)assert(saved.vehicle.fault==VC_SENSOR && saved.vehicle.fault_cause==VC_CAUSE_SONAR);
+            else assert(saved.vehicle.armed && probe_at && probe_angle<50U && side_looks);
         }
         if(failure_mode==16U) {
             /* Lifted: still driving (straight, both IRs read black) until it
@@ -978,6 +1328,7 @@ int main(void)
            BOARD_LIFT_FAULT_MS?"VC_LIFTED after BOARD_LIFT_FAULT_MS":"no fault (BOARD_LIFT_FAULT_MS 0)");
     puts("Event log: EV_BARCODE for a failed first read, EV_OBSTACLE on acquisition, each EV_BARCODE attempt before its EV_INSTRUCTION PASS");
 #if BOARD_RAMP_SPEED
+    puts("8c: skipped impacts/faults and counter wrap, dropped-traversal cap, tipped lift, fresh forward pans and checked reverse replans PASS");
     puts("Hump: EV_HUMP detected after the 400 ms hold, crest caps the power to BOARD_RAMP_DOWN_POWER (this hump's height so far), level restores it (its height) PASS");
 #else
     puts("Hump with BOARD_RAMP_SPEED 0: no events, no power cap PASS");
@@ -987,6 +1338,15 @@ int main(void)
     puts("Barcode first pass: S3 READING caps the forward power to the re-read speed PASS");
     puts("MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS");
     puts("Silent S3 latch (STALE/SENSOR) while tracking: TRACK re-sent at once, at most every 100 ms, keeping a pending turn's hold; the robot drives on and the next marker decodes; a latch still returning after 1 s is VC_LINE cause event; no re-send while a re-read brakes PASS");
+    printf("Marker cut short by the latch: %s PASS\n",LATCH_READ_FAILS?
+           "a failed read (EV_BARCODE attempt 1, 5 elements), re-read, TRACK re-sent as it reverses":
+           "skipped (BOARD_BARCODE_FAULT_FAILS 0 or no re-read drive)");
+    printf("Short timing faults ride through: an odometry gap holds still (fault 1 cause 3 after %u ms), a failed motor status copy reuses the last (fault 7 after %u ticks; a published FAULT at once), a busy S3 lock is retried (fault 4 once the %u ms lease would run out), a command stamped a tick ahead is fresh PASS\n",
+           (unsigned)VC_ODOM_GAP_MS,(unsigned)VC_MOTOR_STATUS_MISSES,(unsigned)VC_S3_LEASE_MS);
+#if VC_TIMING
+    puts("Loop timing: VC run and release gap measured on the hardware timer, a late period counted, one [TIMING] console line per report interval PASS");
+#endif
+    puts("S3 holding a decoded marker with no turn pending: TRACK (marker clear) re-sent after 100 ms, once; a turn delivered with a latch stays pending and keeps its marker PASS");
 #if BOARD_LINE_MASK_PIVOT
     printf("Line lost while tracking: %u mm with both IRs white spot-searches toward the line's side; found -> tracking, never -> fault 2 cause 3; a barcode read or re-read never counts PASS\n",
            (unsigned)BOARD_LINE_LOST_MM);

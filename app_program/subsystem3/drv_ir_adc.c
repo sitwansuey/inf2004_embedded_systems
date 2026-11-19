@@ -144,13 +144,19 @@ static ER check_deadline(uint32_t issued_ms, SYSTIM *p_time)
             E_OK : E_TMOUT;
 }
 
-static ER acquire(const s3_adc_request_t *p_request, s3_sample_t *p_sample)
+/* *p_retry: the deadline passed before a conversion was started (the worker
+ * itself ran late; every earlier read of this scan had completed), so no
+ * device state is pending and the scan can simply be dropped. A read that
+ * failed or itself overran the deadline leaves *p_retry false. */
+static ER acquire(const s3_adc_request_t *p_request, s3_sample_t *p_sample,
+                  bool *p_retry)
 {
     uint8_t i;
     uint8_t mask = 0U;
     SYSTIM now;
     ER er;
 
+    *p_retry = false;
     if (p_request->sequence == 0U)
     {
         return E_PAR;
@@ -175,6 +181,7 @@ static ER acquire(const s3_adc_request_t *p_request, s3_sample_t *p_sample)
     er = check_deadline(p_request->issued_ms, &now);
     if (er < E_OK)
     {
+        *p_retry = (er == E_TMOUT);
         return er;
     }
     p_sample->time_ms = (uint32_t)now.lo; /* Oldest channel, not delivery time. */
@@ -196,6 +203,7 @@ static ER acquire(const s3_adc_request_t *p_request, s3_sample_t *p_sample)
         er = check_deadline(p_request->issued_ms, &now);
         if (er < E_OK)
         {
+            *p_retry = (er == E_TMOUT); /* before this channel's conversion */
             return er;
         }
         /* Only this worker opens/reads the kernel-owned ADC. Never pass a
@@ -241,14 +249,17 @@ ER s3_adc_worker_once(TMO timeout)
     }
     reply.sequence = request.sequence;
     reply.error = (length == (INT)sizeof(request)) ?
-                   acquire(&request, &reply.sample) : E_IO;
+                   acquire(&request, &reply.sample, &reply.retry) : E_IO;
     if (reply.error != E_OK)
     {
-        /* A timed-out conversion can leave a stale FIFO/IRQ. Never retry on
-         * this boot. The kernel owner must repair/reset its device safely. */
-        worker_failed = true;
+        /* A failed or timed-out driver read can leave a stale FIFO/IRQ.
+         * Never retry on this boot; the kernel owner must repair/reset its
+         * device safely. A deadline missed before any conversion started
+         * (this task was held off) touched nothing: drop that scan only. */
+        if (!reply.retry) worker_failed = true;
         reply.sample = (s3_sample_t){0};
         er = tk_snd_mbf(h_replies, &reply, (INT)sizeof(reply), TMO_POL);
+        if (er < E_OK) worker_failed = true;
         return (er < E_OK) ? er : reply.error;
     }
     er = tk_snd_mbf(h_replies, &reply, (INT)sizeof(reply), TMO_POL);
@@ -267,7 +278,9 @@ void s3_adc_worker(INT stacd, void *exinf)
     for (;;)
     {
         er = s3_adc_worker_once(TMO_FEVR);
-        if (er != E_OK)
+        /* A dropped late scan (E_TMOUT, worker not failed) keeps serving;
+         * TMO_FEVR receives never time out themselves. */
+        if ((er != E_OK) && ((er != E_TMOUT) || worker_failed))
         {
             /* Do not spin after a broken transport/device context. No task
              * forcibly cancels this worker while a legacy read is active. */

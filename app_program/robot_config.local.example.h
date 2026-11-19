@@ -13,4 +13,8 @@
 /* #define BOARD_LINE_EDGE_TRACE 1 */
 /* Line lost while tracking: search after this much travel with both IRs white (0: off). */
 /* #define BOARD_LINE_LOST_MM 600U */
+/* No "[TIMING]" loop timing line on the USB console every 10 s: */
+/* #define BOARD_TIMING_STATS 0 */
+/* A marker cut short by an S3 sampler hiccup is skipped (8b) instead of re-read: */
+/* #define BOARD_BARCODE_FAULT_FAILS 0 */
 #endif

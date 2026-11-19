@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "drv_pico_i2c.h"
+#include "i2c_bus_clear.h"
 
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
@@ -50,6 +51,60 @@ static bool bus_write(void *p_context, uint8_t address, uint8_t reg,
     }
     (void)i2c_init(i2c1, S4_I2C_HZ);
     return false;
+}
+
+static bool line_read_sda(void *p_context)
+{
+    (void)p_context;
+    return gpio_get(S4_SDA_GPIO);
+}
+
+/* Open drain: the output value stays 0, so output pulls the line low and
+ * input releases it to the pull-up. */
+static void line_drive_scl(void *p_context, bool low)
+{
+    (void)p_context;
+    gpio_set_dir(S4_SCL_GPIO, low ? GPIO_OUT : GPIO_IN);
+}
+
+static void line_drive_sda(void *p_context, bool low)
+{
+    (void)p_context;
+    gpio_set_dir(S4_SDA_GPIO, low ? GPIO_OUT : GPIO_IN);
+}
+
+static void line_half_period(void *p_context)
+{
+    uint64_t end = time_us_64() + 5u; /* half of a 100 kHz clock */
+
+    (void)p_context;
+    while (time_us_64() < end)
+    {
+    }
+}
+
+void s4_pico_i2c_recover(void)
+{
+    static const s4_i2c_lines_t lines =
+    {
+        .p_context = NULL,
+        .read_sda = line_read_sda,
+        .drive_scl = line_drive_scl,
+        .drive_sda = line_drive_sda,
+        .half_period = line_half_period
+    };
+
+    /* Hand both pins from I2C1 to SIO, released (input) with output 0. */
+    gpio_set_dir(S4_SDA_GPIO, GPIO_IN);
+    gpio_set_dir(S4_SCL_GPIO, GPIO_IN);
+    gpio_put(S4_SDA_GPIO, false);
+    gpio_put(S4_SCL_GPIO, false);
+    gpio_set_function(S4_SDA_GPIO, GPIO_FUNC_SIO);
+    gpio_set_function(S4_SCL_GPIO, GPIO_FUNC_SIO);
+    (void)s4_i2c_bus_clear(&lines);
+    gpio_set_function(S4_SDA_GPIO, GPIO_FUNC_I2C);
+    gpio_set_function(S4_SCL_GPIO, GPIO_FUNC_I2C);
+    (void)i2c_init(i2c1, S4_I2C_HZ);
 }
 
 void s4_pico_i2c_init(lsm303_bus_t *p_bus)

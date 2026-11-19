@@ -60,23 +60,40 @@ static void test_pipeline(void)
 static void test_timeout(void)
 {
     unsigned int previous_reads;
+    /* L3: a worker held off past its deadline before converting drops that
+     * scan only. The client keeps waiting (no latch) and resubmits. */
     sensor_setup(); begin_request(0U);
     fake_now = 29U;
     CHECK(s3_ir_poll(&sensor, fake_now, &result) == E_TMOUT && s3_ir_waiting(&sensor));
     fake_now = 30U;
-    CHECK(s3_ir_poll(&sensor, fake_now, &result) == E_TMOUT && !s3_ir_waiting(&sensor));
-    CHECK(sensor.adc_failed && result.valid_mask == 0U && adc_reads == 0U);
-    CHECK(worker_tick() == E_TMOUT && adc_opens == 0U && worker_failed);
-    CHECK(s3_ir_poll(&sensor, 1000U, &result) == E_TMOUT && result.valid_mask == 0U);
+    CHECK(s3_ir_poll(&sensor, fake_now, &result) == E_TMOUT && s3_ir_waiting(&sensor));
+    CHECK(!sensor.adc_failed && result.valid_mask == 0U && adc_reads == 0U);
+    CHECK(worker_tick() == E_TMOUT && adc_opens == 0U && !worker_failed);
+    CHECK(adc_reply.error == E_TMOUT && adc_reply.retry && adc_reply.sample.valid_mask == 0U);
+    CHECK(s3_ir_poll(&sensor, 31U, &result) == E_TMOUT && s3_ir_waiting(&sensor));
+    CHECK(!sensor.adc_failed && result.valid_mask == 0U);
+    CHECK(have_request && adc_request.issued_ms == 31U && adc_request.sequence == 2U);
+    fake_now = 31U;
+    CHECK(worker_tick() == E_OK && adc_reads == 3U && adc_opens == 1U);
+    CHECK(s3_ir_poll(&sensor, 41U, &result) == E_OK && result.time_ms == 31U);
+    CHECK(result.valid_mask == S3_SENSOR_MASK);
+    /* A driver read that itself overran the deadline latches for the boot. */
     sensor_setup(); begin_request(0U);
     adc_read_ms = 1000U;
     CHECK(worker_tick() == E_TMOUT && fake_now == 1000U);
     CHECK(adc_reads == 1U && adc_reply.sample.valid_mask == 0U);
+    CHECK(worker_failed && !adc_reply.retry);
     CHECK(s3_ir_poll(&sensor, fake_now, &result) == E_TMOUT && sensor.adc_failed);
     previous_reads = adc_reads;
     CHECK(worker_tick() == E_OBJ && adc_reads == previous_reads);
+    /* Rollover: the same drop and resubmit across the 32-bit wrap. */
     sensor_setup(); begin_request(UINT32_MAX - 5U);
-    CHECK(s3_ir_poll(&sensor, 24U, &result) == E_TMOUT && sensor.adc_failed);
+    CHECK(s3_ir_poll(&sensor, 24U, &result) == E_TMOUT && !sensor.adc_failed);
+    fake_now = 24U;
+    CHECK(worker_tick() == E_TMOUT && !worker_failed && adc_reads == 0U);
+    CHECK(s3_ir_poll(&sensor, 24U, &result) == E_TMOUT && adc_request.issued_ms == 24U);
+    CHECK(worker_tick() == E_OK);
+    CHECK(s3_ir_poll(&sensor, 30U, &result) == E_OK && result.time_ms == 24U);
 }
 
 static void test_unavailable(void)
@@ -114,6 +131,14 @@ static void test_invalid_readings(void)
             if (scenario == 5U) { adc_reply.sample.time_ms = 111U; }
             if (scenario == 6U) { adc_reply.sample.time_ms = 99U; }
             if (scenario == 7U) { adc_reply.sequence += 1U; }
+        }
+        if (scenario == 7U)
+        {
+            /* L3: a reply for another scan is stale: discarded, still waiting. */
+            CHECK(s3_ir_poll(&sensor, 110U, &result) == E_TMOUT);
+            CHECK(!sensor.adc_failed && s3_ir_waiting(&sensor));
+            CHECK(result.valid_mask == 0U && !have_request && !have_reply);
+            continue;
         }
         CHECK(s3_ir_poll(&sensor, 110U, &result) == E_IO);
         CHECK(sensor.adc_failed && result.valid_mask == 0U && !have_request);
@@ -210,14 +235,22 @@ static void test_integration_success_and_hold(void)
     caller = 42;
     fake_now = 30U;
     CHECK(s3_service_once() == E_OK && !status.output.steering_allowed);
+    /* L3: the worker is held off 30 ms (busy core): that scan is dropped and
+     * resubmitted, nothing latches. */
     adc_wait_delay_ms = 30U;
     fake_now = 60U;
-    CHECK(s3_service_once() == E_TMOUT && ir.adc_failed);
+    CHECK(s3_service_once() == E_TMOUT && !ir.adc_failed && s3_ir_waiting(&ir));
+    CHECK(adc_reads == 6U && status.acquisition_error == E_TMOUT);
+    CHECK(!worker_failed && have_request && adc_request.issued_ms == 90U);
+    /* A failed driver read latches for the boot; TRACK cannot clear it. */
+    adc_wait_delay_ms = 0U; adc_read_result = E_IO;
+    fake_now = 100U;
+    CHECK(s3_service_once() == E_IO && ir.adc_failed && adc_reads == 7U);
     caller = 7;
     CHECK(s3_controller_control(S3_MODE_TRACK, false, 1000U) == E_OK);
-    caller = 42; fake_now = 90U;
-    CHECK(s3_service_once() == E_TMOUT && !status.output.steering_allowed);
-    CHECK(status.output.error == S3_ERROR_SENSOR);
+    caller = 42; fake_now = 110U;
+    CHECK(s3_service_once() == E_IO && !status.output.steering_allowed);
+    CHECK(status.output.error == S3_ERROR_SENSOR && adc_reads == 7U);
     caller = 7;
     CHECK(s3_event_receive(&record) == E_OK && record.event.kind == S3_EVENT_FAULT);
 }
@@ -225,23 +258,29 @@ static void test_integration_success_and_hold(void)
 static void timeout_while_reading(void)
 {
     unsigned int reads = adc_reads;
-    s3_event_record_t record;
     caller = 42;
+    /* The sampler never cancels or latches a worker inside a read: it
+     * reports waiting, with no reads, no steering and no event. */
     CHECK(s3_service_once() == E_TMOUT);
-    CHECK(adc_reads == reads && ir.adc_failed && !status.output.steering_allowed);
-    caller = 7;
-    CHECK(s3_event_receive(&record) == E_OK && record.event.kind == S3_EVENT_FAULT);
+    CHECK(adc_reads == reads && !ir.adc_failed && s3_ir_waiting(&ir));
+    CHECK(!status.output.steering_allowed && queue_count == 0U);
     caller = 43;
 }
 
 static void test_worker_stall_isolation(void)
 {
+    s3_event_record_t record;
     integration_setup();
-    adc_read_ms = 1000U;
+    adc_read_ms = 100U; /* within the 1000 ms lease */
     adc_read_hook = timeout_while_reading;
-    CHECK(worker_tick() == E_TMOUT);
+    /* The read itself overran its deadline: permanent for this boot. */
+    CHECK(worker_tick() == E_TMOUT && worker_failed && !adc_reply.retry);
     CHECK(adc_reads == 1U && status.acquisition_error == E_TMOUT);
-    CHECK(status.output.error == S3_ERROR_SENSOR && queue_count == 0U);
+    caller = 42; fake_now += 10U;
+    CHECK(s3_service_once() == E_TMOUT && ir.adc_failed && !s3_ir_waiting(&ir));
+    CHECK(status.output.error == S3_ERROR_SENSOR && !status.output.steering_allowed);
+    caller = 7;
+    CHECK(s3_event_receive(&record) == E_OK && record.event.kind == S3_EVENT_FAULT);
     caller = 42; fake_now += 10U;
     CHECK(s3_service_once() == E_TMOUT && queue_count == 0U);
     CHECK(adc_reads == 1U && !status.output.steering_allowed);

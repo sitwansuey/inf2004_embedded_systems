@@ -166,6 +166,16 @@ IMPORT ER s5_navigation_set(UW scan_id, s5_state_t state, INT look_deg);
 #define S5_CRUISE_MM_PER_SECOND 245U /* measured 1.20 rev/s with 65 mm wheels at 30% power */
 #define S5_OVERCOME_CLEARANCE_MM 200U
 #define S5_NAVIGATION_TIMEOUT_MS 30000U
+/* Side corridor (checked before a side is chosen). The robot centre goes out
+ * to the planned lateral offset; its outer side reaches this much further. */
+#ifndef S5_SIDE_HALF_WIDTH_MM
+#define S5_SIDE_HALF_WIDTH_MM S5_CLEARANCE_RADIUS_MM
+#endif
+/* Echoes up to this far beyond the face depth lie beside the diagonal and
+ * the pass; farther ones are ignored. */
+#ifndef S5_SIDE_CORRIDOR_AHEAD_MM
+#define S5_SIDE_CORRIDOR_AHEAD_MM 300U
+#endif
 typedef enum
 {
     S5_PATH_UNAVAILABLE,
@@ -200,4 +210,14 @@ IMPORT void s5_servo_sweep_test(void);
 IMPORT ER s5_test_position(INT angle, BOOL take_sample, s5_status_t *copy);
 #endif
 IMPORT s5_path_t s5_assess_path(const s5_status_t *sensor, BOOL available, UW now_ms);
+/* Planned lateral offset of the robot centre for a side's bypass: the larger
+ * of that edge's lateral offset and half the planning width, plus the
+ * clearance radius. 0 when that bound or the width is not usable. */
+IMPORT UW s5_plan_lateral_mm(const s5_status_t *sensor, BOOL left);
+/* TRUE when the sample's echo lies inside the corridor: lateral offset
+ * (range*sin) at most lateral_mm + S5_SIDE_HALF_WIDTH_MM and forward offset
+ * (range*cos) at most ahead_mm, both from the sensor. Uses sample_angle_deg
+ * and distance_mm; the caller checks the sample is settled at its angle.
+ * No valid echo is FALSE (nothing seen). */
+IMPORT BOOL s5_corridor_blocked(const s5_status_t *sample, UW lateral_mm, UW ahead_mm);
 #endif

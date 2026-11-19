@@ -58,7 +58,7 @@ inputs. Generated reports, captures and supplementary documents stay local.
 ## Interfaces
 
 B2's checked 13-byte internal encoder snapshot feeds B4 terrain processing. B4 exposes
-protected 63-byte acquisition copies and a checked 12-byte terrain result;
+protected 71-byte acquisition copies and a checked 12-byte terrain result;
 C interfaces and exact field definitions are in subsystem4 headers/code. The
 controller alone authorizes motion; B2 owns PWM/encoder IRQ, B3 owns IR, B4
 owns I2C and B5 owns sonar/servo. B1 queues a private 55-byte snapshot, then the
@@ -79,3 +79,15 @@ The higher ramp may be disregarded. Measure geometry and calibrate the estimator
 do not pre-enter the expected answer. Supplementary guides/evidence are local
 only for now. Required CR1 representation tables, RAM/message comparisons and
 correctness/performance evidence must be added to GitHub before final submission.
+
+Checkpoint 8c keeps the tuned follower, ramp powers and avoidance ramps. Plain
+descents get the 20% slope cap. A flat hump top keeps the crest cap until
+descent and level; its level event uses S4's completed-height latch. S4 counts
+brief impacts and IMU faults between controller reads. Impact reporting stays
+on and `BOARD_SHOCK_STOP` stays 0 (decision 1).
+
+After a side look the robot waits stopped for a new clear forward sample.
+BACKUP waits at most 1.5 s for an APPROACH/0 sample before its full 1 s reverse.
+A shallower heading after reversing gets a stopped ray check; a blocked or
+timed-out check keeps S5's verified heading. Calibrate `BOARD_SERVO_US_PER_90`
+(default 750 us) as well as the centre. See the mission and avoidance guides.

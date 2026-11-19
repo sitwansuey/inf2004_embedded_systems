@@ -76,13 +76,10 @@ EXPORT void s5_hw_servo(INT left_deg)
 {
     /* 125 MHz / 125 = 1 MHz; 20 ms frame, 750..2250 us commanded pulse range.
      * Slice 6 belongs exclusively to S5; GP13 must not use this slice.
-     * BOARD_SERVO_CENTER_US aims angle 0 straight ahead; the 750..2250 us
-     * limit then cuts that much off one extreme (~6 deg at 54 us). */
-    if (left_deg < -90) left_deg=-90;
-    if (left_deg > 90) left_deg=90;
-    INT us = BOARD_SERVO_CENTER_US + (750 * left_deg) / 90;
-    if (us < 750) us=750;
-    if (us > 2250) us=2250;
+     * BOARD_SERVO_CENTER_US aims angle 0 straight ahead and
+     * BOARD_SERVO_US_PER_90 sets the slope; the 750..2250 us limit then cuts
+     * the extremes (~6 deg off +90 at 54 us above 1500). */
+    INT us = s5_servo_pulse_us(left_deg, BOARD_SERVO_CENTER_US, BOARD_SERVO_US_PER_90);
     pwm_set_cc(BOARD_SERVO_GPIO, (UW)us);
 }
 

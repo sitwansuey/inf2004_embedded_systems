@@ -98,10 +98,36 @@ bool s3_core_control(s3_core_t *p_core, s3_mode_t mode, bool marker_clear)
     return true;
 }
 
+/* Elements of the running or just finished capture (legacy feed counts runs). */
+static uint32_t capture_elements(const s3_core_t *p_core)
+{
+    return p_core->barcode.elements != 0U ? p_core->barcode.elements : p_core->barcode.count;
+}
+
+static uint8_t saturate_u8(uint32_t value, uint32_t limit)
+{
+    return (uint8_t)(value > limit ? limit : value);
+}
+
 void s3_core_fault(s3_core_t *p_core, s3_error_t error)
 {
     if (p_core != NULL)
     {
+        /* A marker cut short by a sampler hiccup is a failed read, not a
+         * silent skip: the controller sees the fail count and re-reads it. */
+        uint32_t elements = capture_elements(p_core);
+        if (p_core->config.barcode_fault_fails && (p_core->mode == S3_MODE_TRACK) &&
+            (p_core->barcode.state == S3_CAPTURE_RUNNING) &&
+            (elements >= S3_BARCODE_MARKER_MIN_RUNS))
+        {
+            uint32_t bars = p_core->barcode.elements != 0U ?
+                            p_core->barcode.bars : (p_core->barcode.count + 1U) / 2U;
+            ++p_core->barcode_fail_count;
+            ++p_core->barcode_abort_count;
+            p_core->last_bars = saturate_u8(bars, S3_BARCODE_BARS_MAX);
+            p_core->last_elements = saturate_u8(elements, 255U);
+            p_core->last_result = S3_BARCODE_RESULT_FAILED;
+        }
         p_core->latched_error = (unsigned)error <= S3_ERROR_TRANSPORT ? error : S3_ERROR_CONFIG;
         p_core->awaiting_controller = true;
         s3_barcode_abort(&p_core->barcode);
@@ -143,6 +169,8 @@ void s3_core_barcode_summary(const s3_core_t *p_core, s3_output_t *p_output)
     p_output->last_symbol = p_core->last_symbol;
     p_output->barcode_ok_count = p_core->barcode_ok_count;
     p_output->barcode_fail_count = p_core->barcode_fail_count;
+    p_output->barcode_partial_count = p_core->barcode_partial_count;
+    p_output->barcode_abort_count = p_core->barcode_abort_count;
     if (p_core->barcode.state == S3_CAPTURE_RUNNING)
     {
         uint32_t bars = p_core->barcode.bars;
@@ -193,6 +221,7 @@ static void fault(s3_core_t *p_core, s3_output_t *p_output,
         event(p_core, p_output, S3_EVENT_FAULT, now_ms);
     }
     s3_core_fault(p_core, error);
+    s3_core_barcode_summary(p_core, p_output); /* the capture just ended */
     p_output->error = (uint8_t)((unsigned)error & 7U);
     p_output->awaiting_controller = true;
 }
@@ -368,11 +397,16 @@ void s3_core_step(s3_core_t *p_core, const s3_sample_t *p_sample,
         }
         else if (p_output->barcode_status != S3_BARCODE_NONE)
         {
-            uint32_t elements = p_core->barcode.elements != 0U ?
-                                p_core->barcode.elements : p_core->barcode.count;
+            uint32_t elements = capture_elements(p_core);
             if (elements >= S3_BARCODE_FAIL_MIN_RUNS)
             {
                 p_output->barcode_fail_count = ++p_core->barcode_fail_count;
+            }
+            else if (elements >= S3_BARCODE_MARKER_MIN_RUNS)
+            {
+                /* Often noise: counted for the read rate, never re-read. */
+                p_output->barcode_partial_count = ++p_core->barcode_partial_count;
+                p_core->partial_elements = (uint8_t)elements;
             }
             barcode_finished(p_core, false);
             if(p_core->config.barcode_retry) {

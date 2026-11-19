@@ -21,7 +21,7 @@ void vc_stop(vc_state_t *s,unsigned reason) {
     s->nav_search=0;s->nav_offset=0;s->spot_scan=0;s->uturn_guard=0;
     s->last_line_side=0;s->search_right_first=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
-    s->clear_run=0;s->line_gap=0;s->sonar_gap=0;s->line_found=0;s->line_seen=0;
+    s->clear_run=0;s->line_gap=0;s->sonar_gap=0;s->odom_gap=0;s->front_wait=0;s->line_found=0;s->line_seen=0;
     s->fault=(uint8_t)(reason&15U);s->phase=reason?VC_FAULT:VC_DISARMED;
     s->fault_cause=0; /* sensor_fault() sets it after this */
 }
@@ -100,10 +100,10 @@ static unsigned soft_start(vc_state_t *s,uint32_t now,bool driving,unsigned dema
  * 1 clear and 2 obstacle (AVOID_SIDE_CONFIRM_SAMPLES new samples in a row),
  * -1 no answer in AVOID_SIDE_CHECK_TIMEOUT_MS (stopped with VC_SENSOR). */
 static int side_look(vc_state_t *s,const vc_input_t *i) {
-    if(i->now_ms-s->side_check_started_ms>=AVOID_SIDE_CHECK_TIMEOUT_MS){vc_stop(s,VC_SENSOR);return -1;}
+    if(i->now_ms-s->side_check_started_ms>=AVOID_SIDE_CHECK_TIMEOUT_MS){sensor_fault(s,VC_CAUSE_SONAR);return -1;}
     if(!i->side_observed || (s->side_have_sample && i->side_sample_ms==s->side_last_ms))return 0;
     s->side_have_sample=1;s->side_last_ms=i->side_sample_ms;
-    if(!i->side_ready){s->side_clear_count=s->side_present_count=0;return 0;}
+    if(!i->side_ready)return 0; /* no answer: keep the last ready-sample streak */
     if(i->side_clear){++s->side_clear_count;s->side_present_count=0;}
     else {++s->side_present_count;s->side_clear_count=0;}
     if(s->side_clear_count>=AVOID_SIDE_CONFIRM_SAMPLES) return 1;
@@ -141,9 +141,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
      * (straight, slow, odometry-bounded) still does not need tilt; TURN_OUT
      * does, after the stand-still has let the robot settle. */
     bool tilt_ok=i->terrain_valid || s->phase==VC_BACKUP;
-    if (!tilt_ok || !i->odom_valid) {
-        sensor_fault(s,!tilt_ok?VC_CAUSE_TILT:VC_CAUSE_ODOM);return;
-    }
+    if (!tilt_ok) {sensor_fault(s,VC_CAUSE_TILT);return;}
     /* S3 removes events on receive. Preserve navigation before obstacle or
      * clearance gates can defer it; never silently overwrite another marker. */
     if (s->uturn_guard &&
@@ -158,6 +156,22 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         s->pending_nav=i->nav;
     }
+    /* No valid odometry (a late controller period or a failed encoder copy):
+     * hold still, after keeping any decoded turn above; an odometry fault
+     * only once the gap lasts VC_ODOM_GAP_MS. The sonar gap below is still
+     * timed meanwhile. */
+    bool odom_hold=!i->odom_valid;
+    if (odom_hold) {
+        if (!s->odom_gap) {s->odom_gap=1;s->odom_gap_ms=i->now_ms;}
+        else if (i->now_ms-s->odom_gap_ms>=VC_ODOM_GAP_MS) {sensor_fault(s,VC_CAUSE_ODOM);return;}
+    } else s->odom_gap=0;
+    if (s->phase!=VC_TRACK && i->now_ms-s->entered_ms>
+        ((s->phase==VC_ACQUIRE || s->phase==VC_PASS)?30000U:(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE)?10000U:5000U)) { vc_stop(s,VC_TIMEOUT);return; }
+    /* Pan waits never extend a phase deadline (DIAGONAL and ALIGN: 10 s). */
+    if (s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE && !s->look_side && i->front_pending) {
+        if (!s->front_wait) {s->front_wait=1;s->front_wait_ms=i->now_ms;}
+        else if (i->now_ms-s->front_wait_ms>=AVOID_FRONT_WAIT_MS) {sensor_fault(s,VC_CAUSE_SONAR);return;}
+    } else s->front_wait=0;
     /* No fresh sonar sample (its task shares a core with the radio): hold
      * still, after keeping any decoded turn above; a sonar fault only once
      * the gap lasts VC_SONAR_GAP_MS. */
@@ -167,8 +181,8 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         return;
     }
     s->sonar_gap=0;
-    if (s->phase!=VC_TRACK && i->now_ms-s->entered_ms>
-        ((s->phase==VC_ACQUIRE || s->phase==VC_PASS)?30000U:(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE)?10000U:5000U)) { vc_stop(s,VC_TIMEOUT);return; }
+    if (odom_hold) return;
+
     if (s->phase==VC_TRACK) {
         if (i->obstacle) { enter(s,i,VC_ACQUIRE);s->avoid_yaw=i->yaw_mdeg;return; }
         /* Line-lost distance (checked below) starts again on TRACK entry, on a
@@ -231,10 +245,11 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         /* Straight reverse away from the obstacle before turning out. The sonar
          * looks forward, so front_clear does not gate it; time or odometry ends it. */
         if (!s->backup_moving) {
-            if (i->sensor_acquiring && i->now_ms-s->entered_ms<AVOID_BACKUP_SETTLE_MS) {
-                /* Stopped; the 1 s reverse starts when S5 has let go. */
-                s->backup_started_ms=i->now_ms;s->origin_um=i->distance_um;return;
+            if (!i->backup_ready) {
+                if (i->now_ms-s->entered_ms>=AVOID_BACKUP_SETTLE_MS) sensor_fault(s,VC_CAUSE_SONAR);
+                return;
             }
+            s->backup_started_ms=i->now_ms;
             s->backup_moving=1;
         }
         int64_t back=(int64_t)s->origin_um-i->distance_um;
@@ -260,6 +275,13 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         s->command=2;backup_cap=backup_ramp(reversing);
     } else if (s->phase==VC_REACQUIRE) {
+        /* The search bound also ends a search the sonar or late line data
+         * holds: VC_LINE (not found), never the 5 s phase limit. A line
+         * already found and settling is not cut short here. */
+        if ((!i->front_clear || !i->line_fresh) && !s->line_settling &&
+            i->now_ms-s->entered_ms>=VC_SEARCH_MS) {
+            line_fault(s,VC_LINE_CAUSE_NOT_FOUND);return;
+        }
         if (!i->front_clear) return;
         if (!i->line_fresh) { line_gap_hold(s,i);return; }
         /* After a U-turn a straddle sample is "fresh" even off the line: the
@@ -284,7 +306,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         /* Bounded encoder-controlled sweep: +30, -30, +60, -60 degrees.
          * Fresh forward clearance and sensor checks above gate every step. */
         const int targets[4]={30000,-30000,60000,-60000};
-        if (i->now_ms-s->entered_ms>=4000U || s->turn_progress>=4) {
+        if (i->now_ms-s->entered_ms>=VC_SEARCH_MS || s->turn_progress>=4) {
             line_fault(s,VC_LINE_CAUSE_NOT_FOUND);return;
         }
         int progress=yaw_delta(i->yaw_mdeg,s->origin_yaw);

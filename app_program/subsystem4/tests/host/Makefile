@@ -2,7 +2,7 @@ CC ?= cc
 CPPFLAGS += -I../.. -I.build
 CFLAGS ?= -O1 -g
 CFLAGS += -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic
-BINARIES := .build/driver_test .build/data_test .build/api_test .build/terrain_input_test .build/result_test .build/odometry_storage_test
+BINARIES := .build/driver_test .build/data_test .build/api_test .build/terrain_input_test .build/result_test .build/odometry_storage_test .build/recovery_test
 SHIM_SOURCE := .build/shim/subsystem4/subsystem4.c
 SHIM_INPUTS := ../../packed_bits.h  ../../subsystem4.c ../../subsystem4.h ../../sensor_data.h ../../drv_lsm303dlhc.h app.h
 
@@ -20,7 +20,12 @@ test: $(BINARIES)
 	./.build/terrain_input_test
 	./.build/result_test
 	./.build/odometry_storage_test
+	./.build/recovery_test
 	python3 result_vectors.py
+
+.build/recovery_test: recovery_test.c ../../sensor_cycle.c ../../sensor_cycle.h ../../i2c_bus_clear.h ../../drv_lsm303dlhc.c ../../drv_lsm303dlhc.h ../../sensor_data.c ../../sensor_data.h ../../packed_bits.h
+	@mkdir -p .build
+	$(CC) $(CPPFLAGS) $(CFLAGS) recovery_test.c ../../sensor_cycle.c ../../drv_lsm303dlhc.c ../../sensor_data.c $(LDFLAGS) -o "$@"
 
 .build/odometry_storage_test: odometry_storage_test.c ../../../subsystem2/odometry.c ../../../subsystem2/odometry.h ../../../shared/edr.c
 	@mkdir -p .build

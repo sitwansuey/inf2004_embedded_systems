@@ -30,6 +30,15 @@
  * actually visible on the console instead of only sitting in radio_status. */
 #include <tm/tmonitor.h>
 
+/* Network loop timing (C5, printed by the vehicle controller): a plain
+ * header (stdint and robot_config.h macros only), namespace-safe here. */
+#include "../../../../app_program/shared/task_timing.h"
+#if BOARD_TIMING_STATS
+#define NET_TIMING(step) task_timing_##step(&app_task_timing[TASK_TIMING_NET],(uint32_t)time_us_64())
+#else
+#define NET_TIMING(step) ((void)0)
+#endif
+
 /* tk_dly_tsk(2) rounds up to the 10 ms tick plus the guard tick: the loop
  * really polls every ~20 ms. */
 #define CYW43_POLL_MS        2
@@ -209,6 +218,7 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
     bool was_scanning;
 #endif
     int32_t result;
+    int bus_up = 0;
 
     (void)stacd;
     (void)exinf;
@@ -235,6 +245,7 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
                   "firmware load to the CYW43439 did not succeed)\n");
         result = -CYW43_EIO;
     } else {
+        bus_up = 1;
         (void)cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA,
                                  radio_status.mac);
 #if TM_NET_LWIP
@@ -270,18 +281,27 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
 
     /* A failed bus has nothing useful to poll.  More importantly, repeatedly
      * waking a failed high-rate service must not interfere with USB or the
-     * rest of the kernel qualification. */
+     * rest of the kernel qualification. A rejected first join request is not
+     * a dead bus: the 5 s retry below re-issues it, for ever. */
+#if TM_NET_LWIP
+    if(!bus_up) {
+#else
+    (void)bus_up;
     if(result != 0) {
+#endif
         for(;;) (void)tk_dly_tsk(1000);
     }
 
 #if TM_NET_LWIP
     int32_t  prev_link_status = radio_status.link_status;
-    uint64_t rejoin_at = 0;
+    int      join_rejected = (result != 0);
+    uint64_t rejoin_at = join_rejected? time_us_64() + WIFI_REJOIN_DELAY_US: 0;
     T_WIFI_REJOIN lost = {0};
+    wifi_rejoin_joined(&lost, time_us_64()); /* the boot join starts the wait */
 #endif
 
     for(;;) {
+        NET_TIMING(release);
 #if TM_NET_LWIP
         cyw43_thread_enter();
         if(cyw43_poll != NULL) cyw43_poll();
@@ -305,15 +325,17 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
 
             /* Negative == the association attempt is over and lost. Arm a
              * retry; a positive-but-not-UP status (JOIN/NOIP) is still making
-             * progress, so leave it alone and let DHCP finish. */
-            rejoin_at = (radio_status.link_status < 0)?
+             * progress, so leave it alone and let DHCP finish. A join request
+             * the driver rejected is retried the same way. */
+            if(radio_status.link_status == CYW43_LINK_UP) join_rejected = 0;
+            rejoin_at = (radio_status.link_status < 0 || join_rejected)?
                         time_us_64() + WIFI_REJOIN_DELAY_US: 0;
         }
 
         if(rejoin_at != 0 && time_us_64() >= rejoin_at) {
             rejoin_at = 0;
-            if(radio_status.link_status < 0) {
-                (void)wifi_try_join();
+            if(radio_status.link_status < 0 || join_rejected) {
+                join_rejected = (wifi_try_join() != 0);
                 wifi_rejoin_joined(&lost, time_us_64());
                 /* Force the next iteration to treat whatever comes back as a
                  * change, so the new outcome is always reported. Must be a
@@ -330,14 +352,14 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
                                 radio_status.link_status < 0, time_us_64())) {
         case WIFI_REJOIN_LEAVE:
             tm_printf((UB*)"wifi: no link for %d s, leaving to re-join\n",
-                      (int)(WIFI_LOST_REJOIN_US / 1000000u));
+                      (int)((lost.was_up? WIFI_LOST_REJOIN_US: WIFI_FIRST_JOIN_US) / 1000000u));
             (void)cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
 #if TM_MQTT
             mqtt_utk_link_lost();
 #endif
             break;
         case WIFI_REJOIN_JOIN:
-            (void)wifi_try_join();
+            join_rejected = (wifi_try_join() != 0); /* rejected: 5 s retry */
             prev_link_status = 0x7fffffff; /* report the outcome, as above */
             break;
         default:
@@ -369,6 +391,7 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
         }
 #endif
 #endif
+        NET_TIMING(done);
         (void)tk_dly_tsk(CYW43_POLL_MS);
     }
 }

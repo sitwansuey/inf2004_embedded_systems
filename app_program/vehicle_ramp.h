@@ -37,13 +37,15 @@ static inline void vehicle_accel_filter(vehicle_accel_filter_t *s, const int32_t
  * in one direction (the larger of pitch/roll keeps its axis and sign: a
  * bump that tips nose-up then nose-down restarts the hold) (UP), DOWN once
  * it falls drop below its peak, DONE when it stays <= level for level_ms
- * after UP/DOWN. Inactive resets to FLAT; an invalid tilt changes nothing. */
+ * after UP/DOWN, unless level_blocked holds it before descent.
+ * Inactive resets to FLAT; an invalid tilt changes nothing. */
 enum { RAMP_FLAT, RAMP_UP, RAMP_DOWN, RAMP_DONE };
 typedef struct {
     uint32_t since_ms;
     int32_t peak;
     uint8_t state : 2;
     uint8_t timing : 1;
+    uint8_t level_blocked : 1; /* S4 has not descended from this climb yet */
     uint8_t dir : 2; /* bit 1: roll larger, bit 0: negative */
 } vehicle_ramp_t;
 
@@ -63,6 +65,7 @@ static inline unsigned vehicle_ramp_step(vehicle_ramp_t *r, uint32_t now, bool a
     }
     if (tilt > r->peak) r->peak = tilt;
     if (r->state == RAMP_UP && tilt <= r->peak - drop) r->state = RAMP_DOWN;
+    if (r->level_blocked) { r->timing = 0U; return r->state; }
     if (tilt > level) r->timing = 0U;
     else if (!r->timing) { r->timing = 1U; r->since_ms = now; }
     else if (now - r->since_ms >= level_ms) { r->state = RAMP_DONE; r->timing = 0U; }

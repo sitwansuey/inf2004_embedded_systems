@@ -14,10 +14,24 @@ enum { VC_OK,VC_SENSOR,VC_LINE,VC_SHOCK,VC_TRANSPORT,VC_TIMEOUT,VC_UNCALIBRATED,
 /* No fresh sonar sample (late S5 task): hold still; VC_SENSOR (sonar) only
  * once the gap lasts this long. */
 #define VC_SONAR_GAP_MS 1000U
+/* No valid odometry (one late controller period, two encoder snapshots more
+ * than 60 ms apart, or a failed encoder copy leaves it invalid for two
+ * ticks): hold still; VC_SENSOR (odometry) only once the gap lasts this
+ * long. */
+#define VC_ODOM_GAP_MS 200U
+/* Spot search (VC_REACQUIRE): at most this long, then VC_LINE (not found),
+ * also when the sonar or late line data holds the search. */
+#define VC_SEARCH_MS 4000U
+/* S3 TRACK lease, renewed every tick. A busy S3 status lock (E_TMOUT) is
+ * retried next tick; it stops with VC_TRANSPORT only once the lease would
+ * have run out since the last good control or renew. */
+#define VC_S3_LEASE_MS 100U
 /* S3 latched STALE/SENSOR with no event (a sampler hiccup) stops barcode
  * capture until TRACK is sent again: vehicle.c re-sends it at most every
  * VC_S3_REARM_MS while tracking on fresh samples. A latch still returning
- * VC_S3_LATCH_MS after it was first seen is VC_LINE (cause event). */
+ * VC_S3_LATCH_MS after it was first seen is VC_LINE (cause event). S3 still
+ * holding a decoded marker (awaiting the controller, no error) with no turn
+ * pending in the VC for VC_S3_REARM_MS also gets TRACK again (marker clear). */
 #define VC_S3_REARM_MS 100U
 #define VC_S3_LATCH_MS 1000U
 typedef struct {
@@ -68,6 +82,8 @@ typedef struct {
     uint8_t transport_ok : 1;
     uint8_t line_detected : 1;
     uint8_t nav_hold : 1; /* defer a decoded turn while a barcode re-read repositions */
+    uint8_t backup_ready : 1; /* new APPROACH/0 sample after BACKUP entry */
+    uint8_t front_pending : 1; /* pan has no clear forward sample yet */
     uint8_t sensor_acquiring : 1; /* S5 still in an acquisition-stage state (its motion guard is armed) */
     uint8_t junction : 1; /* crossing line: both line sensors and GP28 on black */
     uint8_t line_touch : 1; /* fresh sample with a line sensor on black */
@@ -79,6 +95,8 @@ typedef struct {
     uint32_t line_found_ms;
     uint32_t line_gap_ms; /* first tick of the current line-data gap */
     uint32_t sonar_gap_ms; /* first tick of the current sonar gap */
+    uint32_t front_wait_ms; /* return pan waiting for a forward sample */
+    uint32_t odom_gap_ms; /* first tick of the current odometry gap */
     int32_t origin_um, origin_yaw, turn_progress;
     int32_t avoid_yaw; /* heading when the obstacle stopped tracking: the bypass restores it */
     int32_t restore_mdeg; /* VC_RESTORE: turn back to avoid_yaw (positive left) */
@@ -124,6 +142,8 @@ typedef struct {
     uint8_t clear_run : 1; /* side look clear: AVOID_CLEAR_RUN_MM straight on before TURN_IN */
     uint8_t line_gap : 1; /* line data missing since line_gap_ms */
     uint8_t sonar_gap : 1; /* no fresh sonar sample since sonar_gap_ms */
+    uint8_t front_wait : 1;
+    uint8_t odom_gap : 1; /* no valid odometry since odom_gap_ms */
     uint8_t line_found : 1; /* bypass return found the line: RESTORE the heading, then TRACK */
     uint8_t line_seen : 1; /* line_seen_um is set (cleared on every phase entry) */
 } vc_state_t;

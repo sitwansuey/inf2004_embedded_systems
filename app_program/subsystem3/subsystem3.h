@@ -48,7 +48,16 @@ IMPORT ER s3_configure(const s3_adapter_config_t *p_config);
  * authority; accepts either digital inputs or kernel ADC channels 0..2. */
 IMPORT ER s3_configure_raw(const s3_ir_config_t *p_config);
 /* Single task binding; controller alone may direct modes, renew or consume
- * discrete events. TRACK is an explicit resume/ack, not a lease renewal. */
+ * discrete events. TRACK is an explicit resume/ack, not a lease renewal.
+ * control and renew wait up to S3_STATE_LOCK_WAIT_MS (plus kernel tick
+ * rounding) for the status lock. Their codes for the controller:
+ *   E_OK    applied.
+ *   E_TMOUT status lock still busy: nothing changed (the old mode and lease
+ *           stand). Retry next period; the lease still bounds a lost link.
+ *   E_OBJ   renew only: the lease has expired (or mode is not TRACK).
+ *           Never renewed; send TRACK again (a resume) or stop.
+ *   E_PAR   invalid mode/lease.  E_OACV  not the bound controller (or
+ *           TRACK in raw mode).  Other negative: kernel clock/lock error. */
 IMPORT ER s3_controller_bind(void);
 IMPORT ER s3_controller_control(s3_mode_t mode, bool marker_clear, UW lease_ms);
 IMPORT ER s3_controller_renew(UW lease_ms);
@@ -60,10 +69,20 @@ IMPORT ER s3_controller_barcode_end(void);
  * 1..26 = A..Z, nav 0..4; 0/0 restores the codebook). E_PAR if invalid.
  * Applied by the S3 task on its next sample; affects future decodes only. */
 IMPORT ER s3_controller_set_map(UINT letter, UINT nav);
+/* Controller only, nonblocking (E_TMOUT: nothing to deliver, or lock busy).
+ * Every event needs the current generation and an age under
+ * S3_EVENT_MAX_AGE_MS. NAVIGATION, STOP_REQUEST and FAULT need nothing else:
+ * a turn decoded from a fresh sample is delivered even if a later sample
+ * latched STALE/SENSOR. RECOVERY_REQUEST also needs a healthy status no older
+ * than the configured max_sample_gap_ms. */
 IMPORT ER s3_event_receive(s3_event_record_t *p_record);
 
 /* Snapshots are copied with a nonblocking priority-inheritance mutex. A stale
- * or preempted snapshot always reports steering_allowed=false. */
+ * or preempted snapshot always reports steering_allowed=false.
+ * output.awaiting_controller: S3 holds a decoded turn or a latched fault and
+ * ignores further markers until the next TRACK. With output.error ==
+ * S3_ERROR_NONE and line_straddle it is a decoded turn waiting for the
+ * controller (edge-follow configs also wait after a recovery/stop request). */
 IMPORT ER s3_status_get(s3_status_t *p_status);
 
 /* Private sampling task entry and one bounded service iteration. */

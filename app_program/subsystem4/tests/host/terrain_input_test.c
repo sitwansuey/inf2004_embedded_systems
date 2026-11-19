@@ -13,22 +13,26 @@ static uint8_t payload[ENCODER_SNAPSHOT_SIZE];
 static s4_encoder_input_t input;
 static terrain_t terrain;
 static uint32_t now, counts;
+static uint32_t left_bias; /* left wheel = counts + left_bias (a pivot) */
 
 static void encode(uint32_t ms, uint32_t count)
 {
-    encoder_snapshot_t e = {count, count, ms, ENCODER_SNAPSHOT_VALID};
+    encoder_snapshot_t e = {count + left_bias, count, ms, ENCODER_SNAPSHOT_VALID};
     assert(encoder_snapshot_encode(&e, payload, sizeof(payload)));
 }
-static void tick(const int32_t a[3], uint32_t ticks)
+/* One 20 ms controller tick: the IMU sample is imu_lag ms old and, as
+ * vehicle.c passes it, usable (av) or not. */
+static void step(const int32_t a[3], uint32_t ticks, uint32_t imu_lag, bool av)
 {
     now += 20U; counts += ticks; encode(now, counts);
     s4_encoder_terrain_step(&input, &terrain, &config, now, payload,
-        sizeof(payload), true, (uint64_t)now * 1000U, a, true, true, 0, 0);
+        sizeof(payload), true, (uint64_t)(now - imu_lag) * 1000U, a, av, true, 0, 0);
 }
+static void tick(const int32_t a[3], uint32_t ticks) { step(a, ticks, 0, true); }
 static void reset(void)
 {
     input = (s4_encoder_input_t){0}; terrain = (terrain_t){0};
-    now = 0; counts = 0;
+    now = 0; counts = 0; left_bias = 0;
 }
 static void baseline(void)
 {
@@ -123,12 +127,14 @@ static void traversals(void)
     for (unsigned n = 0; n < 5; ++n) tick(flat, 0);
     assert(!terrain.height_valid && terrain.maximum_mm == 50U);
     baseline(); hump();
-    tick(up, 10); tick(up, UINT32_MAX); /* reversal */
+    tick(up, 10); tick(up, (uint32_t)-5); /* robot-level reversal */
+    assert(terrain.state == TERRAIN_INVALID);
     assert(!terrain.height_valid && terrain.maximum_mm == 50U);
     baseline(); tick(up, 10);
     /* A reverse interval between polls of one IMU sample also cancels height. */
-    now+=10U; --counts; encode(now,counts);
+    now+=10U; counts-=5U; encode(now,counts);
     apply(sizeof(payload),true,(uint64_t)(now-10U)*1000U);
+    assert(terrain.state == TERRAIN_INVALID);
     assert(!terrain.height_valid && terrain.tilt_valid && input.odometry.valid);
     baseline(); tick(up, 10);
     const int32_t shock[3] = {1900, 0, 1000}; tick(shock, 0);
@@ -143,7 +149,8 @@ static void traversals(void)
 }
 /* vehicle.c passes a current sample clipped at +/-2 g (S4 accel_clipped) to
  * terrain as an impact: any clipped robot-frame axis (2047, or -2047/-2048
- * after imu_mount.h) is a shock, mid-hump too, never tilt or height. */
+ * after imu_mount.h) is a shock, mid-hump too, never tilt or height. On
+ * FLAT the state shows SHOCK for that sample; mid-hump the hump is kept. */
 static void clipped_impacts(void)
 {
     static const int32_t limits[3] = {2047, -2047, -2048};
@@ -151,18 +158,156 @@ static void clipped_impacts(void)
         for (unsigned n = 0; n < 3U; ++n) {
             int32_t a[3] = {0, 0, 1000};
             a[axis] = limits[n];
-            reset(); baseline(); tick(up, 10);
-            tick(a, 10);
+            reset(); baseline(); tick(a, 0);
             assert(terrain.shock && terrain.state == TERRAIN_SHOCK && input.fault == S4_INPUT_OK);
+            assert(!terrain.tilt_valid && !terrain.height_valid && input.odometry.valid);
+            tick(flat, 0);
+            assert(!terrain.shock && terrain.tilt_valid && terrain.state == TERRAIN_FLAT);
+            tick(up, 10);
+            tick(a, 10);
+            assert(terrain.shock && terrain.state == TERRAIN_ASCENT && input.fault == S4_INPUT_OK);
             assert(!terrain.tilt_valid && !terrain.height_valid && input.odometry.valid);
             tick(flat, 0);
             assert(!terrain.shock && terrain.tilt_valid);
         }
     puts("S4-U33 PASS a clipped (+/-2 g) sample is a shock on every axis, never tilt or height");
 }
+/* I1: a descent entered from FLAT is DESCENT (the 20% slope cap), with no
+ * height; it never abandons for being below the start, and it is no hump. */
+static void plain_descents(void)
+{
+    reset(); baseline(); hump();
+    tick(down, 10);
+    assert(terrain.state == TERRAIN_DESCENT && terrain.plain && !terrain.height_valid);
+    for (unsigned n = 0; n < 9U; ++n) {
+        tick(down, 10); /* 100 mm below the start by now */
+        assert(terrain.state == TERRAIN_DESCENT && terrain.tilt_valid);
+    }
+    for (unsigned n = 0; n < 4U; ++n) { tick(flat, 0); assert(terrain.state == TERRAIN_DESCENT); }
+    tick(flat, 0);
+    assert(terrain.state == TERRAIN_FLAT && !terrain.plain);
+    assert(terrain.humps == 1U && terrain.hump_mm == 50U && terrain.maximum_mm == 50U);
+    assert(terrain_height_um(&terrain) == 0 && terrain.peak_um == 0U);
+    /* A hump whose far side goes well below its start: still DESCENT. */
+    tick(up, 10); tick(up, 10); tick(flat, 0);
+    for (unsigned n = 0; n < 6U; ++n) { tick(down, 10); assert(terrain.state == TERRAIN_DESCENT); }
+    assert(terrain.humps == 2U && terrain.hump_mm == 0U && terrain.peak_um == 0U);
+    for (unsigned n = 0; n < 5U; ++n) tick(flat, 0);
+    assert(terrain.state == TERRAIN_FLAT && terrain.humps == 2U && terrain.maximum_mm == 50U);
+    /* A gentle down-slope below 5 deg stays FLAT. */
+    const int32_t gentle[3] = {-70, 0, 998};
+    for (unsigned n = 0; n < 5U; ++n) tick(gentle, 10);
+    assert(terrain.state == TERRAIN_FLAT);
+    puts("S4-U35 PASS a plain descent is DESCENT without a height, a deep far side stays DESCENT");
+}
+/* I2: one shock, clipped, skewed or missing sample mid-hump keeps the
+ * traversal and its height (its distance at the last good pitch); a run
+ * of more than 60 ms (3 ticks) abandons it. */
+static void bridged_samples(void)
+{
+    const int32_t shock[3] = {1900, 0, 1000};
+    const int32_t clip[3] = {2047, 0, 1000};
+    reset(); baseline();
+    tick(up, 10); tick(up, 10);
+    tick(shock, 10);
+    assert(terrain.shock && terrain.state == TERRAIN_ASCENT && !terrain.tilt_valid);
+    assert(terrain_pitch_cdeg(&terrain) == 3000 && terrain_height_um(&terrain) == 30000);
+    tick(up, 10);
+    assert(!terrain.shock && terrain.tilt_valid && terrain_height_um(&terrain) == 40000);
+    tick(clip, 10);
+    assert(terrain.shock && terrain.state == TERRAIN_ASCENT && terrain_height_um(&terrain) == 50000);
+    tick(flat, 0); assert(terrain.state == TERRAIN_CREST);
+    tick(down, 10); assert(terrain.state == TERRAIN_DESCENT);
+    step(down, 10, 31, true); /* IMU/encoder skew */
+    assert(input.fault == S4_INPUT_SKEW && input.odometry.valid);
+    assert(terrain.state == TERRAIN_DESCENT && terrain_height_um(&terrain) == 30000);
+    tick(down, 10);
+    for (unsigned n = 0; n < 3U; ++n) { /* no usable IMU sample, 3 in a row */
+        step(down, 10, 0, false);
+        assert(terrain.state == TERRAIN_DESCENT && !terrain.shock && !terrain.tilt_valid);
+    }
+    assert(terrain_height_um(&terrain) == -10000);
+    for (unsigned n = 0; n < 5U; ++n) tick(flat, 0);
+    assert(terrain.state == TERRAIN_FLAT && terrain.height_valid && terrain.height_mm == 50U);
+    assert(terrain.humps == 1U && terrain.hump_mm == 50U);
+    /* More than 60 ms: abandoned, and recovery needs a flat baseline. */
+    tick(up, 10);
+    for (unsigned n = 0; n < 4U; ++n) step(up, 10, 0, false);
+    assert(terrain.state == TERRAIN_INVALID);
+    for (unsigned n = 0; n < 3U; ++n) tick(shock, 10);
+    tick(up, 10); assert(terrain.state == TERRAIN_INVALID);
+    reset(); baseline(); tick(up, 10);
+    for (unsigned n = 0; n < 4U; ++n) tick(shock, 10);
+    assert(terrain.shock && terrain.state == TERRAIN_SHOCK && !terrain.initialized);
+    /* Lost odometry is never bridged. */
+    reset(); baseline(); tick(up, 10); tick(shock, 10);
+    apply(sizeof(payload), false, 0);
+    assert(terrain.state == TERRAIN_INVALID);
+    puts("S4-U36 PASS one shock/clipped/skewed/missing sample keeps a hump; more than 60 ms abandons it");
+}
+/* I3: the completed height and a completion count are latched at DESCENT
+ * to FLAT; a later shock or an invalid hump cannot change a reported one. */
+static void hump_latch(void)
+{
+    const int32_t shock[3] = {1900, 0, 1000};
+    reset(); baseline();
+    assert(terrain.humps == 0U && terrain.hump_mm == 0U);
+    hump();
+    assert(terrain.humps == 1U && terrain.hump_mm == 50U);
+    tick(shock, 0);
+    assert(!terrain.height_valid && terrain.humps == 1U && terrain.hump_mm == 50U);
+    tick(flat, 0); assert(terrain.state == TERRAIN_FLAT);
+    /* Does not return to its base (30 mm up): an invalid end, peak cleared. */
+    for (unsigned n = 0; n < 5U; ++n) tick(up, 10);
+    tick(flat, 0); tick(down, 10); tick(down, 10);
+    for (unsigned n = 0; n < 5U; ++n) tick(flat, 0);
+    assert(terrain.state == TERRAIN_FLAT && !terrain.height_valid);
+    assert(terrain.humps == 2U && terrain.hump_mm == 0U && terrain.peak_um == 0U);
+    assert(terrain.height_mm == 50U && terrain.maximum_mm == 50U);
+    hump_scaled(5, 25);
+    assert(terrain.humps == 3U && terrain.hump_mm == 25U && terrain.maximum_mm == 50U);
+    puts("S4-U37 PASS hump end latched with a count; invalid end reports 0 and clears the peak");
+}
+/* I9: the shock flag describes the current sample only. */
+static void shock_clears(void)
+{
+    const int32_t shock[3] = {1900, 0, 1000};
+    reset(); baseline(); tick(shock, 0);
+    assert(terrain.shock);
+    step(flat, 0, 0, false);
+    assert(!terrain.shock && !terrain.tilt_valid);
+    for (unsigned n = 0; n < 5U; ++n) step(flat, 0, 0, false);
+    assert(!terrain.shock && terrain.state == TERRAIN_INVALID);
+    terrain_step(&terrain, now, shock, true, 0, true, true, 0, 0);
+    assert(terrain.shock);
+    terrain_step(&terrain, now, flat, false, 0, true, true, 0, 0);
+    assert(!terrain.shock);
+    puts("S4-U38 PASS the shock flag clears on the next sample, usable or not");
+}
+/* I11: a pivot's stopped wheel turning back a count does not end a hump;
+ * a robot-level reversal does. */
+static void pivot_backlash(void)
+{
+    reset(); baseline();
+    tick(up, 10); tick(up, 10);
+    left_bias -= 11U; tick(up, 10); /* left -1, right +10 */
+    assert(input.odometry.valid && terrain.state == TERRAIN_ASCENT);
+    left_bias -= 1U; tick(up, 0); /* left -1, right stopped */
+    assert(terrain.state == TERRAIN_ASCENT);
+    tick(up, 10); tick(up, 10);
+    tick(flat, 0);
+    for (unsigned n = 0; n < 5U; ++n) tick(down, 10);
+    for (unsigned n = 0; n < 5U; ++n) tick(flat, 0);
+    assert(terrain.state == TERRAIN_FLAT && terrain.height_valid);
+    assert(terrain.height_mm == 44U && terrain.humps == 1U);
+    tick(up, 10); left_bias -= 5U; tick(up, 0); /* one wheel back 5 counts */
+    assert(terrain.state == TERRAIN_INVALID);
+    puts("S4-U39 PASS one wheel back a count during a pivot keeps the hump; a reversal ends it");
+}
 int main(void)
 {
     invalid_records(); clocks_and_repeats(); wraps(); traversals(); clipped_impacts();
+    plain_descents(); bridged_samples(); hump_latch(); shock_clears(); pivot_backlash();
     reset();baseline();hump();hump_scaled(5,25);
     assert(terrain.maximum_mm==50U);
     hump_scaled(15,75);assert(terrain.maximum_mm==75U);

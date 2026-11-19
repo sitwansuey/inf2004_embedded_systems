@@ -56,6 +56,8 @@ test:
 	./.build/sonar
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_SERVO_CENTER_US=1300 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar_low_centre
 	./.build/sonar_low_centre
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_SERVO_US_PER_90=1000 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar_slope
+	./.build/sonar_slope
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_status_test.c ../../app_program/subsystem5/s5_data.c $(LDFLAGS) -o .build/sonar_status
 	./.build/sonar_status
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time

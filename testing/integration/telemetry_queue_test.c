@@ -8,6 +8,23 @@
 #include "../../app_program/subsystem1/telemetry.c"
 #include "../../app_program/subsystem3/event_codec.h"
 static unsigned now_ms, created;
+/* tk/smp.h atomics (one core here): calls counted, so the drop counter and
+ * the STOP word are shown to use them. */
+static unsigned atomic_calls;
+UW atomic_inc(UW *addr) {++atomic_calls;return ++*addr;}
+UW atomic_cmpxchg(UW *addr,UW val,UW cmp) {++atomic_calls;UW old=*addr;if(old==cmp)*addr=val;return old;}
+/* Last published VC state, for replies the VC did not make. */
+static unsigned test_phase, test_fault;
+ER app_get_state(app_state_t *p) {
+    *p=(app_state_t){0};p->vehicle.phase=test_phase&15U;p->vehicle.fault=test_fault&15U;return E_OK;
+}
+static bool ack_is(const unsigned char *a,unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault) {
+    return a[0]==0xC2 && a[1]==seq && a[2]==opcode && a[3]==result && a[4]==phase && a[5]==fault;
+}
+static void snapshot_with(uint8_t out[TELEMETRY_BYTES],unsigned sequence,unsigned time_ms,unsigned quality,unsigned imu) {
+    int64_t v[TEL_FIELD_COUNT]={0};v[TEL_VERSION]=1;v[TEL_SEQUENCE]=sequence;v[TEL_TIME_MS]=time_ms;
+    v[TEL_QUALITY]=quality;v[TEL_IMU_FAULT]=imu;assert(telemetry_encode(out,v));
+}
 /* Buffers in creation order: 1 telemetry, 2 commands, 3 acks, 4 events. */
 static unsigned counts[5],sizes[5][S1_EVENT_CAPACITY];static unsigned char queue[5][S1_EVENT_CAPACITY][256];
 static const unsigned capacity_of[5]={0,2,4,8,S1_EVENT_CAPACITY};
@@ -45,7 +62,9 @@ int main(void) {
     assert(telemetry_encode(p,v));assert(s1_binary_send(p)==E_OK);p[1]=123;
     assert(s1_telemetry_take(copy)==TELEMETRY_BYTES && copy[1]==0);
     p[1]=0;assert(s1_binary_send(p)==E_OK);assert(s1_binary_send(p)==E_OK);
-    assert(s1_binary_send(p)==E_TMOUT);now_ms=500;assert(s1_telemetry_take(copy)==E_TMOUT);
+    /* A full queue drops its oldest snapshot (counted) and queues the newest. */
+    {uint16_t d=s1_drop_count();assert(s1_binary_send(p)==E_OK && s1_drop_count()==d+1U && counts[1]==2);}
+    now_ms=500;{uint16_t d=s1_drop_count();assert(s1_telemetry_take(copy)==E_TMOUT && s1_drop_count()==d+2U);}
     unsigned char arm[6]={0xC1,1,30,0xF4,1,1},stop[6]={0xC1,0,0,0,0,2};control_message_t c;
     for(unsigned n=0;n<4;++n)assert(s1_command_offer(arm,6)==E_OK);
     assert(s1_command_offer(arm,6)==E_TMOUT);assert(s1_command_offer(stop,6)==E_OK);
@@ -113,6 +132,75 @@ int main(void) {
         assert(ev_obstacle(EV_OBSTACLE_BACK,3U,300U)==(EV_OBSTACLE_BACK|(3U<<2U)|(255U<<4U)));
         #undef EVENT_WORD
     }
+    /* Snapshots: the network takes the newest; an older or stale one still
+     * queued is dropped (counted) and hands on its one-snapshot flags
+     * (impact = quality bit 1, IMU fault), so neither is lost. */
+    {
+        uint8_t a[TELEMETRY_BYTES],b[TELEMETRY_BYTES],c[TELEMETRY_BYTES],out[TELEMETRY_BYTES];
+        int64_t got[TEL_FIELD_COUNT];
+        snapshot_with(a,1,now_ms,2|16,1);snapshot_with(b,2,now_ms,16,0);snapshot_with(c,3,now_ms,16,0);
+        uint16_t d=s1_drop_count();
+        assert(s1_binary_send(a)==E_OK && s1_binary_send(b)==E_OK);
+        assert(s1_telemetry_take(out)==(int)TELEMETRY_BYTES && s1_drop_count()==d+1U && telemetry_decode(out,got));
+        assert(got[TEL_SEQUENCE]==2 && got[TEL_QUALITY]==(2|16) && got[TEL_IMU_FAULT]==1);
+        assert(s1_telemetry_take(out)==E_TMOUT);
+        /* Full at send: a goes, its flags ride c; b is then dropped at take. */
+        assert(s1_binary_send(a)==E_OK && s1_binary_send(b)==E_OK && s1_binary_send(c)==E_OK && s1_drop_count()==d+2U);
+        assert(s1_telemetry_take(out)==(int)TELEMETRY_BYTES && s1_drop_count()==d+3U && telemetry_decode(out,got));
+        assert(got[TEL_SEQUENCE]==3 && got[TEL_QUALITY]==(2|16) && got[TEL_IMU_FAULT]==1);
+        /* A stale one (500 ms) is dropped too, and its flags still go on. */
+        snapshot_with(a,4,now_ms-500U,2,1);
+        assert(s1_binary_send(a)==E_OK && s1_binary_send(b)==E_OK);
+        assert(s1_telemetry_take(out)==(int)TELEMETRY_BYTES && s1_drop_count()==d+4U && telemetry_decode(out,got));
+        assert(got[TEL_SEQUENCE]==2 && got[TEL_QUALITY]==(2|16) && got[TEL_IMU_FAULT]==1);
+        /* No older snapshot: nothing added. */
+        assert(s1_binary_send(b)==E_OK && s1_telemetry_take(out)==(int)TELEMETRY_BYTES && telemetry_decode(out,got));
+        assert(got[TEL_QUALITY]==16 && got[TEL_IMU_FAULT]==0 && s1_drop_count()==d+4U);
+        /* Only a stale one queued: nothing to send, its flags wait for the next. */
+        assert(s1_binary_send(a)==E_OK && s1_telemetry_take(out)==E_TMOUT && s1_drop_count()==d+5U);
+        assert(s1_binary_send(b)==E_OK && s1_telemetry_take(out)==(int)TELEMETRY_BYTES && telemetry_decode(out,got));
+        assert(got[TEL_QUALITY]==(2|16) && got[TEL_IMU_FAULT]==1);
+        assert(s1_binary_send(b)==E_OK && s1_telemetry_take(out)==(int)TELEMETRY_BYTES && telemetry_decode(out,got));
+        assert(got[TEL_QUALITY]==16 && got[TEL_IMU_FAULT]==0);
+        d=(uint16_t)(d+1U);
+        /* A snapshot the network abandoned part-way is counted too. */
+        s1_telemetry_dropped();assert(s1_drop_count()==d+5U);
+        /* Every drop is one atomic increment (both cores count drops). */
+        unsigned calls=atomic_calls;s1_telemetry_dropped();assert(atomic_calls==calls+1U);
+    }
+    /* Command replies. Commands queued before a STOP are answered "rejected"
+     * (1) when the VC drains them; a reply the VC does not make carries the
+     * last published phase and fault. */
+    {
+        unsigned char ack[CSC02_ACK_BYTES];control_message_t c;
+        while(s1_command_ack_take(ack)>0) {}
+        test_phase=12;test_fault=8;
+        unsigned char start[6]={0xC1,3,30,0,0,20},stop[6]={0xC1,0,0,0,0,21};
+        assert(s1_command_offer(start,6)==E_OK && s1_command_offer(stop,6)==E_OK);
+        assert(s1_command_take(&c)==E_OK && c.wire[1]==0 && c.wire[5]==21);
+        assert(s1_command_ack_take(ack)==E_TMOUT); /* the VC answers its STOP itself */
+        assert(s1_command_take(&c)==E_TMOUT);
+        assert(s1_command_ack_take(ack)==(int)CSC02_ACK_BYTES && ack_is(ack,20,3,1,12,8));
+        assert(s1_command_ack_take(ack)==E_TMOUT);
+        /* Two STOPs before the VC takes one: it stops once; the first STOP is
+         * answered at once (accepted), the second by the VC. */
+        stop[5]=30;assert(s1_command_offer(stop,6)==E_OK && s1_command_ack_take(ack)==E_TMOUT);
+        stop[5]=31;assert(s1_command_offer(stop,6)==E_OK);
+        assert(s1_command_ack_take(ack)==(int)CSC02_ACK_BYTES && ack_is(ack,30,0,0,12,8));
+        assert(s1_command_take(&c)==E_OK && c.wire[1]==0 && c.wire[5]==31);
+        assert(s1_command_take(&c)==E_TMOUT && s1_command_ack_take(ack)==E_TMOUT);
+        /* A command offered after the STOP is not superseded. */
+        start[5]=22;assert(s1_command_offer(start,6)==E_OK && s1_command_take(&c)==E_OK && c.wire[5]==22);
+        s1_command_reply(5,2,2);
+        assert(s1_command_ack_take(ack)==(int)CSC02_ACK_BYTES && ack_is(ack,5,2,2,12,8));
+        /* A full reply buffer (no broker) drops its oldest reply, counted:
+         * the newest is the one a waiting dashboard can use. */
+        for(unsigned n=0;n<8U;++n)s1_command_ack(100U+n,4,0,0,0);
+        uint16_t d=s1_drop_count();s1_command_ack(108,4,0,0,0);assert(s1_drop_count()==d+1U);
+        for(unsigned n=1;n<=8U;++n)assert(s1_command_ack_take(ack)==(int)CSC02_ACK_BYTES && ack[1]==100U+n);
+        assert(s1_command_ack_take(ack)==E_TMOUT);
+        test_phase=test_fault=0;
+    }
     /* The drop counter wraps instead of sticking: status subtype 12 sends it
      * modulo 256, like the sequence (11), and receivers take differences. */
     {
@@ -130,5 +218,7 @@ int main(void) {
     puts("INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 14-byte events PASS");
     puts("Robot event queue: EDR16-format words, FIFO, 16 deep, full queue drops and counts, bad ids ignored PASS");
     puts("Drop counter: wraps past 65535, status subtype 12 is drops modulo 256 PASS");
+    puts("Snapshots: newest first, older/stale and full-queue drops counted, impact and IMU fault handed on PASS");
+    puts("Command replies: superseded commands rejected with the VC state, two STOPs both answered, full reply buffer drops the oldest PASS");
     return 0;
 }

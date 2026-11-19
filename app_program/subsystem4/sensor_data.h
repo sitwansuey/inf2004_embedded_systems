@@ -6,6 +6,9 @@
 
 #define S4_STALE_AFTER_US UINT64_C(100000)
 #define S4_NO_SAMPLE_AGE UINT32_MAX
+/* An accel sample above this magnitude, or clipped at +/-2 g, is an impact:
+ * the same 1.8 g as terrain's shock (terrain.c) and vehicle.c VC_SHOCK_MG. */
+#define S4_IMPACT_MG 1800
 
 /* Latest values, not a lossless stream. Other subsystems must use the
  * *_usable flags and ages, not simply the most recent numbers. Timestamps
@@ -35,15 +38,25 @@ typedef struct
     uint32_t accel_overruns;
     uint32_t publish_errors;
     uint32_t legacy_lines_received; /* retired IF-03 count, always 0 */
+    /* Monotonic (modulo 2^32), counted by S4 on every accel sample or poll,
+     * so a consumer that reads less often compares them with its last copy
+     * instead of sampling the latest flags:
+     * accel_impacts: fresh accel samples above S4_IMPACT_MG or clipped;
+     * accel_faults: accel fault events: an accel I/O error poll, an overrun
+     * or clipped sample, the accel going stale (no fresh sample for
+     * S4_IDLE_POLLS polls), a failed init, a reset of the device. */
+    uint32_t accel_impacts;
+    uint32_t accel_faults;
     uint64_t observed_time_us;
 } s4_sensor_status_t;
 
-/* Persistent storage: 500 information bits, rounded to 63 bytes. Derived
+/* Persistent storage: 564 information bits, rounded to 71 bytes. Derived
  * scaled values and ages exist only in transient calculation/API views. */
 enum {
     S4_COUNT_INIT, S4_COUNT_HEARTBEAT, S4_COUNT_ACCEL, S4_COUNT_MAG,
     S4_COUNT_ACCEL_ERROR, S4_COUNT_MAG_ERROR, S4_COUNT_OVERRUN,
-    S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY /* retired IF-03, stays 0 */, S4_COUNT_TOTAL
+    S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY /* retired IF-03, stays 0 */,
+    S4_COUNT_IMPACT, S4_COUNT_FAULT, S4_COUNT_TOTAL
 };
 #define S4_CACHE_BITS (212U + 32U * S4_COUNT_TOTAL)
 #define S4_CACHE_BYTES ((S4_CACHE_BITS + 7U) / 8U)

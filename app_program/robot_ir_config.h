@@ -13,6 +13,7 @@ static inline void robot_ir_apply_layout(s3_config_t *p_config)
     p_config->line.line_mask = BOARD_IR_LINE_MASK;
     p_config->barcode_sensor = BOARD_BARCODE_SENSOR;
     p_config->barcode_retry = BOARD_BARCODE_RETRY;
+    p_config->barcode_fault_fails = BOARD_BARCODE_FAULT_FAILS != 0;
     p_config->max_sample_gap_ms = BOARD_IR_MAX_SAMPLE_GAP_MS;
     /* A marker is complete only once GP28 has not changed for this long. */
     p_config->barcode.end_quiet_ms = BOARD_BARCODE_END_QUIET_MS;

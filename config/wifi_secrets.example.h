@@ -21,7 +21,14 @@
 #define MQTT_CLIENT_ID   "mtk3smp-pico"
 #define MQTT_TOPIC       "mtk3smp-pico/heartbeat"
 
-/* Optional broker authentication; NULL for an unauthenticated broker. */
+/* Optional broker login. NULL (or leaving both out) connects anonymously,
+ * as before. With a broker that requires a login and an ACL that lets only
+ * the dashboard publish csc02/command, other devices on the network cannot
+ * command the robot. Give the robot its own account, for example:
+ *   #define MQTT_USERNAME "robopico"
+ *   #define MQTT_PASSWORD "robot-account-password"
+ * The mosquitto password file and ACL are in
+ * app_program/external_systems/Dashboard/README.md ("Broker access"). */
 #define MQTT_USERNAME    NULL
 #define MQTT_PASSWORD    NULL
 

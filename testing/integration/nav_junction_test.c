@@ -318,8 +318,37 @@ static void line_lost(void) {
     drive(&s,&i,1);assert(s.phase==VC_NAV_TURN && s.turn_deg==-90);
     puts("Line lost while tracking: line_lost_mm without black spot-scans toward its side; found -> TRACK, never -> VC_LINE not found; touches, off, reversing, TRACK entry and a pending turn restart it PASS");
 }
+/* C7: the 4 s spot-search bound also ends a search the sonar holds (an
+ * object within 50 mm from 3.9 s on) or late line data holds: VC_LINE not
+ * found at 4 s, never the 5 s phase limit (VC_TIMEOUT) or a line-data
+ * fault. A held search that found the line and is settling is not cut. */
+static void held_search(void) {
+    for(unsigned hold=0;hold<2U;++hold) {
+        vc_input_t i=healthy();vc_state_t s=tracking(&i);
+        line(&i,0,0);
+        while(s.phase==VC_TRACK) drive(&s,&i,10000);
+        assert(s.phase==VC_REACQUIRE && s.spot_scan);
+        uint32_t from=i.now_ms;
+        while(i.now_ms-from<3900U) {drive(&s,&i,0);assert(s.armed && s.phase==VC_REACQUIRE);}
+        if(hold) i.front_clear=0; else i.line_fresh=0;
+        while(s.armed) {drive(&s,&i,0);assert(!s.command);}
+        assert(s.phase==VC_FAULT && s.fault==VC_LINE && s.fault_cause==VC_LINE_CAUSE_NOT_FOUND &&
+               i.now_ms-from==VC_SEARCH_MS);
+    }
+    /* Found at 3.99 s, then held by the sonar while settling: the bound
+     * leaves it to the phase limit (it is not a search any more). */
+    vc_input_t i=healthy();vc_state_t s=tracking(&i);
+    line(&i,0,0);
+    while(s.phase==VC_TRACK) drive(&s,&i,10000);
+    uint32_t from=i.now_ms;
+    while(i.now_ms-from<3990U) drive(&s,&i,0);
+    line(&i,1,0);drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.line_settling);
+    i.front_clear=0;drive(&s,&i,0);drive(&s,&i,0);assert(s.armed && s.phase==VC_REACQUIRE && !s.command);
+    i.front_clear=1;drive(&s,&i,0);assert(s.phase==VC_TRACK);
+    puts("Spot search held by the sonar or late line data: VC_LINE not found at 4 s, not the phase limit; a found line still settles PASS");
+}
 int main(void) {
     right_at_junction();hold_and_search_limit();leave_track();spot_scan();uturn_repeat();
-    line_guided_turns();line_guided_uturn();line_lost();
+    line_guided_turns();line_guided_uturn();line_lost();held_search();
     return 0;
 }

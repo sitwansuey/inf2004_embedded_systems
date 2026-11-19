@@ -4,11 +4,12 @@ from pathlib import Path
 import shutil
 import subprocess
 import threading
+import time
 import unittest
 from functools import partial
 from types import SimpleNamespace
 from packed16 import decode_messages, PACKED_TOPIC, READINGS
-from dashboard import BrokerBridge, DashboardHandler, ThreadingHTTPServer, TOPICS
+from dashboard import BrokerBridge, DashboardHandler, ThreadingHTTPServer, TOPICS, FLAG_HOLD_S
 from edr_decode import encode_packet, pack_motor
 
 # Values cover both wheels, every sensor axis, signed scaling, zero and limits.
@@ -73,7 +74,9 @@ class DashboardTests(unittest.TestCase):
             self.assertTrue(bridge.readings['Robopico/sensors/accelerometer/impact']['payload'])
             self.assertEqual(bridge.readings[READINGS[3]]['payload'],'90')
             self.assertEqual(bridge.readings[width]['payload'],17.5)
-        # Cause bits alone never stand in for quality bits 0/1/2/4/5.
+        # Cause bits alone never stand in for quality bits 0/1/2/4/5 (after
+        # the impact's 2 s hold).
+        later=time.time()+FLAG_HOLD_S+0.1;bridge.clock=lambda: later
         feed(bridge,PACKED_TOPIC,encode_packet(0,(9<<8)|(3<<6)))
         self.assertEqual(bridge.readings[vc+'fault_cause']['payload'],'Odometry')
         self.assertEqual(bridge.readings[vc+'quality']['payload'],0)
@@ -158,10 +161,47 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(bridge.readings[imu]['payload'])
         self.assertEqual(bridge.readings[READINGS[12]]['payload'],'36')
         self.assertEqual(decode_messages(encode_packet(12,4)),[(READINGS[12],'4'),(imu,True)])
-        # It travels in ID 12, so motor unavailability clears it with the mask.
+        # It travels in ID 12, so motor unavailability clears it with the
+        # mask, once its 2 s hold ends.
         feed(bridge,PACKED_TOPIC,encode_packet(0,(10<<8)|254))
-        self.assertIsNone(bridge.readings[imu]['payload'])
+        self.assertTrue(bridge.readings[imu]['payload'])
         self.assertIsNone(bridge.readings[READINGS[12]]['payload'])
+        later=time.time()+FLAG_HOLD_S+0.1;bridge.clock=lambda: later
+        self.assertIsNone({m['topic']:m['payload'] for m in bridge.snapshot()['messages']}[imu])
+
+    def test_one_snapshot_flags_are_held(self):
+        # Impact and IMU fault are true in one 200 ms snapshot; the browser
+        # polls every 250 ms. Each rising edge is logged once and shown for
+        # 2 s, then the latest value.
+        bridge=BrokerBridge();now=[1000.0];bridge.clock=lambda: now[0]
+        impact='Robopico/sensors/accelerometer/impact';imu='Robopico/sensors/accelerometer/imu_fault'
+        quality=lambda bits: feed(bridge,PACKED_TOPIC,encode_packet(0,(9<<8)|bits))
+        shown=lambda: {m['topic']:(m['payload'],m['sequence']) for m in bridge.snapshot()['messages']}
+        quality(16);self.assertEqual(shown()[impact][0],False)
+        now[0]+=0.2;quality(16|2);true_at=shown()[impact]
+        self.assertEqual(true_at[0],True)
+        now[0]+=0.2;quality(16)  # next snapshot: false, but held
+        self.assertEqual(shown()[impact],true_at)  # same value and sequence: nothing new to apply
+        now[0]+=0.2;quality(16|2);now[0]+=0.2;quality(16)  # a second hit inside the hold: one row
+        now[0]+=FLAG_HOLD_S-0.3;self.assertTrue(shown()[impact][0])  # 2 s from the second hit
+        now[0]+=0.2;after=shown()[impact]
+        self.assertEqual(after[0],False);self.assertGreater(after[1],true_at[1])
+        rows=[e for e in bridge.snapshot()['events'] if e['message'].startswith('Impact')]
+        self.assertEqual(len(rows),1);self.assertEqual(rows[0]['level'],'WARN')
+        now[0]+=1;quality(16|2);quality(16)  # a new rising edge: a new row
+        self.assertTrue(shown()[impact][0])
+        self.assertEqual(len([e for e in bridge.snapshot()['events'] if e['message'].startswith('Impact')]),2)
+        # IMU fault (ID 12 bit 0x04) the same way.
+        feed(bridge,PACKED_TOPIC,encode_packet(12,0));self.assertFalse(shown()[imu][0])
+        feed(bridge,PACKED_TOPIC,encode_packet(12,4));now[0]+=0.2;feed(bridge,PACKED_TOPIC,encode_packet(12,0))
+        self.assertTrue(shown()[imu][0])
+        self.assertEqual(len([e for e in bridge.snapshot()['events'] if e['message'].startswith('IMU fault')]),1)
+        now[0]+=FLAG_HOLD_S;self.assertFalse(shown()[imu][0])
+        # A held flag with no newer value stays true (the latest value).
+        now[0]+=1;feed(bridge,PACKED_TOPIC,encode_packet(12,4));now[0]+=FLAG_HOLD_S+1
+        self.assertTrue(shown()[imu][0])
+        # A broker reconnect clears it like every reading.
+        bridge.on_disconnect(None,None,None,None,None);self.assertIsNone(shown()[imu][0])
 
     def test_dropped_counts_last_minute(self):
         # Subtype 12 is the robot's drop counter modulo 256 (wraps): the

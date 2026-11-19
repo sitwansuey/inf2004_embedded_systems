@@ -75,7 +75,8 @@ and mean edge slant range dE, half = isqrt(dE²-d0²), falling back to
 d0·tan(edge angle) when dE <= d0; the total (page 0-100) is left + right.
 Telemetry rounds each half to (mm+4)/8. The bypass side is the planned side
 (S5 picks the feasible side with the smaller half-width) and is 0 until a
-verified plan exists. S5 publishes the widths for at least 300 ms before
+verified plan exists. After READY, widths and side persist through navigation.
+S5 publishes the widths for at least 300 ms before
 choosing a side; the telemetry task sends an extra snapshot as soon as a new
 valid width or a changed side appears, so the halves reach MQTT first.
 
@@ -87,7 +88,11 @@ other sensors. Arrival time is not source time.
 
 The telemetry task samples at 5 Hz. The network task sends at most four
 records per poll, retries the same record on backpressure, and discards an
-unfinished observation once its internal timestamp reaches 500 ms. Up to 33
+unfinished observation once its internal timestamp reaches 500 ms, counting
+the drop. The two-slot queue keeps the newest observation and counts older
+ones it discards. Dropped observations pass impact and IMU-fault bits to
+the next one. Impact extras are limited to one per 200 ms; fault, width
+and side changes are not limited. A failed queue send retries the change. Up to 33
 messages (15 sensor IDs, 16 status subtypes, 2 width pages) describe one observation; MQTT QoS 0 does not guarantee all arrive.
 The sequence field is diagnostic, not an atomic-frame assembly protocol.
 
@@ -116,7 +121,10 @@ The telemetry adapter also sets IMU 0x04 when any vehicle-controller S4 result
 since the last snapshot had `EDR_FAULT_IMU` (I/O error, accelerometer sample
 older than 100 ms, clipped or overrun sample, IMU/encoder skew). A sample
 clipped at +/-2 g is also a shock (impact, quality bit 1); an unclipped shock
-is not an IMU fault.
+is not an IMU fault. S4's monotonic sample counters also cover faults and
+impacts between controller reads. The VC consumes all counter increments
+and counts local copy/skew faults. The IMU latch clears only after a
+successful queued snapshot carrying ID 12; a missing motor status keeps it.
 
 Examples (wire bytes shown in transmission order):
 
@@ -145,7 +153,8 @@ Discrete events for the dashboard's event log use their own topic,
 `Robopico/events/edr16/v1`, one two-byte record per MQTT message in the same
 EDR16 shape (low nibble = event ID, high 12 bits = value). They are not
 telemetry: the vehicle controller (and the MQTT owner, for link events) calls
-`s1_event_post`, subsystem 1 queues up to 16 records (`subsystem1/telemetry.c`)
+`s1_event_post`, subsystem 1 uses a 160-byte event buffer
+(20 two-byte records with kernel overhead, `subsystem1/telemetry.c`)
 and the network owner publishes one per poll after command replies
 (`mqtt_utk.c`). lwIP keeps a dead connection until its keep-alive watchdog
 closes it (~90 s), so once the broker has acknowledged nothing for 3 s the
@@ -153,7 +162,9 @@ events stay in the queue rather than going to lwIP, which would drop them
 unsent; a full queue drops new events. After 10 s without a Wi-Fi link
 (`cyw43_utk.c`) the network owner leaves and re-joins the access point and
 closes the MQTT session at once, so the 3 s retry reconnects when the link
-returns and posts the link event. Event IDs are not sensor IDs: decode
+returns. The network owner holds its link event separately and publishes
+it first, before the queued outage events. A stalled first join uses a
+20 s leave/rejoin bound; a later outage uses 10 s. Event IDs are not sensor IDs: decode
 event records with `decode_event`, never `edr_decode`/`decode_packet` (which
 would, for example, reject a hump value above 180 as a servo angle). Layout (`app_program/shared/events.h`,
 `tools/edr_decode.py decode_event`):
@@ -162,14 +173,16 @@ would, for example, reject a hump value above 180 as a servo angle). Layout (`ap
 |---|---|---|
 | 1 | Barcode attempt (one per finished read) | bits 0-1 attempt (1 initial scan, 2 reverse scan, 3 final attempt); bits 2-6 bars+spaces read (0..31, a full `*X*` is 29); bits 7-11 letter (0 failed, 1..26 = A..Z) |
 | 2 | Instruction decoded | bits 0-4 letter 1..26; bits 5-7 turn (0 none/not mapped, 1 left, 2 right, 3 straight, 4 U-turn) |
-| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: its highest point in 2 mm; a height of 0 means subsystem 4 lost it); bits 3-11 value |
+| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: the completed height latched by S4 for this traversal in 2 mm, or 0 if no valid hump completed); bits 3-11 value |
 | 4 | Obstacle | bits 0-1 kind (1 detected: distance cm of the confirming forward echo; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
 | 5 | Link | bits 0-1 kind (1 reconnected to the broker after N s without it, counted from the first publish it never acknowledged; 2 first connection, N s after boot); bits 2-11 seconds |
 
 An instruction (ID 2) is posted after the barcode attempt (ID 1) that decoded
 it. The dashboard receiver adds its own rows: robot offline (no data for 3 s)
-and back online, its broker link, and each new controller fault code from
-status subtype 0.
+and back online, its broker link, each new controller fault code from
+status subtype 0, and rising impact/IMU-fault flags. Each flag stays visible
+for 2 s. A flat-top hump keeps one detected/crest/level cycle; a plain
+descent is DESCENT with no hump height.
 
 ## Migration and limits
 
@@ -214,3 +227,14 @@ plus the IMU bit (4) described above.
 Dashboard and audio ignore retained records and clear observations on disconnect
 and reconnect. The private snapshot now uses 433 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side, a 2-bit sensor-fault cause, a 4-bit controller fault 0..8 and a 1-bit IMU fault; phase maximum 13) in 55 bytes, the last 7 bits zero padding; its
 schema includes a two-bit motor error class. Rebuild firmware components together.
+
+Checkpoint 8c changes no MQTT bit layout or command length. S4's protected
+internal cache is now 71 bytes (564 bits), with 32-bit impact/fault counters.
+The checked terrain result stays 12 bytes. Latched faults/impacts clear
+incompatible tilt/height validity bits before encoding; validation remains
+strict. The app-state fault count is local and is not a new wire field.
+
+ACKs use the existing six bytes. STOP-superseded commands get result 1;
+each coalesced STOP gets result 0. Network replies include the last VC
+phase/fault. A full ACK buffer drops and counts the oldest reply. USB
+sequence bit 7 separates it from dashboard sequences 0-127.

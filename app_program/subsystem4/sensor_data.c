@@ -2,9 +2,9 @@
 #include "sensor_data.h"
 #include "packed_bits.h"
 /* init(3),poll(3),configured(1); accel XYZ(36),ms(55),flags/status(6);
- * mag XYZ(48),ms(55),flags/status(5); nine modulo-32 counters. */
+ * mag XYZ(48),ms(55),flags/status(5); eleven modulo-32 counters. */
 enum { ACCEL_BIT=7, MAG_BIT=104, COUNTER_BIT=212 };
-_Static_assert(S4_CACHE_BITS==500U && S4_CACHE_BYTES==63U,"cache schema");
+_Static_assert(S4_CACHE_BITS==564U && S4_CACHE_BYTES==71U,"cache schema");
 uint32_t s4_cache_count(const s4_sensor_cache_t *s,unsigned n) {
     return s && n<S4_COUNT_TOTAL?(uint32_t)s4_bits_get(s->bytes,COUNTER_BIT+n*32U,32):0;
 }
@@ -23,6 +23,7 @@ void s4_data_invalidate(s4_sensor_cache_t *s) {
     s4_bits_put(s->bytes,6,1,0);s4_bits_put(s->bytes,0,3,LSM303_IO_ERROR);
     s4_bits_put(s->bytes,ACCEL_BIT+36U+55U+1U,1,0);
     s4_bits_put(s->bytes,MAG_BIT+48U+55U+1U,1,0);
+    s4_cache_increment(s,S4_COUNT_FAULT);
 }
 void s4_data_init_result(s4_sensor_cache_t *s,lsm303_result_t result) {
     unsigned code=(unsigned)result;
@@ -30,6 +31,16 @@ void s4_data_init_result(s4_sensor_cache_t *s,lsm303_result_t result) {
     for(unsigned bit=0;bit<COUNTER_BIT;++bit)s4_bits_put(s->bytes,bit,1,0);
     s4_bits_put(s->bytes,0,3,code);s4_bits_put(s->bytes,3,3,LSM303_NOT_INITIALIZED);
     s4_bits_put(s->bytes,6,1,code==LSM303_OK);s4_cache_increment(s,S4_COUNT_INIT);
+    if(code!=LSM303_OK)s4_cache_increment(s,S4_COUNT_FAULT);
+}
+/* Raw accel is 1 mg/LSB (+/-2 g high resolution). */
+static bool impact(const lsm303_sample_t *v) {
+    int64_t norm=0;
+    for(unsigned n=0;n<3;++n) {
+        if(v->raw[n]<=-2048 || v->raw[n]>=2047)return true; /* clipped */
+        norm+=(int64_t)v->raw[n]*v->raw[n];
+    }
+    return norm>(int64_t)S4_IMPACT_MG*S4_IMPACT_MG;
 }
 static void update_sample(s4_sensor_cache_t *s,const lsm303_sample_t *sample,bool mag) {
     unsigned base=mag?MAG_BIT:ACCEL_BIT, rawbits=mag?16U:12U;
@@ -60,6 +71,12 @@ void s4_data_update(s4_sensor_cache_t *s,const lsm303_frame_t *f,lsm303_result_t
     if(f->accel.status==LSM303_DATA_IO_ERROR)s4_cache_increment(s,S4_COUNT_ACCEL_ERROR);
     if(f->mag.status==LSM303_DATA_IO_ERROR)s4_cache_increment(s,S4_COUNT_MAG_ERROR);
     if(f->accel.overrun)s4_cache_increment(s,S4_COUNT_OVERRUN);
+    /* Counted here, on every sample, so the 20 ms controller cannot miss a
+     * one-sample impact or fault between its reads. The magnetometer is
+     * telemetry only and never an IMU fault. */
+    if(f->accel.fresh && impact(&f->accel))s4_cache_increment(s,S4_COUNT_IMPACT);
+    if(f->accel.status==LSM303_DATA_IO_ERROR ||
+       (f->accel.fresh && (f->accel.overrun || !f->accel.valid)))s4_cache_increment(s,S4_COUNT_FAULT);
     update_sample(s,&f->accel,false);update_sample(s,&f->mag,true);
 }
 static lsm303_sample_t decode_sample(const s4_sensor_cache_t *s,bool mag) {
@@ -117,4 +134,5 @@ void s4_data_snapshot(const s4_sensor_cache_t *s,uint64_t now,s4_sensor_status_t
     out->accel_io_errors=s4_cache_count(s,S4_COUNT_ACCEL_ERROR);out->mag_io_errors=s4_cache_count(s,S4_COUNT_MAG_ERROR);
     out->accel_overruns=s4_cache_count(s,S4_COUNT_OVERRUN);out->publish_errors=s4_cache_count(s,S4_COUNT_PUBLISH_ERROR);
     out->legacy_lines_received=s4_cache_count(s,S4_COUNT_LEGACY);
+    out->accel_impacts=s4_cache_count(s,S4_COUNT_IMPACT);out->accel_faults=s4_cache_count(s,S4_COUNT_FAULT);
 }

@@ -60,14 +60,22 @@ typedef struct
 typedef struct
 {
     lsm303_bus_t bus;
-    bool initialized : 1;
+    bool initialized : 1; /* accelerometer configured and running */
+    bool mag_ready : 1;   /* magnetometer identified, configured, running */
 } lsm303_device_t;
 
 /* Fixed bring-up configuration: accel 50 Hz, +/-2 g, high resolution, BDU,
  * no high-pass filter/FIFO; magnetometer 30 Hz, +/-1.3 G, continuous mode.
- * Reinitialization invalidates the previous initialized state on failure. */
+ * Reinitialization invalidates the previous initialized state on failure.
+ * The result is the accelerometer's: the magnetometer is telemetry only, so
+ * a missing or wrong magnetometer leaves mag_ready false and is not polled,
+ * but never keeps the accelerometer down. */
 lsm303_result_t lsm303dlhc_init(lsm303_device_t *p_device,
                               const lsm303_bus_t *p_bus);
+
+/* Magnetometer only (identity and configuration), on an initialized device.
+ * Sets mag_ready on success. lsm303dlhc_init calls it once. */
+lsm303_result_t lsm303dlhc_init_mag(lsm303_device_t *p_device);
 
 /* Poll each channel independently. Only fresh samples carry a timestamp.
  * NO_DATA is normal at different ODRs. If one channel fails, a successful

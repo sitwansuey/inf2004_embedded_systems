@@ -162,9 +162,10 @@ static void test_configuration(void)
     mock_bus_t mock;
     lsm303_bus_t bus = reset_mock(&mock);
     lsm303_device_t device = { 0 };
+    lsm303_frame_t frame;
 
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
-    CHECK(device.initialized);
+    CHECK(device.initialized && device.mag_ready);
     CHECK(mock.accel[0x20] == 0x47);
     CHECK(mock.accel[0x21] == 0);
     CHECK(mock.accel[0x23] == 0x88);
@@ -174,19 +175,36 @@ static void test_configuration(void)
     CHECK(mock.mag[1] == 0x20);
     CHECK(mock.mag[2] == 0);
 
-    mock.mag[0x0a] = 0;
-    CHECK(lsm303dlhc_init(&device, &bus) == LSM303_WRONG_ID);
-    CHECK(!device.initialized);
+    /* The magnetometer is telemetry only: a wrong or missing one leaves the
+     * accelerometer up, is not polled, and can be set up later. */
     bus = reset_mock(&mock);
-    mock.corrupt_readback = true;
-    CHECK(lsm303dlhc_init(&device, &bus) == LSM303_CONFIG_ERROR);
-    CHECK(!device.initialized);
+    mock.mag[0x0a] = 0;
+    CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
+    CHECK(device.initialized && !device.mag_ready);
+    CHECK(mock.accel[0x20] == 0x47 && mock.mag[0] == 0 && mock.mag[1] == 0);
+    set_accel(&mock, 0, 0, 1000);
+    set_mag(&mock, 110, 220, 98);
+    CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_OK);
+    CHECK(frame.accel.fresh && frame.accel.valid && frame.accel.raw[2] == 1000);
+    CHECK(!frame.mag.fresh && frame.mag.status == LSM303_NO_DATA && mock.mag_bursts == 0);
+    CHECK(lsm303dlhc_init_mag(&device) == LSM303_WRONG_ID && !device.mag_ready);
+    mock.mag[0x0a] = 0x48;
+    CHECK(lsm303dlhc_init_mag(&device) == LSM303_OK && device.mag_ready);
+    CHECK(mock.mag[0] == 0x14 && mock.mag[1] == 0x20 && mock.mag[2] == 0);
+    CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_OK && frame.mag.fresh);
     bus = reset_mock(&mock);
     mock.fail_reads = true;
     mock.fail_address = LSM303_MAG_ADDRESS;
     mock.fail_register = 0x0a;
-    CHECK(lsm303dlhc_init(&device, &bus) == LSM303_IO_ERROR);
-    CHECK(!device.initialized);
+    CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
+    CHECK(device.initialized && !device.mag_ready);
+    CHECK(lsm303dlhc_init_mag(NULL) == LSM303_BAD_ARGUMENT);
+    device.initialized = false;
+    CHECK(lsm303dlhc_init_mag(&device) == LSM303_NOT_INITIALIZED);
+    bus = reset_mock(&mock);
+    mock.corrupt_readback = true;
+    CHECK(lsm303dlhc_init(&device, &bus) == LSM303_CONFIG_ERROR);
+    CHECK(!device.initialized && !device.mag_ready);
     bus = reset_mock(&mock);
     mock.fail_writes = true;
     mock.fail_address = LSM303_ACCEL_ADDRESS;

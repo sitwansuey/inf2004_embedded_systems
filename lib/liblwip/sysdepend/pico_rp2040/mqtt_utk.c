@@ -28,7 +28,10 @@
 #define MQTT_UTK_KEEPALIVE_S    60
 #define MQTT_UTK_RETRY_MS       3000
 
-/* Keep existing local secrets files compatible. */
+/* Optional broker login (config/wifi_secrets.h). NULL, the default, connects
+ * anonymously as before. With a broker ACL that lets only the dashboard
+ * publish csc02/command, other clients cannot command the robot
+ * (app_program/external_systems/Dashboard/README.md, "Broker access"). */
 #ifndef MQTT_USERNAME
 #define MQTT_USERNAME NULL
 #endif
@@ -57,8 +60,20 @@ static u32_t link_lost_ms;
  * for MQTT_UTK_EVENT_HOLD_MS, robot events stay queued in subsystem 1: lwIP
  * would drop them, unsent, when it closes the connection. */
 #define MQTT_UTK_EVENT_HOLD_MS  3000U
+/* telemetry_edr_record() indexes: ID 12 is index 11, status subtype 9 is 15+9. */
+#define MQTT_UTK_ID12_INDEX     11U
+#define MQTT_UTK_QUALITY_INDEX  24U
 static u8_t unacked;
 static u32_t unacked_since_ms;
+/* EV_LINK waits here, not in subsystem 1's event queue: after an outage that
+ * queue can be full of the VC's events, and a full queue drops the newest.
+ * It is published before them. A later connection replaces an unsent one. */
+static unsigned char link_event[EDR_RECORD_SIZE];
+static u8_t link_pending;
+static void link_event_set(unsigned value) {
+    unsigned word=(value<<4U)|EV_LINK;
+    link_event[0]=(unsigned char)(word&255U);link_event[1]=(unsigned char)(word>>8U);link_pending=1;
+}
 
 static void publish_done_cb(void *arg,err_t result);
 static void retry_timeout(void *arg);
@@ -83,12 +98,13 @@ static void incoming_data_cb(void *arg,const u8_t *data,u16_t length,u8_t flags)
             /* Reconnect requires a fresh RESET before ARM. A retained ARM
              * alone must never restart a vehicle after boot or link loss. */
             if(incoming[1]==0)command_enabled=0;
+            /* These replies carry the VC's last published phase and fault. */
             if((incoming[1]==1 || incoming[1]==3) && !command_enabled) {
-                s1_command_ack(incoming[5],incoming[1],2,0,0);
+                s1_command_reply(incoming[5],incoming[1],2);
             } else {
                 int offered=s1_command_offer(incoming,incoming_used);
                 if(offered==0 && incoming[1]==2)command_enabled=1;
-                if(offered!=0)s1_command_ack(incoming[5],incoming[1],1,0,0);
+                if(offered!=0)s1_command_reply(incoming[5],incoming[1],1);
             }
         }
         incoming_valid=0;
@@ -128,23 +144,39 @@ void mqtt_utk_poll_telemetry(void) {
     if(!ack_pending && s1_command_ack_take(ack)==CSC02_ACK_BYTES)ack_pending=1;
     if(ack_pending && mqtt_publish(client,CSC02_ACK_TOPIC,ack,CSC02_ACK_BYTES,
                                   0,0,publish_done_cb,NULL)==ERR_OK) {ack_pending=0;published();}
-    /* Then one queued robot event (events survive a link drop): none while
-     * the broker has not acknowledged anything for MQTT_UTK_EVENT_HOLD_MS. */
+    /* Then one robot event per poll, EV_LINK first, then the queued ones
+     * (events survive a link drop): none while the broker has not
+     * acknowledged anything for MQTT_UTK_EVENT_HOLD_MS. */
     static unsigned char event[EDR_RECORD_SIZE];
     static unsigned event_pending;
     int hold=unacked && sys_now()-unacked_since_ms>=MQTT_UTK_EVENT_HOLD_MS;
-    if(!hold && !event_pending && s1_event_take(event)==EDR_RECORD_SIZE)event_pending=1;
-    if(!hold && event_pending && mqtt_publish(client,CSC02_EVENT_TOPIC,event,EDR_RECORD_SIZE,
-                                    0,0,publish_done_cb,NULL)==ERR_OK) {event_pending=0;published();}
+    if(!hold && link_pending) {
+        if(mqtt_publish(client,CSC02_EVENT_TOPIC,link_event,EDR_RECORD_SIZE,
+                        0,0,publish_done_cb,NULL)==ERR_OK) {link_pending=0;published();}
+    } else {
+        if(!hold && !event_pending && s1_event_take(event)==EDR_RECORD_SIZE)event_pending=1;
+        if(!hold && event_pending && mqtt_publish(client,CSC02_EVENT_TOPIC,event,EDR_RECORD_SIZE,
+                                        0,0,publish_done_cb,NULL)==ERR_OK) {event_pending=0;published();}
+    }
 
+    /* One-snapshot flags of an abandoned snapshot that were not sent yet:
+     * ID 12 (IMU fault) and status subtype 9 (impact) go on in the next. */
+    static u8_t carry_imu,carry_impact;
     if(next<TELEMETRY_EDR_RECORDS && !s1_telemetry_current(snapshot)) {
-        /* Continue at the unsent field in the fresh snapshot. Width/status
-         * fields must not starve behind encoder/IR records on slow links. */
+        /* Abandoned part-way: a dropped snapshot, counted. Continue at the
+         * unsent field in the fresh snapshot. Width/status fields must not
+         * starve behind encoder/IR records on slow links. */
+        s1_telemetry_dropped();
+        if(values[TEL_IMU_FAULT] && (MQTT_UTK_ID12_INDEX+TELEMETRY_EDR_RECORDS-resume)%TELEMETRY_EDR_RECORDS>=next)carry_imu=1;
+        if((values[TEL_QUALITY]&2) && (MQTT_UTK_QUALITY_INDEX+TELEMETRY_EDR_RECORDS-resume)%TELEMETRY_EDR_RECORDS>=next)carry_impact=1;
         resume=(resume+next)%TELEMETRY_EDR_RECORDS;
         next=TELEMETRY_EDR_RECORDS;
     }
     if(next==TELEMETRY_EDR_RECORDS) {
         if(s1_telemetry_take(snapshot)!=TELEMETRY_BYTES || !telemetry_decode(snapshot,values))return;
+        if(carry_imu)values[TEL_IMU_FAULT]=1;
+        if(carry_impact)values[TEL_QUALITY]|=2;
+        carry_imu=carry_impact=0;
         next=0;
     }
     /* Four two-byte messages per poll; retain the exact record on backpressure.
@@ -186,10 +218,10 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 		tm_printf((UB*)"mqtt: connected to " MQTT_BROKER_IP "\n");
 		/* Event log: back after an outage, or the first connection. */
 		if(link_lost) {
-			s1_event_post(EV_LINK,ev_link(EV_LINK_RECONNECTED,(unsigned)((sys_now()-link_lost_ms)/1000U)));
+			link_event_set(ev_link(EV_LINK_RECONNECTED,(unsigned)((sys_now()-link_lost_ms)/1000U)));
 			link_lost=0;
 		} else if(!ever_connected) {
-			s1_event_post(EV_LINK,ev_link(EV_LINK_BOOT,(unsigned)(sys_now()/1000U)));
+			link_event_set(ev_link(EV_LINK_BOOT,(unsigned)(sys_now()/1000U)));
 		}
 		ever_connected=1;unacked=0;
 
@@ -264,12 +296,8 @@ void mqtt_utk_start(void)
 
 	client_info.client_id = MQTT_CLIENT_ID;
 	client_info.keep_alive = MQTT_UTK_KEEPALIVE_S;
-#ifdef MQTT_USERNAME
     client_info.client_user=MQTT_USERNAME;
-#endif
-#ifdef MQTT_PASSWORD
     client_info.client_pass=MQTT_PASSWORD;
-#endif
 
 	connecting = 1;
 	err = mqtt_client_connect(client, &broker_addr, MQTT_BROKER_PORT,

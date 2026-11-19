@@ -32,7 +32,10 @@ typedef struct
 bool s3_ir_config_valid(const s3_ir_config_t *p_config);
 ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config);
 /* Sole client is the sampling task; E_TMOUT while waiting is distinguished
- * from a latched timeout by s3_ir_waiting(). Failed ADC stays held until reboot. */
+ * from a latched timeout by s3_ir_waiting(). A late scan (worker held off
+ * before converting, or a reply collected too late) is dropped and
+ * resubmitted, still waiting. Only a device/transport failure (including a
+ * driver read that itself overran its deadline) stays held until reboot. */
 bool s3_ir_waiting(const s3_ir_t *p_ir);
 ER s3_ir_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample);
 /* Sampler path: submit a current scan and wait on its copied reply, with a

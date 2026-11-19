@@ -23,16 +23,32 @@ static INT edge_clearance_heading(INT angle, UW range_mm)
     return 0;
 }
 
-static BOOL approach_geometry(s5_path_t *path,const s5_status_t *sensor,UINT degree,BOOL left)
+EXPORT UW s5_plan_lateral_mm(const s5_status_t *sensor, BOOL left)
 {
-    if(!degree || degree>80U || !sensor->object_width_valid ||
-       sensor->object_width_max_mm>AVOID_MAX_WIDTH_MM)return FALSE;
+    if(!sensor || !sensor->object_width_valid || sensor->object_width_max_mm>AVOID_MAX_WIDTH_MM)return 0;
     INT bound=left?sensor->left_bound_deg:-sensor->right_bound_deg;
     UW range=left?sensor->left_bound_distance_mm:sensor->right_bound_distance_mm;
-    if(bound<0 || bound>80 || !range || range>5000U)return FALSE;
+    if(bound<0 || bound>80 || !range || range>5000U)return 0;
     UW edge=range*s5_cosine_q10000[90-(UINT)bound]/10000U;
     UW half=(sensor->object_width_max_mm+1U)/2U;
-    UW lateral=(edge>half?edge:half)+S5_CLEARANCE_RADIUS_MM;
+    return (edge>half?edge:half)+S5_CLEARANCE_RADIUS_MM;
+}
+
+EXPORT BOOL s5_corridor_blocked(const s5_status_t *sample, UW lateral_mm, UW ahead_mm)
+{
+    if(!sample || !sample->valid || !sample->distance_mm || sample->distance_mm>5000U)return FALSE;
+    INT magnitude=sample->sample_angle_deg<0?-sample->sample_angle_deg:sample->sample_angle_deg;
+    if(magnitude>90)return FALSE;
+    UW lateral=sample->distance_mm*s5_cosine_q10000[90-magnitude]/10000U;
+    UW ahead=sample->distance_mm*s5_cosine_q10000[magnitude]/10000U;
+    return ahead<=ahead_mm && lateral<=lateral_mm+S5_SIDE_HALF_WIDTH_MM;
+}
+
+static BOOL approach_geometry(s5_path_t *path,const s5_status_t *sensor,UINT degree,BOOL left)
+{
+    if(!degree || degree>80U)return FALSE;
+    UW lateral=s5_plan_lateral_mm(sensor,left);
+    if(!lateral)return FALSE;
     UW arc=2U*S5_BYPASS_ARC_RADIUS_MM*(10000U-s5_cosine_q10000[degree])/10000U;
     UW remaining=lateral>arc?lateral-arc:0U;
     UW sine=s5_cosine_q10000[90U-degree];

@@ -129,6 +129,16 @@ static ER submit_scan(s3_ir_t *p_ir, uint32_t now_ms)
     return E_OK;
 }
 
+/* Drop the answered scan (late, or not converted) and ask for a fresh one.
+ * Still waiting: E_TMOUT with s3_ir_waiting() true, never a latched fault. */
+static ER resubmit(s3_ir_t *p_ir, uint32_t now_ms)
+{
+    ER er;
+    p_ir->adc_pending = false;
+    er = submit_scan(p_ir, now_ms);
+    return (er != E_OK) ? er : E_TMOUT;
+}
+
 static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
                    bool wait)
 {
@@ -147,12 +157,12 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
         if (!wait) return E_TMOUT;
     }
     {
-        /* Deadline wins even if an old response is already buffered. Never
-         * cancel or reuse memory underneath a still-running device call. */
-        if ((now_ms - p_ir->adc_started_ms) >= S3_ADC_REPLY_DEADLINE_MS)
-        {
-            return adc_failure(p_ir, E_TMOUT);
-        }
+        /* One scan stays outstanding until the worker answers it, so a
+         * held-off worker never meets a full request buffer and nothing is
+         * cancelled under a running device call. Lateness never latches: the
+         * worker drops a scan it starts after S3_ADC_DEADLINE_MS, and a sample
+         * delivered S3_ADC_REPLY_DEADLINE_MS after its conversion is dropped
+         * here; both are resubmitted. Only device/transport errors latch. */
         er = wait ? s3_adc_receive_wait(&reply) : s3_adc_receive(&reply);
         if (wait)
         {
@@ -160,8 +170,6 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
             ER clock_error = tk_get_otm(&completed);
             if (clock_error != E_OK) return adc_failure(p_ir, clock_error);
             now_ms = (uint32_t)completed.lo;
-            if ((now_ms - p_ir->adc_started_ms) >= S3_ADC_REPLY_DEADLINE_MS)
-                return adc_failure(p_ir, E_TMOUT);
         }
         if (er == E_TMOUT)
         {
@@ -173,16 +181,22 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
         }
         if (reply.sequence != p_ir->adc_sequence)
         {
-            return adc_failure(p_ir, E_IO);
+            return E_TMOUT; /* Not this scan's reply: discard it, keep waiting. */
         }
         if (reply.error != E_OK)
         {
+            if ((reply.error == E_TMOUT) && reply.retry)
+            {
+                return resubmit(p_ir, now_ms); /* worker held off, no conversion */
+            }
             return adc_failure(p_ir, (reply.error < E_OK) ? reply.error : E_IO);
         }
         const uint8_t analog_mask = p_ir->config.mode == S3_IR_ADC_LINE_DIGITAL_BARCODE ? 3U : S3_SENSOR_MASK;
+        /* The worker must start within S3_ADC_DEADLINE_MS of the request and
+         * cannot report a time after now: anything else is a broken reply. */
         if ((reply.sample.valid_mask != analog_mask) ||
-            ((now_ms - reply.sample.time_ms) >= S3_ADC_REPLY_DEADLINE_MS) ||
-            ((reply.sample.time_ms - p_ir->adc_started_ms) >= S3_ADC_DEADLINE_MS))
+            ((reply.sample.time_ms - p_ir->adc_started_ms) >= S3_ADC_DEADLINE_MS) ||
+            ((reply.sample.time_ms - p_ir->adc_started_ms) > (now_ms - p_ir->adc_started_ms)))
         {
             return adc_failure(p_ir, E_IO);
         }
@@ -192,6 +206,10 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
             {
                 return adc_failure(p_ir, E_IO);
             }
+        }
+        if ((now_ms - reply.sample.time_ms) >= S3_ADC_REPLY_DEADLINE_MS)
+        {
+            return resubmit(p_ir, now_ms); /* converted in time, collected late */
         }
         p_ir->adc_pending = false;
     }

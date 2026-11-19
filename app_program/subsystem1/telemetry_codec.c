@@ -72,3 +72,14 @@ bool telemetry_decode(const uint8_t in[TELEMETRY_BYTES],int64_t v[TEL_FIELD_COUN
     for(;bit<TELEMETRY_BYTES*8;++bit)if((in[bit/8]>>(bit%8))&1U)return false;
     memcpy(v,tmp,sizeof(tmp));return true;
 }
+void telemetry_keep_flags(uint8_t newer[TELEMETRY_BYTES],const uint8_t older[TELEMETRY_BYTES]) {
+    if(!newer || !older)return;
+    /* Both fields start at 0, so a value bit is the stored bit: no re-encode. */
+    unsigned at[2]={1U,0U},bit=0; /* TEL_QUALITY bit 1, TEL_IMU_FAULT */
+    for(unsigned f=0;f<TEL_FIELD_COUNT;++f) {
+        if(f==TEL_QUALITY)at[0]+=bit;
+        if(f==TEL_IMU_FAULT)at[1]+=bit;
+        bit+=fields[f].bits;
+    }
+    for(unsigned n=0;n<2U;++n)newer[at[n]/8U]|=(uint8_t)(older[at[n]/8U]&(1U<<(at[n]%8U)));
+}

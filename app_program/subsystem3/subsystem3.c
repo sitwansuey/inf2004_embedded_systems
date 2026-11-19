@@ -72,8 +72,11 @@ static ER lock(void)
     return (mtx_stats > 0) ? tk_loc_mtx(mtx_stats, TMO_POL) : E_OBJ;
 }
 
-/* Only the sampler waits briefly for state readers. Other public snapshot
- * operations retain nonblocking behavior. Re-age data after every wait. */
+/* The sampler and the controller's mode, lease and map requests wait briefly
+ * for state readers (a telemetry copy on the other core, or the sampler
+ * preempted while publishing); with priority inheritance the holder finishes
+ * at once. Snapshot reads, event drains and barcode-end stay nonblocking.
+ * Re-age data after every wait. */
 static ER lock_sample(void)
 {
     return (mtx_stats > 0) ? tk_loc_mtx(mtx_stats, S3_STATE_LOCK_WAIT_MS) : E_OBJ;
@@ -293,14 +296,18 @@ EXPORT ER s3_controller_control(s3_mode_t mode, bool marker_clear, UW lease_ms)
     {
         return E_PAR;
     }
-    er = tk_get_otm(&now);
+    /* Bounded wait: a briefly busy status lock must not read as a transport
+     * failure. E_TMOUT means nothing changed; retry next period. */
+    er = lock_sample();
     if (er < E_OK)
     {
         return er;
     }
-    er = lock();
+    /* Lease time is taken after the wait, so the lease is never shortened. */
+    er = tk_get_otm(&now);
     if (er < E_OK)
     {
+        (void)unlock();
         return er;
     }
     if ((h_controller == 0) || (tk_get_tid() != h_controller))
@@ -377,14 +384,17 @@ EXPORT ER s3_controller_renew(UW lease_ms)
     {
         return E_PAR;
     }
-    er = tk_get_otm(&now);
+    /* Bounded wait, as s3_controller_control: E_TMOUT leaves the lease as it
+     * was (retry next period); only E_OBJ means it has expired. */
+    er = lock_sample();
     if (er < E_OK)
     {
         return er;
     }
-    er = lock();
+    er = tk_get_otm(&now);
     if (er < E_OK)
     {
+        (void)unlock();
         return er;
     }
     if ((h_controller == 0) || (tk_get_tid() != h_controller))
@@ -460,6 +470,7 @@ EXPORT ER s3_event_receive(s3_event_record_t *p_record)
         uint8_t wire[S3_EVENT_BYTES];
         INT length = tk_rcv_mbf(h_events, wire, TMO_POL);
         bool safe_event;
+        bool decoded_turn;
         if (length < E_OK)
         {
             *p_record = (s3_event_record_t){0};
@@ -472,12 +483,21 @@ EXPORT ER s3_event_receive(s3_event_record_t *p_record)
         }
         safe_event = (p_record->event.kind == S3_EVENT_STOP_REQUEST) ||
                      (p_record->event.kind == S3_EVENT_FAULT);
+        /* A decoded turn was checked when it was made (fresh sample, live
+         * lease, this generation). A later sampler latch or a late status
+         * must not lose it: S3 then waits for the controller with no event.
+         * Deliver it on generation and age alone. */
+        decoded_turn = p_record->event.kind == S3_EVENT_NAVIGATION;
+        /* Other requests need a healthy, current status. "Current" is the
+         * sampler's own gap limit (a gap above max_sample_gap_ms faults), so
+         * a status this old is never rejected while S3 itself still runs. */
         if ((p_record->generation == control.generation) &&
             (((uint32_t)now.lo - p_record->event.time_ms) < S3_EVENT_MAX_AGE_MS) &&
-            (safe_event || (lease_valid((uint32_t)now.lo) &&
+            (safe_event || decoded_turn || (lease_valid((uint32_t)now.lo) &&
              (status.output.error == S3_ERROR_NONE) &&
              (status.acquisition_error == E_OK) && status.configured &&
-             (((uint32_t)now.lo - status.sample_time_ms) < S3_STATUS_MAX_AGE_MS))))
+             (((uint32_t)now.lo - status.sample_time_ms) <=
+              configuration.algorithms.max_sample_gap_ms))))
         {
             return unlock();
         }
@@ -485,6 +505,30 @@ EXPORT ER s3_event_receive(s3_event_record_t *p_record)
     *p_record = (s3_event_record_t){0};
     (void)unlock();
     return E_TMOUT;
+}
+
+#ifndef S3_LOG
+#define S3_LOG tm_printf
+#endif
+static uint8_t logged_partial;
+static uint8_t logged_abort;
+/* One USB log line per partial capture or fault-cut read, so the read rate
+ * can be measured; no MQTT event. S3 task only, outside the lock (the core
+ * is private to this task). */
+static void log_barcode_counts(void)
+{
+    if (core.barcode_partial_count != logged_partial)
+    {
+        logged_partial = core.barcode_partial_count;
+        (void)S3_LOG((const UB *)"[S3] partial barcode: %u elements, not a read (partial count %u)\n",
+                     (unsigned int)core.partial_elements, (unsigned int)logged_partial);
+    }
+    if (core.barcode_abort_count != logged_abort)
+    {
+        logged_abort = core.barcode_abort_count;
+        (void)S3_LOG((const UB *)"[S3] barcode read cut short by a sampler fault: %u elements, counted as failed (abort count %u)\n",
+                     (unsigned int)core.last_elements, (unsigned int)logged_abort);
+    }
 }
 
 EXPORT ER s3_service_once(void)
@@ -649,9 +693,16 @@ EXPORT ER s3_service_once(void)
         (acquisition == E_OK && (uint32_t)now.lo - sample.time_ms >= S3_STATUS_MAX_AGE_MS) ||
         (mode == S3_MODE_TRACK && !lease_valid((uint32_t)now.lo)))
     {
+        /* The sample was fresh when it was interpreted: a turn decoded from
+         * it survives a late publication (same generation, live lease). The
+         * core already holds its marker and waits for the controller. */
+        bool keep_turn = (er == E_OK) && (output.event.kind == S3_EVENT_NAVIGATION) &&
+                         lease_valid((uint32_t)now.lo);
         s3_core_fault(&core, S3_ERROR_STALE);
+        s3_core_barcode_summary(&core, &output);
         output.steering_allowed = false; output.awaiting_controller = true;
-        output.error = S3_ERROR_STALE; output.event = (s3_event_t){0};
+        output.error = S3_ERROR_STALE;
+        if (!keep_turn) output.event = (s3_event_t){0};
         if (er < E_OK) { acquisition = er; sample.valid_mask = 0U; }
         else if ((uint32_t)now.lo - sample.time_ms >= S3_STATUS_MAX_AGE_MS)
             { acquisition = E_TMOUT; sample.valid_mask = 0U; }
@@ -686,5 +737,6 @@ EXPORT ER s3_service_once(void)
         status.output.steering_allowed = false;
     }
     (void)unlock();
+    log_barcode_counts();
     return (er < E_OK) ? er : acquisition;
 }

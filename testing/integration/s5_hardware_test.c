@@ -98,12 +98,12 @@ int main(void)
     /* Angle 0 is the measured straight-ahead pulse; 750 us per 90 deg,
      * clamped to the 750..2250 us servo range. */
     EXPECT(last_cc == BOARD_SERVO_CENTER_US);
-    s5_hw_servo(30); EXPECT(last_cc == BOARD_SERVO_CENTER_US + 250U);
-    s5_hw_servo(-30); EXPECT(last_cc == BOARD_SERVO_CENTER_US - 250U);
+    s5_hw_servo(30); EXPECT(last_cc == BOARD_SERVO_CENTER_US + BOARD_SERVO_US_PER_90/3U);
+    s5_hw_servo(-30); EXPECT(last_cc == BOARD_SERVO_CENTER_US - BOARD_SERVO_US_PER_90/3U);
     s5_hw_servo(90);
-    EXPECT(last_cc == (BOARD_SERVO_CENTER_US + 750U > 2250U ? 2250U : BOARD_SERVO_CENTER_US + 750U));
+    EXPECT(last_cc == (BOARD_SERVO_CENTER_US + BOARD_SERVO_US_PER_90 > 2250U ? 2250U : BOARD_SERVO_CENTER_US + BOARD_SERVO_US_PER_90));
     s5_hw_servo(-90);
-    EXPECT(last_cc == (BOARD_SERVO_CENTER_US < 1500U ? 750U : BOARD_SERVO_CENTER_US - 750U));
+    EXPECT(last_cc == (BOARD_SERVO_CENTER_US < 750U+BOARD_SERVO_US_PER_90 ? 750U : BOARD_SERVO_CENTER_US - BOARD_SERVO_US_PER_90));
     s5_hw_servo(0); EXPECT(last_cc == BOARD_SERVO_CENTER_US);
     UW mm, pulse;
     for (UINT wrap = 0; wrap < 2; ++wrap) {

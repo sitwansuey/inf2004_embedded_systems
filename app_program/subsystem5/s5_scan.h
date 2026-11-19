@@ -23,10 +23,26 @@ typedef struct
     uint8_t position_recorded : 1;
     uint8_t plan_pending : 1;
     uint8_t width_hold : 1; /* VERIFY_CLEAR publishes widths before the plan */
-    uint8_t side_retry : 1; /* the other side was already planned once */
     uint8_t right_coarse : 1; /* left blocked through 60 deg: right searched coarsely */
     uint8_t right_outward : 1; /* the mirror check hit the object: right searched outward */
     INT forced_side; /* plan side: 0 smaller half, +1 LEFT, -1 RIGHT */
+    /* Edge confirmation: the edge needs two clear angles in a row outward of
+     * it, so one stray clear probe cannot move it inward. */
+    INT outer_clear; /* outermost clear magnitude known on this side (where its walk began) */
+    INT prev_clear;  /* clear magnitude before fine_clear last moved inward (0: none) */
+    INT edge_deg;    /* averaged edge magnitude waiting for its outward check */
+    UW edge_mm;
+    uint8_t edge_confirm : 1;
+    /* Side corridor: a side is out once a check failed. */
+    uint8_t left_rejected : 1;
+    uint8_t right_rejected : 1;
+    /* Motion restarts: the first one of an acquisition, at the first sample
+     * after the origin was taken, is the robot's own braking and is free. */
+    uint8_t origin_fresh : 1; /* no sample checked since scan_begin took the origin */
+    uint8_t brake_restart : 1; /* the free restart was used in this acquisition */
+    UINT corridor_probes; /* angles probed between the edge and the heading */
+    UINT corridor_index;  /* next corridor probe (1..corridor_probes), then the heading */
+    UW near_mm[2]; /* nearest clear echo inside the corridor window: lateral mm, [0] left, [1] right (0: none) */
 } s5_scan_context_t;
 #ifndef S5_EDGE_RETREATS
 #define S5_EDGE_RETREATS 3U

@@ -40,8 +40,63 @@ python app_program/external_systems/Dashboard/dashboard.py --broker localhost --
 Open http://127.0.0.1:8001. Start your broker separately; use its reachable LAN
 address if it is on another computer. The Pico's local wifi_secrets.h must
 point to the same broker. Optional MQTT_USERNAME/MQTT_PASSWORD environment
-variables provide dashboard credentials. Keep the repository layout because
-the receiver imports the canonical codec from tools/.
+variables (or `--username`, with the password still from MQTT_PASSWORD)
+provide dashboard credentials. Keep the repository layout because the
+receiver imports the canonical codec from tools/.
+
+## Broker access
+
+MQTT does not tell the robot who published a command, and the firmware does
+not check. On an open broker any device on the same network can publish
+RESET then START on `csc02/command`. To stop that, make the broker require a
+login and let only the dashboard account publish commands. Nothing changes
+until you do this: with no login defined, the robot and the dashboard
+connect anonymously as before.
+
+1. Create a password file with one account for the dashboard and one for the
+   robot (mosquitto 2.x; `-c` creates the file, so use it only the first time):
+
+   ```powershell
+   mosquitto_passwd -c C:\mosquitto\passwd dashboard
+   mosquitto_passwd C:\mosquitto\passwd robopico
+   ```
+
+2. Create an ACL file, `C:\mosquitto\acl`:
+
+   ```text
+   # Only the dashboard may command the robot.
+   user dashboard
+   topic write csc02/command
+   topic read csc02/command/ack
+   topic read Robopico/sensors/edr16/v1
+   topic read Robopico/events/edr16/v1
+
+   user robopico
+   topic read csc02/command
+   topic write csc02/command/ack
+   topic write Robopico/sensors/edr16/v1
+   topic write Robopico/events/edr16/v1
+   ```
+
+3. Point the broker at both files (`mosquitto.conf`) and restart it:
+
+   ```text
+   listener 1883
+   allow_anonymous false
+   password_file C:\mosquitto\passwd
+   acl_file C:\mosquitto\acl
+   ```
+
+4. Robot: in `config/wifi_secrets.h` set `MQTT_USERNAME "robopico"` and
+   `MQTT_PASSWORD` to that account's password, then rebuild and flash.
+   Dashboard: set `MQTT_USERNAME=dashboard` and `MQTT_PASSWORD` in the
+   environment before starting `dashboard.py`.
+
+A client with no login, or with the robot's login, is then refused on
+`csc02/command`. The passwords travel in clear text on plain port 1883, so
+this keeps out other devices on the robot hotspot, not someone sniffing the
+Wi-Fi. If the robot cannot log in, its console prints
+`mqtt: connection status 4` or `5` (bad login, not authorised) every 3 s.
 
 An explicit test publication (requires a running broker; simulated value):
 
@@ -85,8 +140,14 @@ instruction) stays above every tab. The tabs are:
   events from `Robopico/events/edr16/v1` (barcode attempts, decoded
   instructions, humps, obstacles, Wi-Fi/broker reconnects, decoded by
   `packed16.describe_event`), plus the receiver's own rows: robot offline (no
-  data for 3 s) / back online, each new controller fault code, and its broker
-  link. Demo and imported events show only while live updates are paused.
+  data for 3 s) / back online, each new controller fault code, each new
+  impact or IMU fault, and its broker link. Demo and imported events show
+  only while live updates are paused.
+
+Impact (quality bit 1) and IMU fault (ID 12 bit 0x04) are true in a single
+200 ms snapshot, shorter than the page's 250 ms poll. `dashboard.py` shows
+each one as Yes for 2 s after it is reported (a false value arriving
+meanwhile waits) and logs one event row per rising edge.
 
 The selected tab is kept in the URL hash, for example
 http://127.0.0.1:8001/#barcodes. Load demo and Import JSON pause live updates
@@ -122,11 +183,13 @@ python -B -m unittest discover -s app_program/external_systems/Dashboard -p "tes
   `tools/edr_decode.py`.
 - `test_packed16.py`: exact-topic subscription/reconnection, all 15 IDs,
   physical units, status subtypes (including fault 8, lifted), malformed
-  packets, ignored unrelated topics, barcode read history, HTTP JSON and field
+  packets, ignored unrelated topics, barcode read history, the 2 s hold and
+  event row for impact and IMU fault, HTTP JSON and field
   routing. With Node.js on PATH it also runs `test_dashboard_display.cjs`,
   which executes the real dashboard JavaScript with a minimal DOM and checks
   that all 18 decoded fields appear on the correct cards.
 - `test_commands.py`: Reset/Start/STOP frames, ACK matching and validation,
+  sequences 0..127 (a USB command's ACK, bit 7, is ignored),
   MAP, Reset to defaults and Send all, and the origin and JSON checks on
   `POST /api/command`.
 - `test_obstacle_width.py`: width pages, retention and clearing. Its C producer
@@ -139,3 +202,18 @@ skipped unless the integration `width_avoidance` build exists.
 
 These are simulated tests, not a live Pico/broker validation. See
 [MQTT_TOPICS.md](MQTT_TOPICS.md) for routing.
+
+Checkpoint 8c reports a flat-top hump as one event cycle. Its level row uses
+S4's completed-height latch, or shows not measured if none completed. A
+plain descent gets the controller's slope cap without a measured hump.
+Impact and IMU-fault counters cover brief samples between controller reads;
+the telemetry queue preserves those flags when it discards older snapshots.
+Impact extras are limited to one per 200 ms. The wire layout stays EDR16 v1.
+A side-check or forward-pan timeout now shows sensor fault cause Sonar.
+
+The robot retries a stalled first Wi-Fi join after 20 s without UP, then
+waits 1 s between leave and join. After an earlier UP, the no-link bound
+is 10 s. Rejected join requests retry every 5 s. The reconnect event is
+sent before the outage backlog. These paths still need a hardware AP-off
+test. The browser display check ran with VS Code's bundled Node runtime
+(18 fields). No repository tooling code changed for W10.

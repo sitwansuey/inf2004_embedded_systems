@@ -54,4 +54,7 @@ enum {
 };
 bool telemetry_encode(uint8_t out[TELEMETRY_BYTES], const int64_t values[TEL_FIELD_COUNT]);
 bool telemetry_decode(const uint8_t in[TELEMETRY_BYTES], int64_t values[TEL_FIELD_COUNT]);
+/* One-snapshot flags: impact (TEL_QUALITY bit 1) and TEL_IMU_FAULT. A snapshot
+ * dropped for a newer one ORs them into the newer one, so they are still sent. */
+void telemetry_keep_flags(uint8_t newer[TELEMETRY_BYTES], const uint8_t older[TELEMETRY_BYTES]);
 #endif

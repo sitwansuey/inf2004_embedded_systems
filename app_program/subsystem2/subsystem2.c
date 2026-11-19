@@ -11,6 +11,15 @@
 #include "speed_pid.h"
 #include "wheel_steering.h"
 #include "turn_drive.h"
+#if BOARD_TIMING_STATS && defined(TIMER_TIMERAWL)
+/* Motor loop timing (C5, printed by the VC): a run is wake to the next
+ * mailbox wait; the direction dead time sleep is left out. Firmware only:
+ * host builds have no hardware timer. */
+#include "../shared/task_timing.h"
+#define S2_TIMING(step) task_timing_##step(&app_task_timing[TASK_TIMING_MOTOR],(uint32_t)in_w(TIMER_TIMERAWL))
+#else
+#define S2_TIMING(step) ((void)0)
+#endif
 _Static_assert((int)S2_MOVE_LEFT==3 && (int)S2_MOVE_RIGHT==4 && (int)S2_MOVE_PIVOT_RIGHT==5 &&
                (int)S2_MOVE_PIVOT_LEFT==6,"turn_drive.h command numbers changed");
 static INT requested_steering;
@@ -32,6 +41,14 @@ static BOOL pid_initialized;
 static UINT pid_command;
 static int32_t filtered_steering;
 static s2_kick_t turn_kick[2]; /* per-wheel spin breakaway kick (turn_drive.h) */
+/* Stall time is driven time without progress, kept per wheel across command
+ * changes and short STOPs (stall_carry). pid_dir: each wheel's direction in
+ * pid_command, x2 in a spin (0: not driven). stall_dir/stall_held: the
+ * direction (0: none) and stall time a wheel keeps while it is not driven;
+ * stall_moved: the wheel has turned since that count started. */
+static int8_t pid_dir[2], stall_dir[2];
+static uint32_t stall_held[2];
+static BOOL stall_moved[2];
 #endif
 
 /* Persistent state uses the same motor word as the external representation.
@@ -315,6 +332,17 @@ EXPORT ER s2_emergency_stop(void)
     return E_OK;
 }
 
+/* Internal result, never published: a STOP arrived while a drive command was
+ * being applied. The loop's epoch path then switches PWM off and publishes
+ * STOPPED; it is not a motion fault. */
+#define S2_STOP_PENDING ((ER)-1)
+
+static BOOL stop_pending(void)
+{
+    return __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE) !=
+           __atomic_load_n(&stopped_epoch, __ATOMIC_ACQUIRE);
+}
+
 static void motor_stop(void)
 {
     pwm_set_cc(BOARD_MOTOR1_A_GPIO, 0);
@@ -429,7 +457,12 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
         SYSTIM now;
 
         /* Power-only updates preserve PWM and the PI steering history. */
+        if (direction_changed) S2_TIMING(pause);
         er = direction_changed ? tk_dly_tsk(1) : E_OK;
+        if (direction_changed) S2_TIMING(resume);
+        /* The VC may STOP on the tick the dead time ends: that STOP wins,
+         * and it is not a fault. */
+        if (er >= E_OK && stop_pending()) er = S2_STOP_PENDING;
         if (er >= E_OK)
         {
             er = tk_get_otm(&now);
@@ -439,8 +472,6 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
         {
             er = E_TMOUT;
         }
-        if (er >= E_OK && __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE) !=
-                              __atomic_load_n(&stopped_epoch, __ATOMIC_ACQUIRE)) er = E_OBJ;
         if (er >= E_OK)
         {
 #if BOARD_PID_ENABLED
@@ -464,12 +495,43 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
 }
 
 #if BOARD_PID_ENABLED
+/* A STOP freezes each driven wheel's stall time. It keeps it only for a
+ * wheel that has turned since its count started: a start that has not turned
+ * yet (the VC restarts its power ramps after a STOP) starts again, as before.
+ * A FAULT forgets it. */
+static void stall_freeze(BOOL forget)
+{
+    for(unsigned n=0;n<2;++n) {
+        if(pid_initialized && pid_dir[n]) {stall_dir[n]=pid_dir[n];stall_held[n]=pid_time-pid_progress[n];}
+        if(forget || !stall_moved[n])stall_dir[n]=0;
+        pid_dir[n]=0;
+    }
+}
+/* Stall time wheel n brings into a new command (key: direction, x2 in a
+ * spin). A wheel the last command drove the same way keeps the time since
+ * its last progress. A wheel the last command did not drive (pivot, STOP)
+ * keeps the time it had then. A new key, a FAULT or a STOP longer than the
+ * allowance starts from 0. A wheel that is not driven is never checked. */
+static uint32_t stall_carry(unsigned n,int key,uint32_t count,uint32_t now,uint32_t stall)
+{
+    if(pid_initialized && pid_dir[n]) {
+        int32_t delta;
+        BOOL moved=edr_count_delta(count,pid_counts[n],&delta) && (pid_dir[n]>0?delta>0:delta<0);
+        stall_dir[n]=pid_dir[n];stall_held[n]=moved?0U:now-pid_progress[n];
+        if(moved)stall_moved[n]=TRUE;
+    } else if(!pid_initialized && now-pid_time>stall) stall_dir[n]=0;
+    pid_dir[n]=(int8_t)key;
+    if(!key)return 0U;
+    if(key!=stall_dir[n]) {stall_dir[n]=(int8_t)key;stall_held[n]=0U;stall_moved[n]=FALSE;}
+    return stall_held[n];
+}
 static ER motor_regulate(uint16_t word)
 {
     uint8_t command, power, state;
     s2_encoder_status_t e;
     if (!edr_motor_unpack(word,&command,&power,&state)) return E_SYS;
     if (state!=S2_MOTION_MOVING || !power) {
+        stall_freeze(state==S2_MOTION_FAULT);
         pid_initialized=FALSE;filtered_steering=0;requested_steering=0;return E_OK;
     }
     ER er=s2_encoder_get_status(&e);
@@ -485,14 +547,20 @@ static ER motor_regulate(uint16_t word)
     case S2_MOVE_PIVOT_LEFT:direction[1]=1;break;
     default:return E_PAR;
     }
+    uint32_t stall=s2_stall_ms(command,500U,BOARD_TURN_STALL_MS);
     if (!pid_initialized || pid_command!=command) {
+        /* The PI restarts, but each wheel's stall time carries over, so a
+         * held wheel still faults while the follower switches commands. */
+        BOOL stalled=FALSE;
         for(unsigned n=0;n<2;++n) {
+            uint32_t held=stall_carry(n,direction[n]*(s2_turn_command(command)?2:1),counts[n],e.sampled_ms,stall);
+            if(held>stall)stalled=TRUE;
             wheel_pid[n]=(speed_pid_t){0};pid_counts[n]=counts[n];
-            pid_progress[n]=e.sampled_ms;pid_speed[n]=0;
+            pid_progress[n]=e.sampled_ms-held;pid_speed[n]=0;
             s2_kick_start(&turn_kick[n],e.sampled_ms,s2_turn_command(command)?BOARD_TURN_KICK_MS:0U);
         }
         pid_time=e.sampled_ms;pid_command=command;pid_initialized=TRUE;
-        filtered_steering=s2_steerable(command)?requested_steering:0;return E_OK;
+        filtered_steering=s2_steerable(command)?requested_steering:0;return stalled?E_TMOUT:E_OK;
     }
     uint32_t dt=e.sampled_ms-pid_time;
     if(dt<10U)return E_OK;
@@ -504,14 +572,13 @@ static ER motor_regulate(uint16_t word)
      * it really moves (and again if it re-stalls), and a longer stall
      * allowance (turn_drive.h). Speed targets are unchanged. */
     unsigned limit=s2_turn_limit(command,BOARD_PID_MAX_POWER,BOARD_PID_TURN_MAX_POWER);
-    uint32_t stall=s2_stall_ms(command,500U,BOARD_TURN_STALL_MS);
     unsigned kick=s2_turn_kick_milli(command,0U,BOARD_TURN_KICK_MS,BOARD_TURN_KICK_POWER,limit);
     for(unsigned n=0;n<2;++n) {
         int32_t delta;
         if(!edr_count_delta(counts[n],pid_counts[n],&delta) || delta>10000 || delta< -10000)return E_SYS;
         if(direction[n]) {
             int32_t progress=delta*direction[n];
-            if(progress>0)pid_progress[n]=e.sampled_ms;
+            if(progress>0) {pid_progress[n]=e.sampled_ms;stall_moved[n]=TRUE;}
             if(e.sampled_ms-pid_progress[n]>stall)return E_TMOUT;
             int32_t instant=(int32_t)((int64_t)delta*direction[n]*1000/dt);
             pid_speed[n]=(3*pid_speed[n]+instant)/4;
@@ -528,7 +595,7 @@ static ER motor_regulate(uint16_t word)
         pid_counts[n]=counts[n];
     }
     pid_time=e.sampled_ms;
-    if(__atomic_load_n(&stop_epoch,__ATOMIC_ACQUIRE)!=__atomic_load_n(&stopped_epoch,__ATOMIC_ACQUIRE))return E_OBJ;
+    if(stop_pending())return S2_STOP_PENDING; /* the VC preempted this update with a STOP */
     motor_set_pair(BOARD_MOTOR1_A_GPIO,BOARD_MOTOR1_B_GPIO,direction[0]*MOTOR1_FORWARD_SIGN,
                    (UW)((uint64_t)(MOTOR_PWM_WRAP+1U)*output[0]/100000U));
     motor_set_pair(BOARD_MOTOR2_A_GPIO,BOARD_MOTOR2_B_GPIO,direction[1]*MOTOR2_FORWARD_SIGN,
@@ -722,12 +789,15 @@ static void motor_task(INT stacd, void *p_exinf)
 
 #if BOARD_PID_ENABLED
         er=motor_regulate(current.motor);
+        if(er==S2_STOP_PENDING)continue; /* the epoch path publishes STOPPED */
         if(er<E_OK) {er=motion_fault(&current,er);continue;}
         if(wait>10 || wait==TMO_FEVR)wait=10;
 #endif
         /* Poll again soon to retry a missed status copy. */
         if (status_unpublished && (wait > 10 || wait == TMO_FEVR)) wait = 10;
+        S2_TIMING(done);
         er = tk_rcv_mbx(h_movement_mailbox, &p_raw, wait);
+        S2_TIMING(release);
         if (er == E_TMOUT) { er = E_OK; continue; }
         if (er < E_OK)
         {
@@ -810,6 +880,9 @@ static void motor_task(INT stacd, void *p_exinf)
         if (((UINT)command != current_command) || (power != current_power))
         {
             er = motor_apply(command, power, issued_at,(UINT)command!=current_command);
+            /* A STOP arrived while applying: the epoch path at the top of
+             * the loop switches PWM off and publishes STOPPED, no fault. */
+            if (er == S2_STOP_PENDING) continue;
             if (er < E_OK)
             {
                 er = motion_fault(&current, er);

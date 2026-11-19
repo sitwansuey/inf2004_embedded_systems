@@ -126,6 +126,42 @@ int main(void)
     assert(s5_data_encode(&v, data, sizeof(data)) && s5_data_decode(data, sizeof(data), &decoded));
     assert(s5_assess_path(&decoded, TRUE, 10).state == S5_PATH_FORWARD);
     assert(s5_assess_path(&decoded, TRUE, 1000).state == S5_PATH_UNAVAILABLE);
+    /* O3: the VC latched READY's plan and asked for APPROACH (the reverse
+     * starts on its next tick). The S5 task's next sample is still taken in
+     * READY with the wheels already turning; the request applies before the
+     * step, so READY's motion guard keeps the plan, bounds, widths and side
+     * the status goes on publishing, and no motion restart is used. */
+    {
+        s5_status_t ready = {.state=S5_READY, .scan_id=9, .valid=TRUE, .distance_mm=400,
+            .angle_deg=30, .sample_angle_deg=30, .obstacle_distance_mm=150,
+            .approach_plan_valid=TRUE, .planned_rotate_deg=30, .avoidance_deg=21,
+            .planned_approach_mm=120, .planned_return_mm=120,
+            .left_bound_valid=TRUE, .right_bound_valid=TRUE, .left_bound_deg=20, .right_bound_deg=-20,
+            .left_bound_distance_mm=160, .right_bound_distance_mm=160,
+            .object_width_valid=TRUE, .object_width_mm=110, .object_width_max_mm=110,
+            .object_left_mm=55, .object_right_mm=55, .encoder_valid=TRUE,
+            .motor1_counts_start=0, .motor1_counts_end=12, .motor2_counts_start=0, .motor2_counts_end=12};
+        status_store(&ready);
+        assert(s5_navigation_set(9, S5_APPROACH, 0) == E_OK && navigation_requested);
+        s5_scan_context_t scan = {0};
+        s5_status_t next = ready;
+        assert(navigation_pending(&next) == E_OK && next.state == S5_APPROACH);
+        assert(s5_scan_step(&next, &scan) == 30 && next.state == S5_APPROACH && !scan.motion_restarts);
+        assert(next.approach_plan_valid && next.planned_rotate_deg == 30 && next.avoidance_deg == 21);
+        assert(next.left_bound_valid && next.right_bound_valid && next.object_width_valid);
+        assert(next.object_left_mm == 55 && next.object_right_mm == 55 && next.object_width_mm == 110);
+        /* With no request, READY's guard still restarts on real motion. */
+        navigation_requested = FALSE; next = ready;
+        assert(navigation_pending(&next) == E_OK && next.state == S5_READY);
+        assert(s5_scan_step(&next, &scan) == 0 && next.state == S5_CENTERING && scan.motion_restarts == 1U);
+        assert(!next.approach_plan_valid && !next.object_width_valid && !next.left_bound_valid);
+        /* A MONITOR request is left to the task's own full reset. */
+        status_store(&ready);
+        assert(s5_navigation_set(9, S5_MONITOR, 0) == E_OK && navigation_requested);
+        next = ready;
+        assert(navigation_pending(&next) == E_OK && next.state == S5_READY);
+        navigation_requested = FALSE;
+    }
     assert(locks == 0);
     printf("S5 PASS: native=%zu packed=%u bytes\n", sizeof(v), S5_DATA_SIZE);
     return 0;

@@ -7,11 +7,20 @@
 #include "../subsystem3/subsystem3.h"
 #include "../subsystem4/subsystem4.h"
 #include "../subsystem5/subsystem5.h"
+/* A new shock count sends an extra snapshot at once, but at most one per
+ * this many ms (a hump's jolts can come every 40 ms); a later one rides the
+ * next snapshot. Fault changes are never limited. */
+#ifndef S1_SHOCK_EXTRA_MS
+#define S1_SHOCK_EXTRA_MS 200U
+#endif
 static int64_t bounded(int64_t n,int64_t lo,int64_t hi) {return n<lo?lo:n>hi?hi:n;}
 void telemetry_task(INT code,void *context) {
-    (void)code;(void)context;unsigned count=0;uint32_t previous=0;unsigned old_fault=0;
+    (void)code;(void)context;unsigned count=0;uint32_t previous=0;unsigned old_fault=0,shown_fault=0;
     uint8_t old_shock=0; /* app_state_t.shock_count last sent */
-    BOOL imu_fault=FALSE; /* EDR_FAULT_IMU in an S4 result since the last snapshot */
+    uint32_t shock_sent_ms=0;BOOL shock_sent=FALSE; /* last snapshot with a new shock */
+    /* EDR_FAULT_IMU seen in a VC result, or app_state_t.imu_fault_count
+     * changed, since the last snapshot that carried ID 12 and was queued. */
+    BOOL imu_fault=FALSE;uint16_t old_imu_faults=0;
     /* Last published width/side: a new valid width or side is sent at once,
      * so the halves reach MQTT during S5's hold before the side is chosen. */
     UW width_scan=0,width_left=0,width_right=0;unsigned old_side=0;
@@ -19,9 +28,10 @@ void telemetry_task(INT code,void *context) {
         app_state_t s={0};s2_motion_status_t m={0};s2_encoder_status_t e={0};s3_status_t l={0};s4_sensor_status_t a={0};s5_status_t o={0};
         BOOL st=app_get_state(&s)==E_OK;SYSTIM now;
         /* An IMU fault can last one 20 ms VC tick (a clipped or overrun
-         * sample, skew): hold it until a snapshot has carried it. */
-        {s4_result_t r={0};if(st && s4_result_decode(s.s4_result,sizeof(s.s4_result),&r) &&
-            (r.faults&EDR_FAULT_IMU))imu_fault=TRUE;}
+         * sample, skew): hold it until a snapshot has carried it. The VC's
+         * count also covers ticks this loop never read. */
+        {s4_result_t r={0};if(st && (s.imu_fault_count!=old_imu_faults ||
+            (s4_result_decode(s.s4_result,sizeof(s.s4_result),&r) && (r.faults&EDR_FAULT_IMU))))imu_fault=TRUE;}
         if(tk_get_otm(&now)<E_OK) {tk_dly_tsk(10);continue;}
         ER sonar_copy=s5_get_status(&o);BOOL so=sonar_copy==E_OK;
         /* S5's own validity bound (tangent envelope <= 500 mm) plus a
@@ -34,7 +44,8 @@ void telemetry_task(INT code,void *context) {
         BOOL width_new=width_valid && (o.scan_id!=width_scan || o.object_left_mm!=width_left || o.object_right_mm!=width_right);
         /* A shock no longer changes the fault, so a new one is sent at once. */
         BOOL shock_new=st && s.shock_count!=old_shock;
-        if(st && (now.lo-previous>=200U || s.vehicle.fault!=old_fault || width_new || (so && side!=old_side) || shock_new)) {
+        BOOL shock_extra=shock_new && (!shock_sent || now.lo-shock_sent_ms>=S1_SHOCK_EXTRA_MS);
+        if(st && (now.lo-previous>=200U || s.vehicle.fault!=old_fault || width_new || (so && side!=old_side) || shock_extra)) {
             BOOL mo=s2_motion_get_status(&m)==E_OK,en=s2_encoder_get_status(&e)==E_OK && e.valid;
             ER ir_copy=s3_status_get(&l);BOOL li=ir_copy==E_OK;
             s4_sensor_cache_t imu_record={0};
@@ -89,11 +100,14 @@ void telemetry_task(INT code,void *context) {
             v[TEL_BYPASS_SIDE]=side;
             v[TEL_FAULT_CAUSE]=s.vehicle.fault==VC_SENSOR || s.vehicle.fault==VC_LINE?s.vehicle.fault_cause:0;
             v[TEL_IMU_FAULT]=imu_fault?1:0;
+            BOOL sent=FALSE;
             if(telemetry_encode(out,v)) {
+                sent=TRUE;
 #if TM_MQTT
-                (void)s1_binary_send(out);
+                sent=s1_binary_send(out)==E_OK;
 #endif
-                if((count%5)==0 || s.vehicle.fault!=old_fault) {
+                if((count%5)==0 || s.vehicle.fault!=shown_fault) {
+                    shown_fault=s.vehicle.fault;
                     tm_printf((UB *)"[CSC02] t=%u phase=%u fault=%u armed=%u cmd=%u power=%u flags=%u bytes=%u\n",
                         now.lo,s.vehicle.phase,s.vehicle.fault,s.vehicle.armed,m.command,m.power_percent,
                         (unsigned)v[TEL_AVAILABLE],TELEMETRY_BYTES);
@@ -116,8 +130,16 @@ void telemetry_task(INT code,void *context) {
                     }
                 }
             }
-            previous=now.lo;old_fault=s.vehicle.fault;old_side=side;old_shock=s.shock_count;imu_fault=FALSE;
-            if(width_valid) {width_scan=o.scan_id;width_left=o.object_left_mm;width_right=o.object_right_mm;}
+            previous=now.lo;
+            /* Changes count as sent only once queued: a failed send keeps
+             * them, so the next 20 ms loop builds another snapshot. */
+            if(sent) {
+                old_fault=s.vehicle.fault;old_side=side;
+                if(shock_new) {old_shock=s.shock_count;shock_sent_ms=now.lo;shock_sent=TRUE;}
+                /* ID 12 goes only with motor status (telemetry_edr.h). */
+                if(v[TEL_AVAILABLE]&1) {imu_fault=FALSE;old_imu_faults=s.imu_fault_count;}
+                if(width_valid) {width_scan=o.scan_id;width_left=o.object_left_mm;width_right=o.object_right_mm;}
+            }
         }
         tk_dly_tsk(10);
     }

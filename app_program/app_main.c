@@ -3,6 +3,20 @@
 #include "robot_ir_config.h"
 #include "subsystem2/subsystem2.h"
 #include "subsystem3/subsystem3.h"
+#include "shared/task_timing.h"
+
+#if !APP_S2_ONLY && !APP_S4_ONLY && !APP_S5_DIAGNOSTICS && BOARD_IR_MODE != 2 && BOARD_IR_MODE != 3
+/* The vehicle controller follows the line with the two calibrated ADC
+ * straddle sensors (GP26/GP27, robot_ir_calibration.h). With mode 1 (three
+ * digital sensors) or 0 (no IR) it has no calibration and stops at boot. */
+#error The integrated robot build needs BOARD_IR_MODE 3 (ADC line sensors, digital GP28 barcode) or 2 (all ADC); modes 0 and 1 cannot drive
+#endif
+
+#if BOARD_TIMING_STATS
+/* Loop timing records (shared/task_timing.h): here because every firmware
+ * build links this file. Each loop writes only its own entry. */
+task_timing_t app_task_timing[TASK_TIMING_COUNT];
+#endif
 
 /*
  * Create and start one task (declared in app.h for every subsystem).

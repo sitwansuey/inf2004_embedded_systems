@@ -14,6 +14,11 @@
 #ifndef S4_ENCODER_MAX_GAP_MS
 #define S4_ENCODER_MAX_GAP_MS 60U
 #endif
+/* Backward counts (left plus right) in one encoder interval that are not
+ * yet a reversal. More ends the hump traversal (about 0.35 mm a count). */
+#ifndef S4_ENCODER_BACKWARD_COUNTS
+#define S4_ENCODER_BACKWARD_COUNTS 3U
+#endif
 #if S4_ENCODER_MAX_AGE_MS >= 0x80000000U || S4_ENCODER_MAX_SKEW_MS >= 0x80000000U || S4_ENCODER_MAX_GAP_MS == 0 || S4_ENCODER_MAX_GAP_MS >= 0x80000000U
 #error Encoder freshness bounds must fit unambiguous modular milliseconds
 #endif
@@ -29,8 +34,10 @@ typedef struct {
 
 /* Controller-owned state. Exact 13-byte INTERNAL snapshot, not MQTT telemetry
  * or native struct. Both source timestamps MUST be operating milliseconds.
- * Call once per controller tick, including errors. Invalid input abandons
- * the active traversal and interval history but retains the run maximum.
+ * Call once per controller tick, including errors. Invalid encoder input
+ * abandons the active traversal and interval history but retains the run
+ * maximum. An unusable IMU sample (or IMU/encoder skew) with valid odometry
+ * is bridged by terrain for up to TERRAIN_BRIDGE_MS.
  * imu_time_us is the 64-bit millisecond clock scaled by 1000 by S4.
  */
 void s4_encoder_terrain_step(s4_encoder_input_t *input, terrain_t *terrain,

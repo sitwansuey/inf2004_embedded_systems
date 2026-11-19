@@ -20,6 +20,32 @@
 #include "ir_line_trace.h"
 #include "robot_ir_config.h"
 #include "vehicle_line_steer.h"
+#include "shared/task_timing.h"
+#if BOARD_TIMING_STATS && defined(TIMER_TIMERAWL)
+/* Loop timing (C5): the VC's own record, and every VC_TIMING_REPORT_MS one
+ * USB console line with the VC, motor and network records: longest run (us,
+ * preemption included), longest release gap (ms), late releases/runs. */
+#define VC_TIMING 1
+#ifndef VC_TIMING_REPORT_MS
+#define VC_TIMING_REPORT_MS 10000U
+#endif
+static uint32_t vc_now_us(void) { return (uint32_t)in_w(TIMER_TIMERAWL); } /* 1 MHz hardware timer */
+static void vc_timing_report(void) {
+    const task_timing_t *v=&app_task_timing[TASK_TIMING_VC],*m=&app_task_timing[TASK_TIMING_MOTOR],
+        *n=&app_task_timing[TASK_TIMING_NET];
+    tm_printf((UB *)"[TIMING] max run us, max gap ms, late/runs: vc %u %u %u/%u, motor %u %u %u/%u, net %u %u %u/%u\n",
+        (unsigned)v->max_run_us,(unsigned)(v->max_gap_us/1000U),(unsigned)v->late,(unsigned)v->runs,
+        (unsigned)m->max_run_us,(unsigned)(m->max_gap_us/1000U),(unsigned)m->late,(unsigned)m->runs,
+        (unsigned)n->max_run_us,(unsigned)(n->max_gap_us/1000U),(unsigned)n->late,(unsigned)n->runs);
+}
+#else
+#define VC_TIMING 0
+#endif
+/* S2's status semaphore waits only 5 ms (10-20 ms with the tick) and the
+ * motor task and core-1 telemetry take it too: a failed copy reuses the last
+ * status for up to this many ticks in a row (a published FAULT still stops at
+ * once); one more miss is a motor fault (VC_MOTOR). */
+#define VC_MOTOR_STATUS_MISSES 3U
 #if BOARD_BARCODE_RETRY_DRIVE
 #include "vehicle_barcode_retry.h"
 /* Barcode re-read sequence, layered on VC_TRACK (the policy phase is unchanged).
@@ -85,8 +111,14 @@ static BOOL bypass_replan(UW x,UW y,UW lateral,UW backup_mm,unsigned planned,uns
 static void vehicle_task(INT code,void *context) {
     (void)code;(void)context;
     s2_controller_bind();
-    if(s3_controller_bind()<E_OK) {s2_emergency_stop();tk_ext_tsk();return;}
-    if(APP_S5_ENABLED && s5_controller_bind()<E_OK) {s2_emergency_stop();tk_ext_tsk();return;}
+    if(s3_controller_bind()<E_OK) {
+        tm_printf((UB *)"[VC] STARTUP FAIL: S3 controller bind; vehicle controller not running\n");
+        s2_emergency_stop();tk_ext_tsk();return;
+    }
+    if(APP_S5_ENABLED && s5_controller_bind()<E_OK) {
+        tm_printf((UB *)"[VC] STARTUP FAIL: S5 controller bind; vehicle controller not running\n");
+        s2_emergency_stop();tk_ext_tsk();return;
+    }
     app_state_t state={0};s4_encoder_input_t encoder_input={0};terrain_t terrain={0};
     odom_t *odom=&encoder_input.odometry;
     odom_calibration_t calibration_record={0};
@@ -110,7 +142,8 @@ static void vehicle_task(INT code,void *context) {
 #endif
     int32_t prev_yaw=0; /* yaw at the last follower tick: edge tracing's lost-line turn */
     edge_trace_t edge={0};int32_t edge_lost_turn=0; /* edge tracing; turning while lost */
-    BOOL shock_prev=FALSE; /* S4 shock in the previous tick (rising-edge count) */
+    uint32_t impacts_seen=0,faults_seen=0;BOOL imu_counts_seen=FALSE;
+    BOOL shock_prev=FALSE; /* fallback edge count before S4 counters are primed */
 #if BOARD_BARCODE_RETRY_DRIVE
     unsigned br_state=BR_IDLE,br_next=BR_IDLE;
     uint8_t br_ok=0,br_fail=0;BOOL br_seen=FALSE,br_cooldown=FALSE;
@@ -131,30 +164,52 @@ static void vehicle_task(INT code,void *context) {
     s3_config_defaults(&straddle_cfg);robot_ir_apply_layout(&straddle_cfg);
     straddle_cfg.line.threshold_high=BOARD_LINE_BLACK_PERMILLE;
     straddle_cfg.line.threshold_low=BOARD_LINE_WHITE_PERMILLE;
-    if(!robot_ir_apply_adc_calibration(&straddle_cfg)) {s2_emergency_stop();tk_ext_tsk();return;}
+    if(!robot_ir_apply_adc_calibration(&straddle_cfg)) {
+        tm_printf((UB *)"[VC] STARTUP FAIL: no valid line-sensor ADC calibration (BOARD_IR_MODE 2 or 3); vehicle controller not running\n");
+        s2_emergency_stop();tk_ext_tsk();return;
+    }
     uint8_t read_side=0;uint32_t read_side_ms=0; /* barcode-read steering: side and since */
     s3_status_t line_last={0};uint8_t line_misses=0; /* last S3 snapshot, failed reads since */
     s5_status_t scan_last={0};uint8_t scan_misses=0; /* last S5 snapshot, failed reads since */
+    s2_motion_status_t motor_last={0};uint8_t motor_misses=0;BOOL motor_seen=FALSE; /* last S2 status, failed copies since */
+    /* S3 control/renew: last tick it was not refused as busy (E_TMOUT). */
+    uint32_t s3_control_ok_ms=0;
+    /* S3 waiting for the controller with no turn here (L6): since, reported. */
+    BOOL s3_orphan=FALSE,s3_orphan_logged=FALSE;uint32_t s3_orphan_since=0;
+#if VC_TIMING
+    BOOL timing_seen=FALSE;uint32_t timing_report_ms=0;
+#endif
     /* Bypass edge latched with the plan: lateral, ahead (axle frame), target lateral offset; odometry then. */
     UW bypass_x=0,bypass_y=0,bypass_lateral=0;int32_t bypass_from_um=0;BOOL bypass_edge=FALSE;
     /* Event log (shared/events.h): an obstacle being handled, since, scanned. */
     BOOL avoid_active=FALSE,avoid_scanned=FALSE;uint32_t avoid_since=0;
+    BOOL front_pending=FALSE,bypass_probe=FALSE,bypass_report=FALSE;
+    uint32_t front_after_ms=0,probe_since=0;
+    unsigned probe_deg=0;UW probe_leg=0,probe_ahead=0;
     /* A decoded instruction waiting for its EV_BARCODE attempt: value, ticks left. */
     unsigned instruction_value=0,instruction_wait=0;
     /* Silent S3 latch: being handled, first and last seen; last TRACK sent. */
     BOOL s3_latch=FALSE;uint32_t s3_latch_since=0,s3_latch_seen=0,s3_track_ms=0;
 #if BOARD_RAMP_SPEED
+    uint8_t hump_seen=0;
     unsigned ramp_seen=RAMP_FLAT; /* last hump state reported */
 #endif
     for(;;) {
         SYSTIM now;
+#if VC_TIMING
+        task_timing_release(&app_task_timing[TASK_TIMING_VC],vc_now_us());
+#endif
         /* Telemetry view of the follower this tick: 0 straight, 1/2 steer
          * right/left, 3/4 pivot right/left; steer in S2 units. */
         uint8_t follow_code=0;int16_t follow_steer=0;
         odom_config_t calibration={0}; /* short-lived calculation/API view */
         (void)odom_calibration_unpack(&calibration_record,&calibration);
         s2_motion_status_t motor={0};uint8_t encoder_payload[ENCODER_SNAPSHOT_SIZE]={0};s3_status_t line={0};s5_status_t scan={0};s4_sensor_status_t imu={0};
-        BOOL mo=s2_motion_get_status(&motor)==E_OK;
+        BOOL mo=s2_motion_get_status(&motor)==E_OK,mo_fresh=mo;
+        /* A failed copy (busy semaphore) is not a motor fault: reuse the last
+         * status for up to VC_MOTOR_STATUS_MISSES ticks (C2). */
+        if(mo) {motor_last=motor;motor_misses=0;motor_seen=TRUE;}
+        else if(motor_misses<VC_MOTOR_STATUS_MISSES && motor_seen) {motor=motor_last;mo=TRUE;++motor_misses;}
         BOOL en=s2_encoder_snapshot(encoder_payload,sizeof(encoder_payload))==E_OK;
         BOOL li=s3_status_get(&line)==E_OK;
         /* S3's status lock is polled, never waited on: a read fails when the
@@ -174,6 +229,14 @@ static void vehicle_task(INT code,void *context) {
          * afterwards, so a newly published sample cannot appear in the future. */
         if(tk_get_otm(&now)<0) {vc_stop(&state.vehicle,VC_TRANSPORT);s2_emergency_stop();tk_dly_tsk(10);continue;}
         if(im)s4_data_snapshot(&imu_record,s4_operating_ms_to_us(((uint64_t)(UW)now.hi<<32)|now.lo),&imu);
+        uint32_t impact_delta=0,fault_delta=0;
+        if(im) {
+            if(imu_counts_seen) {
+                impact_delta=imu.accel_impacts-impacts_seen;
+                fault_delta=imu.accel_faults-faults_seen;
+            }
+            impacts_seen=imu.accel_impacts;faults_seen=imu.accel_faults;imu_counts_seen=TRUE;
+        }
         state.time_ms=now.lo;++state.sequence;
         int32_t accel[3];
         s4_imu_to_robot(imu.latest.accel.milli_units,accel,
@@ -204,14 +267,25 @@ static void vehicle_task(INT code,void *context) {
             .height_mm=(uint16_t)terrain.height_mm,.maximum_mm=(uint16_t)terrain.maximum_mm,
             .terrain=(uint8_t)terrain.state,
             .flags=(uint8_t)((terrain.tilt_valid?S4_RESULT_TILT:0U)|
-                (terrain.height_valid?S4_RESULT_HEIGHT:0U)|(terrain.shock?S4_RESULT_SHOCK:0U)|
+                (terrain.height_valid?S4_RESULT_HEIGHT:0U)|((terrain.shock || impact_delta)?S4_RESULT_SHOCK:0U)|
                 (BOARD_TERRAIN_CALIBRATED?S4_RESULT_CALIBRATED:0U)|(odom->valid?S4_RESULT_ODOMETRY:0U)),
             /* IMU fault (telemetry ID 12 bit 0x04): I/O error, stale,
              * clipped or overrun sample, IMU/encoder skew. An unclipped
              * shock is an impact (S4_RESULT_SHOCK), not a sensor fault. */
             .faults=(uint8_t)((!odom->valid?EDR_FAULT_ENCODER:0U)|
-                ((!im || !imu.accel_usable || imu.latest.accel.overrun ||
+                ((fault_delta || !im || !imu.accel_usable || imu.accel_clipped || imu.latest.accel.overrun ||
                    encoder_input.fault==S4_INPUT_SKEW)?EDR_FAULT_IMU:0U))};
+        /* The result schema never combines impact/IMU fault with usable
+         * tilt, or any fault with usable height, even for a latched sample. */
+        if((result.faults&EDR_FAULT_IMU) || (result.flags&S4_RESULT_SHOCK))
+            result.flags&=(uint8_t)~(S4_RESULT_TILT|S4_RESULT_HEIGHT);
+        if(result.faults)result.flags&=(uint8_t)~S4_RESULT_HEIGHT;
+        /* Count every S4 fault since the last read. Copy/skew faults are
+         * local; an unhealthy latest sample is also visible without a delta. */
+        state.imu_fault_count=(uint16_t)(state.imu_fault_count+fault_delta);
+        if(!im || encoder_input.fault==S4_INPUT_SKEW ||
+           (!fault_delta && (!imu.accel_usable || imu.accel_clipped || imu.latest.accel.overrun)))
+            ++state.imu_fault_count;
         BOOL result_ok=s4_result_encode(&result,state.s4_result,sizeof(state.s4_result)) &&
             s4_result_decode(state.s4_result,sizeof(state.s4_result),&result);
         if(!result_ok) {vc_stop(&state.vehicle,VC_SENSOR);s2_emergency_stop();}
@@ -226,15 +300,20 @@ static void vehicle_task(INT code,void *context) {
             control_message_t c;ER er=s1_command_take(&c);if(er<0)break;
             if(c.wire[1]==0) {vc_stop(&state.vehicle,VC_OK);
                 s1_command_ack(c.wire[5],0,0,state.vehicle.phase,state.vehicle.fault);break;}
-            if(now.lo-c.time_ms>=100U) {
+            /* Signed age: a command a higher-priority task stamped in a tick
+             * after `now` was read is fresh, not 4e9 ms old (W6). */
+            if((int32_t)(now.lo-c.time_ms)>=100) {
                 s1_command_ack(c.wire[5],c.wire[1],3,state.vehicle.phase,state.vehicle.fault);continue;
             }
             if(c.wire[1]==4) { /* MAP letter->turn, any phase: only future decodes change */
                 s1_command_ack(c.wire[5],4,s3_controller_set_map(c.wire[2],c.wire[3])<E_OK?1U:0U,
                     state.vehicle.phase,state.vehicle.fault);continue;
             }
-            if(c.wire[1]==2 && !state.vehicle.armed && mo && motor.state!=S2_MOTION_MOVING) {
+            if(c.wire[1]==2 && !state.vehicle.armed && mo_fresh && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
+#if BOARD_RAMP_SPEED
+                ramp=(vehicle_ramp_t){0};ramp_seen=RAMP_FLAT;hump_seen=0;
+#endif
                 requested_sensor_mode=FALSE; /* RESET also restarts a latched S5 scan. */
                 s4_result_t cleared={.calculated_ms=now.lo};
                 result=cleared;
@@ -280,7 +359,17 @@ static void vehicle_task(INT code,void *context) {
             .slope=result.terrain==TERRAIN_ASCENT || result.terrain==TERRAIN_DESCENT,
             .bypass_steering=(uint16_t)(BOARD_TRACK_WIDTH_MM*1000U/(2U*S5_BYPASS_ARC_RADIUS_MM)),
             .bypass_enabled=BOARD_PID_ENABLED && BOARD_BYPASS_VALIDATED,.transport_ok=1};
-        if(input.shock && !shock_prev)++state.shock_count;
+        if(impact_delta)state.shock_count=(uint16_t)(state.shock_count+impact_delta);
+        else if(input.shock && !shock_prev)++state.shock_count;
+#if BOARD_RAMP_SPEED
+        /* A lost height traversal must not release the cap on a slope. Use
+         * the last smoothed gravity vector, also across a rejected jolt. */
+        if(accel_filter.primed) {
+            double x=accel_filter.f[0],y=accel_filter.f[1],z=accel_filter.f[2];
+            int p=(int)lround(atan2(x,sqrt(y*y+z*z))*5729.577951308232)-BOARD_PITCH_ZERO_CDEG;
+            if(z>0 && (p>=TERRAIN_SLOPE_CDEG || p<=-TERRAIN_DESCENT_CDEG))input.slope=1;
+        }
+#endif
         shock_prev=input.shock;
 #if !BOARD_SHOCK_STOP
         /* Shock stays in the S4 result (dashboard impact) but does not stop
@@ -319,11 +408,9 @@ static void vehicle_task(INT code,void *context) {
         BOOL no_echo=!scan.valid && (scan.echo_result==S5_ECHO_NO_RISE || scan.echo_result==S5_ECHO_NO_FALL);
         BOOL obstacle_confirmed=vehicle_obstacle_confirm_step(&obstacle_confirm,so && (scan.valid || open),
             scan.time_ms,forward && scan.valid && scan.distance_mm<=S5_OBSTACLE_MM,S5_ACQUISITION_SAMPLES);
-        /* Avoidance arcs (TURN_OUT..RESTORE): with the servo straight ahead,
-         * only a real echo within the guidance distance holds the robot; a
-         * missing echo or the re-sample after a pan does not, so the arcs do
-         * not stop and restart on every gap. A side look still waits for the
-         * servo to come back to the front before moving. */
+        /* Avoidance arcs retain their no-echo tolerance only after a clear
+         * forward sample follows the last pan. Published target angle 0
+         * alone is not a forward observation. */
         BOOL avoid_arc=state.vehicle.phase>=VC_TURN_OUT && state.vehicle.phase<=VC_RESTORE;
         input.front_clear=input.sensor_fresh && scan.angle_deg==0 &&
             (state.vehicle.phase==VC_TRACK ?
@@ -333,6 +420,14 @@ static void vehicle_task(INT code,void *context) {
              avoid_arc ?
                 !(scan.valid && scan.sample_angle_deg==0 && scan.distance_mm<=S5_GUIDANCE_OBSTACLE_MM) :
                 s5_direction_clear(&scan,state.vehicle.phase==VC_ACQUIRE?S5_OBSTACLE_MM:S5_GUIDANCE_OBSTACLE_MM));
+        if(avoid_arc && !forward && !front_pending) {front_pending=TRUE;front_after_ms=now.lo;}
+        if(front_pending && so_fresh && input.sensor_fresh && forward &&
+           (int32_t)(scan.time_ms-front_after_ms)>0 &&
+           ((scan.valid && scan.distance_mm>S5_GUIDANCE_OBSTACLE_MM) || open))front_pending=FALSE;
+        input.front_pending=front_pending;
+        if(avoid_arc && (front_pending || bypass_probe))input.front_clear=0;
+        input.backup_ready=input.sensor_fresh && scan.state==S5_APPROACH && forward &&
+            (int32_t)(scan.time_ms-state.vehicle.entered_ms)>0;
         input.obstacle=input.sensor_fresh && (obstacle_confirmed ||
             s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION);
         input.width_valid=input.sensor_fresh && scan.object_width_valid &&
@@ -544,17 +639,16 @@ static void vehicle_task(INT code,void *context) {
         }
         if(li && line.output.last_symbol>='A' && line.output.last_symbol<='Z')
             state.barcode=(uint8_t)(line.output.last_symbol-'A'+1);
-        /* Lifted (no surface under the line IRs, GP28 black): in the hand the
-         * tilt reading means nothing, so it never faults; BOARD_LIFT_FAULT_MS
-         * of it while running stops with VC_LIFTED instead (a shorter lift
-         * does not fault; BOARD_LIFT_FAULT_MS 0: off). */
+        /* Lifted (no surface under the line IRs, GP28 black): never waive
+         * the armed tilt check. A tipped robot can produce the same IRs.
+         * BOARD_LIFT_FAULT_MS still bounds a level lift (0: off). */
 #if BOARD_LIFT_FAULT_MS
         {
             BOOL lifted=li && line.configured && line.sample.raw[0]>=BOARD_LIFT_RAW &&
                 line.sample.raw[1]>=BOARD_LIFT_RAW && line.output.barcode_black;
             if(!lifted) lift_timing=FALSE;
             else if(!lift_timing) {lift_timing=TRUE;lift_since=now.lo;}
-            if(lifted) input.terrain_valid=1;
+            if(lifted && !state.vehicle.armed) input.terrain_valid=1;
         }
 #endif
         /* A sampler hiccup (late sample or ADC reply) latches S3 STALE, or
@@ -580,6 +674,24 @@ static void vehicle_task(INT code,void *context) {
                 s3_latch_seen=now.lo;
                 if(now.lo-s3_latch_since>=VC_S3_LATCH_MS) input.safety_event=1;
                 else s3_rearm=now.lo-s3_track_ms>=VC_S3_REARM_MS;
+            }
+            /* S3 holds a decoded turn (awaiting the controller, no error) but
+             * no turn is pending here and none arrived this tick: its event
+             * never reached the VC, and S3 ignores every later marker until
+             * TRACK. After VC_S3_REARM_MS of that, re-send TRACK (marker
+             * clear) so later markers are read (L6). A delivered turn is
+             * pending, so its marker stays held. */
+            BOOL orphan=watch && li && line.configured && line.output.awaiting_controller &&
+                line.output.error==S3_ERROR_NONE && !state.vehicle.pending_nav && !input.navigation_event;
+            if(!orphan) {s3_orphan=FALSE;s3_orphan_logged=FALSE;}
+            else if(!s3_orphan) {s3_orphan=TRUE;s3_orphan_since=now.lo;}
+            else if(now.lo-s3_orphan_since>=VC_S3_REARM_MS && now.lo-s3_track_ms>=VC_S3_REARM_MS) {
+                s3_rearm=TRUE;
+                if(!s3_orphan_logged) {
+                    tm_printf((UB *)"[VC] S3 held a decoded marker %u ms with no turn pending: TRACK re-sent\n",
+                        (unsigned)(now.lo-s3_orphan_since));
+                    s3_orphan_logged=TRUE;
+                }
             }
         }
         unsigned phase_before=state.vehicle.phase;
@@ -622,23 +734,42 @@ static void vehicle_task(INT code,void *context) {
                 bypass_from_um=odom->distance_um;
             }
         } else if(phase_before==VC_BACKUP && state.vehicle.phase==VC_TURN_OUT && bypass_edge) {
-            /* Reverse done: a shallower (diagonal) heading now clears the edge. */
+            /* Reverse done: ray-check a shallower heading before using it. */
             int32_t back_um=bypass_from_um-odom->distance_um;
             UW back=back_um>0?(UW)(back_um/1000):0U;
             int planned=state.vehicle.turn_deg<0?-state.vehicle.turn_deg:state.vehicle.turn_deg;
             unsigned deg=0;UW leg=0;
             if(bypass_replan(bypass_x,bypass_y,bypass_lateral,back,(unsigned)planned,&deg,&leg)) {
-                tm_printf((UB *)"[BYPASS] reversed %u mm: heading %d -> %u deg, diagonal %u -> %u mm\n",
-                    (unsigned)back,planned,deg,(unsigned)state.vehicle.approach_mm,(unsigned)leg);
-                state.vehicle.turn_deg=(int16_t)(state.vehicle.turn_deg<0?-(int)deg:(int)deg);
-                state.vehicle.approach_mm=state.vehicle.return_mm=(uint16_t)leg;
+                bypass_probe=TRUE;probe_since=now.lo;probe_deg=deg;probe_leg=leg;
+                probe_ahead=back+scan.obstacle_distance_mm+S5_SIDE_CORRIDOR_AHEAD_MM;
+                requested_sensor_mode=FALSE;
+
             }
             bypass_edge=FALSE;
         }
-        if(phase_before==VC_BACKUP && state.vehicle.phase==VC_TURN_OUT) {
+        if(phase_before==VC_BACKUP && state.vehicle.phase==VC_TURN_OUT)bypass_report=TRUE;
+        if(bypass_probe) {
+            int angle=state.vehicle.turn_deg>0?(int)probe_deg:-(int)probe_deg;
+            BOOL ready=so_fresh && input.sensor_fresh && scan.state==S5_APPROACH &&
+                scan.angle_deg==angle && scan.sample_angle_deg==angle &&
+                (int32_t)(scan.time_ms-probe_since)>0 && (scan.valid || s5_sample_is_open(&scan));
+            if(ready || now.lo-probe_since>=AVOID_REPLAN_WAIT_MS) {
+                if(ready && !s5_corridor_blocked(&scan,bypass_lateral,probe_ahead) &&
+                   !(scan.valid && scan.distance_mm<=S5_GUIDANCE_OBSTACLE_MM)) {
+                    state.vehicle.turn_deg=(int16_t)angle;
+                    state.vehicle.approach_mm=state.vehicle.return_mm=(uint16_t)probe_leg;
+                } /* Blocked or no answer: retain the heading S5 already checked. */
+                bypass_probe=FALSE;requested_sensor_mode=FALSE;
+            }
+            state.vehicle.command=0;state.vehicle.power=0;
+        }
+        if(bypass_report && !bypass_probe && state.vehicle.armed) {
             int heading=state.vehicle.turn_deg<0?-state.vehicle.turn_deg:state.vehicle.turn_deg;
             s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_BYPASS,state.vehicle.turn_deg>0?1U:2U,(unsigned)heading));
+            bypass_report=FALSE;
         }
+        if(!state.vehicle.armed) {bypass_probe=FALSE;bypass_report=FALSE;front_pending=FALSE;}
+
 #if BOARD_LIFT_FAULT_MS
         if(state.vehicle.armed && lift_timing && now.lo-lift_since>=BOARD_LIFT_FAULT_MS) {
             s2_emergency_stop();vc_stop(&state.vehicle,VC_LIFTED);
@@ -655,22 +786,29 @@ static void vehicle_task(INT code,void *context) {
              * junction (e.g. back in TRACK after an obstacle): a second marker
              * read meanwhile would be a conflicting turn. */
             control=s3_controller_control(wanted,wanted==S3_MODE_TRACK && !state.vehicle.pending_nav,
-                wanted==S3_MODE_TRACK?100:0);
+                wanted==S3_MODE_TRACK?VC_S3_LEASE_MS:0);
             if(control>=E_OK) {
                 mode=wanted;
                 if(wanted==S3_MODE_TRACK) {vc_track_requested(&state.vehicle,now.lo);s3_track_ms=now.lo;}
             }
         } else if(wanted==S3_MODE_TRACK) {
-            control=s3_controller_renew(100);
-            /* Silent latch (above): TRACK again clears it and re-arms the
-             * capture, a decoded turn's marker still held. Only on a live
-             * lease (expiry still stops with VC_TRANSPORT); no track hand-off
-             * stop, as the straddle follower does not use S3's verdicts. A
-             * refused request is retried next tick. */
+            control=s3_controller_renew(VC_S3_LEASE_MS);
+            /* Silent latch or an orphaned marker hold (above): TRACK again
+             * clears it and re-arms the capture, a decoded turn's marker still
+             * held. Only on a live lease (expiry still stops with
+             * VC_TRANSPORT); no track hand-off stop, as the straddle follower
+             * does not use S3's verdicts. A refused request is retried next
+             * tick. */
             if(control>=E_OK && s3_rearm &&
-               s3_controller_control(S3_MODE_TRACK,!state.vehicle.pending_nav,100)>=E_OK) s3_track_ms=now.lo;
+               s3_controller_control(S3_MODE_TRACK,!state.vehicle.pending_nav,VC_S3_LEASE_MS)>=E_OK) s3_track_ms=now.lo;
         }
-        if(control<0)vc_stop(&state.vehicle,VC_TRANSPORT);
+        /* E_TMOUT: S3's status lock stayed busy for its bounded wait and
+         * nothing changed (the old mode and lease stand), so it is retried
+         * next tick (L7). An expired lease (E_OBJ) or any other error stops;
+         * so does a lock still busy once the lease would have run out. */
+        if(control!=E_TMOUT || !state.vehicle.armed) s3_control_ok_ms=now.lo;
+        if(control<0 && (control!=E_TMOUT || now.lo-s3_control_ok_ms>=VC_S3_LEASE_MS))
+            vc_stop(&state.vehicle,VC_TRANSPORT);
         /* Stop for actual pans/checks, not every forward-only phase label. */
         unsigned phase=state.vehicle.phase, look=state.vehicle.look_side;
         if(phase!=previous_phase || look!=previous_look || !requested_sensor_mode) {
@@ -682,9 +820,11 @@ static void vehicle_task(INT code,void *context) {
             }
             else if(phase==VC_PASS) {sensor_mode=S5_OVERCOME;angle=look?side_angle:0;}
             else if(phase==VC_TURN_IN || phase==VC_RETURN || phase==VC_RESTORE)sensor_mode=S5_REORG;
+            if(bypass_probe) {sensor_mode=S5_APPROACH;angle=state.vehicle.turn_deg>0?(int)probe_deg:-(int)probe_deg;}
             BOOL pause=vehicle_sensor_pan_requires_stop(state.vehicle.command,so,
                 scan.angle_deg,scan.sample_angle_deg,angle);
             if(pause)s2_emergency_stop();
+            if(angle!=0 || pause) {front_pending=TRUE;front_after_ms=now.lo;}
             /* Acquisition runs entirely in S5; do not reset its search. A
              * reused snapshot (S5's lock was busy this tick) is not sent: the
              * lock may still be busy or its scan_id old, so the request is
@@ -704,21 +844,25 @@ static void vehicle_task(INT code,void *context) {
         {
             int32_t p=terrain_pitch_cdeg(&terrain),r=terrain_roll_cdeg(&terrain);
             int32_t tilt=(int32_t)lround(sqrt((double)p*p+(double)r*r));
+            ramp.level_blocked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST;
             unsigned rs=vehicle_ramp_step(&ramp,now.lo,state.vehicle.armed,terrain.tilt_valid,
                 tilt,p,r,BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
                 BOARD_RAMP_CREST_DROP_CDEG,BOARD_RAMP_HOLD_MS,BOARD_RAMP_LEVEL_MS);
             if(rs!=ramp_seen) {
                 /* Event log: hump climbing, crest (slow down), level again.
                  * Heights are this hump's, in 2 mm: S4's running peak while
-                 * it tracks the hump (height_mm is set only once a hump has
-                 * completed), its completed height once it has. */
+                 * it tracks the hump; level uses only this traversal's
+                 * completed-height latch, or zero. */
                 BOOL hump_tracked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST ||
                     terrain.state==TERRAIN_DESCENT;
                 unsigned peak=((unsigned)terrain.peak_um+1000U)/2000U;
-                if(rs==RAMP_UP) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_DETECTED,(unsigned)(tilt/10)));
+                if(rs==RAMP_UP) {
+                    hump_seen=terrain.humps;
+                    s1_event_post(EV_HUMP,ev_hump(EV_HUMP_DETECTED,(unsigned)(tilt/10)));
+                }
                 else if(rs==RAMP_DOWN) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_CREST,hump_tracked?peak:0U));
                 else if(rs==RAMP_DONE) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_LEVEL,
-                    terrain.height_valid?(unsigned)terrain.height_mm/2U:peak));
+                    terrain.humps!=hump_seen?(unsigned)terrain.hump_mm/2U:0U));
                 ramp_seen=rs;
             }
             if(rs==RAMP_DONE) {
@@ -880,6 +1024,12 @@ static void vehicle_task(INT code,void *context) {
         if(next_tick==0)next_tick=now.lo;
         next_tick+=10;tk_get_otm(&now);
         W wait=(W)(next_tick-now.lo);if(wait<=0) {next_tick=now.lo+10;wait=10;}
+#if VC_TIMING
+        task_timing_done(&app_task_timing[TASK_TIMING_VC],vc_now_us());
+        /* The report itself is outside the measured run. */
+        if(!timing_seen) {timing_seen=TRUE;timing_report_ms=now.lo;}
+        else if(now.lo-timing_report_ms>=VC_TIMING_REPORT_MS) {timing_report_ms=now.lo;vc_timing_report();}
+#endif
         tk_dly_tsk((UW)wait);
     }
 }

@@ -15,6 +15,10 @@ typedef struct {
     /* S4 shocks seen (rising edges, wraps). A shock lasts one 20 ms
      * accelerometer sample, so telemetry sends a frame for each new count. */
     uint8_t shock_count;
+    /* IMU faults the VC saw (wraps): +1 for every tick whose S4 result has
+     * EDR_FAULT_IMU. Telemetry sets ID 12 bit 0x04 while it differs from the
+     * count last sent, so a one-tick fault between snapshots is not lost. */
+    uint16_t imu_fault_count;
     /* Straddle line follower this tick (telemetry line fields):
      * 0 straight, 1/2 steer right/left, 3/4 pivot right/left. */
     uint8_t line_follow : 3;

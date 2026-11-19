@@ -121,6 +121,15 @@ on the next poll while PWM keeps following the current state (off in FAULT).
 If motor or encoder setup fails, PWM stays off and the task keeps reporting
 `S2_MOTION_FAULT` (VC fault 7 once armed) until the next power cycle.
 
+A STOP that arrives while a command is being applied (for example in the dead
+time of a FORWARD/PIVOT switch) publishes `S2_MOTION_STOPPED`, not a fault, and
+prints no `[S2 FAULT]` line. With the speed PID, a driven wheel faults after
+500 ms of driven time without progress (1200 ms in a spin). That time is kept
+across FORWARD/PIVOT switches, across a pivot that leaves the wheel at PWM 0,
+and across a STOP shorter than 500 ms once the wheel has turned. A wheel at
+PWM 0 is never checked. A new direction, a spin/straight change, a FAULT, a
+longer STOP, or a STOP before the wheel has turned starts it again.
+
 ## Verification
 
 From the repository root, with GCC on PATH:
@@ -136,7 +145,14 @@ GPIOs, disabled encoders, integrated controller access, rotation renewals/expiry
 stale commands, deadtime expiry, stop/fault recovery, status-lock timeouts,
 motor/encoder setup failure (the task must never return), a 750 ms override and,
 with the robot PID settings, the spin/pivot PWM ceiling, breakaway kick and
-turn stall time.
+turn stall time. A STOP in a switch's dead time or a speed update ends in
+STOPPED with no fault line, and the stall time is checked across
+FORWARD/PIVOT switches and short STOPs.
 Standalone USB/WiFi firmware builds with encoders on (1000 ms timeout) and off
 (750 ms timeout) also pass ARM compilation and linking. Physical motor/encoder
 testing on the Pico remains required.
+
+In checkpoint 8c the VC reuses its last S2 status after up to three missed
+copies. A fourth miss is fault 7; a published S2 FAULT still stops at once,
+and RESET requires a fresh copy. The USB timing report includes the motor
+loop with direction dead time excluded (`BOARD_TIMING_STATS`, default 1).
