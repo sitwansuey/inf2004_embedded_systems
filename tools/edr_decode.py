@@ -7,6 +7,9 @@ NAMES = {0:"mission_status", 1:"encoder_left", 2:"encoder_right", 3:"servo_angle
          4:"distance_cm", 5:"ir_left", 6:"ir_right", 7:"ir_barcode",
          8:"mag_x_ut", 9:"mag_y_ut", 10:"mag_z_ut", 11:"motor_status",
          12:"motor_faults", 13:"accel_x_mps2", 14:"accel_y_mps2", 15:"accel_z_mps2"}
+# ID 12 holds the shared fault bits (app_program/shared/edr.h): the motor's
+# timeout 0x20 / error 0x40 and the IMU fault 0x04.
+IMU_FAULT_BIT = 0x04
 
 def integer(value, low, high):
     if type(value) is not int or not low <= value <= high:
@@ -39,10 +42,17 @@ def status_valid(data):
     # 0 other, 1 sonar, 2 tilt, 3 odometry. Fault 2 (line): 0 other, 1 line
     # data stale (gap >= 250 ms or no TRACK handoff), 2 S3 fault event, 3 line
     # not found (REACQUIRE). Any other fault: 0.
+    # Subtypes 11 (sequence) and 12 (internal drops) are counters modulo 256
+    # that wrap: use counter_delta between records, never the absolute value.
     if subtype in (9, 10, 11, 12): return True
     if subtype in (13, 14): return 28 <= value <= 228
     # scan | barcode result << 4 | bypass side << 6 (0 none, 1 left, 2 right)
     return subtype == 15 and (value & 15) <= 14 and (value >> 6) <= 2
+
+def counter_delta(previous, current):
+    """Counts between two values of a wrapping status counter (subtype 11 or
+    12, modulo 256). More than 255 between two records alias."""
+    return (integer(current,0,255) - integer(previous,0,255)) & 255
 
 def validate(sensor_id, data):
     integer(sensor_id,0,15); integer(data,0,4095)

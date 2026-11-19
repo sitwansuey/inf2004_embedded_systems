@@ -7,6 +7,7 @@ static void width_clear(s5_status_t *next)
 {
     next->object_width_valid = FALSE;
     next->object_left_mm = next->object_right_mm = 0;
+    next->width_one_sided = FALSE;
 }
 
 static INT scan_blocked(s5_status_t *next)
@@ -42,6 +43,7 @@ static INT scan_begin(s5_status_t *next, s5_scan_context_t *scan)
     next->object_width_valid = FALSE;
     next->object_width_mm = next->object_width_min_mm = next->object_width_max_mm = 0;
     next->object_left_mm = next->object_right_mm = 0;
+    next->width_one_sided = FALSE;
     next->state = S5_SCAN_LEFT;
     return S5_SCAN_STEP_DEG;
 }
@@ -87,9 +89,10 @@ static INT verify_failed(s5_status_t *next, s5_scan_context_t *scan)
     }
     return scan_blocked(next);
 }
-/* Only one side has a measured edge: the other is taken as its mirror (a
- * symmetric width for the pass check), and only the measured side is ever
- * planned. */
+/* Only one side has a measured edge (the other was blocked through 60 deg
+ * or its edge failed): the other is taken as its mirror (a symmetric width
+ * for the pass check), flagged width_one_sided, and only the measured side is
+ * ever planned (forced_side; side_retry stops the verify fallback). */
 static INT finish_one_side(s5_status_t *next, s5_scan_context_t *scan, BOOL left_measured)
 {
     if (left_measured) {
@@ -100,16 +103,18 @@ static INT finish_one_side(s5_status_t *next, s5_scan_context_t *scan, BOOL left
         next->left_bound_distance_mm=next->right_bound_distance_mm;next->left_bound_valid=TRUE;
     }
     scan->forced_side=left_measured?1:-1;scan->side_retry=1;
+    next->width_one_sided=TRUE;
     return finish_sides(next,scan);
 }
-/* An edge is known (first object angle walking inward, averaged range). A
- * left edge sends the servo to the mirrored best clear angle on the right. */
+/* An edge is known (object angle next to the innermost clear one, averaged
+ * range). A left edge sends the servo to the mirrored best clear angle on
+ * the right. */
 static INT side_found(s5_status_t *next, s5_scan_context_t *scan, BOOL left, INT deg, UW range)
 {
     scan->averaging_bound=FALSE;scan->fine_checks=0;scan->echo_failures=0;
     if (left) {
         next->left_bound_deg=deg;next->left_bound_distance_mm=range;next->left_bound_valid=TRUE;
-        next->state=S5_SCAN_RIGHT;scan->right_coarse=0;
+        next->state=S5_SCAN_RIGHT;scan->right_coarse=0;scan->coarse_object=0;
         return -scan->fine_clear;
     }
     next->right_bound_deg=deg;next->right_bound_distance_mm=range;next->right_bound_valid=TRUE;
@@ -123,7 +128,7 @@ static INT side_failed(s5_status_t *next, s5_scan_context_t *scan, BOOL left)
 {
     scan->averaging_bound=FALSE;scan->fine_checks=0;scan->echo_failures=0;
     if (left) {
-        next->left_bound_valid=FALSE;scan->right_coarse=1;
+        next->left_bound_valid=FALSE;scan->right_coarse=1;scan->coarse_object=0;
         next->state=S5_SCAN_RIGHT;
         return -S5_SCAN_STEP_DEG;
     }
@@ -131,13 +136,22 @@ static INT side_failed(s5_status_t *next, s5_scan_context_t *scan, BOOL left)
     if (scan->right_coarse || !next->left_bound_valid) return scan_blocked(next);
     return finish_one_side(next,scan,TRUE);
 }
-/* From a clear angle, step 1 deg at a time toward the object. */
-static INT walk_begin(s5_status_t *next, s5_scan_context_t *scan, BOOL left, INT clear)
+/* Next fine angle: halfway between the inner object angle and the clear one
+ * (bisection, ~5 pans instead of up to 20 single-degree steps, each clear
+ * one up to 3 no-echo pings). Adjacent: the object angle itself, where the
+ * edge is averaged. */
+static INT fine_probe(const s5_scan_context_t *scan, BOOL left)
 {
-    scan->fine_clear=clear;scan->fine_checks=0;scan->averaging_bound=FALSE;scan->edge_retreats=0;
+    return (left?1:-1)*(scan->fine_object+(scan->fine_clear-scan->fine_object)/2);
+}
+/* From a clear angle, search inward to the edge at 1 deg resolution. */
+static INT walk_begin(s5_status_t *next, s5_scan_context_t *scan, BOOL left, INT clear, INT object)
+{
+    scan->fine_clear=clear;scan->fine_object=object;
+    scan->fine_checks=0;scan->averaging_bound=FALSE;scan->edge_retreats=0;
     next->state=left?S5_REFINE_LEFT:S5_REFINE_RIGHT;
     if (clear<=1) return side_found(next,scan,left,0,next->obstacle_distance_mm);
-    return (left?1:-1)*(clear-1);
+    return fine_probe(scan,left);
 }
 
 /* The detection reading fixes the angle; collect three new valid readings
@@ -156,23 +170,33 @@ static BOOL bound_average(s5_status_t *next, s5_scan_context_t *scan, UW *mean)
     return TRUE;
 }
 
-/* Walking inward: clear moves 1 deg on; the first object angle is the edge
- * and is averaged. Reaching the centre clear makes the forward sample the
- * edge. A borderline edge sample that misses the object while averaging
- * retreats the edge 1 deg inward, at most S5_EDGE_RETREATS times per side. */
+/* Bisecting inward: clear becomes the new clear angle, an object short of
+ * the angle next to it the new inner object angle. The object angle next to
+ * the clear one is the edge and is averaged. Reaching the centre clear makes
+ * the forward sample the edge; an inner object angle that reads clear leaves
+ * only the forward one known. A borderline edge sample that misses the object
+ * while averaging retreats the edge 1 deg inward, at most S5_EDGE_RETREATS
+ * times per side. */
 static INT walk_side(s5_status_t *next, s5_scan_context_t *scan, BOOL object, BOOL left)
 {
-    INT sign=left?1:-1, magnitude=left?next->angle_deg:-next->angle_deg;
+    INT magnitude=left?next->angle_deg:-next->angle_deg;
     if (scan->averaging_bound && !object) {
         if (scan->edge_retreats>=S5_EDGE_RETREATS || magnitude<=1) return side_failed(next,scan,left);
-        ++scan->edge_retreats;scan->averaging_bound=FALSE;scan->fine_clear=magnitude;
-        return sign*(magnitude-1);
+        ++scan->edge_retreats;scan->averaging_bound=FALSE;
+        scan->fine_clear=magnitude;scan->fine_object=magnitude-1;
+        return fine_probe(scan,left);
     }
     if (!scan->averaging_bound && !object) {
         scan->fine_clear=magnitude;
         if (magnitude<=1) return side_found(next,scan,left,0,next->obstacle_distance_mm);
         if (++scan->fine_checks>(UINT)(S5_SCAN_STEP_DEG*S5_SCAN_COARSE_STEPS)) return side_failed(next,scan,left);
-        return sign*(magnitude-1);
+        if (scan->fine_object>=magnitude) scan->fine_object=0;
+        return fine_probe(scan,left);
+    }
+    if (!scan->averaging_bound && scan->fine_clear-magnitude>1) {
+        if (++scan->fine_checks>(UINT)(S5_SCAN_STEP_DEG*S5_SCAN_COARSE_STEPS)) return side_failed(next,scan,left);
+        scan->fine_object=magnitude;
+        return fine_probe(scan,left);
     }
     UW mean=0;
     if (!bound_average(next,scan,&mean)) return next->angle_deg;
@@ -183,26 +207,31 @@ static INT walk_side(s5_status_t *next, s5_scan_context_t *scan, BOOL object, BO
  * search the right the same way. */
 static INT scan_left(s5_status_t *next, s5_scan_context_t *scan, BOOL object)
 {
-    if (!object) return walk_begin(next,scan,TRUE,next->angle_deg);
+    if (!object) return walk_begin(next,scan,TRUE,next->angle_deg,scan->coarse_object);
+    scan->coarse_object=next->angle_deg;
     if (next->angle_deg<S5_SCAN_STEP_DEG*S5_SCAN_COARSE_STEPS) return next->angle_deg+S5_SCAN_STEP_DEG;
-    next->left_bound_valid=FALSE;scan->right_coarse=1;
+    next->left_bound_valid=FALSE;scan->right_coarse=1;scan->coarse_object=0;
     next->state=S5_SCAN_RIGHT;
     return -S5_SCAN_STEP_DEG;
 }
 
-/* Right: the mirror check at the left's best clear angle (blocked: keep
- * LEFT; clear: walk to the right edge), or the coarse search after a
- * blocked left (no clear angle within 60 deg either side: blocked). */
+/* Right: the mirror check at the left's best clear angle (clear: the right
+ * edge is first expected at the left edge's mirror, then bisected; the
+ * object: its right edge is further out, so the right is searched outward at
+ * the next of 20/40/60 deg), or the coarse search after a blocked left.
+ * Object through 60 deg: a measured left is mirrored, else blocked. */
 static INT scan_right(s5_status_t *next, s5_scan_context_t *scan, BOOL object)
 {
     INT magnitude=-next->angle_deg;
-    if (scan->right_coarse) {
-        if (!object) return walk_begin(next,scan,FALSE,magnitude);
-        if (magnitude<S5_SCAN_STEP_DEG*S5_SCAN_COARSE_STEPS) return next->angle_deg-S5_SCAN_STEP_DEG;
-        return scan_blocked(next);
-    }
-    if (object) return finish_one_side(next,scan,TRUE);
-    return walk_begin(next,scan,FALSE,magnitude);
+    if (!scan->right_coarse && !scan->right_outward) {
+        if (!object) return walk_begin(next,scan,FALSE,magnitude,magnitude-1);
+        scan->right_outward=1;
+    } else if (!object) return walk_begin(next,scan,FALSE,magnitude,scan->coarse_object);
+    scan->coarse_object=magnitude;
+    if (magnitude<S5_SCAN_STEP_DEG*S5_SCAN_COARSE_STEPS)
+        return -(magnitude/S5_SCAN_STEP_DEG+1)*S5_SCAN_STEP_DEG;
+    if (scan->right_coarse) return scan_blocked(next);
+    return finish_one_side(next,scan,TRUE);
 }
 
 EXPORT INT s5_scan_step(s5_status_t *next, s5_scan_context_t *scan)

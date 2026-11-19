@@ -24,9 +24,17 @@ All objects are initialized before tasks start. Any startup failure prevents
 the controller from starting. The firmware boots DISARMED;
 `app_program/robot_config.h` holds the measured profile (IR mode 3,
 odometry/terrain calibration, PID and obstacle bypass). The motor task alone
-handles the urgent STOP epoch, discards stale queued movement, polls at 10 ms
-and checks its independent 1000 ms renewal watchdog. Physical stopping
+handles the urgent STOP epoch, discards stale queued movement, polls every
+~20 ms and checks its independent 1000 ms renewal watchdog. It never returns:
+a status copy that misses the shared lock is retried on the next poll, and a
+motor/encoder setup failure keeps PWM off with FAULT published (VC fault 7
+once armed). Physical stopping
 time still requires measurement; zero PWM is not guaranteed immediate braking.
+
+Timing: the kernel tick is 10 ms and every relative wait gets one extra tick,
+so the VC, motor, telemetry and network loops (which ask for 10 ms, or 2 ms
+for the network poll) really run about every 20 ms; tunables counted in VC
+ticks assume 20 ms. The S3 and S4 cyclic samplers run at exactly 10 ms.
 
 | Interface | Contract |
 |---|---|
@@ -52,7 +60,7 @@ one fixed pool, five message buffers (seven with ADC; CNF_MAX_MBFID is 12) and t
 plus the kernel USB/network/device service objects. No new scheduler, MPU,
 resource-sharing redesign or CR2/CR3 feature was introduced.
 
-The 54-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16
+The 55-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16
 records, including ID 0 mission status; the retired envelope/aggregate is not
 accepted by the dashboard. See docs/DATA_REPRESENTATION.md and
 docs/MISSION_SETUP.md.

@@ -21,6 +21,7 @@ bool s5_data_encode(const s5_status_t *v, uint8_t *data, size_t capacity)
     if (v->left_bound_valid != FALSE && v->left_bound_valid != TRUE) return false;
     if (v->right_bound_valid != FALSE && v->right_bound_valid != TRUE) return false;
     if (v->object_width_valid != FALSE && v->object_width_valid != TRUE) return false;
+    if (v->width_one_sided != FALSE && v->width_one_sided != TRUE) return false;
     result[0] = (uint8_t)((unsigned)v->state | ((unsigned)v->echo_result << 4));
     result[1] |= (uint8_t)((unsigned)v->acquisition_clear << 0);
     result[1] |= (uint8_t)((unsigned)v->approach_plan_valid << 1);
@@ -29,6 +30,7 @@ bool s5_data_encode(const s5_status_t *v, uint8_t *data, size_t capacity)
     result[1] |= (uint8_t)((unsigned)v->left_bound_valid << 4);
     result[1] |= (uint8_t)((unsigned)v->right_bound_valid << 5);
     result[1] |= (uint8_t)((unsigned)v->object_width_valid << 6);
+    result[1] |= (uint8_t)((unsigned)v->width_one_sided << 7);
     result[2] = (uint8_t)(v->angle_deg + 90);
     result[3] = (uint8_t)(v->sample_angle_deg + 90);
     result[4] = (uint8_t)(v->avoidance_deg + 90);
@@ -64,7 +66,7 @@ bool s5_data_decode(const uint8_t *data, size_t size, s5_status_t *value)
 {
     s5_status_t result = {0};
     if (!data || !value || size != S5_DATA_SIZE ||
-        (data[0] & 0x80U) || (data[1] & 0x80U) ||
+        (data[0] & 0x80U) ||
         (data[0] & 15U) > S5_REORG ||
         ((data[0] >> 4) & 7U) > S5_ECHO_TOO_SHORT)
         return false;
@@ -77,6 +79,7 @@ bool s5_data_decode(const uint8_t *data, size_t size, s5_status_t *value)
     result.left_bound_valid = (data[1] >> 4) & 1U;
     result.right_bound_valid = (data[1] >> 5) & 1U;
     result.object_width_valid = (data[1] >> 6) & 1U;
+    result.width_one_sided = (data[1] >> 7) & 1U;
     if (data[2] > 180U) return false;
     result.angle_deg = (INT)data[2] - 90;
     if (data[3] > 180U) return false;

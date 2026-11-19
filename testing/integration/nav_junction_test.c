@@ -1,6 +1,6 @@
 /* Barcode turns run at the next junction after the sensor-to-wheel offset,
  * spin until a straddle sensor finds the new line, and spot-scan when they
- * end without one (pure policy). */
+ * end without one; a line lost while tracking spot-scans too (pure policy). */
 #include "../../app_program/vehicle_policy.h"
 #include <assert.h>
 #include <stdio.h>
@@ -252,8 +252,74 @@ static void line_guided_uturn(void) {
     i.yaw_mdeg=90000;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && !s.spot_scan);
     puts("Line-guided U-turn: side arm ignored before 150 deg, touch then release ends it, guard kept PASS");
 }
+/* Line lost while tracking: both straddle sensors white is also "centred",
+ * so line_lost_mm of forward travel with neither on black spot-scans, toward
+ * the line's last side first; a sensor on black resumes tracking, none in the
+ * bounded sweep is VC_LINE not found. */
+static vc_state_t tracking(vc_input_t *i) {
+    vc_state_t s={0};assert(vc_start(&s,i->now_ms,30));
+    i->line_lost_mm=600;drive(&s,i,0);assert(forward(&s));return s;
+}
+static void line_lost(void) {
+    vc_input_t i=healthy();vc_state_t s=tracking(&i);
+    /* Touches 550 mm apart (right, left, a junction): never. */
+    for(unsigned n=0;n<300U;++n) {
+        bool touch=n%55U==54U;unsigned m=n/55U%3U+1U;
+        line(&i,touch?m:0U,touch && m==3U);drive(&s,&i,10000);assert(forward(&s));
+    }
+    /* The line goes after a right touch: 600 mm on, search right first. */
+    line(&i,1,0);drive(&s,&i,10000);assert(forward(&s) && s.last_line_side==1);
+    line(&i,0,0);
+    for(unsigned n=0;n<59U;++n) {drive(&s,&i,10000);assert(forward(&s));}
+    drive(&s,&i,9999);assert(forward(&s)); /* 599.999 mm */
+    drive(&s,&i,1);assert(s.phase==VC_REACQUIRE && s.spot_scan && s.search_right_first && !s.command);
+    drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==4 && s.power==15);
+    /* The right sensor finds black: settle, then track. */
+    i.yaw_mdeg=-5000;line(&i,1,0);drive(&s,&i,0);
+    assert(s.phase==VC_REACQUIRE && s.line_settling && s.command==4 && s.power==15);
+    drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && s.command==4);
+    drive(&s,&i,0);assert(s.phase==VC_TRACK && !s.spot_scan && !s.command);
+    drive(&s,&i,0);assert(forward(&s));
+    /* Lost again after a left touch: left first, never found, stopped after 4 s. */
+    line(&i,2,0);drive(&s,&i,10000);line(&i,0,0);
+    for(unsigned n=0;n<60U && s.phase==VC_TRACK;++n) {assert(forward(&s));drive(&s,&i,10000);}
+    assert(s.phase==VC_REACQUIRE && s.spot_scan && !s.search_right_first);
+    uint32_t from=i.now_ms;
+    drive(&s,&i,0);assert(s.command==3 && s.power==15);
+    while(s.armed) {drive(&s,&i,0);assert(!s.command || ((s.command==3 || s.command==4) && s.power<=15));}
+    assert(s.phase==VC_FAULT && s.fault==VC_LINE && s.fault_cause==VC_LINE_CAUSE_NOT_FOUND && i.now_ms-from==4000U);
+    /* Off (0, as during a barcode read or re-read): never; on again, the
+     * distance runs from there. */
+    i=healthy();s=tracking(&i);i.line_lost_mm=0;
+    for(unsigned n=0;n<100U;++n) {drive(&s,&i,10000);assert(forward(&s));}
+    i.line_lost_mm=600;drive(&s,&i,599999);assert(forward(&s));
+    drive(&s,&i,1);assert(s.phase==VC_REACQUIRE && s.spot_scan);
+    /* Reversing never adds: 500 on, 300 back, 400 on is 600. */
+    i=healthy();s=tracking(&i);
+    drive(&s,&i,500000);drive(&s,&i,-300000);drive(&s,&i,399999);assert(forward(&s));
+    drive(&s,&i,1);assert(s.phase==VC_REACQUIRE);
+    /* Back past the last black: from the furthest point back. */
+    i=healthy();s=tracking(&i);
+    drive(&s,&i,100000);drive(&s,&i,-300000);drive(&s,&i,599999);assert(forward(&s));
+    drive(&s,&i,1);assert(s.phase==VC_REACQUIRE);
+    /* Entering TRACK starts it again (an obstacle that went away). */
+    i=healthy();s=tracking(&i);drive(&s,&i,500000);
+    i.obstacle=1;i.front_clear=0;drive(&s,&i,0);assert(s.phase==VC_ACQUIRE);
+    i.obstacle=0;i.front_clear=1;drive(&s,&i,0);assert(s.phase==VC_REACQUIRE && !s.spot_scan);
+    drive(&s,&i,0);assert(s.phase==VC_TRACK);drive(&s,&i,0);
+    drive(&s,&i,599999);assert(forward(&s));
+    drive(&s,&i,1);assert(s.phase==VC_REACQUIRE && s.spot_scan);
+    /* A decoded turn looking for its junction keeps its own bound: no
+     * junction within nav_search_mm, it turns there. */
+    i=healthy();i.nav_search_mm=1000;s=tracking(&i);
+    i.navigation_event=1;i.nav=2;drive(&s,&i,0);i.navigation_event=0;i.nav=0;
+    for(unsigned n=0;n<99U;++n) {drive(&s,&i,10000);assert(forward(&s) && s.pending_nav==2);}
+    drive(&s,&i,9999);assert(forward(&s));
+    drive(&s,&i,1);assert(s.phase==VC_NAV_TURN && s.turn_deg==-90);
+    puts("Line lost while tracking: line_lost_mm without black spot-scans toward its side; found -> TRACK, never -> VC_LINE not found; touches, off, reversing, TRACK entry and a pending turn restart it PASS");
+}
 int main(void) {
     right_at_junction();hold_and_search_limit();leave_track();spot_scan();uturn_repeat();
-    line_guided_turns();line_guided_uturn();
+    line_guided_turns();line_guided_uturn();line_lost();
     return 0;
 }

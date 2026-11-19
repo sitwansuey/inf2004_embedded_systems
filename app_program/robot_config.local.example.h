@@ -11,4 +11,6 @@
 /* Edge tracing instead of the mask-pivot follower: */
 /* #define BOARD_LINE_MASK_PIVOT 0 */
 /* #define BOARD_LINE_EDGE_TRACE 1 */
+/* Line lost while tracking: search after this much travel with both IRs white (0: off). */
+/* #define BOARD_LINE_LOST_MM 600U */
 #endif

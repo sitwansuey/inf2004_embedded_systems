@@ -55,7 +55,11 @@ publish.single(MQTT_TOPIC, payload=encode_packet(1, 100), hostname="localhost", 
 Publish the raw bytes, not the four-character string "4106". Firmware reads
 servo/ultrasonic and other owner snapshots. ID 0 adds decoded barcode/navigation,
 controller state and fault (0–8, 8 = lifted), speed, tilt, scan state and
-hump/current-run maximum to their cards. The Sensors tab lists only fields the
+hump/current-run maximum to their cards. ID 12 also carries the IMU fault bit
+(Accelerometer card, IMU fault). Status subtype 12 is the robot's drop count
+modulo 256; the Vehicle controller card shows "Dropped, last 60 s" from the
+differences (the first record after a broker reconnect or a robot silence is
+only a baseline). The Sensors tab lists only fields the
 robot transmits. Event text is not transmitted: robot events arrive as two-byte
 records on `Robopico/events/edr16/v1` and `packed16.describe_event` turns them
 into log rows.
@@ -121,7 +125,7 @@ python -B -m unittest discover -s app_program/external_systems/Dashboard -p "tes
   packets, ignored unrelated topics, barcode read history, HTTP JSON and field
   routing. With Node.js on PATH it also runs `test_dashboard_display.cjs`,
   which executes the real dashboard JavaScript with a minimal DOM and checks
-  that all 17 decoded fields appear on the correct cards.
+  that all 18 decoded fields appear on the correct cards.
 - `test_commands.py`: Reset/Start/STOP frames, ACK matching and validation,
   MAP, Reset to defaults and Send all, and the origin and JSON checks on
   `POST /api/command`.

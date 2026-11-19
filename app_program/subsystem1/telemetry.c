@@ -6,8 +6,10 @@ static ID telemetry_buffer, command_buffer, ack_buffer, event_buffer;
 #define S1_EVENT_CAPACITY 16U /* queued events; kept through a short link drop */
 static UW stop_sequence;
 static UW drops, stop_epoch, seen_stop;
+/* Wraps, never saturates: telemetry sends it modulo 256 (status subtype 12)
+ * and receivers count drops as differences, so it must keep counting. */
 static void dropped(void) { UW n=__atomic_load_n(&drops,__ATOMIC_RELAXED);
-    __atomic_store_n(&drops,n<65535?n+1:n,__ATOMIC_RELAXED); }
+    __atomic_store_n(&drops,n+1U,__ATOMIC_RELAXED); }
 uint16_t s1_drop_count(void) { return (uint16_t)__atomic_load_n(&drops,__ATOMIC_RELAXED); }
 ER s1_binary_init(void) {
     if(telemetry_buffer>0 || command_buffer>0)return E_OBJ;

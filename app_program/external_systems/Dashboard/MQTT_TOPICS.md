@@ -19,7 +19,7 @@ not additional MQTT subscriptions or publications.
 | 7 | Barcode IR | ir_barcode, raw |
 | 8–10 | Magnetometer | mag_x_ut / mag_y_ut / mag_z_ut = (data−2048)/10 |
 | 11 | Motor control | direction, power_percent, state |
-| 12 | Motor control | fault_flags, bitmask 0–127 |
+| 12 | Motor control, Accelerometer | fault_flags, bitmask 0–127: motor timeout 32 / error 64, IMU fault 4 (also `accelerometer/imu_fault`) |
 | 13–15 | Accelerometer | accel_x_mps2 / accel_y_mps2 / accel_z_mps2 = (data−2048)*9.80665/1000 |
 
 The browser keeps legacy-shaped display keys such as
@@ -41,7 +41,8 @@ ID 0 obstacle and scan fields (local display keys):
 | 8, 128–191 | `Robopico/sensors/ultrasonic_ranger/width_left_cm` | (value & 63) × 0.8 cm, centre to left edge |
 | 8, 192–255 | `Robopico/sensors/ultrasonic_ranger/width_right_cm` | (value & 63) × 0.8 cm, centre to right edge |
 | 9, bits 5–0 | `Robopico/Actuators/vehicle_controller/quality` | value & 63 (also `safety_state` bit 2, `accelerometer/impact` bit 1) |
-| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry`: the cause with fault code 1 (sensor; `None/other` means an avoidance-step check such as a side-check timeout). With fault code 2 (line) the same codes mean 0 other, 1 line data stale (gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event, 3 line not found; the browser shows those names. 0 with any other fault |
+| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry`: the cause with fault code 1 (sensor; `None/other` means an avoidance-step check such as a side-check timeout). With fault code 2 (line) the same codes mean 0 other, 1 line data stale (gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event (or an S3 sampler latch that keeps coming back for 1 s although the controller re-sends TRACK every 100 ms), 3 line not found (the on-the-spot search after a turn, a bypass, or `BOARD_LINE_LOST_MM` of tracking with neither straddle IR on black); the browser shows those names. 0 with any other fault |
+| 12 | `Robopico/Actuators/vehicle_controller/dropped` | the robot's internal drop count modulo 256 (wraps, like the subtype 11 sequence); the receiver shows the drops of the last 60 s from the differences between records. The first record after a broker reconnect or a robot silence is only a baseline |
 | 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
 
 Subtype 8 values 101–127 and bypass side 3 are rejected. Like every reading,

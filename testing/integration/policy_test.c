@@ -209,4 +209,44 @@ static void mount(void) {
     assert(t.tilt_valid && terrain_pitch_cdeg(&t)>1800);
     puts("IMU mount: axis remap, saturation, nose-up pitch and side roll PASS");
 }
-int main(void) {controller();odometry();terrain();mount();return 0;}
+/* Avoidance arc smoothing runs on elapsed ms, not VC ticks (the VC asks for
+ * 10 ms but runs every 20 ms): at 5, 10 or 20 ms ticks the power reaches
+ * AVOID_POWER, and the steering full scale, on the first tick at or after
+ * AVOID_RAMP_POWER_MS / AVOID_STEER_RAMP_MS. At 20 ms ticks the steps are the
+ * ones the robot was tested with: 625 milli-% (25% x 10/400 ms) and 13 steer
+ * units (400 x 10/300 ms) a tick. */
+static void avoid_ramp(void) {
+    static const uint32_t ticks[]={5U,10U,20U};
+    const int32_t full=(int32_t)AVOID_POWER*1000;
+    for(unsigned k=0;k<3U;++k) {
+        uint32_t tick=ticks[k],power_at=0,steer_at=0;
+        vc_avoid_ramp_t r;vc_avoid_ramp_reset(&r,5000U); /* last tick outside the arc */
+        for(uint32_t t=tick;t<=1000U;t+=tick) {
+            vc_avoid_ramp_step(&r,5000U+t,AVOID_POWER,400);
+            int32_t p=(int32_t)((uint64_t)full*t/AVOID_RAMP_POWER_MS),st=(int32_t)(400U*t/AVOID_STEER_RAMP_MS);
+            assert(r.power_m==(p<full?p:full) && r.steer==(st<400?st:400));
+            if(!power_at && r.power_m==full) power_at=t;
+            if(!steer_at && r.steer==400) steer_at=t;
+            if(tick==20U) {
+                int32_t n=(int32_t)(t/tick);
+                assert(r.power_m==(625*n<25000?625*n:25000) && r.steer==(13*n<400?13*n:400));
+            }
+        }
+        assert(power_at==(AVOID_RAMP_POWER_MS+tick-1U)/tick*tick);
+        assert(steer_at==(AVOID_STEER_RAMP_MS+tick-1U)/tick*tick);
+    }
+    assert(AVOID_POWER==25U && AVOID_RAMP_POWER_MS==800U && AVOID_STEER_RAMP_MS==615U);
+    /* A drop is immediate and the power rises again at the ramp rate; the
+     * steering slews toward a reversed target at the same rate; a late tick
+     * moves by its real elapsed ms. */
+    vc_avoid_ramp_t r;vc_avoid_ramp_reset(&r,0);
+    for(uint32_t t=20U;t<=1000U;t+=20U) vc_avoid_ramp_step(&r,t,25U,400);
+    assert(r.power_m==25000 && r.steer==400);
+    vc_avoid_ramp_step(&r,1020U,20U,400);assert(r.power_m==20000);
+    vc_avoid_ramp_step(&r,1040U,25U,-376);assert(r.power_m==20625 && r.steer==387);
+    vc_avoid_ramp_step(&r,1080U,25U,-376);assert(r.power_m==21875 && r.steer==361);
+    vc_avoid_ramp_reset(&r,1100U);assert(r.power_m==0 && r.steer==0);
+    vc_avoid_ramp_step(&r,1120U,25U,-376);assert(r.power_m==625 && r.steer==-13);
+    puts("Avoidance ramps: real ms at 5/10/20 ms ticks, tested 20 ms steps, drops and slews PASS");
+}
+int main(void) {controller();odometry();terrain();mount();avoid_ramp();return 0;}

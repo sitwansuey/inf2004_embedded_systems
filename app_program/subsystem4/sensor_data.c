@@ -94,6 +94,15 @@ static bool usable(const lsm303_sample_t *v,uint64_t now) {
     return v->fresh && v->valid && now!=UINT64_MAX && now>=v->read_time_us &&
            now-v->read_time_us<=S4_STALE_AFTER_US;
 }
+/* The driver rejects an accel sample with an axis at -2048/2047 (+/-2 g).
+ * The cached status is the last poll's, so the axis value marks it: a valid
+ * sample never has one. */
+static bool clipped(const lsm303_sample_t *v,uint64_t now) {
+    if(!v->fresh || v->valid || now==UINT64_MAX || now<v->read_time_us ||
+       now-v->read_time_us>S4_STALE_AFTER_US)return false;
+    for(unsigned n=0;n<3;++n)if(v->raw[n]==-2048 || v->raw[n]==2047)return true;
+    return false;
+}
 void s4_data_snapshot(const s4_sensor_cache_t *s,uint64_t now,s4_sensor_status_t *out) {
     *out=(s4_sensor_status_t){0};out->latest.accel=decode_sample(s,false);out->latest.mag=decode_sample(s,true);
     out->init_result=(uint8_t)s4_bits_get(s->bytes,0,3)&7U;
@@ -102,6 +111,7 @@ void s4_data_snapshot(const s4_sensor_cache_t *s,uint64_t now,s4_sensor_status_t
     out->accel_age_ms=age(&out->latest.accel,now);out->mag_age_ms=age(&out->latest.mag,now);
     out->accel_usable=out->configured && usable(&out->latest.accel,now);
     out->mag_usable=out->configured && usable(&out->latest.mag,now);
+    out->accel_clipped=out->configured && clipped(&out->latest.accel,now);
     out->init_attempts=s4_cache_count(s,S4_COUNT_INIT);out->task_heartbeat=s4_cache_count(s,S4_COUNT_HEARTBEAT);
     out->accel_samples=s4_cache_count(s,S4_COUNT_ACCEL);out->mag_samples=s4_cache_count(s,S4_COUNT_MAG);
     out->accel_io_errors=s4_cache_count(s,S4_COUNT_ACCEL_ERROR);out->mag_io_errors=s4_cache_count(s,S4_COUNT_MAG_ERROR);

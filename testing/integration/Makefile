@@ -9,7 +9,8 @@ CORE = $(S4_RESULT) ../../app_program/vehicle_policy.c ../../app_program/subsyst
 SCAN = ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_width.c
 # vehicle.c's straddle line observer and the S3 configuration it validates (S3 owns ADC acquisition).
 STRADDLE_SRC = ../../app_program/ir_line_trace.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_core.c ../../app_program/subsystem3/buddy3_barcode.c
-VEHICLE_SRC = $(CORE) ../../app_program/subsystem4/encoder_input.c ../../app_program/subsystem5/s5_width.c $(STRADDLE_SRC)
+# $(SCAN): the vehicle test feeds samples through S5's real acquisition step.
+VEHICLE_SRC = $(CORE) ../../app_program/subsystem4/encoder_input.c $(SCAN) $(STRADDLE_SRC)
 .PHONY: test sanitize
 test:
 	mkdir -p .build

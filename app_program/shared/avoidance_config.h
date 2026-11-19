@@ -14,12 +14,16 @@
 #define AVOID_CLEAR_RUN_MM 20U
 /* Smooth avoidance driving (TURN_OUT..RESTORE, vehicle.c): power rises from 0
  * to the avoidance power over AVOID_RAMP_POWER_MS (drops stay immediate) and
- * the arc steering moves at most full scale (400) per AVOID_STEER_RAMP_MS. */
-#define AVOID_RAMP_POWER_MS 400U
+ * the arc steering moves at most full scale (400) per AVOID_STEER_RAMP_MS,
+ * in real ms (vehicle_policy.c vc_avoid_ramp_step). These are what the robot
+ * was tested with when the ramps stepped once per 20 ms VC tick as if it were
+ * 10 ms (400/300 then): 625 milli-% a tick = 25% in 800 ms; 13 steer units a
+ * tick = 400 in 615 ms (8000/13 = 615.4; 615 keeps 13 a tick, 616 gives 12). */
+#define AVOID_RAMP_POWER_MS 800U
 /* After the reverse the bypass heading is re-planned (vehicle.c): the
  * shallowest heading, not below this, that still clears the obstacle edge. */
 #define AVOID_MIN_TURN_DEG 20U
-#define AVOID_STEER_RAMP_MS 300U
+#define AVOID_STEER_RAMP_MS 615U
 /* VC_RETURN heads back toward the line until a sensor finds it. The mirrored
  * diagonal is only where the line is expected: drive on up to this much
  * further before restoring the heading for an on-the-spot search. */

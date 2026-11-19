@@ -2,8 +2,9 @@
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools"))
-from edr_decode import decode_packet as decode_record, MQTT_TOPIC, EVENT_TOPIC, decode_event
+from edr_decode import decode_packet as decode_record, MQTT_TOPIC, EVENT_TOPIC, decode_event, counter_delta, IMU_FAULT_BIT
 PACKED_TOPIC = MQTT_TOPIC
+IMU_FAULT_TOPIC = "Robopico/sensors/accelerometer/imu_fault"
 READINGS = {
     1: "Robopico/sensors/left_encoder/encoder_left",
     2: "Robopico/sensors/right_encoder/encoder_right",
@@ -59,6 +60,8 @@ def status_messages(subtype, value):
                 one("accelerometer","impact",bool(quality&2))+one("vehicle_controller","fault_cause",FAULT_CAUSES[value>>6],True))
     if subtype==10: return one("vehicle_controller","available",value,True)+one("terrain","valid",bool(value&64))
     if subtype==11: return one("vehicle_controller","sequence",value,True)
+    # The robot's drop counter modulo 256 (wraps); dashboard.py shows the
+    # drops of the last minute from the differences.
     if subtype==12: return one("vehicle_controller","dropped",value,True)
     if subtype==13: return one("motors","speed_mps",(value-128)/50,True)
     if subtype==14: return one("left_ir","line_error",(value-128)*10)
@@ -125,4 +128,7 @@ def decode_messages(payload):
         return [("Robopico/Actuators/motors/direction",directions[motor["command"]]),
                 ("Robopico/Actuators/motors/state",states[motor["state"]]),
                 ("Robopico/Actuators/motors/power_percent",str(motor["power_percent"]))]
+    if record["id"] == 12:
+        # Shared fault bits: the IMU fault also shows on the Accelerometer card.
+        return [(READINGS[12], str(record["value"])), (IMU_FAULT_TOPIC, bool(record["value"] & IMU_FAULT_BIT))]
     return [(READINGS[record["id"]], str(record["value"]))]

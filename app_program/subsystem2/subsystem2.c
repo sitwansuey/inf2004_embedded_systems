@@ -51,6 +51,7 @@ static ID h_movement_pool;
 static ID h_status_lock;
 static BOOL motor_started;
 static s2_packed_status_t motion_status;
+static BOOL status_unpublished; /* the last status copy missed the lock */
 
 /* PWM duty = compare / (wrap + 1). */
 #define MOTOR_PWM_WRAP 6249U
@@ -552,6 +553,9 @@ static ER motion_publish(const s2_packed_status_t *p_status)
         motion_status = *p_status;
         er = tk_sig_sem(h_status_lock, 1);
     }
+    /* The VC and core-1 telemetry share the lock, so the wait can time
+     * out: motor_task retries the copy on its next poll. */
+    status_unpublished = er < E_OK;
     return er;
 }
 
@@ -677,9 +681,22 @@ static void motor_task(INT stacd, void *p_exinf)
     if (er < E_OK)
     {
         CHECK(motion_fault(&current, er), "S2 initialisation fault status");
+        /* PWM stays off and FAULT stays published (VC fault 7 once armed):
+         * commands are dropped, stop epochs never acknowledged. Never
+         * return: tasks start with lr 0, so a return HardFaults core 0. */
+        for (;;)
+        {
+            T_MSG *p_raw = NULL;
+
+            if (status_unpublished) (void)motion_publish(&current);
+            er = tk_rcv_mbx(h_movement_mailbox, &p_raw, 10);
+            if (er >= E_OK) CHECK(tk_rel_mpf(h_movement_pool, p_raw), "S2 drop command");
+            else if (er != E_TMOUT) tk_dly_tsk(10);
+        }
     }
 
-    while (er >= E_OK)
+    /* Never leaves: a task return HardFaults core 0 (lr is 0). */
+    for (;;)
     {
         T_MSG *p_raw = NULL;
         TMO wait = 10;
@@ -690,8 +707,10 @@ static void motor_task(INT stacd, void *p_exinf)
             current.last_error = E_OK;
             __atomic_store_n(&stopped_epoch, epoch, __ATOMIC_RELEASE);
             er = motion_publish(&current);
-            if (er < E_OK) break;
         }
+        /* A status copy that missed the lock is retried every poll. PWM
+         * already matches `current` (off in FAULT), so it never stops S2. */
+        else if (status_unpublished) (void)motion_publish(&current);
         SYSTIM now;
 
         er = s2_command_wait(&current, &wait);
@@ -706,6 +725,8 @@ static void motor_task(INT stacd, void *p_exinf)
         if(er<E_OK) {er=motion_fault(&current,er);continue;}
         if(wait>10 || wait==TMO_FEVR)wait=10;
 #endif
+        /* Poll again soon to retry a missed status copy. */
+        if (status_unpublished && (wait > 10 || wait == TMO_FEVR)) wait = 10;
         er = tk_rcv_mbx(h_movement_mailbox, &p_raw, wait);
         if (er == E_TMOUT) { er = E_OK; continue; }
         if (er < E_OK)
@@ -812,8 +833,6 @@ static void motor_task(INT stacd, void *p_exinf)
         current.last_command_ms = issued_at;
         er = motion_publish(&current);
     }
-    motor_stop();
-    CHECK(er, "S2 motor task stopped");
 }
 
 EXPORT ER subsystem2_init(void)

@@ -93,5 +93,15 @@ EXPORT void s5_width_from_bounds(s5_status_t *result)
     result->object_left_mm = half_width(depth, result->left_bound_distance_mm, left);
     result->object_right_mm = half_width(depth, result->right_bound_distance_mm, right);
     result->object_width_mm = result->object_left_mm + result->object_right_mm;
+    /* Planning uses max: never below the measured width (an edge range past
+     * the next degree's plane puts a Pythagoras half outside the envelope). */
+    if(result->object_width_max_mm<result->object_width_mm) {
+        if(result->object_width_mm>AVOID_MAX_WIDTH_MM) {
+            result->object_width_mm=result->object_width_min_mm=result->object_width_max_mm=0U;
+            result->object_left_mm=result->object_right_mm=0U;
+            return;
+        }
+        result->object_width_max_mm=result->object_width_mm;
+    }
     result->object_width_valid = TRUE;
 }

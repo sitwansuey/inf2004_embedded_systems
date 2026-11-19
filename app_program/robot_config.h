@@ -170,7 +170,7 @@
 #define BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT 300 /* |steer| bound, S2 accepts up to 400 */
 #endif
 #ifndef BOARD_BARCODE_RETRY_YAW_REF_DIV
-#define BOARD_BARCODE_RETRY_YAW_REF_DIV 50 /* heading EMA divisor: 50 ticks x 10 ms = 0.5 s */
+#define BOARD_BARCODE_RETRY_YAW_REF_DIV 50 /* heading EMA divisor: 50 VC ticks x 20 ms = 1.0 s */
 #endif
 /* Barcode-read line steering (vehicle_line_steer.h line_marker_steer): starts
  * at BOARD_LINE_STEER_MIN and ramps over BOARD_LINE_STEER_RAMP_MS to
@@ -334,6 +334,27 @@
  * unchanged). Takes precedence over BOARD_LINE_EDGE_TRACE. */
 #ifndef BOARD_LINE_MASK_PIVOT
 #define BOARD_LINE_MASK_PIVOT 1
+#endif
+/* Line lost while tracking (mask-pivot follower; 0 = off). Both straddle IRs
+ * white is also "centred", so BOARD_LINE_LOST_MM of forward travel with
+ * neither on black starts the spot search (+/-30, +/-60 deg at <= 15%, toward
+ * the side the line was last seen first, <= 4 s): a sensor on black resumes
+ * tracking, none is fault 2 cause 3. Not during a barcode read or re-read, nor
+ * while a decoded turn looks for its junction (BOARD_NAV_JUNCTION_SEARCH_MM).
+ * Edge tracing keeps its own lost-line rule (a full turn with both IRs white).
+ * 600: the IRs sit ~+/-13 mm about an ~18 mm line (90 mm ahead of the axle),
+ * so both read white only within ~10 mm of side play. A bend of radius R
+ * forces a touch within ~2*sqrt(2*R*10 mm): <= ~280 mm for R up to 1 m. On a
+ * straight a one- or two-tick pivot (1.3-2.5 deg at 20 ms) crosses that play
+ * in ~230-450 mm. Only drifting along one edge of a long straight with nearly
+ * matched wheels runs longer; that costs a short search that finds the line
+ * within a few degrees. Measure the longest both-white run on the track and
+ * keep this about twice it. */
+#ifndef BOARD_LINE_LOST_MM
+#define BOARD_LINE_LOST_MM 600U
+#endif
+#if BOARD_LINE_LOST_MM > 10000
+#error BOARD_LINE_LOST_MM must be 0 (off) .. 10000 mm
 #endif
 /* Edge tracing (vehicle_edge_trace.h), used when BOARD_LINE_MASK_PIVOT is 0.
  * One IR rides one edge of the line at BOARD_LINE_EDGE_SET darkness and

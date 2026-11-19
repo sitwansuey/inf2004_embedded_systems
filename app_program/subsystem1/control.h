@@ -8,5 +8,5 @@ typedef struct {
 } control_message_t;
 ER s1_command_take(control_message_t *p);
 ER s1_binary_send(const uint8_t data[TELEMETRY_BYTES]);
-uint16_t s1_drop_count(void);
+uint16_t s1_drop_count(void); /* internal drops modulo 65536 (wraps) */
 #endif

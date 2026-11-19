@@ -21,6 +21,8 @@ void terrain_step(terrain_t *s,uint32_t ms,const int32_t a[3],bool av,
     for(unsigned n=0;n<3;++n)if(a[n]<-2048 || a[n]>2047) {abandon(s);s->initialized=0;return;}
     if (s->initialized && ms==s->sample_ms) return;
     int64_t norm=(int64_t)a[0]*a[0]+(int64_t)a[1]*a[1]+(int64_t)a[2]*a[2];
+    /* A sample clipped at +/-2 g (an axis at 2047+ mg, S4 accel_clipped)
+     * always lands here: an impact, never tilt or height. */
     s->shock=norm>1800LL*1800;
     if (s->shock) { abandon(s); s->state=TERRAIN_SHOCK; s->initialized=0; return; }
     /* Dynamic acceleration makes a gravity-derived tilt unreliable. */

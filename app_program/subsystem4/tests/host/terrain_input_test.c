@@ -141,9 +141,28 @@ static void traversals(void)
     reset(); assert(!terrain.maximum_mm);
     puts("S4-U26 PASS completed humps, partial recovery, reversal, shock, pause, calibration and run reset");
 }
+/* vehicle.c passes a current sample clipped at +/-2 g (S4 accel_clipped) to
+ * terrain as an impact: any clipped robot-frame axis (2047, or -2047/-2048
+ * after imu_mount.h) is a shock, mid-hump too, never tilt or height. */
+static void clipped_impacts(void)
+{
+    static const int32_t limits[3] = {2047, -2047, -2048};
+    for (unsigned axis = 0; axis < 3U; ++axis)
+        for (unsigned n = 0; n < 3U; ++n) {
+            int32_t a[3] = {0, 0, 1000};
+            a[axis] = limits[n];
+            reset(); baseline(); tick(up, 10);
+            tick(a, 10);
+            assert(terrain.shock && terrain.state == TERRAIN_SHOCK && input.fault == S4_INPUT_OK);
+            assert(!terrain.tilt_valid && !terrain.height_valid && input.odometry.valid);
+            tick(flat, 0);
+            assert(!terrain.shock && terrain.tilt_valid);
+        }
+    puts("S4-U33 PASS a clipped (+/-2 g) sample is a shock on every axis, never tilt or height");
+}
 int main(void)
 {
-    invalid_records(); clocks_and_repeats(); wraps(); traversals();
+    invalid_records(); clocks_and_repeats(); wraps(); traversals(); clipped_impacts();
     reset();baseline();hump();hump_scaled(5,25);
     assert(terrain.maximum_mm==50U);
     hump_scaled(15,75);assert(terrain.maximum_mm==75U);

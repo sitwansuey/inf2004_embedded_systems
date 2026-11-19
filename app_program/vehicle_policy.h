@@ -14,6 +14,12 @@ enum { VC_OK,VC_SENSOR,VC_LINE,VC_SHOCK,VC_TRANSPORT,VC_TIMEOUT,VC_UNCALIBRATED,
 /* No fresh sonar sample (late S5 task): hold still; VC_SENSOR (sonar) only
  * once the gap lasts this long. */
 #define VC_SONAR_GAP_MS 1000U
+/* S3 latched STALE/SENSOR with no event (a sampler hiccup) stops barcode
+ * capture until TRACK is sent again: vehicle.c re-sends it at most every
+ * VC_S3_REARM_MS while tracking on fresh samples. A latch still returning
+ * VC_S3_LATCH_MS after it was first seen is VC_LINE (cause event). */
+#define VC_S3_REARM_MS 100U
+#define VC_S3_LATCH_MS 1000U
 typedef struct {
     uint32_t now_ms, side_sample_ms;
     int32_t distance_um, yaw_mdeg;
@@ -35,6 +41,10 @@ typedef struct {
      * turns, then U-turns; max 0 ends exactly at 90/180 by yaw alone. */
     uint8_t nav_turn_power, nav_seek_power;
     uint8_t nav_turn_min_deg, nav_turn_max_deg, nav_uturn_min_deg, nav_uturn_max_deg;
+    /* Line lost in TRACK: this much forward travel with neither straddle
+     * sensor on black spot-scans for the line (both white is also "centred").
+     * 0: off, and the distance starts again (e.g. during a barcode re-read). */
+    uint16_t line_lost_mm;
     uint16_t bypass_steering; /* track width / (2 * planned arc radius), permille */
     uint8_t line_fresh : 1;
     uint8_t steering : 1;
@@ -74,6 +84,7 @@ typedef struct {
     int32_t restore_mdeg; /* VC_RESTORE: turn back to avoid_yaw (positive left) */
     int32_t nav_origin_um; /* where the pending turn's junction search / offset began */
     int32_t uturn_end_um; /* odometry where the last U-turn finished */
+    int32_t line_seen_um; /* TRACK: odometry of the last straddle black (or the furthest back since) */
     uint16_t approach_mm, return_mm;
     uint32_t backup_started_ms; /* first reversing tick of VC_BACKUP */
     uint32_t brake_started_ms, brake_moved_ms; /* VC_BACKUP stand-still: start, last odometry movement */
@@ -114,6 +125,7 @@ typedef struct {
     uint8_t line_gap : 1; /* line data missing since line_gap_ms */
     uint8_t sonar_gap : 1; /* no fresh sonar sample since sonar_gap_ms */
     uint8_t line_found : 1; /* bypass return found the line: RESTORE the heading, then TRACK */
+    uint8_t line_seen : 1; /* line_seen_um is set (cleared on every phase entry) */
 } vc_state_t;
 enum { VC_CAUSE_OTHER,VC_CAUSE_SONAR,VC_CAUSE_TILT,VC_CAUSE_ODOM };
 /* VC_LINE causes (same 2-bit fault_cause field). */
@@ -123,4 +135,14 @@ bool vc_arm(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power);
 bool vc_start(vc_state_t *s, uint32_t now, unsigned power);
 void vc_stop(vc_state_t *s,unsigned reason);
 void vc_step(vc_state_t *s,const vc_input_t *i);
+/* Avoidance arc smoothing (vehicle.c, forward TURN_OUT..RESTORE): power rises
+ * from 0 by AVOID_POWER per AVOID_RAMP_POWER_MS (drops are immediate) and the
+ * steering moves at most 400 per AVOID_STEER_RAMP_MS. Each step's allowance
+ * comes from the ms elapsed since the ramp started (the VC's clock), so the
+ * ramps take real ms at any VC tick (it asks for 10 ms, really runs at 20). */
+typedef struct {uint32_t start_ms,elapsed_ms;int32_t power_m,steer;} vc_avoid_ramp_t;
+/* Outside an arc: power and steering back to 0; the ramp starts again now. */
+void vc_avoid_ramp_reset(vc_avoid_ramp_t *r,uint32_t now);
+/* One arc tick toward power (%) and steering: r->power_m (milli-%), r->steer. */
+void vc_avoid_ramp_step(vc_avoid_ramp_t *r,uint32_t now,unsigned power,int32_t steering);
 #endif

@@ -113,7 +113,22 @@ int main(void) {
         assert(ev_obstacle(EV_OBSTACLE_BACK,3U,300U)==(EV_OBSTACLE_BACK|(3U<<2U)|(255U<<4U)));
         #undef EVENT_WORD
     }
+    /* The drop counter wraps instead of sticking: status subtype 12 sends it
+     * modulo 256, like the sequence (11), and receivers take differences. */
+    {
+        static const struct { int64_t drops; unsigned sent; } wraps[]={{0,0},{255,255},{256,0},{300,44},{65535,255}};
+        int64_t values[TEL_FIELD_COUNT]={0};uint8_t record[2];unsigned id=0,data=0;
+        __atomic_store_n(&drops,65535U,__ATOMIC_RELAXED);
+        dropped();assert(s1_drop_count()==0U);dropped();assert(s1_drop_count()==1U);
+        values[TEL_VERSION]=1;
+        for(unsigned n=0;n<sizeof(wraps)/sizeof(wraps[0]);++n) {
+            values[TEL_DROPPED]=wraps[n].drops;
+            assert(telemetry_edr_record(values,15U+12U,record) && edr_decode(record,2,&id,&data));
+            assert(id==0U && data==((12U<<8U)|wraps[n].sent));
+        }
+    }
     puts("INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 14-byte events PASS");
     puts("Robot event queue: EDR16-format words, FIFO, 16 deep, full queue drops and counts, bad ids ignored PASS");
+    puts("Drop counter: wraps past 65535, status subtype 12 is drops modulo 256 PASS");
     return 0;
 }

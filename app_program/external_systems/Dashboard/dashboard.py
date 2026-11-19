@@ -6,12 +6,13 @@ import string
 import threading
 import time
 import uuid
+from collections import deque
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from packed16 import decode_messages, PACKED_TOPIC, EVENT_TOPIC, describe_event
+from packed16 import decode_messages, PACKED_TOPIC, EVENT_TOPIC, describe_event, counter_delta
 
 ACK_TOPIC = "csc02/command/ack"
 START_DEMAND = 20  # Start power percent (the teammates' working follower runs at 20)
@@ -26,6 +27,10 @@ MAP_TURNS = {"ignore": 0, "left": 1, "right": 2, "forward": 3, "uturn": 4}
 MAP_LABELS = ("Ignore", "Left", "Right", "Forward", "U-turn")
 DEFAULT_BARCODE_MAP = {"A": "U-turn", "F": "Left", "Z": "Right"}
 FAULTS = ("none", "sensor", "line", "shock", "transport", "run timeout", "uncalibrated", "motor", "lifted")
+# Status subtype 12 is the robot's drop counter modulo 256; 'dropped' shows
+# the drops counted from its differences over this window.
+DROPPED_TOPIC = "Robopico/Actuators/vehicle_controller/dropped"
+DROP_WINDOW_S = 60.0
 
 def availability_mask(topic):
     """Only live observations are invalidated; decoded command history persists."""
@@ -38,6 +43,7 @@ def availability_mask(topic):
     if field=="hump_height_cm": return 64
     if field=="distance_cm": return 16
     if "/motors/" in topic and field in ("direction","state","power_percent","fault_flags"): return 1
+    if field=="imu_fault": return 1  # carried in ID 12, sent only with motor availability
     return 0
 
 class BrokerBridge:
@@ -71,6 +77,22 @@ class BrokerBridge:
         self.robot_silent_since = None
         self.broker_lost = False
         self.fault_code = None  # last vehicle fault code seen (status subtype 0); None = unknown
+        # Robot drop counter: last subtype-12 value (None = no baseline) and
+        # the (time, drops) steps inside DROP_WINDOW_S.
+        self.drop_counter = None
+        self.drop_steps = deque()
+
+    def count_drops(self, counter, now):
+        """Drops in the last DROP_WINDOW_S from one subtype-12 counter value.
+        The first value after a reconnect or a robot silence is a baseline
+        only. Caller holds self.lock."""
+        if self.drop_counter is not None:
+            step = counter_delta(self.drop_counter, counter)
+            if step: self.drop_steps.append((now, step))
+        self.drop_counter = counter
+        while self.drop_steps and now - self.drop_steps[0][0] > DROP_WINDOW_S:
+            self.drop_steps.popleft()
+        return sum(step for _, step in self.drop_steps)
 
     def add_event(self, source, level, message, now=None):
         """Caller holds self.lock."""
@@ -84,6 +106,8 @@ class BrokerBridge:
         if self.robot_online is False:
             gap = now - (self.robot_silent_since or now)
             self.add_event("Dashboard", "INFO", f"Robot back online after {gap:.0f} s without data", now)
+            # A reboot restarts its drop counter, and a long outage aliases it.
+            self.drop_counter = None
         self.robot_online = True
 
     def check_robot(self, now=None):
@@ -114,6 +138,8 @@ class BrokerBridge:
                 reading.update(payload=None, sequence=self.sequence)
             self.last_received_at = None
             self.robot_online = None  # unknown until its data arrives again
+            self.drop_counter = None
+            self.drop_steps.clear()
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         self.reset_observations()
@@ -207,6 +233,8 @@ class BrokerBridge:
                     if required and not available&required:
                         self.sequence+=1;reading.update(payload=None,sequence=self.sequence)
             for topic, payload in messages:
+                if topic == DROPPED_TOPIC:
+                    payload = self.count_drops(payload, self.last_received_at)
                 self.sequence += 1
                 self.readings[topic] = {"topic": topic, "payload": payload, "sequence": self.sequence}
                 self.track_barcode(topic, payload)

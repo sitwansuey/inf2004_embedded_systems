@@ -115,6 +115,12 @@ and must keep renewing moving commands before they expire.
 state, effective command/power, error and timestamp. It does not confirm actual
 wheel motion.
 
+The motor task never returns (a task return HardFaults core 0). A status copy
+that misses the lock, which the VC and core-1 telemetry also take, is retried
+on the next poll while PWM keeps following the current state (off in FAULT).
+If motor or encoder setup fails, PWM stays off and the task keeps reporting
+`S2_MOTION_FAULT` (VC fault 7 once armed) until the next power cycle.
+
 ## Verification
 
 From the repository root, with GCC on PATH:
@@ -127,7 +133,8 @@ Nine host configurations exercise the actual motor task with simulated RTOS,
 time and GPIO/PWM services, compiled with warnings as errors. Coverage includes
 both encoders and directions, rollover, interrupted snapshots, shared/cross-bank
 GPIOs, disabled encoders, integrated controller access, rotation renewals/expiry,
-stale commands, deadtime expiry, stop/fault recovery, a 750 ms override and,
+stale commands, deadtime expiry, stop/fault recovery, status-lock timeouts,
+motor/encoder setup failure (the task must never return), a 750 ms override and,
 with the robot PID settings, the spin/pivot PWM ceiling, breakaway kick and
 turn stall time.
 Standalone USB/WiFi firmware builds with encoders on (1000 ms timeout) and off

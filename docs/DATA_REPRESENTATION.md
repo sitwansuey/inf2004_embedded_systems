@@ -29,7 +29,7 @@ another independent packing scheme in a buddy's folder.
 | 9 | 1001 | B4 magnetometer Y | milligauss + 2048 |
 | 10 | 1010 | B4 magnetometer Z | milligauss + 2048 |
 | 11 | 1011 | B2 motor status | command[2:0], power[9:3], state[11:10] |
-| 12 | 1100 | B2 motor fault flags | fault bit mask, 0–127; bits 7–11 zero |
+| 12 | 1100 | B2 motor fault flags (+ S4 IMU bit) | fault bit mask, 0–127; bits 7–11 zero |
 | 13 | 1101 | B4 accelerometer X | milligravity (mg) + 2048 |
 | 14 | 1110 | B4 accelerometer Y | milligravity (mg) + 2048 |
 | 15 | 1111 | B4 accelerometer Z | milligravity (mg) + 2048 |
@@ -62,10 +62,10 @@ Angles/speed/line error truncate toward zero; height/width round to nearest
 | 6 | current completed hump height, in 5 mm units |
 | 7 | highest completed hump this run, in 5 mm units |
 | 8 | paged obstacle width: 0-100 total width in 5 mm units; 128-191 centre->left edge half-width, (value&63)*8 mm; 192-255 centre->right edge half-width, same units (saturates at 63 = 504 mm); 101-127 rejected. All three pages are sent only with quality bit 0 (width valid) |
-| 9 | bits 5-0 quality: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5); bits 7-6 fault cause, sent with fault 1 (sensor): 0 none/other, 1 sonar (stale/fault/blocked scan, width or plan rejected), 2 tilt (terrain invalid), 3 odometry; and with fault 2 (line): 0 other, 1 line data stale (a line-data gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event, 3 line not found (REACQUIRE spot search); 0 with any other fault. All 256 values valid; consumers mask quality with 63 |
+| 9 | bits 5-0 quality: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5); bits 7-6 fault cause, sent with fault 1 (sensor): 0 none/other, 1 sonar (stale/fault/blocked scan, width or plan rejected), 2 tilt (terrain invalid), 3 odometry; and with fault 2 (line): 0 other, 1 line data stale (a line-data gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event (or a silent S3 STALE/SENSOR latch still returning 1 s after it was first seen, although the controller re-sends TRACK every 100 ms), 3 line not found (REACQUIRE spot search, including after `BOARD_LINE_LOST_MM` of tracking with neither straddle IR on black); 0 with any other fault. All 256 values valid; consumers mask quality with 63 |
 | 10 | availability bits: motor, encoder, IR, acceleration, sonar, tilt, height, magnetic field |
 | 11 | observation sequence modulo 256 |
-| 12 | dropped internal observations, saturated at 255 |
+| 12 | internal drop count modulo 256 (wraps like subtype 11; receivers take differences between records) |
 | 13 | signed vehicle speed in 20 mm/s units + 128 |
 | 14 | signed line error in 10-unit increments + 128 |
 | 15 | bits 3-0 scan state, matching the subsystem5 enum; bits 5-4 barcode decode result: 0 none yet, 1 reading, 2 successful, 3 unsuccessful; bits 7-6 bypass side: 0 none, 1 left, 2 right (3 rejected) |
@@ -91,7 +91,7 @@ unfinished observation once its internal timestamp reaches 500 ms. Up to 33
 messages (15 sensor IDs, 16 status subtypes, 2 width pages) describe one observation; MQTT QoS 0 does not guarantee all arrive.
 The sequence field is diagnostic, not an atomic-frame assembly protocol.
 
-The 54-byte `telemetry_codec` record is a private RTOS mailbox format; its
+The 55-byte `telemetry_codec` record is a private RTOS mailbox format; its
 schema is in `tools/telemetry_schema.json`. It never crosses MQTT. Similarly,
 `encoder_snapshot.h` retains 32-bit counts, monotonic time and validity for
 odometry/terrain. These internal codecs prevent loss of control precision;
@@ -112,6 +112,11 @@ rejected. In the complete record, command occupies bits 4–6, power 7–13, sta
 ID 12 retains the shared fault bit assignments: stall 0x01, encoder 0x02,
 IMU 0x04, no-echo 0x08, Wi-Fi 0x10, timeout 0x20, motor 0x40. The current B2
 adapter populates timeout or motor error only; it does not invent sensor faults.
+The telemetry adapter also sets IMU 0x04 when any vehicle-controller S4 result
+since the last snapshot had `EDR_FAULT_IMU` (I/O error, accelerometer sample
+older than 100 ms, clipped or overrun sample, IMU/encoder skew). A sample
+clipped at +/-2 g is also a shock (impact, quality bit 1); an unclipped shock
+is not an IMU fault.
 
 Examples (wire bytes shown in transmission order):
 
@@ -145,7 +150,10 @@ and the network owner publishes one per poll after command replies
 (`mqtt_utk.c`). lwIP keeps a dead connection until its keep-alive watchdog
 closes it (~90 s), so once the broker has acknowledged nothing for 3 s the
 events stay in the queue rather than going to lwIP, which would drop them
-unsent; a full queue drops new events. Event IDs are not sensor IDs: decode
+unsent; a full queue drops new events. After 10 s without a Wi-Fi link
+(`cyw43_utk.c`) the network owner leaves and re-joins the access point and
+closes the MQTT session at once, so the 3 s retry reconnects when the link
+returns and posts the link event. Event IDs are not sensor IDs: decode
 event records with `decode_event`, never `edr_decode`/`decode_packet` (which
 would, for example, reject a hump value above 180 as a servo angle). Layout (`app_program/shared/events.h`,
 `tools/edr_decode.py decode_event`):
@@ -155,7 +163,7 @@ would, for example, reject a hump value above 180 as a servo angle). Layout (`ap
 | 1 | Barcode attempt (one per finished read) | bits 0-1 attempt (1 initial scan, 2 reverse scan, 3 final attempt); bits 2-6 bars+spaces read (0..31, a full `*X*` is 29); bits 7-11 letter (0 failed, 1..26 = A..Z) |
 | 2 | Instruction decoded | bits 0-4 letter 1..26; bits 5-7 turn (0 none/not mapped, 1 left, 2 right, 3 straight, 4 U-turn) |
 | 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: its highest point in 2 mm; a height of 0 means subsystem 4 lost it); bits 3-11 value |
-| 4 | Obstacle | bits 0-1 kind (1 detected: distance cm; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
+| 4 | Obstacle | bits 0-1 kind (1 detected: distance cm of the confirming forward echo; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
 | 5 | Link | bits 0-1 kind (1 reconnected to the broker after N s without it, counted from the first publish it never acknowledged; 2 first connection, N s after boot); bits 2-11 seconds |
 
 An instruction (ID 2) is posted after the barcode attempt (ID 1) that decoded
@@ -201,7 +209,8 @@ unused flag bits and values outside the documented source ranges are rejected.
 Servo ID 3 is emitted only with quality bit 5 set (successful, non-fault B5
 status copy). This is the commanded angle, not measured position feedback.
 Motor ID 12 is emitted only with motor availability and preserves timeout (32)
-versus other motor errors (64), using the same mapping as B2's direct adapter.
+versus other motor errors (64), using the same mapping as B2's direct adapter,
+plus the IMU bit (4) described above.
 Dashboard and audio ignore retained records and clear observations on disconnect
-and reconnect. The private snapshot now uses 432 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side, a 2-bit sensor-fault cause and a 4-bit controller fault 0..8; phase maximum 13) in exactly 54 bytes, with no reserved bit; its
+and reconnect. The private snapshot now uses 433 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side, a 2-bit sensor-fault cause, a 4-bit controller fault 0..8 and a 1-bit IMU fault; phase maximum 13) in 55 bytes, the last 7 bits zero padding; its
 schema includes a two-bit motor error class. Rebuild firmware components together.

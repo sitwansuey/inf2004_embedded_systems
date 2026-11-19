@@ -31,6 +31,8 @@ static s2_move_command_t renewal_command;
 static INT expected_left;
 static INT expected_right;
 static INT lock_count;
+static UINT lock_timeouts; /* next status-lock waits that time out */
+static UINT failing_pin; /* gpio_set_pin fails for this pin */
 static jmp_buf task_exit;
 static void (*p_receive_hook)(void);
 #if S2_ENCODER_ENABLED
@@ -93,6 +95,9 @@ static void reset_fixture(void)
     delete_count = 0;
     send_error = 0;
     lock_count = 0;
+    lock_timeouts = 0;
+    failing_pin = UINT32_MAX;
+    status_unpublished = FALSE;
     p_receive_hook = NULL;
     renewal_command = S2_MOVE_FORWARD;
 #if S2_ENCODER_ENABLED
@@ -125,6 +130,8 @@ static void run_task(void)
     if (setjmp(task_exit) == 0)
     {
         motor_task(0, NULL);
+        /* Tasks start with lr 0: on the robot a return HardFaults core 0. */
+        assert(0 && "motor task returned");
     }
     for (UINT i = 0; i < S2_COMMAND_COUNT; ++i)
     {
@@ -260,8 +267,9 @@ ER tk_rcv_mbx(ID h_mailbox, T_MSG **pp_message, TMO wait)
         memmove(p_queue, p_queue + 1, queue_count * sizeof(p_queue[0]));
         return E_OK;
     }
+    /* Idle: nothing queued, no STOP to acknowledge, no status copy to retry. */
     if (wait == TMO_FEVR ||
-        (stop_epoch == stopped_epoch &&
+        (stop_epoch == stopped_epoch && !status_unpublished &&
          ((motion_status.motor >> 10U) & 3U) != S2_MOTION_MOVING))
     {
         longjmp(task_exit, 1);
@@ -275,6 +283,13 @@ ER tk_wai_sem(ID h_lock, INT count, TMO wait)
 {
     assert(h_lock > 0 && count == 1 && wait == 5);
     assert(lock_count == 1);
+    if (lock_timeouts != 0U)
+    {
+        /* The VC or core-1 telemetry held the lock for the whole wait. */
+        --lock_timeouts;
+        now_ms += (UW)wait;
+        return E_TMOUT;
+    }
     --lock_count;
     return E_OK;
 }
@@ -351,7 +366,7 @@ ER gpio_set_pin(UINT pin, UINT mode)
     {
         ++encoder_accesses;
     }
-    return E_OK;
+    return (pin == failing_pin) ? E_SYS : E_OK;
 }
 
 void gpio_set_val(UINT pin, UINT value) { assert(pin < 30U && value == 0U); }
@@ -651,6 +666,145 @@ static void test_clock_errors_and_zero_power(void)
     assert(nonzero_writes == 0U);
 }
 
+/* The VC and core-1 telemetry share S2's status lock, so a status copy can
+ * time out. Hooks read the shared copy directly while timeouts are queued:
+ * a status read takes the same lock. */
+static UINT lock_injected;
+
+static void lock_retry_hook(void)
+{
+    if (receive_count >= 2U && receive_count <= lock_injected)
+    {
+        /* Still retrying each poll; the wheels keep driving FORWARD. */
+        assert(status_unpublished);
+        assert(((motion_status.motor >> 10U) & 3U) == S2_MOTION_STOPPED);
+        assert(duties[8] != 0U && duties[11] != 0U);
+    }
+    if (receive_count == lock_injected + 1U)
+    {
+        assert(lock_timeouts == 0U && !status_unpublished);
+        assert_status(S2_MOTION_MOVING, E_OK);
+        assert(duties[8] != 0U && duties[11] != 0U);
+        assert(s2_movement_send(S2_MOVE_STOP, 0) == E_OK);
+    }
+}
+
+static void lock_fault_hook(void)
+{
+    if (receive_count == 2U)
+    {
+        assert_status(S2_MOTION_MOVING, E_OK);
+        lock_timeouts = 2U; /* the FAULT copy and its first retry miss */
+    }
+}
+
+#if !APP_S2_ONLY
+static void lock_stop_hook(void)
+{
+    if (receive_count == 2U)
+    {
+        assert_status(S2_MOTION_MOVING, E_OK);
+        assert(s2_emergency_stop() == E_OK);
+        lock_timeouts = 2U; /* the STOP copy and its first retry miss */
+    }
+    if (receive_count == 3U || receive_count == 4U)
+    {
+        /* PWM is off at once; only the shared copy lags. */
+        assert(status_unpublished);
+        assert(((motion_status.motor >> 10U) & 3U) == S2_MOTION_MOVING);
+        assert_off();
+    }
+}
+
+static void init_fault_hook(void)
+{
+    if (receive_count == 1U)
+    {
+        assert(s2_emergency_stop() == E_OK);
+    }
+    if (receive_count == 4U)
+    {
+        /* Still polling: STOP never turns the init FAULT into STOPPED, so
+         * the VC keeps raising fault 7; moving commands are refused. */
+        assert(stop_epoch != stopped_epoch);
+        assert_status(S2_MOTION_FAULT, E_SYS);
+        assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OBJ);
+        longjmp(task_exit, 1);
+    }
+}
+#endif
+
+static void test_status_lock_timeouts(void)
+{
+    /* One, then several missed copies in a row: the task keeps running,
+     * retries the copy each poll and STOP still works. */
+    for (lock_injected = 1U; lock_injected <= 3U; lock_injected += 2U)
+    {
+        setup();
+        p_receive_hook = lock_retry_hook;
+        assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+        lock_timeouts = lock_injected; /* from the FORWARD copy on */
+        run_task();
+        assert(lock_timeouts == 0U && receive_count >= lock_injected + 2U);
+        assert_status(S2_MOTION_STOPPED, E_OK);
+        assert(nonzero_writes == 2U);
+    }
+
+    /* A missed FAULT copy: PWM stays off and FAULT is published later
+     * (standalone builds poll instead of waiting forever). */
+    setup();
+    p_receive_hook = lock_fault_hook;
+    receive_error_at = 2;
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    run_task();
+    assert(lock_timeouts == 0U && receive_count == 4U);
+    assert_status(S2_MOTION_FAULT, E_SYS);
+
+#if !APP_S2_ONLY
+    /* A missed STOP acknowledgement copy. */
+    setup();
+    p_receive_hook = lock_stop_hook;
+    assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+    run_task();
+    assert(lock_timeouts == 0U && receive_count == 5U);
+    assert_status(S2_MOTION_STOPPED, E_OK);
+#endif
+    puts("Status lock timeouts: task keeps running, copy retried each poll PASS");
+}
+
+static void test_init_failure(void)
+{
+    const UINT pins[] =
+    {
+        BOARD_MOTOR1_A_GPIO,
+#if S2_ENCODER_ENABLED
+        BOARD_MOTOR2_ENCODER_A_GPIO,
+#endif
+    };
+
+    /* PWM stays off, FAULT is reported (its missed copies retried), queued
+     * commands are dropped and the task never returns. */
+    for (UINT i = 0; i < sizeof(pins) / sizeof(pins[0]); ++i)
+    {
+        setup();
+        failing_pin = pins[i];
+        assert(s2_movement_send(S2_MOVE_FORWARD, 30) == E_OK);
+        lock_timeouts = 2U;
+        run_task();
+        assert(lock_timeouts == 0U && queue_count == 0U);
+        assert_status(S2_MOTION_FAULT, E_SYS);
+        assert(nonzero_writes == 0U);
+    }
+#if !APP_S2_ONLY
+    setup();
+    failing_pin = BOARD_MOTOR1_A_GPIO;
+    p_receive_hook = init_fault_hook;
+    run_task();
+    assert(nonzero_writes == 0U);
+#endif
+    puts("Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS");
+}
+
 #if S2_ENCODER_ENABLED
 static void queue_forward_encoder_edges(void)
 {
@@ -941,12 +1095,17 @@ static UW sim_kick_min[4];
 static UW sim_after_min[4];
 static UW sim_late_max[4];
 static UW sim_late[4];
+static UINT sim_lock_at; /* receive that queues 3 status-lock timeouts, 0: none */
 
 static void sim_wheels_hook(void)
 {
     UW counts = (now_ms - sim_moved_ms) / 2U;
     UINT state = (motion_status.motor >> 10U) & 3U;
 
+    if (sim_lock_at != 0U && receive_count == sim_lock_at)
+    {
+        lock_timeouts = 3U; /* this receive's renewal copy and two retries */
+    }
     sim_moved_ms += counts * 2U;
     if (state == S2_MOTION_FAULT && sim_fault_ms == 0U)
     {
@@ -1039,6 +1198,17 @@ static void test_pid_turn_drive(void)
     assert(sim_fault_ms == 0U);
     assert_status(S2_MOTION_STOPPED, E_OK);
 
+    /* The same turn while three status copies in a row miss the lock
+     * mid-turn: the copy is retried, the turn and its STOP are unchanged. */
+    sim_lock_at = 20U;
+    sim_run(S2_MOVE_RIGHT, 2U, 300U);
+    sim_lock_at = 0U;
+    assert(lock_timeouts == 0U && !status_unpublished);
+    assert(sim_late[0] > 0U && sim_late[0] < kick);
+    assert(sim_late[2] > 0U && sim_late[2] < kick);
+    assert(sim_fault_ms == 0U);
+    assert_status(S2_MOTION_STOPPED, E_OK);
+
     /* The line follower's pivots keep their tuning: no kick, the straight
      * PID cap and the 500 ms stall. */
     sim_run(S2_MOVE_PIVOT_LEFT, 1U, 0U);
@@ -1073,6 +1243,8 @@ int main(void)
     test_directions();
     test_pool_and_transport_errors();
     test_clock_errors_and_zero_power();
+    test_status_lock_timeouts();
+    test_init_failure();
     test_encoder_mode();
     test_data_adapters();
     test_stop_epoch();

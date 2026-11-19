@@ -87,7 +87,7 @@ class DashboardTests(unittest.TestCase):
         bridge=populated_bridge();snapshot=bridge.snapshot()
         self.assertEqual(snapshot['mqtt_topic'],PACKED_TOPIC)
         self.assertEqual(snapshot['received_packets'],15)
-        self.assertEqual(len(snapshot['messages']),17)
+        self.assertEqual(len(snapshot['messages']),18)
         self.assertEqual(snapshot['rejected_packets'],0)
         self.assertIsNotNone(snapshot['last_received_at'])
         for sid in (1,2,3,4,5,6,7,12):
@@ -111,7 +111,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(after['rejected_packets'],len(invalid))
         self.assertEqual(after['last_received_at'],before['last_received_at'])
         feed(bridge,PACKED_TOPIC,encode_packet(1,101))
-        self.assertEqual(len(bridge.readings),17)
+        self.assertEqual(len(bridge.readings),18)
         self.assertEqual(bridge.readings[READINGS[1]]['payload'],'101')
         self.assertNotEqual(bridge.receiver_id,BrokerBridge().receiver_id)
 
@@ -149,6 +149,43 @@ class DashboardTests(unittest.TestCase):
         self.assertIsNone(bridge.readings[READINGS[1]]['payload'])
         # Readings keep their latest value however old: no time expiry.
         self.assertEqual({m['topic']:m['payload'] for m in bridge.snapshot()['messages']}[peak],45.5)
+
+    def test_imu_fault_bit(self):
+        # ID 12 shared fault bits: 0x04 is the IMU fault, also on the Accelerometer card.
+        bridge=populated_bridge();imu='Robopico/sensors/accelerometer/imu_fault'
+        self.assertFalse(bridge.readings[imu]['payload'])  # SAMPLES[12]: motor timeout only
+        feed(bridge,PACKED_TOPIC,encode_packet(12,4|32))
+        self.assertTrue(bridge.readings[imu]['payload'])
+        self.assertEqual(bridge.readings[READINGS[12]]['payload'],'36')
+        self.assertEqual(decode_messages(encode_packet(12,4)),[(READINGS[12],'4'),(imu,True)])
+        # It travels in ID 12, so motor unavailability clears it with the mask.
+        feed(bridge,PACKED_TOPIC,encode_packet(0,(10<<8)|254))
+        self.assertIsNone(bridge.readings[imu]['payload'])
+        self.assertIsNone(bridge.readings[READINGS[12]]['payload'])
+
+    def test_dropped_counts_last_minute(self):
+        # Subtype 12 is the robot's drop counter modulo 256 (wraps): the
+        # dashboard shows the drops of the last 60 s from the differences.
+        bridge=BrokerBridge();dropped='Robopico/Actuators/vehicle_controller/dropped'
+        drop=lambda counter: feed(bridge,PACKED_TOPIC,encode_packet(0,(12<<8)|counter))
+        drop(250)  # first record: a baseline only
+        self.assertEqual(bridge.readings[dropped]['payload'],0)
+        drop(255);drop(3);drop(3)  # +5, then +4 across the wrap, then none
+        self.assertEqual(bridge.readings[dropped]['payload'],9)
+        # A robot silence restarts the baseline (a reboot restarts its counter).
+        bridge.check_robot(bridge.last_received_at+5)
+        drop(100);self.assertEqual(bridge.readings[dropped]['payload'],9)
+        drop(101);self.assertEqual(bridge.readings[dropped]['payload'],10)
+        # So does a broker reconnect, which also forgets the window.
+        bridge.on_disconnect(None,None,None,None,None)
+        drop(7);self.assertEqual(bridge.readings[dropped]['payload'],0)
+        with bridge.lock:  # steps older than the 60 s window no longer count
+            bridge.drop_counter=None;bridge.drop_steps.clear()
+            self.assertEqual(bridge.count_drops(10,1000.0),0)
+            self.assertEqual(bridge.count_drops(15,1010.0),5)
+            self.assertEqual(bridge.count_drops(16,1060.0),6)
+            self.assertEqual(bridge.count_drops(16,1070.5),1)
+            self.assertEqual(bridge.count_drops(16,1120.5),0)
 
     def test_lifted_fault_code(self):
         bridge=populated_bridge();vc='Robopico/Actuators/vehicle_controller/'

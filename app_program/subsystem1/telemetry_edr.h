@@ -30,8 +30,9 @@ static inline bool telemetry_edr_record(const int64_t v[TEL_FIELD_COUNT],
         case 11:
             if (!(available&1U)) return false;
             data=(unsigned)v[TEL_COMMAND]|((unsigned)v[TEL_POWER]<<3U)|((unsigned)v[TEL_MOTOR_STATE]<<10U);break;
+        /* Shared fault bits: motor timeout/error, plus the S4 IMU fault. */
         case 12: if (!(available&1U)) return false;
-            data=edr_motor_fault_flags((unsigned)v[TEL_MOTOR_ERROR]);break;
+            data=edr_motor_fault_flags((unsigned)v[TEL_MOTOR_ERROR])|(v[TEL_IMU_FAULT]?EDR_FAULT_IMU:0U);break;
         default:
             if (!(available&8U)) return false;
             data=(unsigned)(v[TEL_AX_MG+id-13U]+2048);break;
@@ -58,7 +59,8 @@ static inline bool telemetry_edr_record(const int64_t v[TEL_FIELD_COUNT],
         case 9: data=(unsigned)v[TEL_QUALITY]|((unsigned)v[TEL_FAULT_CAUSE]<<6U);break;
         case 10:data=available;break;
         case 11:data=(unsigned)v[TEL_SEQUENCE]&255U;break;
-        case 12:data=(unsigned)(v[TEL_DROPPED]>255?255:v[TEL_DROPPED]);break;
+        /* Drops modulo 256, wrapping like 11: receivers take differences. */
+        case 12:data=(unsigned)v[TEL_DROPPED]&255U;break;
         case 13: if (!(v[TEL_QUALITY]&16))return false;data=(unsigned)(v[TEL_SPEED_MM_S]/20+128);break;
         case 14: if (!(available&4U))return false;data=(unsigned)(v[TEL_LINE_ERROR]/10+128);break;
         /* Bits 4..5: barcode result 0 none, 1 reading, 2 decoded, 3 failed;

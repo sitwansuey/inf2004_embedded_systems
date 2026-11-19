@@ -2,8 +2,8 @@
 #define CSC02_TELEMETRY_CODEC_H
 #include <stdint.h>
 #include <stdbool.h>
-#define TELEMETRY_BITS 432U
-#define TELEMETRY_BYTES 54U /* 432 data bits, no padding */
+#define TELEMETRY_BITS 433U
+#define TELEMETRY_BYTES 55U /* 433 data bits; the last 7 bits are zero padding */
 enum {
     TEL_VERSION,
     TEL_SEQUENCE,
@@ -41,7 +41,7 @@ enum {
     TEL_SERVO_DEG,
     TEL_SCAN_STATE,
     TEL_QUALITY,
-    TEL_DROPPED,
+    TEL_DROPPED,        /* internal drops modulo 65536; status subtype 12 sends it modulo 256 */
     TEL_MOTOR_ERROR,
     TEL_BARCODE_ELEMENTS, /* bars+spaces read in the current/last barcode (a full *X* is 29), saturates at 31 */
     TEL_BARCODE_RESULT, /* 0 none, 1 reading, 2 decoded, 3 failed */
@@ -49,6 +49,7 @@ enum {
     TEL_WIDTH_RIGHT_MM, /* centre -> right edge half-width */
     TEL_BYPASS_SIDE,    /* 0 none, 1 left, 2 right */
     TEL_FAULT_CAUSE,    /* VC_SENSOR only: 0 other, 1 sonar, 2 tilt, 3 odometry */
+    TEL_IMU_FAULT,      /* 1: an S4 result since the last snapshot had EDR_FAULT_IMU (ID 12 bit 0x04) */
     TEL_FIELD_COUNT
 };
 bool telemetry_encode(uint8_t out[TELEMETRY_BYTES], const int64_t values[TEL_FIELD_COUNT]);

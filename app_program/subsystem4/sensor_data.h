@@ -21,6 +21,9 @@ typedef struct
     uint8_t configured : 1;
     uint8_t accel_usable : 1;
     uint8_t mag_usable : 1;
+    /* Current (as fresh as accel_usable) but clipped at +/-2 g: never usable
+     * for tilt, yet an impact (above 1.8 g by definition) for the VC. */
+    uint8_t accel_clipped : 1;
     uint32_t accel_age_ms;
     uint32_t mag_age_ms;
     uint32_t init_attempts;

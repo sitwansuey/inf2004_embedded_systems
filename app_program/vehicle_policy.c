@@ -21,7 +21,7 @@ void vc_stop(vc_state_t *s,unsigned reason) {
     s->nav_search=0;s->nav_offset=0;s->spot_scan=0;s->uturn_guard=0;
     s->last_line_side=0;s->search_right_first=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
-    s->clear_run=0;s->line_gap=0;s->sonar_gap=0;s->line_found=0;
+    s->clear_run=0;s->line_gap=0;s->sonar_gap=0;s->line_found=0;s->line_seen=0;
     s->fault=(uint8_t)(reason&15U);s->phase=reason?VC_FAULT:VC_DISARMED;
     s->fault_cause=0; /* sensor_fault() sets it after this */
 }
@@ -62,7 +62,7 @@ static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
     s->nav_search=0;s->nav_offset=0;s->spot_scan=0; /* pending_nav itself is kept */
     if(!keep_touch) s->nav_touched=0;
-    s->clear_run=0;s->line_gap=0;
+    s->clear_run=0;s->line_gap=0;s->line_seen=0; /* TRACK measures line-lost from its entry */
     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
     if(continuous) {
         s->command=1;s->power=s->maximum_power>AVOID_POWER?AVOID_POWER:s->maximum_power;
@@ -171,6 +171,12 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         ((s->phase==VC_ACQUIRE || s->phase==VC_PASS)?30000U:(s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE)?10000U:5000U)) { vc_stop(s,VC_TIMEOUT);return; }
     if (s->phase==VC_TRACK) {
         if (i->obstacle) { enter(s,i,VC_ACQUIRE);s->avoid_yaw=i->yaw_mdeg;return; }
+        /* Line-lost distance (checked below) starts again on TRACK entry, on a
+         * straddle sensor on black, while the check is off and while a
+         * decoded turn is pending (its junction search has its own bound).
+         * Reversing never adds to it: it runs from the furthest point back. */
+        if (!s->line_seen || i->line_touch || !i->line_lost_mm || s->pending_nav ||
+            i->distance_um<s->line_seen_um) {s->line_seen=1;s->line_seen_um=i->distance_um;}
         if (s->track_wait) {
             if (i->line_fresh && i->steering) s->track_wait=0;
             else {
@@ -196,6 +202,14 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             }
         } else {s->nav_search=0;s->nav_offset=0;} /* a re-read reposition restarts the search */
         if (!i->line_fresh || !i->steering) { line_gap_hold(s,i);return; }
+        /* Line lost: both straddle sensors white is also "centred", so after
+         * line_lost_mm with neither on black search on the spot (toward the
+         * side the line was last seen first); only a sensor on black ends
+         * it, else VC_LINE (not found). */
+        if (i->line_lost_mm &&
+            (int64_t)i->distance_um-s->line_seen_um>=(int64_t)i->line_lost_mm*1000) {
+            enter(s,i,VC_REACQUIRE);s->spot_scan=1;return;
+        }
         /* Either front sensor on black is sufficient to keep following forward. */
         s->command=1;
     } else if (s->phase==VC_ACQUIRE) {
@@ -437,4 +451,26 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         if(backup_cap && demand>backup_cap)demand=backup_cap;
         s->power=(uint8_t)(i->slope && demand>20U?20U:demand);
     }
+}
+/* A ramp's allowance t ms after its start: full*t/ramp_ms. Steps take its
+ * differences, so they add up exactly whatever the tick length. */
+static uint64_t ramp_allowance(uint32_t full,uint32_t ramp_ms,uint32_t t) {
+    return (uint64_t)full*t/ramp_ms;
+}
+void vc_avoid_ramp_reset(vc_avoid_ramp_t *r,uint32_t now) {
+    if (!r) return;
+    r->start_ms=now;r->elapsed_ms=0;r->power_m=0;r->steer=0;
+}
+void vc_avoid_ramp_step(vc_avoid_ramp_t *r,uint32_t now,unsigned power,int32_t steering) {
+    if (!r) return;
+    uint32_t was=r->elapsed_ms,t=now-r->start_ms;
+    if (t<was) t=was;
+    int32_t want=(int32_t)power*1000;
+    r->power_m+=(int32_t)(ramp_allowance(AVOID_POWER*1000U,AVOID_RAMP_POWER_MS,t)-
+        ramp_allowance(AVOID_POWER*1000U,AVOID_RAMP_POWER_MS,was));
+    if (r->power_m>want) r->power_m=want;
+    int32_t ds=steering-r->steer,step=(int32_t)(ramp_allowance(400U,AVOID_STEER_RAMP_MS,t)-
+        ramp_allowance(400U,AVOID_STEER_RAMP_MS,was));
+    if (ds>step) ds=step; else if (ds< -step) ds=-step;
+    r->steer+=ds;r->elapsed_ms=t;
 }

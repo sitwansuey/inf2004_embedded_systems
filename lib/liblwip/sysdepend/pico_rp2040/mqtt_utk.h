@@ -15,5 +15,8 @@
  */
 void mqtt_utk_start(void);
 void mqtt_utk_poll_telemetry(void);
+/* cyw43_utk.c is re-joining after a lost Wi-Fi link: drop the broker session
+ * and let the 3 s retry reconnect once the link is back. */
+void mqtt_utk_link_lost(void);
 
 #endif /* MQTT_UTK_H */

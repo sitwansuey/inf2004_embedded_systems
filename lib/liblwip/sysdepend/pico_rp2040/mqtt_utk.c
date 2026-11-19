@@ -228,6 +228,17 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 	}
 }
 
+/* cyw43_utk.c had no Wi-Fi link for 10 s and is re-joining. lwIP would keep
+ * this session until its keep-alive watchdog (~90 s), and a session that
+ * outlives the outage never reports it. Close it now: the 3 s retry then
+ * reconnects once the link is back and posts EV_LINK with the outage. */
+void mqtt_utk_link_lost(void)
+{
+	if(client == NULL) return;
+	mqtt_disconnect(client); /* a local close calls no connection_cb */
+	connection_cb(client, NULL, MQTT_CONNECT_DISCONNECTED);
+}
+
 void mqtt_utk_start(void)
 {
 	struct mqtt_connect_client_info_t	client_info = {0};

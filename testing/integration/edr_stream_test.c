@@ -14,8 +14,14 @@ int main(void) {
     v[TEL_SEQUENCE]=257;v[TEL_DROPPED]=300;
     v[TEL_WIDTH_LEFT_MM]=86;v[TEL_WIDTH_RIGHT_MM]=1000;v[TEL_BYPASS_SIDE]=2;v[TEL_SCAN_STATE]=9;
     v[TEL_FAULT]=1;v[TEL_FAULT_CAUSE]=2; /* sensor fault: tilt */
+    v[TEL_IMU_FAULT]=1; /* ID 12 bit 0x04 */
     uint8_t snapshot[TELEMETRY_BYTES];int64_t decoded[TEL_FIELD_COUNT];
     assert(telemetry_encode(snapshot,v) && telemetry_decode(snapshot,decoded));
+    {   /* Subtype 12: drops modulo 256 (300 -> 44), never saturated at 255. */
+        uint8_t word[2];unsigned id,data;
+        assert(telemetry_edr_record(decoded,15+12,word) && edr_decode(word,2,&id,&data));
+        assert(id==0 && data==((12U<<8)|44U));
+    }
     for(unsigned n=0;n<TELEMETRY_EDR_RECORDS;++n) {
         uint8_t word[2];unsigned id,data;
         assert(telemetry_edr_record(decoded,n,word));
@@ -38,15 +44,18 @@ int main(void) {
     assert(!telemetry_edr_record(decoded,2,word)); /* unavailable servo */
     assert(!telemetry_edr_record(decoded,11,word)); /* unavailable motor */
     decoded[TEL_AVAILABLE]=1;
-    for(unsigned error=0;error<=2;++error) {
+    /* ID 12: the motor's fault bit and the S4 IMU fault (0x04) together. */
+    for(unsigned error=0;error<=2;++error) for(unsigned imu=0;imu<=1;++imu) {
         unsigned id,data;
-        decoded[TEL_MOTOR_ERROR]=error;
+        decoded[TEL_MOTOR_ERROR]=error;decoded[TEL_IMU_FAULT]=imu;
         assert(telemetry_encode(snapshot,decoded));
         assert(telemetry_decode(snapshot,decoded));
         assert(telemetry_edr_record(decoded,11,word));
         assert(edr_decode(word,2,&id,&data));
-        assert(id==12 && data==(error==1?32U:error==2?64U:0U));
+        assert(id==12 && data==((error==1?32U:error==2?64U:0U)|(imu?EDR_FAULT_IMU:0U)));
     }
+    decoded[TEL_IMU_FAULT]=2;assert(!telemetry_encode(snapshot,decoded)); /* one bit */
+    decoded[TEL_IMU_FAULT]=0;
     decoded[TEL_AVAILABLE]=0;
     assert(!telemetry_edr_record(decoded,7,word));
     assert(!telemetry_edr_record(decoded,15+6,word));

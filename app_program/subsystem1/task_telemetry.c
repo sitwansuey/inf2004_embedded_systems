@@ -11,12 +11,17 @@ static int64_t bounded(int64_t n,int64_t lo,int64_t hi) {return n<lo?lo:n>hi?hi:
 void telemetry_task(INT code,void *context) {
     (void)code;(void)context;unsigned count=0;uint32_t previous=0;unsigned old_fault=0;
     uint8_t old_shock=0; /* app_state_t.shock_count last sent */
+    BOOL imu_fault=FALSE; /* EDR_FAULT_IMU in an S4 result since the last snapshot */
     /* Last published width/side: a new valid width or side is sent at once,
      * so the halves reach MQTT during S5's hold before the side is chosen. */
     UW width_scan=0,width_left=0,width_right=0;unsigned old_side=0;
     for(;;) {
         app_state_t s={0};s2_motion_status_t m={0};s2_encoder_status_t e={0};s3_status_t l={0};s4_sensor_status_t a={0};s5_status_t o={0};
         BOOL st=app_get_state(&s)==E_OK;SYSTIM now;
+        /* An IMU fault can last one 20 ms VC tick (a clipped or overrun
+         * sample, skew): hold it until a snapshot has carried it. */
+        {s4_result_t r={0};if(st && s4_result_decode(s.s4_result,sizeof(s.s4_result),&r) &&
+            (r.faults&EDR_FAULT_IMU))imu_fault=TRUE;}
         if(tk_get_otm(&now)<E_OK) {tk_dly_tsk(10);continue;}
         ER sonar_copy=s5_get_status(&o);BOOL so=sonar_copy==E_OK;
         /* S5's own validity bound (tangent envelope <= 500 mm) plus a
@@ -83,6 +88,7 @@ void telemetry_task(INT code,void *context) {
             v[TEL_WIDTH_RIGHT_MM]=width_valid?bounded(o.object_right_mm,0,1000):0;
             v[TEL_BYPASS_SIDE]=side;
             v[TEL_FAULT_CAUSE]=s.vehicle.fault==VC_SENSOR || s.vehicle.fault==VC_LINE?s.vehicle.fault_cause:0;
+            v[TEL_IMU_FAULT]=imu_fault?1:0;
             if(telemetry_encode(out,v)) {
 #if TM_MQTT
                 (void)s1_binary_send(out);
@@ -110,7 +116,7 @@ void telemetry_task(INT code,void *context) {
                     }
                 }
             }
-            previous=now.lo;old_fault=s.vehicle.fault;old_side=side;old_shock=s.shock_count;
+            previous=now.lo;old_fault=s.vehicle.fault;old_side=side;old_shock=s.shock_count;imu_fault=FALSE;
             if(width_valid) {width_scan=o.scan_id;width_left=o.object_left_mm;width_right=o.object_right_mm;}
         }
         tk_dly_tsk(10);

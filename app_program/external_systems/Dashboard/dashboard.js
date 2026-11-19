@@ -9,7 +9,7 @@ const groups = [
   ['navigation','Barcode IR','03','GP28 digital barcode sensor. A barcode ends 30 mm after its last bar; elements read (bars + spaces, 29 for a full code) and the decode result are for the current or last barcode.',['ir_barcode','elements_read','decode_result','barcode','navigation']],
   ['motion','Left wheel encoder','02','Packed counts wrap at 4096. Vehicle speed is under Motor control.',['encoder_left']],
   ['motion','Right wheel encoder','02','Packed counts wrap at 4096. Vehicle speed is under Motor control.',['encoder_right']],
-  ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact']],
+  ['terrain','Accelerometer','04','Acceleration and impact information from the GY-511. IMU fault: I/O error, stale, clipped (±2 g, also an impact) or overrun sample, or IMU/encoder skew since the last report.',['accel_x_mps2','accel_y_mps2','accel_z_mps2','impact','imu_fault']],
   ['terrain','Magnetometer','04','Magnetic field from the GY-511. Pitch and roll are tilt estimates from the accelerometer; the GY-511 has no gyroscope.',['mag_x_ut','mag_y_ut','mag_z_ut','pitch_deg','roll_deg']],
   ['obstacle','Ultrasonic Ranger','05','Range and obstacle geometry from the ultrasonic scan.',['distance_cm','width_cm','width_left_cm','width_right_cm']],
   ['terrain','Terrain & hump analysis','04','Hump state and height estimates. Validity is the height availability flag sent by the robot.',['hump_state','hump_height_cm','run_max_height_cm','valid']],
@@ -42,7 +42,7 @@ let mqttPacket = {};
 const labels = {
   ir_left:['Raw reading'],ir_barcode:['GP28 level (1 = black)'],ir_right:['Raw reading'],
   elements_read:['Elements read','/ 29'],decode_result:['Decoding'],barcode:['Decoded letter'],
-  fault_flags:['Motor fault bits'],encoder_left:['Pulse count (mod 4096)'],encoder_right:['Pulse count (mod 4096)'],
+  fault_flags:['Fault bits (motor 5-6, IMU 2)'],imu_fault:['IMU fault'],dropped:['Dropped, last 60 s'],encoder_left:['Pulse count (mod 4096)'],encoder_right:['Pulse count (mod 4096)'],
   accel_x_mps2:['Acceleration X','m/s²'],accel_y_mps2:['Acceleration Y','m/s²'],accel_z_mps2:['Acceleration Z','m/s²'],
   mag_x_ut:['Magnetic field X','µT'],mag_y_ut:['Magnetic field Y','µT'],mag_z_ut:['Magnetic field Z','µT'],
   pitch_deg:['Pitch','°'],roll_deg:['Roll','°'],
@@ -190,7 +190,7 @@ function dialHtml(value, min, max) {
   }
   return `<div class="nx nx-dial" aria-hidden="true"><svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${c}" cy="${c}" r="${r}" fill="${PALETTE.navyDeep}"/>${paths}<circle cx="${c}" cy="${c}" r="8" fill="${PALETTE.cyan}"/></svg></div>`;
 }
-// Motor fault mask as 7 cells, bit 6 down to bit 0.
+// ID 12 fault mask as 7 cells, bit 6 down to bit 0 (motor 5-6, IMU 2).
 function faultBitsHtml(mask) {
   const valid = Number.isInteger(mask) && mask >= 0;
   const bits = [6, 5, 4, 3, 2, 1, 0];

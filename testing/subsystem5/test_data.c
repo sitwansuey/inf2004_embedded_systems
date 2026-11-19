@@ -36,13 +36,13 @@ int main(void)
                (!(control & 128) && (control & 15) < 15 && ((control >> 4) & 7) < 5));
     }
     data[0] = 0;
+    /* Bit 7 is width_one_sided: every flag combination round-trips. */
     for (unsigned flags = 0; flags < 256; ++flags) {
         data[1] = (uint8_t)flags;
-        assert(s5_data_decode(data, sizeof(data), &decoded) == (flags < 128));
-        if (flags < 128) {
-            assert(s5_data_encode(&decoded, again, sizeof(again)));
-            assert(memcmp(data, again, sizeof(data)) == 0);
-        }
+        assert(s5_data_decode(data, sizeof(data), &decoded));
+        assert(decoded.width_one_sided == (BOOL)(flags >> 7) && decoded.object_width_valid == (BOOL)((flags >> 6) & 1U));
+        assert(s5_data_encode(&decoded, again, sizeof(again)));
+        assert(memcmp(data, again, sizeof(data)) == 0);
     }
     data[1] = 0;
     for (unsigned field = 2; field < 8; ++field) {
@@ -89,6 +89,9 @@ int main(void)
     v.valid = 2;
     assert(!s5_data_encode(&v, data, sizeof(data)));
     v.valid = TRUE;
+    v.width_one_sided = 2;
+    assert(!s5_data_encode(&v, data, sizeof(data)));
+    v.width_one_sided = FALSE;
     assert(!s5_data_encode(&v, data, sizeof(data)-1));
     assert(!s5_data_encode(NULL, data, sizeof(data)));
     assert(!s5_data_decode(NULL, sizeof(data), &decoded));
@@ -110,6 +113,11 @@ int main(void)
     lock_result = E_OK;
     assert(s5_status_encode(data, sizeof(data)) == E_OK);
     assert(s5_data_decode(data, sizeof(data), &decoded) && decoded.state == S5_OVERCOME);
+    /* The one-sided width flag survives the shared status storage. */
+    v.state = S5_READY; v.width_one_sided = TRUE;
+    status_store(&v);
+    assert(s5_get_status(&decoded) == E_OK && decoded.width_one_sided && decoded.object_left_mm == 86);
+    v.width_one_sided = FALSE;
     v.state = (s5_state_t)15;
     status_store(&v);
     assert(s5_get_status(&decoded) == E_OK && decoded.state == S5_FAULT && !decoded.valid);

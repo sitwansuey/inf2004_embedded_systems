@@ -224,7 +224,7 @@ static void scan_task(INT stacd, void *exinf)
                 next.approach_plan_valid=FALSE;next.acquisition_clear=FALSE;
                 next.left_bound_valid=next.right_bound_valid=FALSE;
                 next.object_width_valid=FALSE;
-                next.object_left_mm=next.object_right_mm=0;
+                next.object_left_mm=next.object_right_mm=0;next.width_one_sided=FALSE;
             }
             target = navigation_look;
             if(target!=next.angle_deg || target!=next.sample_angle_deg || navigation_state==S5_MONITOR)

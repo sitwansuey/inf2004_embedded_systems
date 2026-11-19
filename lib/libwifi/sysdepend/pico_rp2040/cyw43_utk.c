@@ -30,6 +30,8 @@
  * actually visible on the console instead of only sitting in radio_status. */
 #include <tm/tmonitor.h>
 
+/* tk_dly_tsk(2) rounds up to the 10 ms tick plus the guard tick: the loop
+ * really polls every ~20 ms. */
 #define CYW43_POLL_MS        2
 
 /* An association can fail transiently -- a busy channel, a weak beacon, an AP
@@ -276,6 +278,7 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
 #if TM_NET_LWIP
     int32_t  prev_link_status = radio_status.link_status;
     uint64_t rejoin_at = 0;
+    T_WIFI_REJOIN lost = {0};
 #endif
 
     for(;;) {
@@ -311,12 +314,34 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
             rejoin_at = 0;
             if(radio_status.link_status < 0) {
                 (void)wifi_try_join();
+                wifi_rejoin_joined(&lost, time_us_64());
                 /* Force the next iteration to treat whatever comes back as a
                  * change, so the new outcome is always reported. Must be a
                  * value cyw43_tcpip_link_status() can never return (it yields
                  * -3..3), or a genuine repeat failure would be swallowed. */
                 prev_link_status = 0x7fffffff;
             }
+        }
+
+        /* A lost association reads DOWN/JOIN, which the retry above never
+         * sees (cyw43_utk.h). Leave now and join on a later poll; the MQTT
+         * session is dropped too, so its 3 s retry reconnects afterwards. */
+        switch(wifi_rejoin_step(&lost, radio_status.link_status == CYW43_LINK_UP,
+                                radio_status.link_status < 0, time_us_64())) {
+        case WIFI_REJOIN_LEAVE:
+            tm_printf((UB*)"wifi: no link for %d s, leaving to re-join\n",
+                      (int)(WIFI_LOST_REJOIN_US / 1000000u));
+            (void)cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+#if TM_MQTT
+            mqtt_utk_link_lost();
+#endif
+            break;
+        case WIFI_REJOIN_JOIN:
+            (void)wifi_try_join();
+            prev_link_status = 0x7fffffff; /* report the outcome, as above */
+            break;
+        default:
+            break;
         }
 #else
         was_scanning = radio_status.scan_active != 0;

@@ -19,8 +19,12 @@ values={m['topic'].rsplit('/',1)[-1]:m['payload'] for m in snapshot['messages']}
 for key,value in {'encoder_left':'100','encoder_right':'4095','ir_left':'111','ir_right':'222',
                   'barcode':'D','navigation':'U-turn','hump_height_cm':12.5,'run_max_height_cm':45.5,
                   'width_cm':10.5,'servo_angle_deg':'60','pitch_deg':-12,'roll_deg':4,
-                  'hump_state':'Crest','speed_mps':-0.36,'sequence':1,'dropped':255}.items():
+                  'hump_state':'Crest','speed_mps':-0.36,'sequence':1,
+                  # subtype 12 is 300 drops modulo 256 = 44 on the wire; the
+                  # first record is only the dashboard's baseline: 0 in 60 s
+                  'dropped':0,'fault_flags':'4','imu_fault':True}.items():
     assert values[key]==value,(key,values[key],value)
+assert [(w>>4)&255 for w in (int.from_bytes(bytes.fromhex(l),'little') for l in lines) if (w&0xF00F)==0xC000]==[44]
 # Paged subtype 8 halves: 86 mm -> 11 -> 8.8 cm; 1000 mm saturates at 63 -> 50.4 cm.
 topics={m['topic']:m['payload'] for m in snapshot['messages']}
 for topic,value in {'Robopico/sensors/ultrasonic_ranger/width_left_cm':8.8,

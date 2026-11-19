@@ -118,11 +118,63 @@ static void test_clipping_and_time_boundaries(void)
     puts("[TEST] S4-U18 PASS  clipping, future timestamps, 64-bit time and age saturation");
 }
 
+/* A clipped accel sample (driver: an axis at -2048/2047, valid false) is
+ * never usable, but while current it is reported clipped (an impact for the
+ * VC), also after a no-data poll has overwritten the cached status. */
+static void test_clipped_impact(void)
+{
+    s4_sensor_cache_t state;
+    s4_sensor_status_t copy;
+    lsm303_frame_t frame = good_frame(10000);
+    lsm303_frame_t empty = { 0 };
+    lsm303_frame_t fault = { 0 };
+
+    s4_data_reset(&state);
+    s4_data_init_result(&state, LSM303_OK);
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 20000, &copy);
+    REQUIRE(copy.accel_usable && !copy.accel_clipped);
+    frame = good_frame(30000);
+    frame.accel.raw[0] = 2047;
+    frame.accel.valid = false;
+    frame.accel.status = LSM303_DATA_CLIPPED;
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 40000, &copy);
+    REQUIRE(!copy.accel_usable && copy.accel_clipped && copy.latest.accel.milli_units[0] == 2047);
+    s4_data_update(&state, &empty, LSM303_OK);
+    s4_data_snapshot(&state, 130000, &copy);
+    REQUIRE(copy.latest.accel.status == LSM303_NO_DATA && copy.accel_clipped);
+    s4_data_snapshot(&state, 130001, &copy);
+    REQUIRE(!copy.accel_usable && !copy.accel_clipped); /* older than 100 ms */
+    frame = good_frame(140000);
+    frame.accel.raw[2] = -2048;
+    frame.accel.valid = false;
+    frame.accel.status = LSM303_DATA_CLIPPED;
+    s4_data_update(&state, &frame, LSM303_OK);
+    s4_data_snapshot(&state, 150000, &copy);
+    REQUIRE(copy.accel_clipped);
+    s4_data_snapshot(&state, 139999, &copy);
+    REQUIRE(!copy.accel_clipped); /* sample from the future */
+    s4_data_invalidate(&state);
+    s4_data_snapshot(&state, 150000, &copy);
+    REQUIRE(!copy.configured && !copy.accel_clipped);
+    /* An I/O error after a valid sample is a fault, not a clip. */
+    s4_data_init_result(&state, LSM303_OK);
+    frame = good_frame(160000);
+    s4_data_update(&state, &frame, LSM303_OK);
+    fault.accel.status = LSM303_DATA_IO_ERROR;
+    s4_data_update(&state, &fault, LSM303_IO_ERROR);
+    s4_data_snapshot(&state, 170000, &copy);
+    REQUIRE(!copy.accel_usable && !copy.accel_clipped);
+    puts("[TEST] S4-U34 PASS  a current clipped accel sample is reported clipped, never usable");
+}
+
 int main(void)
 {
     test_empty_and_init();
     test_freshness();
     test_fault_and_recovery();
+    test_clipped_impact();
     test_clipping_and_time_boundaries();
     s4_sensor_cache_t state;s4_sensor_status_t view;
     s4_data_reset(&state);s4_data_init_result(&state,LSM303_OK);

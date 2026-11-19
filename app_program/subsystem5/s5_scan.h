@@ -11,6 +11,8 @@ typedef struct
     INT echo_angle;
     BOOL echo_angle_valid;
     INT fine_clear;
+    INT fine_object; /* inner magnitude known (or, after the mirror or a retreat, expected) to hit the object */
+    INT coarse_object; /* last coarse magnitude on this side that hit the object (0: forward) */
     UINT fine_checks;
     BOOL averaging_bound;
     UINT edge_retreats; /* per side: edge moved 1 deg inward after a missed sample */
@@ -23,6 +25,7 @@ typedef struct
     uint8_t width_hold : 1; /* VERIFY_CLEAR publishes widths before the plan */
     uint8_t side_retry : 1; /* the other side was already planned once */
     uint8_t right_coarse : 1; /* left blocked through 60 deg: right searched coarsely */
+    uint8_t right_outward : 1; /* the mirror check hit the object: right searched outward */
     INT forced_side; /* plan side: 0 smaller half, +1 LEFT, -1 RIGHT */
 } s5_scan_context_t;
 #ifndef S5_EDGE_RETREATS

@@ -11,7 +11,9 @@ PID, IR mode 3, terrain calibration and obstacle bypass. Physical accuracy,
 full-course behavior, target timing and runtime memory still require
 validation. GY-511 has an accelerometer and magnetometer, no gyroscope. The
 line follower is the mask-pivot follower; edge tracing is a build option
-(`BOARD_LINE_MASK_PIVOT 0`, `BOARD_LINE_EDGE_TRACE 1`). See
+(`BOARD_LINE_MASK_PIVOT 0`, `BOARD_LINE_EDGE_TRACE 1`). With the mask-pivot
+follower, `BOARD_LINE_LOST_MM` (600 mm, 0 = off) of tracking with neither
+straddle IR on black starts the bounded on-the-spot line search. See
 [mission setup](docs/MISSION_SETUP.md) for calibration, the A-Z barcode
 codebook (A U-turn, F left, Z right) and one-shot autonomous START.
 
@@ -59,7 +61,7 @@ B2's checked 13-byte internal encoder snapshot feeds B4 terrain processing. B4 e
 protected 63-byte acquisition copies and a checked 12-byte terrain result;
 C interfaces and exact field definitions are in subsystem4 headers/code. The
 controller alone authorizes motion; B2 owns PWM/encoder IRQ, B3 owns IR, B4
-owns I2C and B5 owns sonar/servo. B1 queues a private 54-byte snapshot, then the
+owns I2C and B5 owns sonar/servo. B1 queues a private 55-byte snapshot, then the
 network owner marshals each reading into its own two-byte EDR16 MQTT message.
 The private snapshot is never published. Shared speed uses `app_speed_mm_s()`. Preserve
 explicit lengths, validity/fault flags, operating time, STOP and lease behavior.

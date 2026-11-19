@@ -1,5 +1,5 @@
 /* Run the production telemetry task against snapshots published during a wait.
- * The real 54-byte codec feeds a fake transport; no network connection is made. */
+ * The real 55-byte codec feeds a fake transport; no network connection is made. */
 #include "s5_hardware_host.h"
 #include <setjmp.h>
 #include <stdio.h>
@@ -18,10 +18,13 @@ static BOOL bad_s5_fields;
 static int32_t test_speed;
 static uint8_t test_fault,test_cause;
 static int64_t decoded[TEL_FIELD_COUNT];
-/* Optional extra task loops (10 ms apart) with a per-loop shock count. */
+/* Optional extra task loops (10 ms apart) with a per-loop shock count and
+ * S4 result IMU fault; per packet: quality, IMU fault field, ID 12 data. */
+#define LOOPS 6U
 static unsigned extra_loops, loop_index;
-static uint8_t shock_counts[4];
-static int64_t qualities[4];
+static uint8_t shock_counts[LOOPS], imu_faults[LOOPS];
+static int64_t qualities[LOOPS], imu_sent[LOOPS];
+static unsigned id12_sent[LOOPS];
 /* Line follower view published by the vehicle task (app_state line_*), and
  * an S3 edge-follow line output that differs from it. */
 static uint8_t test_follow,test_mask;
@@ -44,10 +47,14 @@ ER app_get_state(app_state_t *state) {
     *state=(app_state_t){0};
     state->speed_bits=(uint16_t)((uint32_t)test_speed & UINT32_C(0xfff));
     state->odometry_valid=1;state->vehicle.fault=test_fault;state->vehicle.fault_cause=test_cause;
-    state->shock_count=shock_counts[loop_index<4U?loop_index:3U];
+    unsigned loop=loop_index<LOOPS?loop_index:LOOPS-1U;
+    state->shock_count=shock_counts[loop];
     state->line_follow=test_follow&7U;state->line_mask=test_mask&3U;state->line_steer=test_steer;
     s4_result_t result={.calculated_ms=clock_ms,.pitch_cdeg=1234,.roll_cdeg=-5678,
         .height_mm=123,.maximum_mm=456,.terrain=0,.flags=27};
+    if(imu_faults[loop]) { /* an IMU fault never comes with tilt or height */
+        result.flags=S4_RESULT_CALIBRATED|S4_RESULT_ODOMETRY;result.faults=EDR_FAULT_IMU;
+    }
     REQUIRE(s4_result_encode(&result,state->s4_result,sizeof(state->s4_result)));
     if(bad_s4_record)state->s4_result[11]|=0x80;
     return E_OK;
@@ -82,7 +89,12 @@ uint16_t s1_drop_count(void) { return 0; }
 ER s1_binary_send(const uint8_t data[TELEMETRY_BYTES])
 {
     REQUIRE(telemetry_decode(data,decoded));
-    if(packets<4U)qualities[packets]=decoded[TEL_QUALITY];
+    if(packets<LOOPS) {
+        uint8_t word[2];unsigned id=0,fault_bits=0;
+        qualities[packets]=decoded[TEL_QUALITY];imu_sent[packets]=decoded[TEL_IMU_FAULT];
+        REQUIRE(telemetry_edr_record(decoded,11,word) && edr_decode(word,2,&id,&fault_bits) && id==12);
+        id12_sent[packets]=fault_bits;
+    }
     ++packets;return E_OK;
 }
 static void capture(void)
@@ -137,6 +149,18 @@ int main(void)
     extra_loops=3;shock_counts[0]=shock_counts[1]=0;shock_counts[2]=shock_counts[3]=1;
     capture();
     REQUIRE(packets==2 && (qualities[0]&2)==0 && (qualities[1]&2)!=0);
+    REQUIRE(!imu_sent[0] && !imu_sent[1] && id12_sent[0]==0U && id12_sent[1]==0U);
+    /* An IMU fault in one VC result between snapshots (a clipped or overrun
+     * sample, skew) is held for the next snapshot, then cleared. Packets go
+     * at loops 0, 2 and 4 (first, then each new shock count). */
+    {
+        static const uint8_t counts[LOOPS]={0,0,1,1,2,2},faults[LOOPS]={0,1,0,0,0,0};
+        memcpy(shock_counts,counts,sizeof(counts));memcpy(imu_faults,faults,sizeof(faults));
+        extra_loops=5;capture();
+        REQUIRE(packets==3 && !imu_sent[0] && imu_sent[1] && !imu_sent[2]);
+        REQUIRE(id12_sent[0]==0U && id12_sent[1]==EDR_FAULT_IMU && id12_sent[2]==0U);
+        memset(shock_counts,0,sizeof(shock_counts));memset(imu_faults,0,sizeof(imu_faults));
+    }
     extra_loops=0;
     /* Line fields: the vehicle task's follower (0 straight, 1/2 steer
      * right/left, 3/4 pivot right/left; straddle mask; steer bounded to the
@@ -158,6 +182,7 @@ int main(void)
     puts("Straddle line telemetry: TEL_LINE_STATE/BLACK_MASK/LINE_ERROR from app_state line_follow/mask/steer (+-1000) PASS");
     puts("Fault cause: sent for VC_SENSOR and VC_LINE only; fault 8 (lifted) round-trips PASS");
     puts("Shock count: a new shock is sent at once with the impact bit PASS");
+    puts("IMU fault: a one-tick S4 IMU fault is held for the next snapshot, ID 12 bit 0x04, then cleared PASS");
     puts("INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
     return 0;
 }

@@ -21,8 +21,10 @@
 #define S5_SAMPLE_MS 65 /* datasheet: measurement cycle over 60 ms */
 #define S5_WIDTH_PUBLISH_MS 300U /* widths published, vehicle stopped, before the side is chosen */
 #define S5_MAX_ANGLE 90 /* servo and geometry limit */
-/* Acquisition: left at 20, 40, 60 deg until one is clear, then 1 deg at a
- * time inward to the edge; the right is checked at the mirrored angle. */
+/* Acquisition: left at 20, 40, 60 deg until one is clear, then the edge is
+ * bisected to 1 deg between the last object and the first clear angle; the
+ * right is checked at the mirrored angle (the object there: searched outward
+ * the same way). */
 #define S5_SCAN_STEP_DEG 20
 #define S5_SCAN_COARSE_STEPS 3
 #define S5_REFINE_STEP_DEG 1
@@ -123,6 +125,11 @@ typedef struct
     /* Centre (forward axis) to left/right edge; 0 unless object_width_valid. */
     UW object_left_mm;
     UW object_right_mm;
+    /* One bound is the other edge mirrored: that side was blocked through
+     * 60 deg or its edge failed. object_width_mm is then one-sided (twice the
+     * measured half; a lower bound when blocked) and only the measured side
+     * is planned. FALSE: both edges measured. */
+    BOOL width_one_sided;
 } s5_status_t;
 /* User-selected policy: three no-return samples at one settled angle imply
  * open space. valid stays FALSE and distance stays unknown on the wire. */
