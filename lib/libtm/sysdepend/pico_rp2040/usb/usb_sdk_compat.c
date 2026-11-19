@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "pico.h"
 #include "hardware/irq.h"
+#include <tm/robot_health.h>
 
 typedef void (*mtk_fp_t)();
 typedef struct {
@@ -81,15 +82,23 @@ uint8_t rp2040_chip_version(void)
     return (uint8_t)(*chip_id >> 28);
 }
 
+/*
+ * An SDK invariant failed (a hardware claim, hard_assert, an unsupported
+ * call). Spinning here used to freeze the calling task and starve every
+ * lower-priority task on its core with no message. Instead write the crash
+ * record (caller address, and the panic message pointer, which the same
+ * image prints at the next boot) and reboot at once through the watchdog.
+ * The reset also turns the motor PWM off; the robot boots DISARMED.
+ */
 void hard_assertion_failure(void)
 {
-    NVIC_ICER0 = 1UL << 5;
-    for (;;) __asm__ volatile ("wfi");
+    health_crash(HEALTH_REASON_HARD_ASSERT,
+                 (uint32_t)(uintptr_t)__builtin_return_address(0), 0);
 }
 
 void __attribute__((noreturn)) panic(const char *format, ...)
 {
-    (void)format;
-    hard_assertion_failure();
-    __builtin_unreachable();
+    health_crash(HEALTH_REASON_PANIC,
+                 (uint32_t)(uintptr_t)__builtin_return_address(0),
+                 (uint32_t)(uintptr_t)format);
 }

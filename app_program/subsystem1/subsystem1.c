@@ -34,7 +34,9 @@ EXPORT ER subsystem1_start(void)
 	if (tid_led < E_OK) {
 		return tid_led;
 	}
-	ID telemetry=app_start_task((FP)telemetry_task,S1_PRI_TELEMETRY,TP_PRC2,"telemetry");
+	/* Its own frame is about 1270 bytes and its deepest call (S5 status)
+	   about 440 more, plus nested interrupts: 2048 was too small. */
+	ID telemetry=app_start_task_stack((FP)telemetry_task,S1_PRI_TELEMETRY,TP_PRC2,"telemetry",S1_TELEMETRY_STACK);
 	if(telemetry<0)return telemetry;
 	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
 }

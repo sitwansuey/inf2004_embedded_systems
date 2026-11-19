@@ -13,6 +13,7 @@
 #include "hardware/irq.h"
 #include "hardware/structs/timer.h"
 #include "cyw43.h"
+#include <tm/robot_health.h>
 
 extern int32_t tk_dly_tsk(uint32_t delay);
 
@@ -118,9 +119,16 @@ uint64_t time_us_64(void)
     return ((uint64_t)hi0 << 32) | lo;
 }
 
+/* Both waits run only on the network task (the single owner of the radio).
+ * A driver call can wait here many times: each ioctl polls for its reply
+ * for up to CYW43_IOCTL_TIMEOUT_US (500 ms), and a join sends several. Each
+ * wait counts as progress for the watchdog supervisor, so a slow but
+ * bounded driver call is not mistaken for a frozen task. */
 void cyw43_delay_ms(uint32_t ms)
 {
+    HEALTH_BEAT(HEALTH_HB_NET);
     (void)tk_dly_tsk((ms == 0)? 1: ms);
+    HEALTH_BEAT(HEALTH_HB_NET);
 }
 
 void cyw43_delay_us(uint32_t us)
@@ -131,6 +139,7 @@ void cyw43_delay_us(uint32_t us)
 
 void cyw43_await_background_or_timeout_us(uint32_t timeout_us)
 {
+    HEALTH_BEAT(HEALTH_HB_NET);
     if(timeout_us >= 1000) (void)tk_dly_tsk(timeout_us / 1000);
     else cyw43_delay_us(timeout_us);
 }
@@ -177,17 +186,20 @@ void cyw43_cb_process_ethernet(void *arg, int itf, size_t len,
 }
 #endif
 
+/* Used when the USB console (usb_sdk_compat.c, the strong versions) is not
+ * built. Same behaviour: write the crash record and reboot through the
+ * watchdog instead of halting this core with no message. */
 void __attribute__((weak)) hard_assertion_failure(void)
 {
-    __asm__ volatile("cpsid i" ::: "memory");
-    for(;;) __asm__ volatile("wfi");
+    health_crash(HEALTH_REASON_HARD_ASSERT,
+                 (uint32_t)(uintptr_t)__builtin_return_address(0), 0);
 }
 
 void __attribute__((weak, noreturn)) panic(const char *format, ...)
 {
-    (void)format;
-    hard_assertion_failure();
-    __builtin_unreachable();
+    health_crash(HEALTH_REASON_PANIC,
+                 (uint32_t)(uintptr_t)__builtin_return_address(0),
+                 (uint32_t)(uintptr_t)format);
 }
 
 /* gpio.c contains optional SDK IRQ registration entry points.  The CYW43

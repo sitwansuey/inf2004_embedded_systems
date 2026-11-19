@@ -21,6 +21,26 @@
 #include "robot_ir_config.h"
 #include "vehicle_line_steer.h"
 #include "shared/task_timing.h"
+#if defined(_PICO_RP2040_)
+/* Watchdog heartbeat (app_watchdog.c): one per loop. Host builds: none. */
+#include "../include/tm/robot_health.h"
+#define VC_HEARTBEAT() HEALTH_BEAT(HEALTH_HB_VC)
+#else
+#define VC_HEARTBEAT() ((void)0)
+#endif
+/* Stack (bytes; the kernel adds 128). This task's own frame is about
+ * 1960 bytes (its many status copies) and its deepest call chain
+ * (s5_navigation_set) adds 600; interrupts nest on the same stack (about
+ * 650 more) and libgcc/libm a little. The old TASK_STACK_SIZE (2048) was
+ * smaller than the frame plus the s5_get_status call made every tick. */
+#ifndef VC_STACK_SIZE
+#define VC_STACK_SIZE 4096
+#endif
+/* After a STOP ends a leased ARM run, ARM stays refused until RESET or
+ * until no ARM has arrived for this long (the longest lease is 1000 ms). */
+#ifndef VC_ARM_HOLD_QUIET_MS
+#define VC_ARM_HOLD_QUIET_MS 1000U
+#endif
 #if BOARD_TIMING_STATS && defined(TIMER_TIMERAWL)
 /* Loop timing (C5): the VC's own record, and every VC_TIMING_REPORT_MS one
  * USB console line with the VC, motor and network records: longest run (us,
@@ -190,12 +210,15 @@ static void vehicle_task(INT code,void *context) {
     unsigned instruction_value=0,instruction_wait=0;
     /* Silent S3 latch: being handled, first and last seen; last TRACK sent. */
     BOOL s3_latch=FALSE;uint32_t s3_latch_since=0,s3_latch_seen=0,s3_track_ms=0;
+    /* STOP latch for leased ARM runs: set, last STOP or refused ARM. */
+    BOOL arm_hold=FALSE;uint32_t arm_hold_ms=0;
 #if BOARD_RAMP_SPEED
     uint8_t hump_seen=0;
     unsigned ramp_seen=RAMP_FLAT; /* last hump state reported */
 #endif
     for(;;) {
         SYSTIM now;
+        VC_HEARTBEAT();
 #if VC_TIMING
         task_timing_release(&app_task_timing[TASK_TIMING_VC],vc_now_us());
 #endif
@@ -298,7 +321,11 @@ static void vehicle_task(INT code,void *context) {
         /* At most four copied command records per tick; STOP bypasses that queue. */
         for(unsigned n=0;n<4;++n) {
             control_message_t c;ER er=s1_command_take(&c);if(er<0)break;
-            if(c.wire[1]==0) {vc_stop(&state.vehicle,VC_OK);
+            if(c.wire[1]==0) {
+                /* STOP ends a leased ARM run for good: hold off a client
+                 * that keeps renewing (see arm_hold). */
+                if(state.vehicle.armed && state.vehicle.lease_ms!=0U) {arm_hold=TRUE;arm_hold_ms=now.lo;}
+                vc_stop(&state.vehicle,VC_OK);
                 s1_command_ack(c.wire[5],0,0,state.vehicle.phase,state.vehicle.fault);break;}
             /* Signed age: a command a higher-priority task stamped in a tick
              * after `now` was read is fresh, not 4e9 ms old (W6). */
@@ -315,6 +342,7 @@ static void vehicle_task(INT code,void *context) {
                 ramp=(vehicle_ramp_t){0};ramp_seen=RAMP_FLAT;hump_seen=0;
 #endif
                 requested_sensor_mode=FALSE; /* RESET also restarts a latched S5 scan. */
+                arm_hold=FALSE; /* RESET also lets ARM in again after a STOP */
                 s4_result_t cleared={.calculated_ms=now.lo};
                 result=cleared;
                 result_ok=s4_result_encode(&cleared,state.s4_result,sizeof(state.s4_result));
@@ -324,8 +352,25 @@ static void vehicle_task(INT code,void *context) {
                 s1_command_ack(c.wire[5],2,1,state.vehicle.phase,state.vehicle.fault);continue;
             }
             if(c.wire[1]==1 || c.wire[1]==3) {
-                if(state.vehicle.armed) {
+                /* ARM while an earlier ARM's leased run is armed renews the
+                 * lease (vc_renew: vc_arm's rules, the run keeps its phase),
+                 * so a client re-sending ARM every 100 ms keeps driving.
+                 * ARM during a START run (no lease) and START while armed
+                 * are refused (ACK 1). */
+                BOOL renew=c.wire[1]==1 && state.vehicle.armed && state.vehicle.lease_ms!=0U;
+                if(state.vehicle.armed && !renew) {
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
+                }
+                /* After a STOP ended a leased run, ARM is refused until RESET
+                 * or until no ARM has come for VC_ARM_HOLD_QUIET_MS; each
+                 * refused ARM restarts that wait. So a client still renewing
+                 * (another operator pressed STOP) cannot re-arm the robot. */
+                if(c.wire[1]==1 && !state.vehicle.armed && arm_hold) {
+                    if(now.lo-arm_hold_ms<=VC_ARM_HOLD_QUIET_MS) {
+                        arm_hold_ms=now.lo;
+                        s1_command_ack(c.wire[5],1,1,state.vehicle.phase,state.vehicle.fault);continue;
+                    }
+                    arm_hold=FALSE;
                 }
                 if(BOARD_MOTORS_DISABLED) {vc_stop(&state.vehicle,VC_MOTOR);
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;}
@@ -334,18 +379,26 @@ static void vehicle_task(INT code,void *context) {
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
                 }
                 BOOL fresh_arm=!state.vehicle.armed;
-                if(!odom_config_valid(&calibration) || !BOARD_TERRAIN_CALIBRATED || !line.configured) {
+                /* Calibration gate: a fresh ARM/START only. A renewal must not
+                 * latch fault 6 on a brief S3 status miss (line zeroed after
+                 * 3 busy reads); the run's own line and sensor rules apply. */
+                if(fresh_arm && (!odom_config_valid(&calibration) || !BOARD_TERRAIN_CALIBRATED || !line.configured)) {
                     vc_stop(&state.vehicle,VC_UNCALIBRATED);
                     s1_command_ack(c.wire[5],c.wire[1],1,state.vehicle.phase,state.vehicle.fault);continue;
                 }
-                if((c.wire[1]==3 ? vc_start(&state.vehicle,now.lo,c.wire[2]) :
-                    vc_arm(&state.vehicle,now.lo,(unsigned)c.wire[3]|((unsigned)c.wire[4]<<8),c.wire[2])) && fresh_arm) {
+                unsigned lease=(unsigned)c.wire[3]|((unsigned)c.wire[4]<<8);
+                bool accepted=c.wire[1]==3 ? vc_start(&state.vehicle,now.lo,c.wire[2]) :
+                    renew ? vc_renew(&state.vehicle,now.lo,lease,c.wire[2]) :
+                    vc_arm(&state.vehicle,now.lo,lease,c.wire[2]);
+                if(accepted && fresh_arm) {
                     state.vehicle.phase=VC_REACQUIRE;state.vehicle.entered_ms=now.lo;
                     state.vehicle.origin_yaw=odom_turn_mdeg(odom);
                     state.vehicle.origin_um=odom->distance_um;state.vehicle.turn_progress=0;
                     requested_sensor_mode=FALSE;
                 }
-                s1_command_ack(c.wire[5],c.wire[1],state.vehicle.armed?0U:1U,
+                /* A refused renewal (bad lease, or a power other than the
+                 * run's) leaves the run and its old lease. */
+                s1_command_ack(c.wire[5],c.wire[1],accepted && state.vehicle.armed?0U:1U,
                     state.vehicle.phase,state.vehicle.fault);
             }
         }
@@ -1034,5 +1087,5 @@ static void vehicle_task(INT code,void *context) {
     }
 }
 ER vehicle_start(void) {
-    ID tid=app_start_task((FP)vehicle_task,5,TP_PRC1,"vehicle");return tid<0?tid:E_OK;
+    ID tid=app_start_task_stack((FP)vehicle_task,5,TP_PRC1,"vehicle",VC_STACK_SIZE);return tid<0?tid:E_OK;
 }

@@ -13,6 +13,13 @@
 #ifndef S1_SHOCK_EXTRA_MS
 #define S1_SHOCK_EXTRA_MS 200U
 #endif
+#if defined(_PICO_RP2040_)
+/* Watchdog heartbeat (app_watchdog.c): one per loop. Host builds: none. */
+#include "../../include/tm/robot_health.h"
+#define S1_HEARTBEAT() HEALTH_BEAT(HEALTH_HB_TELEMETRY)
+#else
+#define S1_HEARTBEAT() ((void)0)
+#endif
 static int64_t bounded(int64_t n,int64_t lo,int64_t hi) {return n<lo?lo:n>hi?hi:n;}
 void telemetry_task(INT code,void *context) {
     (void)code;(void)context;unsigned count=0;uint32_t previous=0;unsigned old_fault=0,shown_fault=0;
@@ -25,6 +32,7 @@ void telemetry_task(INT code,void *context) {
      * so the halves reach MQTT during S5's hold before the side is chosen. */
     UW width_scan=0,width_left=0,width_right=0;unsigned old_side=0;
     for(;;) {
+        S1_HEARTBEAT();
         app_state_t s={0};s2_motion_status_t m={0};s2_encoder_status_t e={0};s3_status_t l={0};s4_sensor_status_t a={0};s5_status_t o={0};
         BOOL st=app_get_state(&s)==E_OK;SYSTIM now;
         /* An IMU fault can last one 20 ms VC tick (a clipped or overrun

@@ -16,6 +16,7 @@ IMPORT void telemetry_task(INT code,void *context);
 
 #define S1_PRI_LED	12		/* priority band 12-13 (TEAM.md) */
 #define S1_PRI_TELEMETRY 13		/* telemetry task, on core 1 (TP_PRC2) */
+#define S1_TELEMETRY_STACK 3072		/* bytes; see subsystem1_start() */
 #define S1_LED_PIN	19		/* GP19: LED + 330R resistor to GND */
 #define S1_TICK_MS	250		/* LED toggles every tick */
 

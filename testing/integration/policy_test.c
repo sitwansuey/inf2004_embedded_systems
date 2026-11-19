@@ -72,6 +72,25 @@ static void controller(void) {
     s=(vc_state_t){0};assert(vc_arm(&s,UINT32_MAX-10,100,30));i=healthy();i.now_ms=20;
     vc_step(&s,&i);assert(s.command==1);i.now_ms=100;vc_step(&s,&i);assert(s.fault==VC_TIMEOUT);
     assert(!vc_arm(&s,0,1001,30));assert(!vc_arm(&s,0,1,51));
+    /* ARM lease renewal (vc_renew): a leased ARM run gets a new lease from
+     * now and keeps its phase; a START run, a disarmed or faulted controller
+     * and a bad lease/power are refused with nothing changed. */
+    s=armed();i=healthy();vc_step(&s,&i);assert(s.phase==VC_TRACK);
+    for(uint32_t t=500;t<=3000;t+=500) {
+        assert(vc_renew(&s,t,1000,30) && s.armed_ms==t && s.lease_ms==1000 && s.phase==VC_TRACK);
+        i.now_ms=t+999;vc_step(&s,&i);assert(s.armed && s.fault==VC_OK);
+    }
+    assert(!vc_renew(&s,3100,1001,30) && !vc_renew(&s,3100,0,30) && !vc_renew(&s,3100,500,51));
+    assert(s.armed_ms==3000 && s.lease_ms==1000 && s.maximum_power==30);
+    /* A different demand is refused (no speed step mid-run); a shorter
+     * lease at the same demand is taken. */
+    assert(!vc_renew(&s,3100,500,20) && !vc_renew(&s,3100,500,50) &&
+           s.maximum_power==30 && s.armed_ms==3000 && s.lease_ms==1000);
+    assert(vc_renew(&s,3100,500,30) && s.maximum_power==30 && s.lease_ms==500);
+    i.now_ms=3600;vc_step(&s,&i);assert(!s.armed && s.fault==VC_TIMEOUT);
+    assert(!vc_renew(&s,3700,1000,30) && s.phase==VC_FAULT); /* faulted */
+    s=(vc_state_t){0};assert(!vc_renew(&s,100,1000,30) && !s.armed); /* disarmed */
+    s=started();assert(!vc_renew(&s,200,1000,30) && s.lease_ms==0 && s.armed_ms==100); /* START run */
     s=armed();i=healthy();i.navigation_event=1;i.nav=4;vc_step(&s,&i);
     /* A decoded turn waits for the junction, then the 90 mm sensor-to-wheel offset. */
     assert(s.phase==VC_TRACK && s.pending_nav==4 && s.command==1);i.navigation_event=0;

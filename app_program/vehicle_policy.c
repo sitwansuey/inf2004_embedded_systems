@@ -8,6 +8,13 @@ bool vc_arm(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power) {
     if (s->phase==VC_DISARMED) { s->phase=VC_TRACK; s->entered_ms=now; }
     return true;
 }
+bool vc_renew(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power) {
+    /* Only a leased ARM run: not disarmed, not a START run (lease 0), not
+     * FAULT; and the run's own demand, so a renewal never changes speed
+     * mid-run (soft start only ramps from a stop). */
+    if (!s || !s->armed || s->lease_ms==0 || s->phase==VC_FAULT || power!=(unsigned)s->maximum_power) return false;
+    return vc_arm(s,now,lease,power);
+}
 bool vc_start(vc_state_t *s, uint32_t now, unsigned power) {
     if (!vc_arm(s,now,1000U,power)) return false;
     s->lease_ms=0; /* Mission runs on onboard decisions until STOP/fault. */

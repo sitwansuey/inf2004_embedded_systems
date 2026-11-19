@@ -33,6 +33,43 @@
 /* Network loop timing (C5, printed by the vehicle controller): a plain
  * header (stdint and robot_config.h macros only), namespace-safe here. */
 #include "../../../../app_program/shared/task_timing.h"
+/* Heartbeat for the watchdog supervisor (plain stdint header). */
+#include <tm/robot_health.h>
+
+/* Radio power save (robot_config.h, reached through task_timing.h above).
+ * 0: CYW43_NONE_PM after the interface comes up and after every join that
+ * reaches LINK_UP. The driver default, CYW43_PERFORMANCE_PM (PM2: the radio
+ * dozes 200 ms after traffic and wakes for beacons), added hundreds of ms to
+ * MQTT command ACKs and dropped telemetry as stale. 1: the driver default. */
+#ifndef BOARD_WIFI_POWER_SAVE
+#define BOARD_WIFI_POWER_SAVE 0
+#endif
+
+static void wifi_power_save_off(void)
+{
+#if !BOARD_WIFI_POWER_SAVE
+    /* cyw43_wifi_pm() returns 0 even when the chip ignored the ioctls, so
+     * read the setting back. A failed read also returns zeros, so "off" is
+     * only reported when the mode is 0 and pm2_sleep_ret (set to 10 ms with
+     * the mode) reads back non-zero. */
+    uint32_t pm = 0;
+    int err = cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
+    if(err != 0) {
+        tm_printf((UB*)"wifi: power save off FAILED, err=%d\n", err);
+        return;
+    }
+    err = cyw43_wifi_get_pm(&cyw43_state, &pm);
+    if(err != 0)
+        tm_printf((UB*)"wifi: power save off requested, read back FAILED, err=%d\n", err);
+    else if((pm & 0xfu) != CYW43_NO_POWERSAVE_MODE)
+        tm_printf((UB*)"wifi: power save off FAILED, chip reports pm=0x%x\n", (unsigned)pm);
+    else if(((pm >> 4) & 0xffu) == 0u)
+        tm_printf((UB*)"wifi: power save off requested, not confirmed (read back pm=0x%x)\n", (unsigned)pm);
+    else
+        tm_printf((UB*)"wifi: power save off (CYW43_NONE_PM, read back pm=0x%x)\n", (unsigned)pm);
+#endif
+}
+
 #if BOARD_TIMING_STATS
 #define NET_TIMING(step) task_timing_##step(&app_task_timing[TASK_TIMING_NET],(uint32_t)time_us_64())
 #else
@@ -224,6 +261,12 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
     (void)exinf;
     radio_status.owner_prc = (uint32_t)tk_get_prc();
 
+    /* After repeated early crashes usermain holds the board so its
+     * "[RESET]" line can be read (app_watchdog.c): no radio start-up, which
+     * may be what crashed. It reads the crash record itself, so the order
+     * against usermain does not matter. */
+    while(health_boot_hold_pending()) (void)tk_dly_tsk(1000);
+
     tm_printf((UB*)"wifi: cyw43_utk_task starting (proc %d)\n",
               (int)radio_status.owner_prc);
 
@@ -248,6 +291,8 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
         bus_up = 1;
         (void)cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA,
                                  radio_status.mac);
+        /* cyw43_wifi_set_up() just applied the driver's power-save default. */
+        wifi_power_save_off();
 #if TM_NET_LWIP
         /* Join instead of scan: with lwIP wired in, the point of coming up
          * is a working network, not a diagnostic scan. cyw43_cb_tcpip_init()
@@ -278,6 +323,9 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
 #endif
     mp_memory_barrir();
     radio_status.init_complete = 1;
+    /* Boot finished for the watchdog supervisor: cyw43 init and the first
+     * join request are done (or the bus failed and the idle loop follows). */
+    health_net_ready = 1;
 
     /* A failed bus has nothing useful to poll.  More importantly, repeatedly
      * waking a failed high-rate service must not interfere with USB or the
@@ -289,7 +337,11 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
     (void)bus_up;
     if(result != 0) {
 #endif
-        for(;;) (void)tk_dly_tsk(1000);
+        /* Still alive for the watchdog: beat well inside its 1 s window. */
+        for(;;) {
+            HEALTH_BEAT(HEALTH_HB_NET);
+            (void)tk_dly_tsk(100);
+        }
     }
 
 #if TM_NET_LWIP
@@ -302,6 +354,7 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
 
     for(;;) {
         NET_TIMING(release);
+        HEALTH_BEAT(HEALTH_HB_NET);
 #if TM_NET_LWIP
         cyw43_thread_enter();
         if(cyw43_poll != NULL) cyw43_poll();
@@ -317,6 +370,8 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
                 tm_printf((UB*)"wifi: link up, ip=%d.%d.%d.%d\n",
                           (int)(ip & 0xff), (int)((ip >> 8) & 0xff),
                           (int)((ip >> 16) & 0xff), (int)((ip >> 24) & 0xff));
+                /* A (re)join may bring the firmware's PM default back. */
+                wifi_power_save_off();
             } else {
                 tm_printf((UB*)"wifi: link status -> %s (%d)\n",
                           link_status_str(radio_status.link_status),

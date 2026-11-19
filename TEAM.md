@@ -7,6 +7,7 @@ whole-team CR1 acceptance remain separate.
 | Owner | Responsibility | Task priority and core | Hardware |
 |---|---|---|---|
 | Vehicle Controller | sole motion authority; safety, leases, line/terrain/scan handoffs | 5, core 0 | no direct motor/peripheral writes |
+| Watchdog supervisor | heartbeat check, RP2040 watchdog feed, crash record | 100 ms cyclic handler/core 1 | watchdog block (SCRATCH0..3 only) |
 | Buddy 1 (2500238) | binary telemetry, copied command/telemetry buffers, dashboard | telemetry 13/core 1; LED 12/any | LED GP19 |
 | Buddy 2 (2500613) | PWM/PID output owner, watchdog, encoder IRQ and status | motor 14/core 0; GPIO IRQ 13/core 0 | motor GP8-11 (PWM 4/5); encoder GP16/17 and GP4/5 |
 | Buddy 3 (2500383) | line/barcode sampler and bounded navigation events | sampler 16/core 0; optional ADC worker 17/core 0 | user confirms GP27 left line, GP26 right line, GP28 barcode; calibrated ADC line (GP26/27) and digital GP28 barcode in use |
@@ -35,6 +36,25 @@ Timing: the kernel tick is 10 ms and every relative wait gets one extra tick,
 so the VC, motor, telemetry and network loops (which ask for 10 ms, or 2 ms
 for the network poll) really run about every 20 ms; tunables counted in VC
 ticks assume 20 ms. The S3 and S4 cyclic samplers run at exactly 10 ms.
+
+Watchdog (checkpoint 8c): the VC, motor, network, telemetry and S4 IMU loops
+each add one to their own heartbeat counter per loop
+(`include/tm/robot_health.h`; one writer each). `app_program/app_watchdog.c`
+checks them every 100 ms from a core-1 cyclic handler and feeds the RP2040
+watchdog (1500 ms) only while all advanced within 1000 ms. It arms 20 s after
+boot at the earliest, once every loop has run and the network task has
+finished its first join. A stale loop is written to watchdog SCRATCH0..3 and
+the board reboots. panic(), hard_assertion_failure(), lwip_utk_assert() and
+the HardFault handler write the same record and reboot at once. The next
+boot prints `[RESET] ...` on USB. A new monitored loop must beat at least
+every 1000 ms, including inside long waits. S5 and USB are not monitored.
+The record names the highest-priority stale loop on its core, using the
+priority table in `app_program/shared/watchdog_policy.c`; keep it in step
+if a task priority changes.
+
+Stacks: the VC task has 4096 bytes and telemetry 3072 (`app_start_task_stack`);
+other application tasks keep `TASK_STACK_SIZE` (2048). The kernel adds 128
+bytes to each, and interrupts run on the interrupted task's stack.
 
 | Interface | Contract |
 |---|---|

@@ -4,6 +4,9 @@
 #include "subsystem2/subsystem2.h"
 #include "subsystem3/subsystem3.h"
 #include "shared/task_timing.h"
+#if !APP_S2_ONLY && !APP_S4_ONLY
+#include "app_watchdog.h"
+#endif
 
 #if !APP_S2_ONLY && !APP_S4_ONLY && !APP_S5_DIAGNOSTICS && BOARD_IR_MODE != 2 && BOARD_IR_MODE != 3
 /* The vehicle controller follows the line with the two calibrated ADC
@@ -24,13 +27,19 @@ task_timing_t app_task_timing[TASK_TIMING_COUNT];
  */
 EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
 {
+	return app_start_task_stack(entry, pri, prc, name, TASK_STACK_SIZE);
+}
+
+/* The same with a stack size other than TASK_STACK_SIZE (app.h). */
+EXPORT ID app_start_task_stack(FP entry, PRI pri, UW prc, const char *name, INT stack_bytes)
+{
 	T_CTSK	ctsk = {0};
 	ID	tid;
 	ER	er;
 
 	ctsk.task    = entry;		/* function the task runs */
 	ctsk.itskpri = pri;		/* initial priority (1 = highest) */
-	ctsk.stksz   = TASK_STACK_SIZE;	/* kernel allocates the stack */
+	ctsk.stksz   = stack_bytes;	/* kernel allocates the stack */
 	ctsk.tskatr  = TA_HLNG		/* written in a high-level language (C) */
 		     | TA_RNG3;		/* runs at user protection level */
 #if TK_SUPPORT_SMP
@@ -76,6 +85,11 @@ static ER configure_line(void) {
 #endif
 EXPORT INT usermain(void) {
     tm_printf((UB *)"\nCSC02 CR1 / micro T-Kernel 3, SMP=%u, encoders=%u\n",TK_SUPPORT_SMP,S2_ENCODER_ENABLED);
+#if !APP_S2_ONLY && !APP_S4_ONLY
+    /* Why the previous run ended; before any task runs. After repeated
+     * early crashes: hold here, nothing started, the line repeated. */
+    if(app_reset_capture())app_boot_hold_loop();
+#endif
     tm_printf((UB *)"Boot DISARMED; USB s=STOP, r=reset fault, a=500 ms track lease, g=autonomous mission START. MQTT EDR=%u bytes.\n",EDR_RECORD_SIZE);
     if(BOARD_MOTORS_DISABLED)tm_printf((UB *)"MOTOR LOCK ON: drive GPIOs held low; all movement/ARM commands rejected.\n");
     tm_printf((UB *)"Clock: kernel operating time (monotonic uptime)\n");
@@ -117,5 +131,11 @@ EXPORT INT usermain(void) {
 #endif
     if(er<0)tm_printf((UB *)"[STARTUP FAIL] %d; controller not armed\n",er);
     else tm_printf((UB *)"Selected subsystems started. Calibration and physical validation required before motion.\n");
+#if !APP_S2_ONLY && !APP_S4_ONLY
+    /* Watchdog supervisor (it arms itself once boot has finished), then the
+     * repeated "[RESET]" line and the arming report. */
+    if(er>=0)CHECK(app_watchdog_start(),"watchdog supervisor");
+    app_watchdog_report_loop();
+#endif
     for(;;)tk_slp_tsk(TMO_FEVR);
 }

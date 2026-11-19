@@ -45,6 +45,8 @@
 /* Create and start a task.  prc = TP_PRC1 (core 0), TP_PRC2 (core 1), or
    0 for "any core".  Defined in app_main.c. */
 IMPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name);
+/* The same with its own stack size in bytes (the vehicle controller). */
+IMPORT ID app_start_task_stack(FP entry, PRI pri, UW prc, const char *name, INT stack_bytes);
 
 /* ---------------------------------------------------------------------
  *  Every subsystem provides these.  usermain() calls ALL the _init()

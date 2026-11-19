@@ -20,6 +20,13 @@
 #else
 #define S2_TIMING(step) ((void)0)
 #endif
+#if defined(_PICO_RP2040_)
+/* Watchdog heartbeat (app_watchdog.c): one per loop. Host builds: none. */
+#include "../../include/tm/robot_health.h"
+#define S2_HEARTBEAT() HEALTH_BEAT(HEALTH_HB_MOTOR)
+#else
+#define S2_HEARTBEAT() ((void)0)
+#endif
 _Static_assert((int)S2_MOVE_LEFT==3 && (int)S2_MOVE_RIGHT==4 && (int)S2_MOVE_PIVOT_RIGHT==5 &&
                (int)S2_MOVE_PIVOT_LEFT==6,"turn_drive.h command numbers changed");
 static INT requested_steering;
@@ -755,6 +762,7 @@ static void motor_task(INT stacd, void *p_exinf)
         {
             T_MSG *p_raw = NULL;
 
+            S2_HEARTBEAT(); /* alive, though faulted: no watchdog reboot loop */
             if (status_unpublished) (void)motion_publish(&current);
             er = tk_rcv_mbx(h_movement_mailbox, &p_raw, 10);
             if (er >= E_OK) CHECK(tk_rel_mpf(h_movement_pool, p_raw), "S2 drop command");
@@ -767,6 +775,7 @@ static void motor_task(INT stacd, void *p_exinf)
     {
         T_MSG *p_raw = NULL;
         TMO wait = 10;
+        S2_HEARTBEAT();
         UW epoch = __atomic_load_n(&stop_epoch, __ATOMIC_ACQUIRE);
         if (epoch != __atomic_load_n(&stopped_epoch, __ATOMIC_RELAXED)) {
             motor_stop();

@@ -2,6 +2,13 @@
 #include "subsystem4.h"
 #include "drv_pico_i2c.h"
 #include "sensor_cycle.h"
+#if defined(_PICO_RP2040_)
+/* Watchdog heartbeat (app_watchdog.c): one per loop. Host builds: none. */
+#include "../../include/tm/robot_health.h"
+#define S4_HEARTBEAT() HEALTH_BEAT(HEALTH_HB_IMU)
+#else
+#define S4_HEARTBEAT() ((void)0)
+#endif
 
 static void wait_for_sensor_release(void)
 {
@@ -28,6 +35,7 @@ void s4_sensor_task(INT start_code, void *p_exinf)
 
     for (;;)
     {
+        S4_HEARTBEAT();
         uint64_t now = s4_kernel_now_us(NULL);
         if (now == UINT64_MAX) {
             s4_data_invalidate(&state);

@@ -46,6 +46,36 @@
 #ifndef BOARD_TIMING_STATS
 #define BOARD_TIMING_STATS 1
 #endif
+/* Hardware watchdog (app_watchdog.c, include/tm/robot_health.h). A 100 ms
+ * cyclic handler feeds the RP2040 watchdog only while every monitored loop
+ * (VC, motor, network on core 0; telemetry, IMU on core 1) has advanced in
+ * the last WINDOW_MS. One stale loop: the crash record names it and the
+ * watchdog reboots the board TIMEOUT_MS after the last feed (motors off,
+ * boot DISARMED). Armed only once boot has finished (every loop seen, the
+ * network task past cyw43 init and its first join) AND GRACE_MS has passed.
+ * 0: no watchdog (the crash record and the boot report stay). */
+#ifndef BOARD_WATCHDOG
+#define BOARD_WATCHDOG 1
+#endif
+#ifndef BOARD_WATCHDOG_TIMEOUT_MS
+#define BOARD_WATCHDOG_TIMEOUT_MS 1500U
+#endif
+#ifndef BOARD_WATCHDOG_WINDOW_MS
+#define BOARD_WATCHDOG_WINDOW_MS 1000U
+#endif
+#ifndef BOARD_WATCHDOG_GRACE_MS
+#define BOARD_WATCHDOG_GRACE_MS 20000U
+#endif
+#if BOARD_WATCHDOG_TIMEOUT_MS < 500 || BOARD_WATCHDOG_TIMEOUT_MS > 8000 || \
+    BOARD_WATCHDOG_WINDOW_MS < 300 || BOARD_WATCHDOG_WINDOW_MS > 5000
+#error BOARD_WATCHDOG_TIMEOUT_MS must be 500..8000 and BOARD_WATCHDOG_WINDOW_MS 300..5000
+#endif
+/* CYW43 radio power save (lib/libwifi/.../cyw43_utk.c). 0: off
+ * (CYW43_NONE_PM) after init and after every join; 1: driver default
+ * CYW43_PERFORMANCE_PM, the behaviour before checkpoint 8c. */
+#ifndef BOARD_WIFI_POWER_SAVE
+#define BOARD_WIFI_POWER_SAVE 0
+#endif
 /* S3 bounded barcode resync (s3_config_t.barcode_retry). */
 #ifndef BOARD_BARCODE_RETRY
 #define BOARD_BARCODE_RETRY 1

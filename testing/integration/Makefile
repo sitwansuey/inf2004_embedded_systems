@@ -44,6 +44,8 @@ test:
 	./.build/line_trace_mode2
 	$(CC) $(CFLAGS) policy_test.c $(CORE) $(LDFLAGS) -lm -o .build/policy
 	./.build/policy
+	$(CC) $(CFLAGS) watchdog_test.c ../../app_program/shared/watchdog_policy.c $(LDFLAGS) -o .build/watchdog
+	./.build/watchdog
 	$(CC) $(CFLAGS) -include host.h obstacle_motion_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_motion
 	.build/obstacle_motion
 	$(CC) $(CFLAGS) -include host.h obstacle_open_space_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_open_space

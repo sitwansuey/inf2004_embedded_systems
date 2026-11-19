@@ -23,6 +23,9 @@
 #include <tm/tmonitor.h>
 #include <kernel.h>
 #include "../../../sysdepend.h"
+#ifdef _PICO_RP2040_
+#include <tm/robot_health.h>	/* crash record and watchdog reboot */
+#endif
 
 #if (USE_EXCEPTION_DBG_MSG && USE_TMONITOR)
 	#define EXCEPTION_DBG_MSG(a)	tm_putstring((UB*)a)
@@ -81,6 +84,24 @@ __asm__(
 
 EXPORT void knl_hard_fault_report(void)
 {
+#ifdef _PICO_RP2040_
+	/*
+	 * A 500 ms watchdog first, then the crash record (stacked PC and LR).
+	 * The report below only reaches a UART mirror; if printing hangs (the
+	 * fault hit inside the console lock) or faults again, the board still
+	 * reboots. health_crash_pending stops the other core's supervisor from
+	 * feeding that watchdog or overwriting the record. The next boot prints
+	 * "[RESET] ... hard fault, pc ..., lr ...". A halted core used to leave
+	 * the other one running with this core's tasks dead.
+	 */
+	{
+		volatile UW *rf = knl_fault_frame;
+		health_crash_pending = 1;
+		health_watchdog_start(500);
+		health_record_write(HEALTH_REASON_HARD_FAULT,
+				    (rf != NULL)? rf[6]: 0, (rf != NULL)? rf[5]: 0);
+	}
+#endif
 #if (USE_EXCEPTION_DBG_MSG  && USE_TMONITOR)
 
 	ID		ctskid;
@@ -125,6 +146,9 @@ EXPORT void knl_hard_fault_report(void)
 		tm_printf((UB*)"    r0=%08x r1=%08x r2=%08x r3=%08x r12=%08x\n",
 			  f[0], f[1], f[2], f[3], f[4]);
 	}
+#endif
+#ifdef _PICO_RP2040_
+	health_reboot_now();	/* record written above */
 #endif
 	while(1);
 }

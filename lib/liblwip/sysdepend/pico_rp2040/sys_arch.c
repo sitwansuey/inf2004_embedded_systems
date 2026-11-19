@@ -21,6 +21,7 @@
 #include <stddef.h>
 #include <tk/tkernel.h>
 #include <tm/tmonitor.h>
+#include <tm/robot_health.h>
 #include "lwip/sys.h"
 
 /*
@@ -68,6 +69,15 @@ unsigned int lwip_utk_rand(void)
  */
 void lwip_utk_assert(const char *msg)
 {
+	/* The crash record first: it keeps the caller and the message pointer
+	   for the next boot's "[RESET]" line, and stops the supervisor feeding
+	   the watchdog. A 500 ms watchdog covers a hang in the console line,
+	   which only reaches a UART mirror (the USB ring is not drained again).
+	   Rebooting replaces the old endless spin, which froze every
+	   lower-priority core-0 task. */
+	health_record_write(HEALTH_REASON_LWIP_ASSERT,
+			    (UW)__builtin_return_address(0), (UW)msg);
+	health_watchdog_start(500);
 	tm_printf((UB*)"lwIP assert: %s\n", (UB*)msg);
-	for( ; ; ) { }
+	health_reboot_now();
 }

@@ -30,6 +30,7 @@
 
 #include <kernel.h>
 #include <tm/tmonitor.h>
+#include <tm/robot_health.h>
 
 #include "sysdepend.h"
 
@@ -48,6 +49,7 @@ LOCAL const UW module_tbl[] = {
 	RESETS_RESET_IO_BANK0,		/* IO_BANK0 */
 	RESETS_RESET_PADS_BANK0,	/* PADS_BANK0 */
 	RESETS_RESET_UART0,		/* UART0 */
+	RESETS_RESET_TIMER,		/* 1 MHz timer: uptime for the crash record */
 
 #if TM_WIFI_CYW43
 	/* The Pico W radio transport runs a PIO state machine with two DMA
@@ -184,8 +186,18 @@ EXPORT void knl_startup_hw(void)
 	const T_SETUP_REG	*p;
 	UW	rst;
 
+	/* No watchdog until the application's supervisor starts one; its
+	   crash record in SCRATCH0..3 is kept for the boot report. */
+	health_watchdog_stop();
+
 	/* Startup System Clock */
 	startup_clock(CLKATR_USB | CLKATR_ADC | CLKATR_RTC | CLKATR_PREI);
+
+	/* 1 MHz watchdog tick (clk_ref 12 MHz / 12) for the hardware timer,
+	   released from reset below: the crash record's uptime and a fault
+	   handler's 500 ms watchdog are then right from boot, not only after
+	   S4/S5 init (they write the same tick and only clear the reset bit). */
+	health_tick_start();
 
 	for(INT i = 0; (rst = module_tbl[i]); i++) {
 		set_w(RESETS_RESET, rst);

@@ -14,6 +14,7 @@
 /* Loop timing report every 1 s here (10 s on the robot), so a mode sees it. */
 #define VC_TIMING_REPORT_MS 1000U
 ID app_start_task(FP task, PRI priority, UW core, const char *name);
+ID app_start_task_stack(FP task, PRI priority, UW core, const char *name, INT stack_bytes);
 #include "../../app_program/vehicle.c"
 #include "../../app_program/subsystem5/s5_scan.h" /* mode 15 runs S5's real acquisition step */
 #if !BOARD_LINE_MASK_PIVOT && !BOARD_LINE_EDGE_RIGHT
@@ -25,11 +26,17 @@ ID app_start_task(FP task, PRI priority, UW core, const char *name);
 /* Mode 0 also offers MAP frames: valid, invalid letter, stale. */
 static unsigned acks,ack_log[4][3],map_calls,map_letter,map_nav,map_step;
 static unsigned last_ack_seq,last_ack_opcode,last_ack_result; /* any opcode */
+/* STOP/ARM/RESET/START ACKs (modes 46-49 send the tick number as the
+ * sequence). */
+static unsigned arm_acks,arm_ack_seq[16],arm_ack_op[16],arm_ack_result[16];
 void s1_command_ack(unsigned seq,unsigned opcode,unsigned result,unsigned phase,unsigned fault)
 {
     (void)phase;(void)fault;
     last_ack_seq=seq;last_ack_opcode=opcode;last_ack_result=result;
     if(opcode==4U && acks<4U) {ack_log[acks][0]=seq;ack_log[acks][1]=opcode;ack_log[acks++][2]=result;}
+    if(opcode!=4U && arm_acks<16U) {
+        arm_ack_seq[arm_acks]=seq;arm_ack_op[arm_acks]=opcode;arm_ack_result[arm_acks++]=result;
+    }
 }
 /* USB console lines the checks look at: the loop timing report and the
  * re-sent TRACK for a marker S3 held with no turn pending. */
@@ -91,8 +98,26 @@ static uint8_t shock_flags, shock_faults; /* S4 result published at SHOCK_AT */
 static bool reset_offered;
 /* Modes 7, 13..20 and 22..27 START the mission (no lease) so they can run
  * past one second; the others ARM at 30% with a 1000 ms lease. */
-static bool starts(void) { return failure_mode==7U || (failure_mode>=13U && failure_mode<=20U) || failure_mode>=22U; }
-#define MODE_COUNT 46U
+static bool renew_mode(void) { return failure_mode==46U || failure_mode==48U || failure_mode==49U; }
+static bool starts(void) { return failure_mode==7U || (failure_mode>=13U && failure_mode<=20U) || (failure_mode>=22U && !renew_mode()); }
+#define MODE_COUNT 50U
+/* Mode 46: ARM with a 500 ms lease at tick 7 (tools/robot_console.py --arm),
+ * the same ARM again every RENEW_EVERY ticks (100 ms) up to RENEW_UNTIL, and
+ * one START at RENEW_START_AT. Mode 47: START at tick 7, ARM at tick 10.
+ * Mode 48: ARM at 7 and 12, then a renewal at another demand (17), one
+ * stamped 100 ms old (22), and one at 27 while S3's status reads have
+ * failed for 4 ticks (line not configured). Mode 49: renewals every 100 ms
+ * with a STOP at 25, RESET at 30, STOP again at 40, then quiet. */
+#define RENEW_EVERY 5U
+#define RENEW_UNTIL 37U
+#define RENEW_START_AT 20U
+#define RENEW_LEASE_TICKS 25U /* 500 ms */
+#define RENEW_S3_MISS_FROM 24U /* mode 48: S3 status fails 24..27 */
+#define HOLD_STOP1 25U
+#define HOLD_RESET 30U
+#define HOLD_STOP2 40U
+#define HOLD_REARM 98U /* 51 ticks (1020 ms) after the last refused ARM at 47 */
+static unsigned renew_offered_at;
 #define TICK_MS 20U /* tk_dly_tsk below */
 /* Per-tick record of what reached S2 and what the task published. */
 #define LOG_TICKS 500U
@@ -101,6 +126,11 @@ static uint8_t sent_kind[LOG_TICKS], sent_cmd[LOG_TICKS], sent_power[LOG_TICKS],
 static int32_t sent_steer[LOG_TICKS];
 static uint8_t pub_seen[LOG_TICKS], pub_follow[LOG_TICKS], pub_mask[LOG_TICKS];
 static uint8_t pub_phase[LOG_TICKS], pub_armed[LOG_TICKS];
+/* Renewal modes: what a renewal must not reset (entered_ms, origin), and
+ * the run's demand and lease start. */
+static uint32_t pub_entered[LOG_TICKS], pub_armed_ms[LOG_TICKS];
+static int32_t pub_origin_um[LOG_TICKS], pub_origin_yaw[LOG_TICKS];
+static uint8_t pub_max_power[LOG_TICKS], pub_fault[LOG_TICKS];
 static int16_t pub_steer[LOG_TICKS];
 static void log_send(unsigned kind,unsigned command,UINT power,INT steering)
 {
@@ -308,7 +338,7 @@ static bool real_s3(void) { return failure_mode==22U || failure_mode==23U; }
 #define LL_FOUND_AFTER 3U
 #define MR_FROM 20U
 #define MR_UNTIL (MR_FROM+70U)
-static bool obstacle_mode(void) {return failure_mode>=41U;}
+static bool obstacle_mode(void) {return failure_mode>=41U && failure_mode<=45U;}
 static bool kinematic(void) { return (failure_mode>=25U && failure_mode<=28U) || obstacle_mode(); }
 static s5_state_t nav_mode;static int nav_angle,old_sample_angle;
 static unsigned pan_at,probe_at,probe_angle,side_looks;
@@ -436,6 +466,10 @@ static unsigned iterations(void)
     case 38U: return 160U;
     case 39U: case 40U: return 150U;
     case 41U: case 42U: case 43U: case 44U: case 45U: return 450U;
+    case 46U: return RENEW_UNTIL+RENEW_LEASE_TICKS+10U;
+    case 47U: return 20U;
+    case 48U: return 27U+RENEW_LEASE_TICKS+10U;
+    case 49U: return HOLD_REARM+RENEW_LEASE_TICKS+5U;
     default: return 12U;
     }
 }
@@ -514,6 +548,8 @@ ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
 }
 ER s3_status_get(s3_status_t *s) {
     *s=(s3_status_t){0};
+    /* Lock busy: zeroed output, as subsystem3.c does. */
+    if(failure_mode==48U && iteration>=RENEW_S3_MISS_FROM && iteration<=27U)return E_TMOUT;
     if(failure_mode>=7U) {s->configured=1;s->sample_time_ms=clock_ms;s->output.steering_allowed=1;}
     if((failure_mode==10U || failure_mode==24U || failure_mode==27U) && iteration>=BR_MISS_AT)s->output.barcode_fail_count=1;
     if(failure_mode==24U && iteration>=BR_MISS_AT)s->output.error=S3_ERROR_STALE;
@@ -687,6 +723,29 @@ ER s1_command_take(control_message_t *c)
         for(unsigned i=0;i<6U;++i)c->wire[i]=frame[i];
         future_offered=true;return E_OK;
     }
+    if(renew_mode() || failure_mode==47U) {
+        unsigned opcode=0,power=30U;uint32_t stamp=clock_ms;
+        bool renew_tick=iteration>=7U && (iteration-7U)%RENEW_EVERY==0U;
+        if(iteration==renew_offered_at) {} /* one command per tick */
+        else if(failure_mode==46U) {
+            if(renew_tick && iteration<=RENEW_UNTIL)opcode=1;
+            else if(iteration==RENEW_START_AT)opcode=3;
+        } else if(failure_mode==48U) {
+            if(renew_tick && iteration<=27U)opcode=1;
+            if(iteration==17U)power=40U;
+            if(iteration==22U)stamp=clock_ms-100U;
+        } else if(failure_mode==49U) {
+            if(iteration==HOLD_STOP1 || iteration==HOLD_STOP2)opcode=0x100U; /* STOP */
+            else if(iteration==HOLD_RESET)opcode=2;
+            else if((renew_tick && iteration<=47U) || iteration==HOLD_REARM)opcode=1;
+        } else opcode=iteration==7U?3U:iteration==10U?1U:0U;
+        if(!opcode)return E_TMOUT;
+        renew_offered_at=iteration;
+        /* ARM: 30%, 500 ms lease, as USB 'a' (usb_control.c). START: 30%. */
+        *c=(control_message_t){.time_ms=stamp};
+        c->wire[1]=(uint8_t)opcode;c->wire[2]=(uint8_t)power;c->wire[3]=0xF4;c->wire[4]=1;c->wire[5]=(uint8_t)iteration;
+        return E_OK;
+    }
     if(failure_mode>=7U && iteration==7U && !reset_offered) {
         /* START (mission, no lease) or ARM, both at 30%; ARM's lease is 1000 ms. */
         *c=(control_message_t){.time_ms=clock_ms};
@@ -771,6 +830,9 @@ ER app_state_publish(const app_state_t *s)
     if(iteration<LOG_TICKS) {
         pub_seen[iteration]=1;pub_follow[iteration]=s->line_follow;pub_mask[iteration]=s->line_mask;
         pub_steer[iteration]=s->line_steer;pub_phase[iteration]=s->vehicle.phase;pub_armed[iteration]=s->vehicle.armed;
+        pub_entered[iteration]=s->vehicle.entered_ms;pub_armed_ms[iteration]=s->vehicle.armed_ms;
+        pub_origin_um[iteration]=s->vehicle.origin_um;pub_origin_yaw[iteration]=s->vehicle.origin_yaw;
+        pub_max_power[iteration]=(uint8_t)s->vehicle.maximum_power;pub_fault[iteration]=s->vehicle.fault;
     }
     s4_result_t r;
     if(shock_mode() && s4_result_decode(s->s4_result,sizeof(s->s4_result),&r)) {
@@ -781,6 +843,8 @@ ER app_state_publish(const app_state_t *s)
 }
 ID app_start_task(FP task,PRI priority,UW core,const char *name)
 { (void)task;(void)priority;(void)core;(void)name;return 1; }
+ID app_start_task_stack(FP task,PRI priority,UW core,const char *name,INT stack_bytes)
+{ assert(stack_bytes==VC_STACK_SIZE);return app_start_task(task,priority,core,name); }
 static unsigned codes_seen; /* line_follow values published across the modes */
 static unsigned shock_failures; /* modes 12 and 21, reported at the end */
 /* (iii) Every tick publishes the follower request that actually reached S2:
@@ -1039,6 +1103,7 @@ int main(void)
         lost_tick=0;kin_counts[0]=kin_counts[1]=1000U;memset(kin_mm,0,sizeof(kin_mm));
         control_busy=0;future_offered=orphan_cleared=false;timing_lines=orphan_lines=0;
         last_ack_seq=last_ack_opcode=last_ack_result=0;
+        arm_acks=0;renew_offered_at=~0U;
 #if VC_TIMING
         memset(app_task_timing,0,sizeof(app_task_timing));
 #endif
@@ -1056,6 +1121,67 @@ int main(void)
         if(failure_mode==0)assert(acks==3U && map_calls==2U && map_letter==27U && map_nav==1U &&
             ack_log[0][0]==7U && ack_log[0][2]==0U && ack_log[1][0]==8U && ack_log[1][2]==1U &&
             ack_log[2][0]==9U && ack_log[2][2]==3U && !saved.vehicle.armed);
+        if(failure_mode==46U) {
+            /* Every ARM is ACK 0 (the first arms, the rest renew the lease);
+             * the START during the leased run is refused (ACK 1). */
+            assert(arm_acks==(RENEW_UNTIL-7U)/RENEW_EVERY+2U);
+            for(unsigned k=0;k<arm_acks;++k)
+                assert(arm_ack_op[k]==1U?arm_ack_result[k]==0U:
+                       arm_ack_seq[k]==RENEW_START_AT && arm_ack_result[k]==1U);
+            /* Armed and tracking long past the first lease (tick 7+25),
+             * until one lease after the last renewal: then fault 5. */
+            for(unsigned n=8U;n<RENEW_UNTIL+RENEW_LEASE_TICKS;++n)
+                assert(pub_armed[n] && pub_phase[n]==VC_TRACK);
+            for(unsigned n=RENEW_UNTIL+RENEW_LEASE_TICKS;n<iterations();++n)
+                assert(!pub_armed[n] && pub_phase[n]==VC_FAULT);
+            assert(saved.vehicle.fault==VC_TIMEOUT);
+            /* A renewal only moves the lease start: the phase timer, the
+             * origin and the demand stay those of the first ARM. */
+            for(unsigned n=9U;n<RENEW_UNTIL+RENEW_LEASE_TICKS;++n) {
+                assert(pub_entered[n]==pub_entered[8] && pub_origin_um[n]==pub_origin_um[8] &&
+                       pub_origin_yaw[n]==pub_origin_yaw[8] && pub_max_power[n]==30U);
+                bool renewed=n<=RENEW_UNTIL && (n-7U)%RENEW_EVERY==0U;
+                assert(renewed?pub_armed_ms[n]>pub_armed_ms[n-1U]:pub_armed_ms[n]==pub_armed_ms[n-1U]);
+            }
+        }
+        if(failure_mode==48U) {
+            /* Renewals at 7 and 12 taken; another demand refused (ACK 1),
+             * a 100 ms old one refused (ACK 3); the one at 27 is taken
+             * though S3's status was missing (no fault 6). */
+            static const unsigned seq[5]={7U,12U,17U,22U,27U},res[5]={0U,0U,1U,3U,0U};
+            assert(arm_acks==5U);
+            for(unsigned k=0;k<5U;++k)assert(arm_ack_op[k]==1U && arm_ack_seq[k]==seq[k] && arm_ack_result[k]==res[k]);
+            for(unsigned n=8U;n<27U+RENEW_LEASE_TICKS;++n)
+                assert(pub_armed[n] && pub_max_power[n]==30U && pub_fault[n]==VC_OK);
+            assert(pub_armed_ms[17]==pub_armed_ms[16] && pub_armed_ms[22]==pub_armed_ms[21]);
+            for(unsigned n=27U+RENEW_LEASE_TICKS;n<iterations();++n)
+                assert(!pub_armed[n] && pub_phase[n]==VC_FAULT);
+            assert(saved.vehicle.fault==VC_TIMEOUT);
+        }
+        if(failure_mode==49U) {
+            /* STOP ends the renewed run and holds ARM off (ACK 1) while the
+             * client keeps sending it; RESET lets ARM in again; after the
+             * second STOP the hold ends only after 1 s with no ARM. */
+            static const unsigned seq[13]={7U,12U,17U,22U,HOLD_STOP1,27U,HOLD_RESET,32U,37U,HOLD_STOP2,42U,47U,HOLD_REARM};
+            static const unsigned op[13]={1U,1U,1U,1U,0U,1U,2U,1U,1U,0U,1U,1U,1U};
+            static const unsigned res[13]={0U,0U,0U,0U,0U,1U,0U,0U,0U,0U,1U,1U,0U};
+            assert(arm_acks==13U);
+            for(unsigned k=0;k<13U;++k)
+                assert(arm_ack_seq[k]==seq[k] && arm_ack_op[k]==op[k] && arm_ack_result[k]==res[k]);
+            for(unsigned n=8U;n<iterations();++n) {
+                bool armed=(n<HOLD_STOP1) || (n>=32U && n<HOLD_STOP2) ||
+                    (n>=HOLD_REARM && n<HOLD_REARM+RENEW_LEASE_TICKS);
+                assert(pub_armed[n]==(armed?1U:0U));
+                if(!armed && n<HOLD_REARM)assert(pub_phase[n]==VC_DISARMED && pub_fault[n]==VC_OK);
+            }
+            assert(saved.vehicle.fault==VC_TIMEOUT);
+        }
+        if(failure_mode==47U) {
+            /* ARM during a START run is refused; the run keeps no lease. */
+            assert(arm_acks==2U && arm_ack_op[0]==3U && arm_ack_result[0]==0U &&
+                   arm_ack_op[1]==1U && arm_ack_seq[1]==10U && arm_ack_result[1]==1U);
+            assert(saved.vehicle.armed && saved.vehicle.lease_ms==0U && saved.vehicle.fault==VC_OK);
+        }
         if(failure_mode==1 || failure_mode==2)
             assert(!(result.flags&S4_RESULT_TILT) && !saved.odometry_valid &&
                    (result.faults&EDR_FAULT_ENCODER));
@@ -1337,6 +1463,9 @@ int main(void)
     puts("Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read; no forward request or STOP follows a reverse in its tick PASS");
     puts("Barcode first pass: S3 READING caps the forward power to the re-read speed PASS");
     puts("MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS");
+    puts("ARM lease renewal: ARM re-sent every 100 ms keeps a 500 ms leased run going (ACK 0) with its phase timer, origin and demand, it times out 500 ms after the last one; START while armed and ARM during a START run refused (ACK 1) PASS");
+    puts("ARM renewal limits: another demand refused (ACK 1), a 100 ms old one refused (ACK 3) and the old lease still ends the run; an S3 status miss does not turn a renewal into fault 6 PASS");
+    puts("STOP during renewals: the run stays stopped while ARM keeps coming (ACK 1); RESET, or 1 s with no ARM, lets ARM in again PASS");
     puts("Silent S3 latch (STALE/SENSOR) while tracking: TRACK re-sent at once, at most every 100 ms, keeping a pending turn's hold; the robot drives on and the next marker decodes; a latch still returning after 1 s is VC_LINE cause event; no re-send while a re-read brakes PASS");
     printf("Marker cut short by the latch: %s PASS\n",LATCH_READ_FAILS?
            "a failed read (EV_BARCODE attempt 1, 5 elements), re-read, TRACK re-sent as it reverses":

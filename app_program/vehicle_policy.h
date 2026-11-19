@@ -152,6 +152,11 @@ enum { VC_CAUSE_OTHER,VC_CAUSE_SONAR,VC_CAUSE_TILT,VC_CAUSE_ODOM };
 enum { VC_LINE_CAUSE_OTHER,VC_LINE_CAUSE_DATA,VC_LINE_CAUSE_EVENT,VC_LINE_CAUSE_NOT_FOUND };
 void vc_track_requested(vc_state_t *s, uint32_t now);
 bool vc_arm(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power);
+/* ARM again during a leased ARM run: a new lease from now under vc_arm's
+ * rules; the phase is kept. false (nothing changes) when disarmed, in a
+ * START run (lease 0), in FAULT, for a bad lease, or for a power other than
+ * the run's maximum_power. */
+bool vc_renew(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power);
 bool vc_start(vc_state_t *s, uint32_t now, unsigned power);
 void vc_stop(vc_state_t *s,unsigned reason);
 void vc_step(vc_state_t *s,const vc_input_t *i);

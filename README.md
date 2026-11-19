@@ -91,3 +91,16 @@ BACKUP waits at most 1.5 s for an APPROACH/0 sample before its full 1 s reverse.
 A shallower heading after reversing gets a stopped ray check; a blocked or
 timed-out check keeps S5's verified heading. Calibrate `BOARD_SERVO_US_PER_90`
 (default 750 us) as well as the centre. See the mission and avoidance guides.
+
+Checkpoint 8c also adds a hardware watchdog after two core-0 freezes on the
+robot. Once boot has finished, the board reboots (PWM off, DISARMED) if the
+VC, motor, network, telemetry or IMU loop stops for over 1 s, or at once
+after a panic, SDK/lwIP assert or HardFault. The next boot prints a
+`[RESET] ...` line on USB naming the cause. The VC stack is 4096 bytes and
+telemetry 3072 (2048 was too small for both). Wi-Fi power save is off.
+A repeated ARM at the same demand now renews a leased ARM run, so
+`tools/robot_console.py --arm` works as documented. A STOP still ends such
+a run for good: ARM is refused until RESET or 1 s with no ARM. Three early
+crashes in a row make the next boot hold with nothing started and print
+the cause every 2 s. The freeze trigger itself is not yet found; see
+docs/MISSION_SETUP.md and docs/BUG_SWEEP_2026-11-19.md section 4.

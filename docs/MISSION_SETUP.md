@@ -39,7 +39,9 @@ requires:
 PID independently regulates both wheel speeds against equal targets for
 straight travel, reducing wheel mismatch. Requested power selects a fraction
 of the measured speed scale; feedback PWM is capped by `BOARD_PID_MAX_POWER`
-(default 50%). This is requested demand, not a measured PWM duty. Updates run
+(this robot's profile: 35% for straight travel; the build accepts 1-50%) and
+spins by `BOARD_PID_TURN_MAX_POWER` (55%). This is requested demand, not a
+measured PWM duty. Updates run
 in the motor owner every poll (it asks for 10 ms, but the kernel adds a 10 ms
 tick to every relative wait, so about 20 ms, like the vehicle controller loop);
 a >100 ms update gap, invalid encoder snapshot or
@@ -53,8 +55,17 @@ error, straight drift, distance error and 90/180-degree turn error.
 
 ## Commands
 
-USB `r` resets faults while stopped; `s` always stops. USB `a` retains the
-supervised 500 ms ARM lease. USB `g` sends one autonomous START at demand 30:
+USB `r` resets faults while stopped; `s` always stops. USB `a` sends a
+supervised ARM at demand 30 with a 500 ms lease. Another ARM at the same
+demand while that leased run is armed renews the lease (ACK 0), so
+`tools/robot_console.py --arm`, which sends `a` every 100 ms, keeps driving.
+On exit the script sends `s` (STOP, no fault). If `a` stops with no STOP
+(script killed, cable pulled), the run ends with fault 5 about 500 ms after
+the last `a`. A renewal at another demand is refused (ACK 1) and the run
+keeps its speed. A STOP from any source ends a leased ARM run for good:
+further ARMs are refused (ACK 1) until RESET (`r`, opcode 2) or until no ARM
+has arrived for 1 s, so a client still renewing cannot restart the robot.
+ARM during a START run and START while armed are refused (ACK 1). USB `g` sends one autonomous START at demand 30:
 once started, onboard sensing/control runs without remote lease renewal.
 It still stops on local faults, STOP, lost safety data or motor watchdog expiry.
 It does not restart automatically after a fault.
@@ -65,7 +76,7 @@ Frames are six raw bytes: `[0xC1, opcode, demand, lease_lo, lease_hi, sequence]`
 | Opcode | Behaviour |
 |---|---|
 | 0 | urgent STOP, survives a full command queue |
-| 1 | supervised ARM, demand 1-50, lease 1-1000 ms |
+| 1 | supervised ARM, demand 1-50, lease 1-1000 ms; while an ARM run is armed it renews the lease (same demand only); after a STOP ended an ARM run, refused until RESET or 1 s with no ARM |
 | 2 | RESET while stopped, demand/lease zero |
 | 3 | autonomous START, demand 1-50, lease zero |
 | 4 | MAP barcode letter: byte 2 letter 1-26 (A-Z), byte 3 action 0-4, byte 4 zero |
@@ -186,6 +197,36 @@ bounds that wait. DIAGONAL and ALIGN still have 10 s total limits.
 Use the USB `[TIMING]` report every 10 s to record longest run, release
 gap and late/run counts for VC, motor and network. `BOARD_TIMING_STATS 0`
 disables it. Timing and the additional stopped pans need track checks.
+
+Hardware watchdog (`BOARD_WATCHDOG 1`): a 100 ms check on core 1 feeds the
+RP2040 watchdog only while the VC, motor and network loops (core 0) and the
+telemetry and IMU loops (core 1) have each run within the last 1000 ms. It
+arms at least 20 s after boot, once every loop has run and the network task
+has finished cyw43 init and its first join; USB prints `[WDT] armed`. If a
+loop stops, the board reboots about 1.1 s after its last beat: PWM off,
+DISARMED. A panic, SDK hard assert, lwIP assert or HardFault reboots at
+once. After any of these the USB console prints one `[RESET] ...` line
+(repeated every 10 s for 60 s), for example `[RESET] watchdog: network
+heartbeat stale (no progress for 1100 ms; stale: VC, motor, network),
+uptime 332305 ms` or `[RESET] previous run ended: panic, caller 0x1000ABCD`.
+A hung loop starves the lower-priority loops on its core, so the line names
+the highest-priority stale loop on that core and lists every stale one. A
+hang in the USB service or an interrupt storm also reads as `network`.
+`[RESET] watchdog: the supervisor stopped feeding ...` means the check
+itself stopped (core-0 tick or interrupts stuck, or core 1 stopped).
+`watchdog reboot, no crash record` is normal after a UF2 flash.
+Send the whole line with the bug report. A loop that never starts keeps the
+watchdog off and USB says which loop. `BOARD_WATCHDOG 0` turns it off.
+Three crashes in a row, each within 20 s of boot, would otherwise loop
+too fast to read: the next boot then holds with nothing started (no
+motors, sensors or Wi-Fi) and repeats the `[RESET]` line every 2 s.
+Power-cycle to try again.
+
+Wi-Fi power save is off (`BOARD_WIFI_POWER_SAVE 0`): the radio stays awake
+after init and after every join. USB prints `wifi: power save off
+(CYW43_NONE_PM, read back pm=0x...)` once the chip confirms it, or a
+`FAILED` / `not confirmed` line. The driver default dozed between beacons
+and delayed MQTT commands. 1 restores it.
 Impact-triggered snapshots are limited to one per 200 ms. Newest queued
 telemetry wins; dropped snapshots pass their flags on and are counted.
 The dashboard holds impact/IMU flags for 2 s and logs their rising edges.
