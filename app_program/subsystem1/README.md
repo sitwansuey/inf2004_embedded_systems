@@ -60,7 +60,7 @@ MAP (opcode 4) changes which turn a decoded barcode letter requests, in RAM.
 Local sensor faults, watchdogs and STOP still apply. `app_program/robot_config.h`
 holds the robot's mission profile (motors enabled, measured calibration); the
 firmware still boots DISARMED and drives only after RESET then START (or a
-timed ARM). See `docs/MISSION_SETUP.md` before physical operation.
+timed ARM).
 
 The dashboard subscribes to the EDR16 telemetry topic, the robot event topic
 and the command ACK topic; it unmarshals each telemetry record and routes it to

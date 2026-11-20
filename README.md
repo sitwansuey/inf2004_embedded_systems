@@ -13,9 +13,9 @@ validation. GY-511 has an accelerometer and magnetometer, no gyroscope. The
 line follower is the mask-pivot follower; edge tracing is a build option
 (`BOARD_LINE_MASK_PIVOT 0`, `BOARD_LINE_EDGE_TRACE 1`). With the mask-pivot
 follower, `BOARD_LINE_LOST_MM` (600 mm, 0 = off) of tracking with neither
-straddle IR on black starts the bounded on-the-spot line search. See
-[mission setup](docs/MISSION_SETUP.md) for calibration, the A-Z barcode
-codebook (A U-turn, F left, Z right) and one-shot autonomous START.
+straddle IR on black starts the bounded on-the-spot line search. The
+barcode codebook defaults to A U-turn, F left and Z right (the dashboard can
+remap letters); START runs one autonomous mission.
 
 ## Build
 
@@ -92,10 +92,9 @@ BACKUP waits at most 1.5 s for an APPROACH/0 sample before its full 1 s reverse.
 Track changes (2026-11-20): after a clear side look the robot drives straight
 for 0.5 s, then returns to the line at 45 deg or more (`AVOID_CLEAR_RUN_MS`,
 `AVOID_RETURN_MIN_DEG`). The crest cap is 15% (`BOARD_RAMP_DOWN_POWER`).
-See docs/MISSION_SETUP.md.
 A shallower heading after reversing gets a stopped ray check; a blocked or
 timed-out check keeps S5's verified heading. Calibrate `BOARD_SERVO_US_PER_90`
-(default 750 us) as well as the centre. See the mission and avoidance guides.
+(default 750 us) as well as the centre.
 
 Checkpoint 8c also adds a hardware watchdog after two core-0 freezes on the
 robot. Once boot has finished, the board reboots (PWM off, DISARMED) if the
@@ -107,5 +106,4 @@ A repeated ARM at the same demand now renews a leased ARM run, so
 `tools/robot_console.py --arm` works as documented. A STOP still ends such
 a run for good: ARM is refused until RESET or 1 s with no ARM. Three early
 crashes in a row make the next boot hold with nothing started and print
-the cause every 2 s. The freeze trigger itself is not yet found; see
-docs/MISSION_SETUP.md and docs/BUG_SWEEP_2026-11-19.md section 4.
+the cause every 2 s. The freeze trigger itself is not yet found.

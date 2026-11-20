@@ -82,8 +82,7 @@ resource-sharing redesign or CR2/CR3 feature was introduced.
 
 The 55-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16
 records, including ID 0 mission status; the retired envelope/aggregate is not
-accepted by the dashboard. See docs/DATA_REPRESENTATION.md and
-docs/MISSION_SETUP.md.
+accepted by the dashboard. See docs/DATA_REPRESENTATION.md.
 
 GP22 is retained for the explicitly selected S5 acquisition diagnostic buzzer;
 it is not used by the default or passive-test profiles.

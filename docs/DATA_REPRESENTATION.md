@@ -224,7 +224,7 @@ status copy). This is the commanded angle, not measured position feedback.
 Motor ID 12 is emitted only with motor availability and preserves timeout (32)
 versus other motor errors (64), using the same mapping as B2's direct adapter,
 plus the IMU bit (4) described above.
-Dashboard and audio ignore retained records and clear observations on disconnect
+The dashboard ignores retained records and clears observations on disconnect
 and reconnect. The private snapshot now uses 433 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side, a 2-bit sensor-fault cause, a 4-bit controller fault 0..8 and a 1-bit IMU fault; phase maximum 13) in 55 bytes, the last 7 bits zero padding; its
 schema includes a two-bit motor error class. Rebuild firmware components together.
 

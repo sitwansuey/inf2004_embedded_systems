@@ -54,4 +54,4 @@ accelerometer bias/scale calibration are separate and remain unchanged.
 
 Console records: `[POSE]`, `[S5SCAN]`, `[S5MOTION]`, `[S2PI]`, `[DEMO SENSOR]`.
 The dashboard also names the new Backing up phase. MQTT sensor records remain
-the existing two-byte EDR16 format. Audio Pi remains disabled.
+the existing two-byte EDR16 format.

@@ -21,8 +21,6 @@ ROOT = HERE.parents[1]
 DASHBOARD = ROOT / "app_program/external_systems/Dashboard"
 INPUTS = (
     "app_program/app_state.h",
-    "tools/robot_audio.py",
-    "testing/audio/test_robot_audio.py",
     "tools/telemetry_schema.json",
     "testing/integration/telemetry_queue_test.c",
     "app_program/shared/encoder_snapshot.h",
@@ -155,8 +153,7 @@ def run_codec_tests(compiler: str) -> None:
 
 def run_python_tests():
     for directory, pattern in ((HERE,"test_*.py"),
-            (DASHBOARD, "test_*.py"),
-            (ROOT / "testing/audio", "test_robot_audio.py")):
+            (DASHBOARD, "test_*.py")):
         subprocess.run([sys.executable,"-B","-m","unittest","discover",
                         "-s",str(directory),"-p",pattern,"-v"],cwd=ROOT,check=True)
 

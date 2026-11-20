@@ -7,8 +7,8 @@ local and are ignored. Source tests are not evidence of hardware accuracy.
 Run the commands in the root README. Relevant entry points:
 
 - `data_representation/run.py` (or `check_data.cmd` / `check_data.sh` from the
-  root): EDR C/Python codecs, the S5 codec, every Dashboard `test_*.py`, the
-  audio tool and the B2 host profiles.
+  root): EDR C/Python codecs, the S5 codec, every Dashboard `test_*.py` and
+  the B2 host profiles.
 - `subsystem3/Makefile`: IR algorithms, adapter, ADC and ARM/header checks.
 - `../app_program/subsystem2/tests/host/run.py`: B2 adapters and watchdog in
   nine host profiles (also stage 3 of the EDR gate).

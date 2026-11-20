@@ -10,7 +10,7 @@ The three stages are:
 1. Python shared codec and dashboard receiver: exhaustive words, ranges,
    exact lengths, explicit byte vectors, units, malformed/old packet rejection,
    mission faults 0..8 (8 = lifted; 9+ rejected), the S5 snapshot codec, every
-   Dashboard `test_*.py` (including the robot event log) and the audio tool.
+   Dashboard `test_*.py` (including the robot event log).
 2. C shared codec: exhaustive words, fixed bytes, unchanged outputs on failure,
    null/short buffers and local arithmetic; B1 copied queue and length handling.
 3. Buddy 2's nine host profiles: encoder wiring, commands, watchdog,
