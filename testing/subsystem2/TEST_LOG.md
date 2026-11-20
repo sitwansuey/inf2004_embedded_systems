@@ -51,3 +51,12 @@ Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
+| 2026-11-20 | S2-U15 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 1/9: `PASS Buddy 2 standalone-no-encoder` (log line 17); its 4 checks PASS, `Motor-control host checks passed` |
+| 2026-11-20 | S2-U16 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 2/9: `PASS Buddy 2 standalone-dual-encoder` (line 25); 4 checks PASS |
+| 2026-11-20 | S2-U17 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 3/9: `PASS Buddy 2 standalone-dual-encoder-swapped` (line 33); 4 checks PASS |
+| 2026-11-20 | S2-U18 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 4/9: `PASS Buddy 2 standalone-dual-encoder-shared-bank` (line 41); 4 checks PASS |
+| 2026-11-20 | S2-U19 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 5/9: `PASS Buddy 2 standalone-dual-encoder-cross-bank` (line 49); 4 checks PASS |
+| 2026-11-20 | S2-U20 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 6/9: `PASS Buddy 2 integrated-no-encoder` (line 58); 5 checks PASS incl. integrated STOP epoch |
+| 2026-11-20 | S2-U21 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 7/9: `PASS Buddy 2 integrated-dual-encoder` (line 67); 5 checks PASS incl. integrated STOP epoch |
+| 2026-11-20 | S2-U22 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 8/9: `PASS Buddy 2 integrated-custom-timeout` (line 76); 5 checks PASS |
+| 2026-11-20 | S2-U23 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s2.txt` | Profile 9/9: `PASS Buddy 2 integrated-pid-turn` (line 85); 5 checks PASS incl. PID spins and held-wheel fault within 0.6 s; run.py `[exit code 0]` |

@@ -1,0 +1,328 @@
+# Host test run - subsystem 3 (testing/subsystem3)
+# Date: 2026-11-20   Commit: ed197b3 (clean export of the commit, git archive)
+# Host: Windows 11, MSYS2 UCRT64 gcc.exe (Rev6, Built by MSYS2 project) 16.2.0, GNU Make 4.4.1, [WARNING] Failed to read unmanaged installs: expected str, bytes or os.PathLike object, not NoneType
+Python 3.15.2
+# Commands, in order:
+#   make -C testing/subsystem3 test
+#   make -C testing/subsystem3 check-headers
+#   make -C testing/subsystem3 arm-check
+#   make -C testing/subsystem3 analyze
+#   make -C testing/subsystem3 verify-failure
+
+$ make -C testing/subsystem3 test
+make: Entering directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_barcode_resync.c ../../app_program/subsystem3/buddy3_barcode.c  -o .build/test_barcode_resync
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_barcode_completion.c ../../app_program/subsystem3/buddy3_barcode.c  -o .build/test_barcode_completion
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_barcode_end_quiet.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_end_quiet
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_barcode_fault_fail.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_fault_fail
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_barcode_import.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_import
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=3 -DS3_TEST_ADC_ENABLED=1 -DDEVCONF_ADC_PIN_INIT_2=0 -include host_support.h test_mixed_barcode.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_mixed_barcode
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=2 test_barcode_edge_bias.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_edge_bias
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_buddy3.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_buddy3
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=0 -include host_support.h test_adapter.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adapter
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adc
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_tick.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adc_tick
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_acquire.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adc_acquire
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_raw
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_MOTORS_DISABLED=0 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_raw_unlocked
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_robot_ir_layout.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_layout
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=2 test_robot_ir_calibration.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_calibration
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 test_robot_ir_calibration.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_cal_default
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=0 test_robot_ir_calibration.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_cal_off
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=2 test_paused_time.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_paused_time
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_sample_schedule.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_sample_schedule
+./.build/test_buddy3 
+S3-U02 normalization PASS
+S3-U04 calibration PASS
+S3-U05 line positions PASS
+S3-U06 hysteresis/loss/rollover PASS
+S3-U07 configuration bounds PASS
+S3 four-command navigation handoff PASS
+S3-U08 barcode scales/speed/direction PASS
+S3-U09 barcode corruption PASS
+S3-U10 capture/rearm/duplicates PASS
+S3-U11 capture failures/capacity PASS
+S3-U12 navigation/override PASS
+S3-U13 unmapped/corrupted/fault PASS
+S3-U14 recovery and time PASS
+S3-U31 enum bounds PASS
+Buddy 3 algorithms: 14 groups, 579 checks, 0 failures
+./.build/test_adapter
+S3-U15 lifecycle/disabled PASS
+S3-U16 controller leases PASS
+S3-U32 controller enum bounds PASS
+S3-U17 safety publication race PASS
+S3-U18 event handoff/staleness PASS
+S3-U19 event queue full PASS
+S3-U51 controller barcode map PASS
+S3-U52 decoded turn survives a later latch (L1/L6) PASS
+S3-U53 request gap limit aligned (L6) PASS
+S3-U54 controller tolerates a busy lock (L7) PASS
+S3-U55 partial and fault-cut barcode reads (L2) PASS
+S3-U20 sensor configuration PASS
+S3-U21 ADC boundary PASS
+Buddy 3 adapter: 13 groups, 52212 checks, 0 failures
+./.build/test_adc
+S3-U22 ADC pipeline/timestamp/rollover PASS
+S3-U23 ADC deadline and late completion PASS
+S3-U24 ADC unavailable/read error PASS
+S3-U25 ADC invalid/partial readings PASS
+S3-U26 ADC lifecycle/ownership PASS
+S3-U27 ADC transport/request validation PASS
+S3-U28 ADC controller integration PASS
+S3-U29 blocked worker isolation/fault PASS
+S3-U30 acquisition errors/raw snapshot PASS
+Buddy 3 ADC: 9 groups, 1171 checks, 0 failures
+./.build/test_adc_tick
+S3-U34 kernel tick cadence/rollover PASS
+S3-U35 late reply dropped, resubmitted PASS
+S3-U36 conversion deadline drops the scan only PASS
+S3-U56 read overrun still latched PASS
+S3-U57 worker loop survives a dropped scan PASS
+Buddy 3 ADC tick: 5 groups, 465 checks, 0 failures
+./.build/test_adc_acquire
+S3-U37 current scan/jitter/rollover/raw authority PASS
+S3-U38 STOP during reply wait PASS
+S3-U39 lease expires during reply wait PASS
+S3-U40 clock/delivery/transport failure PASS
+S3-U41 absent reply bounded PASS
+S3-U45 configured paused jitter/rollover PASS
+Buddy 3 ADC acquisition: 6 groups, 2144 checks, 0 failures
+./.build/test_raw
+S3-U33 raw bring-up: 1 groups, 135 checks, 0 failures
+./.build/test_raw_unlocked
+S3-U33 raw bring-up: 1 groups, 2 checks, 0 failures
+./.build/test_robot_ir_layout
+S3-U42 confirmed layout: 15 checks, 0 failures
+./.build/test_robot_ir_calibration
+S3-U43 measured calibration: 67 checks, 0 failures
+./.build/test_robot_ir_cal_default
+S3-U43 measured calibration: 9 checks, 0 failures
+./.build/test_robot_ir_cal_off
+S3-U43 measured calibration: 2 checks, 0 failures
+./.build/test_paused_time
+S3-U44 paused timing: 99 checks, 0 failures
+./.build/test_sample_schedule
+S3-U48 cyclic/no burst/no ADC callback PASS
+S3-U49 cyclic lifecycle cleanup PASS
+S3-U50 publication wait freshness/STOP/lease/clock PASS
+Buddy3 sample schedule: 3 groups, 449 checks, 0 failures
+./.build/test_barcode_edge_bias
+S3 barcode edge-bias regressions: 11214 checks, 0 failures
+./.build/test_barcode_resync
+Barcode resync: 468 A-Z/direction/prefix cases; quiet/timeout/wrap/budget/malformed/held/rearm and measured-F prefix PASS
+./.build/test_barcode_completion
+Completion: 210 A-Z/direction/scale/wrap and recorded-A cases;380ms vs760ms; strict/invalid/partial/resync/abort/timeout gates PASS
+./.build/test_barcode_end_quiet
+S3 GP28 end-quiet barcode: 169 checks, 0 failures
+./.build/test_barcode_fault_fail
+S3 L2 fault-cut and partial barcode reads: 44 checks, 0 failures
+./.build/test_barcode_import
+PASS: reference capture (both directions/noise prefix/junction) preserves main A-D navigation; unmapped E stays unmapped; retry and sensor-fault behavior verified.
+./.build/test_mixed_barcode
+ADC line + digital GP28 barcode PASS
+106 checks, 0 failures
+make: Leaving directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+[exit code 0]
+
+$ make -C testing/subsystem3 check-headers
+make: Entering directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+Checking real kernel headers, SMP=0
+Checking real kernel headers, SMP=1
+make: Leaving directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+[exit code 0]
+
+$ make -C testing/subsystem3 arm-check
+make: Entering directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+arm-none-eabi-gcc --version
+arm-none-eabi-gcc.exe (Arm GNU Toolchain 14.2.Rel1 (Build arm-14.52)) 14.2.1 20241119
+Copyright (C) 2024 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+PASS: Buddy 3 ARM object compilation SMP=0
+PASS: Buddy 3 ARM object compilation SMP=1
+make: Leaving directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+[exit code 0]
+
+$ make -C testing/subsystem3 analyze
+make: Entering directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+make --no-print-directory -B test CFLAGS="-std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1"
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_barcode_resync.c ../../app_program/subsystem3/buddy3_barcode.c  -o .build/test_barcode_resync
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_barcode_completion.c ../../app_program/subsystem3/buddy3_barcode.c  -o .build/test_barcode_completion
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_barcode_end_quiet.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_end_quiet
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_barcode_fault_fail.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_fault_fail
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_barcode_import.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_import
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=3 -DS3_TEST_ADC_ENABLED=1 -DDEVCONF_ADC_PIN_INIT_2=0 -include host_support.h test_mixed_barcode.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_mixed_barcode
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=2 test_barcode_edge_bias.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_barcode_edge_bias
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_buddy3.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_buddy3
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=0 -include host_support.h test_adapter.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adapter
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adc
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_tick.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adc_tick
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_adc_acquire.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_adc_acquire
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_raw
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_MOTORS_DISABLED=0 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_raw.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_raw_unlocked
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_robot_ir_layout.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_layout
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=2 test_robot_ir_calibration.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_calibration
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_robot_ir_calibration.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_cal_default
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=0 test_robot_ir_calibration.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_robot_ir_cal_off
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=2 test_paused_time.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_paused_time
+mkdir -p .build
+gcc -I../../app_program/subsystem3 -DROBOT_CONFIG_NO_LOCAL -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 -DBOARD_IR_MODE=2 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_sample_schedule.c ../../app_program/subsystem3/drv_ir.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_sample_schedule
+./.build/test_buddy3 
+S3-U02 normalization PASS
+S3-U04 calibration PASS
+S3-U05 line positions PASS
+S3-U06 hysteresis/loss/rollover PASS
+S3-U07 configuration bounds PASS
+S3 four-command navigation handoff PASS
+S3-U08 barcode scales/speed/direction PASS
+S3-U09 barcode corruption PASS
+S3-U10 capture/rearm/duplicates PASS
+S3-U11 capture failures/capacity PASS
+S3-U12 navigation/override PASS
+S3-U13 unmapped/corrupted/fault PASS
+S3-U14 recovery and time PASS
+S3-U31 enum bounds PASS
+Buddy 3 algorithms: 14 groups, 579 checks, 0 failures
+./.build/test_adapter
+S3-U15 lifecycle/disabled PASS
+S3-U16 controller leases PASS
+S3-U32 controller enum bounds PASS
+S3-U17 safety publication race PASS
+S3-U18 event handoff/staleness PASS
+S3-U19 event queue full PASS
+S3-U51 controller barcode map PASS
+S3-U52 decoded turn survives a later latch (L1/L6) PASS
+S3-U53 request gap limit aligned (L6) PASS
+S3-U54 controller tolerates a busy lock (L7) PASS
+S3-U55 partial and fault-cut barcode reads (L2) PASS
+S3-U20 sensor configuration PASS
+S3-U21 ADC boundary PASS
+Buddy 3 adapter: 13 groups, 52212 checks, 0 failures
+./.build/test_adc
+S3-U22 ADC pipeline/timestamp/rollover PASS
+S3-U23 ADC deadline and late completion PASS
+S3-U24 ADC unavailable/read error PASS
+S3-U25 ADC invalid/partial readings PASS
+S3-U26 ADC lifecycle/ownership PASS
+S3-U27 ADC transport/request validation PASS
+S3-U28 ADC controller integration PASS
+S3-U29 blocked worker isolation/fault PASS
+S3-U30 acquisition errors/raw snapshot PASS
+Buddy 3 ADC: 9 groups, 1171 checks, 0 failures
+./.build/test_adc_tick
+S3-U34 kernel tick cadence/rollover PASS
+S3-U35 late reply dropped, resubmitted PASS
+S3-U36 conversion deadline drops the scan only PASS
+S3-U56 read overrun still latched PASS
+S3-U57 worker loop survives a dropped scan PASS
+Buddy 3 ADC tick: 5 groups, 465 checks, 0 failures
+./.build/test_adc_acquire
+S3-U37 current scan/jitter/rollover/raw authority PASS
+S3-U38 STOP during reply wait PASS
+S3-U39 lease expires during reply wait PASS
+S3-U40 clock/delivery/transport failure PASS
+S3-U41 absent reply bounded PASS
+S3-U45 configured paused jitter/rollover PASS
+Buddy 3 ADC acquisition: 6 groups, 2144 checks, 0 failures
+./.build/test_raw
+S3-U33 raw bring-up: 1 groups, 135 checks, 0 failures
+./.build/test_raw_unlocked
+S3-U33 raw bring-up: 1 groups, 2 checks, 0 failures
+./.build/test_robot_ir_layout
+S3-U42 confirmed layout: 15 checks, 0 failures
+./.build/test_robot_ir_calibration
+S3-U43 measured calibration: 67 checks, 0 failures
+./.build/test_robot_ir_cal_default
+S3-U43 measured calibration: 9 checks, 0 failures
+./.build/test_robot_ir_cal_off
+S3-U43 measured calibration: 2 checks, 0 failures
+./.build/test_paused_time
+S3-U44 paused timing: 99 checks, 0 failures
+./.build/test_sample_schedule
+S3-U48 cyclic/no burst/no ADC callback PASS
+S3-U49 cyclic lifecycle cleanup PASS
+S3-U50 publication wait freshness/STOP/lease/clock PASS
+Buddy3 sample schedule: 3 groups, 449 checks, 0 failures
+./.build/test_barcode_edge_bias
+S3 barcode edge-bias regressions: 11214 checks, 0 failures
+./.build/test_barcode_resync
+Barcode resync: 468 A-Z/direction/prefix cases; quiet/timeout/wrap/budget/malformed/held/rearm and measured-F prefix PASS
+./.build/test_barcode_completion
+Completion: 210 A-Z/direction/scale/wrap and recorded-A cases;380ms vs760ms; strict/invalid/partial/resync/abort/timeout gates PASS
+./.build/test_barcode_end_quiet
+S3 GP28 end-quiet barcode: 169 checks, 0 failures
+./.build/test_barcode_fault_fail
+S3 L2 fault-cut and partial barcode reads: 44 checks, 0 failures
+./.build/test_barcode_import
+PASS: reference capture (both directions/noise prefix/junction) preserves main A-D navigation; unmapped E stays unmapped; retry and sensor-fault behavior verified.
+./.build/test_mixed_barcode
+ADC line + digital GP28 barcode PASS
+106 checks, 0 failures
+make: Leaving directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+[exit code 0]
+
+$ make -C testing/subsystem3 verify-failure
+make: Entering directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+./.build/test_buddy3 --force-failure
+S3-U02 normalization PASS
+S3-U04 calibration PASS
+S3-U05 line positions PASS
+S3-U06 hysteresis/loss/rollover PASS
+S3-U07 configuration bounds PASS
+S3 four-command navigation handoff PASS
+S3-U08 barcode scales/speed/direction PASS
+S3-U09 barcode corruption PASS
+S3-U10 capture/rearm/duplicates PASS
+S3-U11 capture failures/capacity PASS
+S3-U12 navigation/override PASS
+S3-U13 unmapped/corrupted/fault PASS
+S3-U14 recovery and time PASS
+S3-U31 enum bounds PASS
+FAIL test_buddy3.c:601: 2 + 2 == 5
+Buddy 3 algorithms: 14 groups, 580 checks, 1 failures
+make[1]: *** [Makefile:47: test] Error 1
+PASS: test target propagated a real failed assertion
+make: Leaving directory '/c/Users/ronta/AppData/Local/Temp/robopico_hostrun_ed197b3/testing/subsystem3'
+[exit code 0]
+

@@ -123,6 +123,46 @@ commit; record the team's actual tested commit for later board tests.
 | 2026-10-17 | S4-U19 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
 | 2026-10-17 | S4-U20 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
 | 2026-10-17 | S4-U21 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-11-20 | S4-U10 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U10 PASS` (driver_test); mock bus, host only |
+| 2026-11-20 | S4-U11 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U11 PASS` (driver_test); mock bus, host only |
+| 2026-11-20 | S4-U12 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U12 PASS` (driver_test); mock bus, host only |
+| 2026-11-20 | S4-U13 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U13 PASS` (driver_test); mock bus, host only |
+| 2026-11-20 | S4-U14 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U14 PASS` (driver_test); mock bus, host only |
+| 2026-11-20 | S4-U15 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U15 PASS` (data_test) |
+| 2026-11-20 | S4-U16 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U16 PASS` (data_test) |
+| 2026-11-20 | S4-U17 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U17 PASS` (data_test) |
+| 2026-11-20 | S4-U18 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U18 PASS` (data_test) |
+| 2026-11-20 | S4-U19 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U19 PASS` (api_test); simulated kernel |
+| 2026-11-20 | S4-U20 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U20 PASS` (api_test); simulated kernel |
+| 2026-11-20 | S4-U21 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U21 PASS` (api_test); simulated kernel, not real core placement |
+| 2026-11-20 | S4-U22 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U22 PASS` (api_test) |
+| 2026-11-20 | S4-U23 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U23 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U24 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U24 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U25 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U25 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U26 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U26 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U27 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U27 PASS` (api_test) |
+| 2026-11-20 | S4-U28 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U28 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U29 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U29 compact cache:` line ends PASS (data_test); record now 564 bits/71 bytes |
+| 2026-11-20 | S4-U30 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U30 result codec:` line ends PASS (result_test) |
+| 2026-11-20 | S4-U31 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U31 result receivers:` line ends PASS; 57 valid + 202 rejected = 259 vectors (test case text says 256) |
+| 2026-11-20 | S4-U32 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U32 PASS` (odometry_storage_test); odometry 25 bytes, calibration 8 bytes |
+| 2026-11-20 | S4-U33 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U33 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U34 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U34 PASS` (data_test) |
+| 2026-11-20 | S4-U35 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U35 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U36 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U36 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U37 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U37 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U38 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U38 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U39 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `S4-U39 PASS` (terrain_input_test) |
+| 2026-11-20 | S4-U40 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U40 PASS` (data_test) |
+| 2026-11-20 | S4-U41 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U41 PASS` (recovery_test) |
+| 2026-11-20 | S4-U42 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U42 PASS` (recovery_test); software timing only |
+| 2026-11-20 | S4-U43 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U43 PASS` (recovery_test) |
+| 2026-11-20 | S4-U44 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U44 PASS` (recovery_test); simulated bus |
+| 2026-11-19 | S4-U45 | `7a6c373` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-19_t7_usb_no_imu_broker_restart.txt`, `../system/logs/2026-11-19_t7_mqtt_idle.txt` | Robot disarmed and still on the bench, t=23.5-219.9 s (lines 73-3257). Surface not checked with a level; no 180° turn. Dashboard Pitch and Roll (whole degrees) read 0 in all 439 snapshots of the idle capture. `[S4TILT]` single samples: pitch median +21 cdeg (5-95%: -50 to +112), roll median +84 cdeg (+10 to +136); both within ±100 cdeg in 659 of 936 samples. |
+| 2026-11-19 | S4-U46 | `7a6c373` | Ron Tan | INCOMPLETE | `logs/2026-11-19_t1_usb_hand_tilt.txt` | Normal image, not S4_ONLY; robot disarmed and turned by hand; 2 of 6 poses. Wheels down, t=429.0-483.8 s (lines 69-959): median ax -36, ay -254, az +916 mg; 261 of 262 samples in range (one bump at line 953, az +1479). Upside down about 1.7 s, not held still for 5 s (t=535.50-537.18 s, lines 1991-2019): az -854 to -1049 mg, but ax +224 to +689 and ay +305 to +395 (over 350 mg in 3 and 4 of 9 samples). Nose up/down and side poses not held (ax +909 mg only in passing, line 1984). a_ok 1 throughout. |
+| 2026-11-19 | S4-U47 | `7a6c373` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-19_t1_mqtt_hand_tilt.txt` | Robot disarmed on the bench. Impact True in 2 snapshots (59.3 s, seq 136; 63.3 s, seq 157), each cleared in the next snapshot; state stayed Disarmed, fault 0. Number and timing of taps not logged. This build's `[S4]` line has no `a_impacts` column. Step 4 (armed on a stand) not run. |
+| 2026-11-19 | S4-U49 | `7a6c373` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-19_t7_usb_no_imu_broker_restart.txt` | IMU unplugged before boot. t=0-3.57 s (lines 14-70): `[S4]` init 3 (I/O error), a_ok 0, heartbeat 1 to 356; `[S4TILT]` valid 0; `[CSC02]` flags 7 (175 when healthy). Console lines from 3.8 s to 23.5 s missing (lines 72-73), so the 60 s watch is not shown. IMU then plugged in with the power on, not step 5 (time not logged): at t=23.52 s (line 73) a_ok 1, init 0, a_errors 0, pitch 57 / roll 83 cdeg; heartbeat 2350 and uptime continuous to 403.4 s, no reboot. No `inits` column in this build. Steps 4 and 6 not run; dashboard not captured while the IMU was out. |
+| 2026-11-20 | S4-U45 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_flash_8c_boot.txt` | Robot disarmed at rest for 45 s after flashing (t=0.21-45.57 s, lines 28-550). Surface not checked with a level; no 180° turn; dashboard not captured. `[S4TILT]` single samples: pitch median -39 cdeg (5-95%: -139 to +2), roll median +33 cdeg (-58 to +80); both within ±100 cdeg in 189 of 217 samples (largest pitch +698 cdeg, line 451). |
 
 ## Physical checks still to run
 

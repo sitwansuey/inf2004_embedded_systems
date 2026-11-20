@@ -132,3 +132,38 @@ Add a new row for every run. Never edit or delete old rows.
 | YYYY-MM-DD | INT-01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
 | 2026-10-22 | INT-CR1-08 | `b02e335` + local working changes | Codex | PASS (native) | `logs/2026-10-22_sonar_pin_fix.txt` | Production driver, old-role negative control, scan policy, real headers SMP 0/1 and lock 0/1; ARM/physical retest pending |
 | 2026-10-22 | INT-CR1-09, INT-CR1-10 | `b02e335` + local working changes | Codex | PASS (native) | `logs/2026-10-22_s5_status_fix.txt` | Production S5 API/telemetry task, old-poll negative control, real headers SMP 0/1 and lock 0/1; ARM/physical validation pending |
+| 2026-11-20 | INT-CR1-01 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-01 controller`, `Sensor waits` and `Avoidance ramps` lines PASS. All 33 recipes ran, last line `Integration recipes PASS`, exit code 0 |
+| 2026-11-20 | INT-CR1-02 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-02 odometry` line PASS |
+| 2026-11-20 | INT-CR1-03 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-03 terrain` and `IMU mount` lines PASS |
+| 2026-11-20 | INT-CR1-04 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `scan`: `INT-CR1-04 scan` and the nine `S5 ...` lines (width to servo slope) PASS |
+| 2026-11-20 | INT-CR1-05 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `protocol`: 302 C/Python vectors, 90 bound rejections PASS. Run on a clean export of the commit, so the `protocol_golden.json` git status check is not in the log |
+| 2026-11-20 | INT-CR1-06 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `queue`: `INT-CR1-06 actual queues`, `Robot event queue`, `Drop counter`, `Snapshots`, `Command replies` PASS |
+| 2026-11-20 | INT-CR1-07 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `mqtt`: `INT-CR1-07 actual MQTT port`, `MQTT replies`, `Abandoned snapshot`, `MQTT robot events`, `Wi-Fi re-join` PASS |
+| 2026-11-20 | INT-S4-11 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | `INT-S4-11 actual vehicle path` PASS in all five `buddy4_vehicle` recipes |
+| 2026-11-20 | INT-12 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `width_avoidance` PASS line |
+| 2026-11-20 | INT-13 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `smooth_motor` PASS line |
+| 2026-11-20 | INT-14 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `speed30` PASS line |
+| 2026-11-20 | INT-15 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `obstacle_bend` PASS line |
+| 2026-11-20 | INT-16 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `bypass_return`: `Bypass return: ... PASS`, no failure line; no-line RETURN ended at 392 mm (141 + 250 expected) |
+| 2026-11-20 | INT-17 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `reverse_track`: ok, worst sensor offset 14.2 mm, worst heading 9.9 deg; run exit code 0 |
+| 2026-11-20 | INT-18 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `line_steer`: `line_steer: ok`; run exit code 0 |
+| 2026-11-20 | INT-19 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `obstacle_confirm`: `Obstacle confirmation: ... PASS` |
+| 2026-11-20 | INT-20 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `barcode_retry`: `barcode_retry: ... PASS` |
+| 2026-11-20 | INT-21 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `edr_stream` PASS; the log does not show whether the Node.js browser card check ran |
+| 2026-11-20 | INT-22 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `mission`: `Mission handoffs` and `Mission: autonomous start` lines PASS |
+| 2026-11-20 | INT-23 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `nav_junction`: all nine lines PASS |
+| 2026-11-20 | INT-24 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipes `line_trace` and `line_trace_mode2`: 178 checks, 0 failures each |
+| 2026-11-20 | INT-25 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `watchdog`: `Watchdog supervisor`, `Crash record`, `Early crashes` PASS |
+| 2026-11-20 | INT-26 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `obstacle_motion` PASS line |
+| 2026-11-20 | INT-27 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `obstacle_open_space` PASS line |
+| 2026-11-20 | INT-28 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `obstacle_scan`: coarse search and edge flicker PASS lines |
+| 2026-11-20 | INT-29 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | All nine lines PASS in all five `buddy4_vehicle` recipes (`Edge tracing` and `Line lost with edge tracing` in `buddy4_vehicle_edge_trace`) |
+| 2026-11-20 | INT-30 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | All five obstacle/sonar/STOP lines PASS in all five `buddy4_vehicle` recipes |
+| 2026-11-20 | INT-31 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | `MAP command`, `ARM lease renewal`, `ARM renewal limits`, `STOP during renewals` PASS in all five `buddy4_vehicle` recipes |
+| 2026-11-20 | INT-32 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | `Straddle app_state ...`, `Short timing faults ride through`, `Loop timing` PASS in all five `buddy4_vehicle` recipes |
+| 2026-11-20 | INT-33 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | `Hump` (`Hump with BOARD_RAMP_SPEED 0` in `no_ramp_lift`), `Shock while tracking` (stops the run with VC_SHOCK in `shock_stop`), `Event log`, `8c` (four recipes) PASS |
+| 2026-11-20 | INT-34 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `snapshot_time`: six lines PASS before the `INT-CR1-10` line |
+| 2026-11-20 | INT-CR1-08 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipes `sonar`, `sonar_low_centre`, `sonar_slope`: `INT-CR1-08 ... PASS` on lines 124, 127 and 130 |
+| 2026-11-20 | INT-CR1-09 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `sonar_status`: `INT-CR1-09 ... PASS` on line 133 |
+| 2026-11-20 | INT-CR1-10 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `snapshot_time`: `INT-CR1-10 ... PASS` on line 142 |
+| 2026-11-20 | INT-35 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_flash_8c_boot.txt` | Console from the reset after the UF2 flash: `[WDT] supervisor started` (line 16), then `[WDT] armed: every monitored loop is running` once (line 262), just after the t=20000 status line (line 257), so about 20 s after reset; no `[WDT] not armed yet` line. Uptime kept counting to t=45000 (the `[RESET]` line repeats every 10 s with `[TIMING]`; not a reboot). Not the full procedure: the access point was not in range (all 8 joins ended "SSID not found", lines 58 to 536; no IP, no MQTT), and the console was watched for 45 s (13:48:27 to 13:49:12), not 60 s. |

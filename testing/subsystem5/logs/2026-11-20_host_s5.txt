@@ -1,0 +1,21 @@
+# Host test run - subsystem 5 (S5 codec)
+# Date: 2026-11-20   Commit: ed197b3 (clean export of the commit, git archive)
+# Host: Windows 11, MSYS2 UCRT64 gcc.exe (Rev6, Built by MSYS2 project) 16.2.0, GNU Make 4.4.1, [WARNING] Failed to read unmanaged installs: expected str, bytes or os.PathLike object, not NoneType
+Python 3.15.2
+# Commands, in order:
+#   python -B -m unittest discover -s testing/data_representation -p test_s5.py -v
+
+$ python -B -m unittest discover -s testing/data_representation -p test_s5.py -v
+[WARNING] Failed to read unmanaged installs: expected str, bytes or os.PathLike object, not NoneType
+test_codec_and_status_api (test_s5.Subsystem5Tests.test_codec_and_status_api) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.628s
+
+OK
+060800b45a5a5a5a78563412000000000000000000000000000000000000000000000000ffffffff000000800000000000000000ffffff7f0000000000000000000000000000000000000000000000000000000056000000d4c3b2a1
+S5 PASS: native=148 packed=92 bytes
+060800b45a5a5a5a78563412000000000000000000000000000000000000000000000000ffffffff000000800000000000000000ffffff7f0000000000000000000000000000000000000000000000000000000056000000d4c3b2a1
+S5 PASS: native=148 packed=92 bytes
+[exit code 0]
+
