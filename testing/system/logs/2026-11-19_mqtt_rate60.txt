@@ -1,0 +1,88 @@
+{
+ "seconds": 62.0,
+ "records": 7278,
+ "undecodable": 0,
+ "snapshots_received": 260,
+ "snapshots_expected_from_sequence": 311,
+ "delivery_percent": 83.6,
+ "snapshots_per_min": 251.5,
+ "sequence_gaps": [
+  [
+   10.41,
+   105,
+   109,
+   4
+  ],
+  [
+   15.52,
+   111,
+   134,
+   23
+  ],
+  [
+   19.97,
+   149,
+   157,
+   8
+  ],
+  [
+   22.65,
+   165,
+   170,
+   5
+  ],
+  [
+   24.9,
+   179,
+   182,
+   3
+  ],
+  [
+   44.46,
+   19,
+   23,
+   4
+  ],
+  [
+   55.11,
+   66,
+   77,
+   11
+  ]
+ ],
+ "events": [],
+ "last_values": {
+  "status5": 0,
+  "status7": 0,
+  "status9": 56,
+  "status10": 191,
+  "status12": 24,
+  "status13": 128,
+  "status14": 128,
+  "status15": 0,
+  "id1": 0,
+  "id2": 0,
+  "id3": 90,
+  "id5": 232,
+  "id6": 244,
+  "id7": 1,
+  "id8": 22.6,
+  "id9": -45.3,
+  "id10": -17.4,
+  "motor": {
+   "command": 0,
+   "power_percent": 0,
+   "state": 0
+  },
+  "id12": 0,
+  "id13": -0.36284605,
+  "id14": -2.4810824499999997,
+  "id15": 8.97308475,
+  "status0": 0,
+  "status1": 0,
+  "status2": 0,
+  "status3": 128,
+  "status4": 128,
+  "id4": 32
+ }
+}

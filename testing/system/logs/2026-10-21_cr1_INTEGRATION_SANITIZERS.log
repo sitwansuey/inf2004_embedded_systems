@@ -1,0 +1,23 @@
+make: Entering directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/integration'
+make test CFLAGS='-std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='-fsanitize=address,undefined'
+make[1]: Entering directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/integration'
+mkdir -p .build
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer policy_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c -fsanitize=address,undefined -lm -o .build/policy
+./.build/policy
+INT-CR1-01 controller: priority, expiry, stale data, complete bounded bypass, STOP handoffs PASS
+INT-CR1-02 odometry: wrap, scale, speed, yaw, gaps and discontinuities PASS
+INT-CR1-03 terrain: calibration gate, ordered hump, maximum, impact and invalid samples PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -include host.h scan_test.c ../../app_program/subsystem5/s5_scan.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_width.c -fsanitize=address,undefined -o .build/scan
+./.build/scan
+INT-CR1-04 scan: wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c -fsanitize=address,undefined -o .build/protocol
+python3 protocol_test.py
+INT-CR1-05 protocol: 302 C/Python vectors, 74 bound rejections, malformed length/version/padding PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c -fsanitize=address,undefined -o .build/queue
+./.build/queue
+INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 13-byte events PASS
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Imocks mqtt_test.c -fsanitize=address,undefined -o .build/mqtt
+./.build/mqtt
+INT-CR1-07 actual MQTT port: binary length/NULs, fragments, malformed input, backpressure, reconnect STOP and retry guard PASS
+make[1]: Leaving directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/integration'
+make: Leaving directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/integration'

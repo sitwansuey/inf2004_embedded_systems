@@ -1,4 +1,13 @@
-/* On-device algorithm smoke checks, not sensor/hardware validation. */
+/*
+ *	subsystem3_test.c
+ *	On-target tests for subsystem 3.  Built only with: make TEST=1
+ *	The integrated test image (make TEST=1 NET=lwip MQTT=1) runs them.
+ *	On-device algorithm smoke checks, not sensor/hardware validation.
+ *
+ *	Each TEST_CHECK prints a PASS/FAIL line on the console.  Save the
+ *	console output to testing/subsystem3/logs/ and record the result
+ *	in testing/subsystem3/TEST_LOG.md.  Test IDs: S3-U02, S3-U03.
+ */
 #include "subsystem3.h"
 #include "../test_report.h"
 

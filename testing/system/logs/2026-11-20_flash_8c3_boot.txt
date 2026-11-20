@@ -1,0 +1,113 @@
+=== flash_uf2
+15:35:13.922 firmware C:\Users\ronta\OneDrive\Documents\School\SIT\Y2 Tri 1\INF2004 Embedded Systems Programming\Project\inf2004_embedded_systems\build_make\mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc.uf2 878592 bytes, built 11/20/2026 15:34:35
+15:35:15.206 copying to D:\
+15:35:20.461 copied; waiting for Pico USB serial port
+15:35:22.191 serial port COM5
+
+
+microT-Kernel Version 3.00
+
+
+CSC02 CR1 / micro T-Kernel 3, SMP=1, encoders=1
+[RESET] watchdog reboot, no crash record (normal after a UF2 flash)
+Boot DISARMED; USB s=STOP, r=reset fault, a=500 ms track lease, g=autonomous mission START. MQTT EDR=2 bytes.
+Clock: kernel operating time (monotonic uptime)
+Selected subsystems started. Calibration and physical validation required before motion.
+[WDT] supervisor started: arms after 20000 ms once every loop runs; timeout 1500 ms, window 1000 ms
+wifi: cyw43_utk_task starting (proc 1)
+wifi: cyw43_init() ...
+wifi: cyw43_init() returned, bringing interface up ...
+[S2] encoders motor 1 A=GP16 B=GP17; motor 2 A=GP4 B=GP5 ready (x1 counts)
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat,a_impacts,a_faults,inits
+[S4] 0,2,0,0,-2048,-2048,-2048,-29789,-29789,-33436,-1,-1,0,0,0,0,0,0,0,0
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-9000 roll_cdeg=-18000
+[S5] status copies: bounded inheritance wait
+[S5] wiring: TRIG=GP1 ECHO=GP0
+[S5] startup: centring servo at 0 deg; waiting 1000 ms
+[STATE] t=180 seq=10 phase=0 fault=0 command=0 power=0 armed=0
+[S4] 210,0,1,1,-54,-247,927,704,-24,-84,10,10,12,7,0,0,20,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-48 roll_cdeg=7
+[S4] 420,0,1,1,-52,-254,924,705,-26,-88,20,20,22,13,0,0,41,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=18
+[S4] 630,0,1,1,-42,-260,909,701,-27,-86,10,30,33,20,0,0,62,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=57 roll_cdeg=75
+[S4] 840,0,1,1,-54,-257,928,701,-24,-88,10,10,44,28,0,0,83,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=7 roll_cdeg=7
+[CSC02] t=1000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S5] startup: centre settling complete; checking forward
+[S4] 1050,0,1,1,-106,-256,933,707,-28,-88,20,10,54,36,0,0,104,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-13 roll_cdeg=-308
+[S4] 1260,0,1,1,-55,-252,918,702,-28,-88,20,20,65,42,0,0,125,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=-3
+[S4] 1470,0,1,1,-55,-255,922,704,-27,-86,10,30,76,49,0,0,146,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=-1
+wifi: power save off (CYW43_NONE_PM, read back pm=0x10)
+wifi: joining "TheWok" ...
+[S4] 1680,0,1,1,-40,-250,935,705,-26,-87,10,10,87,58,0,0,167,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-42 roll_cdeg=95
+wifi: link status -> joined AP, waiting for IP (1)
+[S4] 1890,0,1,1,-52,-256,921,706,-30,-89,20,10,97,66,0,0,188,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=13 roll_cdeg=17
+[CSC02] t=2000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+[S4] 2100,0,1,1,-95,-256,915,711,-31,-92,10,20,108,74,0,0,209,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=-253
+[S4] 2310,0,1,1,-58,-259,921,703,-29,-90,10,0,119,82,0,0,231,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=30 roll_cdeg=-20
+[S4] 2520,0,1,1,-55,-250,924,707,-27,-87,20,40,129,89,0,0,251,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-27 roll_cdeg=-1
+[S4] 2730,0,1,1,-51,-254,926,705,-28,-90,20,10,140,97,0,0,272,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=25
+[S4] 2940,0,1,1,-53,-259,919,707,-30,-88,10,20,151,104,0,0,293,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=33 roll_cdeg=10
+[CSC02] t=3000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+[S4] 3150,0,1,1,-56,-254,926,705,-27,-87,10,30,162,110,0,0,314,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-7 roll_cdeg=-6
+[S4] 3360,0,1,1,-53,-253,921,703,-29,-91,20,40,172,117,0,0,335,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-4 roll_cdeg=11
+[S4] 3570,0,1,1,-71,-258,909,703,-29,-89,10,10,183,124,0,0,356,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=42 roll_cdeg=-107
+[S4] 3780,0,1,1,-53,-257,923,703,-28,-88,10,20,194,131,0,0,377,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=11
+[S5SCAN] scan=1 state=0->1 angle=0 target=20 valid=1 mm=86 echo=0 retries=0
+[S4] 3990,0,1,1,-44,-248,927,707,-28,-88,20,30,204,138,0,0,398,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-42 roll_cdeg=68
+[CSC02] t=4000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S5SCAN] scan=1 state=1->2 angle=20 target=10 valid=1 mm=684 echo=0 retries=0
+[S4] 4200,0,1,1,-58,-260,927,706,-24,-91,20,40,215,145,0,0,419,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=26 roll_cdeg=-18
+[S5SCAN] scan=1 state=2->2 angle=10 target=5 valid=1 mm=1152 echo=0 retries=0
+[S5SCAN] scan=1 state=2->2 angle=5 target=2 valid=1 mm=236 echo=0 retries=0
+[S4] 4410,0,1,1,-48,-256,919,708,-33,-93,10,10,226,153,0,0,441,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=41
+[S5SCAN] scan=1 state=2->2 angle=2 target=1 valid=1 mm=228 echo=0 retries=0
+[S4] 4620,0,1,1,-46,-262,924,704,-30,-85,10,20,237,160,0,0,461,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=43 roll_cdeg=55
+wifi: link status -> joined AP, no IP yet (2)
+[S5SCAN] scan=1 state=2->3 angle=1 target=-20 valid=1 mm=131 echo=0 retries=0
+wifi: link up, ip=10.25.242.228
+[S4] 4830,0,1,1,-46,-252,918,710,-37,-103,20,30,247,167,0,0,482,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-5 roll_cdeg=53
+[S5SCAN] scan=1 state=3->3 angle=-20 target=-40 valid=1 mm=95 echo=0 retries=0
+[CSC02] t=5000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+wifi: power save off (CYW43_NONE_PM, read back pm=0x10)
+[S4] 5040,0,1,1,-42,-292,900,706,-30,-88,10,40,258,174,0,0,503,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=258 roll_cdeg=73
+mqtt: connected to 10.25.242.92
+[S5SCAN] scan=1 state=3->4 angle=-40 target=-30 valid=1 mm=276 echo=0 retries=0
+mqtt: subscribed to csc02/command
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat,a_impacts,a_faults,inits
+[S4] 5250,0,1,1,-41,-216,904,705,-29,-88,10,10,269,182,0,0,525,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-196 roll_cdeg=80
+[S5SCAN] scan=1 state=4->4 angle=-30 target=-25 valid=1 mm=647 echo=0 retries=0
+[S4] 5460,0,1,1,-51,-254,922,700,-27,-88,20,20,279,191,0,0,545,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=0 roll_cdeg=23
+[S5SCAN] scan=1 state=4->4 angle=-25 target=-22 valid=1 mm=631 echo=0 retries=0
+[S4] 5670,0,1,1,-54,-256,919,709,-27,-88,20,30,290,199,0,0,566,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=16 roll_cdeg=4
+[S5SCAN] scan=1 state=4->4 angle=-22 target=-21 valid=1 mm=700 echo=0 retries=0
+[S5SCAN] scan=1 state=4->4 angle=-21 target=-20 valid=1 mm=666 echo=0 retries=0
+[S4] 5880,0,1,1,-49,-254,922,706,-28,-85,10,30,301,207,0,0,587,0,1,1
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=0 roll_cdeg=36
+[CSC02] t=6000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S5SCAN] scan=1 state=4->4 angle=-20 target=-10 valid=1 mm=670 echo=0 retries=0
+15:35:27.235 capture finished

@@ -1,5 +1,14 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* On-target tests. Build with S4_ONLY=1 TEST=1 for sensor bench testing. */
+/*
+ *	subsystem4_test.c
+ *	On-target tests for subsystem 4.  Built only with: make TEST=1
+ *	Build with S4_ONLY=1 TEST=1 for sensor bench testing.  The integrated
+ *	test image (make TEST=1 NET=lwip MQTT=1) runs the same checks.
+ *
+ *	Each TEST_CHECK prints a PASS/FAIL line on the console.  Save the
+ *	console output to testing/subsystem4/logs/ and record the result
+ *	in testing/subsystem4/TEST_LOG.md.  Test IDs: S4-U03 to S4-U06.
+ */
 #include "subsystem4.h"
 #include "../test_report.h"
 

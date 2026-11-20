@@ -40,11 +40,12 @@ edr-check-report.json
 /docs/*
 !/docs/DATA_REPRESENTATION.md
 /testing/evidence/
-/testing/**/logs/
-/testing/**/*.md
-!/testing/README.md
 /app_program/subsystem*/README.md
 *.log
+# Test records are committed (testing/README.md): TEST_LOG.md files and the
+# saved console logs in each testing/<area>/logs/ folder.
+!/testing/**/logs/
+!/testing/**/logs/**
 /testing/subsystem4/*.json
 /testing/integration/protocol_golden.json
 

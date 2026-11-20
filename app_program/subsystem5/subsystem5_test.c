@@ -1,3 +1,12 @@
+/*
+ *	subsystem5_test.c
+ *	On-target tests for subsystem 5.  Built only with: make TEST=1
+ *	The integrated test image (make TEST=1 NET=lwip MQTT=1) runs them.
+ *
+ *	Each TEST_CHECK prints a PASS/FAIL line on the console.  Save the
+ *	console output to testing/subsystem5/logs/ and record the result
+ *	in testing/subsystem5/TEST_LOG.md.  Test IDs: S5-U01 to S5-U03.
+ */
 #include "subsystem5.h"
 #include "../test_report.h"
 #if APP_TEST
