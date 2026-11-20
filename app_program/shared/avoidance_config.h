@@ -10,8 +10,13 @@
  * of the out diagonal, before aligning). */
 #define AVOID_PASS_STEP_MM 100U
 /* A clear side look (end of the diagonal or in VC_PASS): the servo returns
- * to the front, the robot drives on this far straight, then turns back. */
+ * to the front, the robot drives on straight at least this far and for at
+ * least AVOID_CLEAR_RUN_MS of driving (timed from its first drive tick, so
+ * the stop for the forward check does not count), then turns back. */
 #define AVOID_CLEAR_RUN_MM 20U
+#ifndef AVOID_CLEAR_RUN_MS
+#define AVOID_CLEAR_RUN_MS 500U
+#endif
 /* Smooth avoidance driving (TURN_OUT..RESTORE, vehicle.c): power rises from 0
  * to the avoidance power over AVOID_RAMP_POWER_MS (drops stay immediate) and
  * the arc steering moves at most full scale (400) per AVOID_STEER_RAMP_MS,
@@ -28,6 +33,16 @@
  * diagonal is only where the line is expected: drive on up to this much
  * further before restoring the heading for an on-the-spot search. */
 #define AVOID_RETURN_EXTRA_MM 250U
+/* VC_RETURN heads back toward the line at least this steeply (deg from the
+ * pre-obstacle heading), so it rejoins nearer the obstacle. A steeper
+ * diagonal keeps its own angle. The return distance is the diagonal's
+ * lateral offset at this heading. 0: mirror the diagonal (before 8c-2). */
+#ifndef AVOID_RETURN_MIN_DEG
+#define AVOID_RETURN_MIN_DEG 45U
+#endif
+#if AVOID_RETURN_MIN_DEG > 80
+#error AVOID_RETURN_MIN_DEG must be 0..80
+#endif
 /* VC_BACKUP: straight reverse after the plan is latched, ended by time or
  * by the odometry distance bound, whichever comes first. */
 #define AVOID_BACKUP_MS 1000U

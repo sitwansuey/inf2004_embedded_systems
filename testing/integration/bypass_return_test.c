@@ -1,9 +1,10 @@
 /* Obstacle bypass in the vehicle policy (vehicle_policy.c), scenario by
  * scenario: the side look at the end of the out diagonal (clear: a short
- * straight run, then straight back through 2x the heading; still there:
- * align and pass it, looking every AVOID_PASS_STEP_MM), the return that
- * drives on until the line is under the robot (lead-sensor touch kept across
- * TURN_IN/RETURN/RESTORE) or AVOID_RETURN_EXTRA_MM past the mirrored
+ * straight run, then straight back through the heading plus the return
+ * heading, at least AVOID_RETURN_MIN_DEG; still there: align and pass it,
+ * looking every AVOID_PASS_STEP_MM), the return that drives on until the
+ * line is under the robot (lead-sensor touch kept across
+ * TURN_IN/RETURN/RESTORE) or AVOID_RETURN_EXTRA_MM past the expected
  * distance, RESTORE to the heading held at detection, then TRACK or the spot
  * search; and the line-data and sonar gap holds. */
 #include "../../app_program/vehicle_policy.h"
@@ -73,12 +74,15 @@ int main(void) {
     {vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=2;vc_step(&s,&i);}
     {vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=0;vc_step(&s,&i);}
     yaw=0;CHECK(restore_then_track(&s,&t,&d,&yaw),"right bypass: left touch then release -> RESTORE -> TRACK");
-    /* 7. No line: drives on past return_mm, restores only after return_mm + extra. */
+    /* 7. No line: drives on past the expected distance (200 mm at 30 deg is
+     * 100 mm off the line: 141 mm at the 45 deg return heading), restores
+     * only after that plus the extra. */
     armed_in(&s,VC_RETURN,30,200);t=0;d=0;
     while(s.phase==VC_RETURN && d<1000000){vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=0;vc_step(&s,&i);}
-    printf("no line: RETURN ended at %d mm (return_mm 200 + extra %u)\n",(int)(d/1000),AVOID_RETURN_EXTRA_MM);
+    printf("no line: RETURN ended at %d mm (expected 141 + extra %u)\n",(int)(d/1000),AVOID_RETURN_EXTRA_MM);
     CHECK(s.phase==VC_RESTORE,"no line -> RESTORE");
-    CHECK(d/1000>=200+(int)AVOID_RETURN_EXTRA_MM,"RETURN drove past the mirrored distance");
+    CHECK(d/1000>=141+(int)AVOID_RETURN_EXTRA_MM && d/1000<=143+(int)AVOID_RETURN_EXTRA_MM,
+          "RETURN drove past the expected distance plus the extra");
     /* 8. Touch in RETURN, extra distance exhausted, release in RESTORE -> TRACK. */
     armed_in(&s,VC_RETURN,30,0);t=0;d=0;
     while(s.phase==VC_RETURN && d<1000000){vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=1;vc_step(&s,&i);}
@@ -99,12 +103,14 @@ int main(void) {
     CHECK(s.phase==VC_DIAGONAL && s.clear_run,"diagonal clear -> short straight run first");
     {int32_t run0=d;while(s.phase==VC_DIAGONAL && d<run0+1000000){vc_input_t i=base(t+=10,d+=1000,0);vc_step(&s,&i);CHECK(s.phase!=VC_DIAGONAL || s.command==1,"drives on during the run");}
      printf("clear run before turning back: %d mm\n",(int)((d-run0)/1000));
-     CHECK(d-run0>=(int32_t)AVOID_CLEAR_RUN_MM*1000 && d-run0<=(int32_t)AVOID_CLEAR_RUN_MM*1000+1000,"run is AVOID_CLEAR_RUN_MM");}
+     /* 1 mm per 10 ms tick: AVOID_CLEAR_RUN_MS of driving (well past AVOID_CLEAR_RUN_MM). */
+     CHECK(d-run0>=(int32_t)AVOID_CLEAR_RUN_MM*1000 && d-run0>=(int32_t)(AVOID_CLEAR_RUN_MS/10U)*1000 &&
+           d-run0<=(int32_t)(AVOID_CLEAR_RUN_MS/10U+1U)*1000,"run lasts AVOID_CLEAR_RUN_MS");}
     CHECK(s.phase==VC_TURN_IN && s.direct_return,"diagonal clear -> direct TURN_IN after the run");
     yaw=0;int steps=0;
     while(s.phase==VC_TURN_IN && steps<200){yaw-=1000;++steps;vc_input_t i=base(t+=10,d+=1000,yaw);vc_step(&s,&i);}
-    printf("direct TURN_IN turned %d deg (turn_deg 30)\n",-yaw/1000);
-    CHECK(s.phase==VC_RETURN && -yaw>=60000 && -yaw<62000,"direct TURN_IN turns 2x turn_deg");
+    printf("direct TURN_IN turned %d deg (turn_deg 30, return heading 45)\n",-yaw/1000);
+    CHECK(s.phase==VC_RETURN && -yaw>=75000 && -yaw<77000,"direct TURN_IN turns turn_deg plus the 45 deg return heading");
     /* 11. Diagonal look sees the obstacle -> ALIGN, then PASS looks every AVOID_PASS_STEP_MM. */
     armed_in(&s,VC_DIAGONAL,30,0);s.approach_mm=150;t=0;d=0;
     while(s.phase==VC_DIAGONAL && !s.look_side && d<1000000){vc_input_t i=base(t+=10,d+=2000,0);vc_step(&s,&i);}

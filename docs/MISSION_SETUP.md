@@ -194,6 +194,16 @@ missing data keeps S5's checked heading. After every side pan the robot
 waits for a clear new forward sample; `AVOID_FRONT_WAIT_MS` (3000 ms)
 bounds that wait. DIAGONAL and ALIGN still have 10 s total limits.
 
+Track changes (2026-11-20). After a clear side look the robot drives
+straight for at least `AVOID_CLEAR_RUN_MS` (500 ms of driving) and
+`AVOID_CLEAR_RUN_MM` (20 mm). It then heads back to the line at
+`AVOID_RETURN_MIN_DEG` (45 deg), or at the out-diagonal angle if that is
+steeper. RETURN drives up to the diagonal's lateral offset divided by
+sin(return heading), plus `AVOID_RETURN_EXTRA_MM`, before it restores the
+heading and searches. `AVOID_RETURN_MIN_DEG 0` restores the mirrored
+return. The crest cap `BOARD_RAMP_DOWN_POWER` is 15% (it was 10%, which
+stalled at a hump edge).
+
 Use the USB `[TIMING]` report every 10 s to record longest run, release
 gap and late/run counts for VC, motor and network. `BOARD_TIMING_STATS 0`
 disables it. Timing and the additional stopped pans need track checks.

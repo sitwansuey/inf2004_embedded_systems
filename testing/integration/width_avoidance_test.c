@@ -29,7 +29,7 @@ static void geometry(void){
 static vc_input_t good(void){return(vc_input_t){.line_fresh=1,.steering=1,.front_clear=1,.sensor_fresh=1,.backup_ready=1,.odom_valid=1,.terrain_valid=1,.motor_ok=1,.transport_ok=1,.bypass_enabled=1,.bypass_steering=376,.width_valid=1,.obstacle_width_mm=200};}
 static void route(int sign){
  /* t: TURN_OUT entry, after the reverse and the stand-still. */
- const uint32_t t=15+AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;vc_state_t s={0};vc_input_t i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);
+ uint32_t t=15+AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;vc_state_t s={0};vc_input_t i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);
  i.now_ms=10;i.scan_ready=1;i.turn_deg=(int16_t)(sign*40);i.approach_mm=i.return_mm=180;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.approach_mm==180 && s.return_mm==180 && s.avoid_yaw==0);
  /* front_clear stays 0 and obstacle 1: the reverse is not gated by the forward sonar.
   * It ramps START -> AVOID_BACKUP_POWER -> START. */
@@ -63,11 +63,17 @@ static void route(int sign){
  /* Clear: AVOID_CLEAR_RUN_MM further on, then turn back. */
  assert(s.phase==VC_PASS && s.clear_run && !s.look_side);
  i.now_ms=t+260;i.front_clear=1;i.side_observed=0;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1 && !s.steering);
- i.now_ms=t+270;i.distance_um+=AVOID_CLEAR_RUN_MM*1000;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1 && s.steering==sign*376 && !s.direct_return);
- i.now_ms=t+280;i.yaw_mdeg=-sign*40000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.steering);
- /* No line: on past the mirrored 180 mm by AVOID_RETURN_EXTRA_MM, then restore the heading. */
- i.now_ms=t+290;i.distance_um+=(180+AVOID_RETURN_EXTRA_MM)*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
- i.now_ms=t+300;i.distance_um+=1;vc_step(&s,&i);assert(s.phase==VC_RESTORE && s.command==1 && s.steering==-sign*376 && s.restore_mdeg==sign*40000);
+ i.now_ms=t+270;i.distance_um+=AVOID_CLEAR_RUN_MM*1000;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1);
+ /* The distance is done; the run lasts AVOID_CLEAR_RUN_MS from its first drive tick (t+260). */
+ i.now_ms=t+259+AVOID_CLEAR_RUN_MS;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1);
+ t+=AVOID_CLEAR_RUN_MS;
+ i.now_ms=t+270;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1 && s.steering==sign*376 && !s.direct_return);
+ i.now_ms=t+280;i.yaw_mdeg=-sign*45000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.steering);
+ /* No line: on past the expected distance (180 mm at 40 deg is 116 mm off
+  * the line: 164 mm at the 45 deg return heading) by AVOID_RETURN_EXTRA_MM,
+  * then restore the heading. */
+ i.now_ms=t+290;i.distance_um+=(164+AVOID_RETURN_EXTRA_MM)*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
+ i.now_ms=t+300;i.distance_um+=1;vc_step(&s,&i);assert(s.phase==VC_RESTORE && s.command==1 && s.steering==-sign*376 && s.restore_mdeg==sign*45000);
  i.now_ms=t+310;i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command && s.spot_scan && s.search_right_first==(sign>0));
 }
 static void backup(void){

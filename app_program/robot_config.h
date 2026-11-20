@@ -481,7 +481,9 @@
 #define BOARD_RAMP_UP_POWER 0U
 #endif
 #ifndef BOARD_RAMP_DOWN_POWER
-#define BOARD_RAMP_DOWN_POWER 10U
+/* 15: at 10% the robot stalled at a hump's crest edge on the track
+ * (2026-11-20, fault 7); 15% gives the speed loop more drive there. */
+#define BOARD_RAMP_DOWN_POWER 15U
 #endif
 #if BOARD_RAMP_SPEED && (BOARD_RAMP_UP_POWER > 50 || BOARD_RAMP_DOWN_POWER > 50 || \
     BOARD_RAMP_LEVEL_CDEG >= BOARD_RAMP_TILT_CDEG || BOARD_IMU_SMOOTH_MS < 1 || BOARD_IMU_SMOOTH_MS > 5000)

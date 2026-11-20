@@ -1,6 +1,36 @@
 #include "vehicle_policy.h"
 #include <stdlib.h>
 /* Commands match S2: STOP=0 FORWARD=1 REVERSE=2 LEFT=3 RIGHT=4 PIVOT_R=5 PIVOT_L=6. */
+/* sin of whole degrees 0..90, x1000. */
+static const uint16_t sin_milli[91]={
+    0,17,35,52,70,87,105,122,139,156,174,191,208,
+    225,242,259,276,292,309,326,342,358,375,391,407,423,
+    438,454,469,485,500,515,530,545,559,574,588,602,616,
+    629,643,656,669,682,695,707,719,731,743,755,766,777,
+    788,799,809,819,829,839,848,857,866,875,883,891,899,
+    906,914,921,927,934,940,946,951,956,961,966,970,974,
+    978,982,985,988,990,993,995,996,998,999,999,1000,1000};
+/* Bypass return heading toward the line (deg, > 0): the diagonal's angle,
+ * raised to AVOID_RETURN_MIN_DEG. */
+static int return_deg(const vc_state_t *s) {
+    int a=abs(s->turn_deg);
+    return a<(int)AVOID_RETURN_MIN_DEG?(int)AVOID_RETURN_MIN_DEG:a;
+}
+/* Clear run after a clear side look: done once it has driven at least
+ * AVOID_CLEAR_RUN_MM and AVOID_CLEAR_RUN_MS, timed from its first drive tick
+ * (this call starts the timer). */
+static bool clear_run_done(vc_state_t *s,const vc_input_t *i) {
+    if (!s->clear_run_timing) {s->clear_run_timing=1;s->clear_run_ms=i->now_ms;return false;}
+    return (int64_t)i->distance_um-s->origin_um>=(int64_t)AVOID_CLEAR_RUN_MM*1000 &&
+        i->now_ms-s->clear_run_ms>=AVOID_CLEAR_RUN_MS;
+}
+/* Distance (mm) back to the line at the return heading: the diagonal's
+ * lateral offset (return_mm along turn_deg) divided by sin(return heading). */
+static uint32_t return_limit_mm(const vc_state_t *s) {
+    int a=abs(s->turn_deg),r=return_deg(s);
+    if (r==a || a>90) return s->return_mm;
+    return (uint32_t)(((uint32_t)s->return_mm*sin_milli[a]+sin_milli[r]/2U)/sin_milli[r]);
+}
 bool vc_arm(vc_state_t *s,uint32_t now,uint32_t lease,unsigned power) {
     if (!s || lease==0 || lease>1000 || power<1 || power>50) return false;
     if (s->phase==VC_FAULT) return false;
@@ -28,7 +58,7 @@ void vc_stop(vc_state_t *s,unsigned reason) {
     s->nav_search=0;s->nav_offset=0;s->spot_scan=0;s->uturn_guard=0;
     s->last_line_side=0;s->search_right_first=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
-    s->clear_run=0;s->line_gap=0;s->sonar_gap=0;s->odom_gap=0;s->front_wait=0;s->line_found=0;s->line_seen=0;
+    s->clear_run=0;s->clear_run_timing=0;s->line_gap=0;s->sonar_gap=0;s->odom_gap=0;s->front_wait=0;s->line_found=0;s->line_seen=0;
     s->fault=(uint8_t)(reason&15U);s->phase=reason?VC_FAULT:VC_DISARMED;
     s->fault_cause=0; /* sensor_fault() sets it after this */
 }
@@ -69,7 +99,7 @@ static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
     s->nav_search=0;s->nav_offset=0;s->spot_scan=0; /* pending_nav itself is kept */
     if(!keep_touch) s->nav_touched=0;
-    s->clear_run=0;s->line_gap=0;s->line_seen=0; /* TRACK measures line-lost from its entry */
+    s->clear_run=0;s->clear_run_timing=0;s->line_gap=0;s->line_seen=0; /* TRACK measures line-lost from its entry */
     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
     if(continuous) {
         s->command=1;s->power=s->maximum_power>AVOID_POWER?AVOID_POWER:s->maximum_power;
@@ -345,8 +375,12 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         switch(s->phase) {
         case VC_TURN_OUT: target=s->turn_deg*1000;next=VC_DIAGONAL;break;
         case VC_ALIGN: target=-s->turn_deg*1000;next=VC_PASS;break;
-        case VC_TURN_IN: /* from the diagonal (side clear): back through 2x turn_deg */
-            target=-s->turn_deg*(s->direct_return?2000:1000);next=VC_RETURN;break;
+        case VC_TURN_IN: {
+            /* To the return heading toward the line: from the diagonal (side
+             * clear) through turn_deg plus it, after ALIGN/PASS through it. */
+            int r=s->turn_deg>0?return_deg(s):-return_deg(s);
+            target=-(s->direct_return?s->turn_deg+r:r)*1000;next=VC_RETURN;break;
+        }
         case VC_RESTORE: /* back to the heading before the obstacle */
             target=s->restore_mdeg;next=s->line_found?VC_TRACK:VC_REACQUIRE;
             if (abs(target)<2000) {
@@ -363,14 +397,15 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
              * straight pass). Still there: align and pass it in steps. */
             if(s->look_side) {
                 int r=side_look(s,i);
-                if(r==1) {s->look_side=0;s->clear_run=1;s->origin_um=i->distance_um;}
+                if(r==1) {s->look_side=0;s->clear_run=1;s->clear_run_timing=0;s->origin_um=i->distance_um;}
                 else if(r==2) {s->look_side=0;enter(s,i,VC_ALIGN);}
                 return;
             }
             if(s->clear_run) {
-                /* Clear: a little further on, then straight back. */
-                if ((int64_t)i->distance_um-s->origin_um>=(int64_t)AVOID_CLEAR_RUN_MM*1000) {
-                    unsigned back=s->return_mm+AVOID_CLEAR_RUN_MM;
+                /* Clear: a little further on (it adds to the diagonal), then
+                 * straight back. */
+                if (clear_run_done(s,i)) {
+                    unsigned back=s->return_mm+(unsigned)((i->distance_um-s->origin_um)/1000);
                     s->return_mm=(uint16_t)(back>UINT16_MAX?UINT16_MAX:back);
                     s->direct_return=1;enter(s,i,VC_TURN_IN);return;
                 }
@@ -386,10 +421,10 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         }
         case VC_RETURN: {
             /* Head back until the line is found (handed over above). Only past
-             * the mirrored distance plus AVOID_RETURN_EXTRA_MM, with no touch,
-             * straighten up and search on the spot. */
+             * the expected distance (return_limit_mm) plus AVOID_RETURN_EXTRA_MM,
+             * with no touch, straighten up and search on the spot. */
             if ((int64_t)i->distance_um-s->origin_um>=
-                ((int64_t)s->return_mm+AVOID_RETURN_EXTRA_MM)*1000) {
+                ((int64_t)return_limit_mm(s)+AVOID_RETURN_EXTRA_MM)*1000) {
                 enter(s,i,VC_RESTORE);return;
             }
             s->command=1;break;
@@ -398,7 +433,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             /* Alongside the obstacle: look to its side every AVOID_PASS_STEP_MM. */
             if(s->look_side) {
                 int r=side_look(s,i);
-                if(r==1) {s->look_side=0;s->clear_run=1;s->origin_um=i->distance_um;}
+                if(r==1) {s->look_side=0;s->clear_run=1;s->clear_run_timing=0;s->origin_um=i->distance_um;}
                 else if(r==2) {
                     s->look_side=0;s->origin_um=i->distance_um;
                     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
@@ -407,7 +442,7 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             }
             if(s->clear_run) {
                 /* Clear: a little further on, then turn back. */
-                if ((int64_t)i->distance_um-s->origin_um>=(int64_t)AVOID_CLEAR_RUN_MM*1000) {
+                if (clear_run_done(s,i)) {
                     enter(s,i,VC_TURN_IN);return;
                 }
                 s->command=1;break;

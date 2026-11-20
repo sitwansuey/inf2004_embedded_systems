@@ -88,6 +88,11 @@ on and `BOARD_SHOCK_STOP` stays 0 (decision 1).
 
 After a side look the robot waits stopped for a new clear forward sample.
 BACKUP waits at most 1.5 s for an APPROACH/0 sample before its full 1 s reverse.
+
+Track changes (2026-11-20): after a clear side look the robot drives straight
+for 0.5 s, then returns to the line at 45 deg or more (`AVOID_CLEAR_RUN_MS`,
+`AVOID_RETURN_MIN_DEG`). The crest cap is 15% (`BOARD_RAMP_DOWN_POWER`).
+See docs/MISSION_SETUP.md.
 A shallower heading after reversing gets a stopped ray check; a blocked or
 timed-out check keeps S5's verified heading. Calibrate `BOARD_SERVO_US_PER_90`
 (default 750 us) as well as the centre. See the mission and avoidance guides.

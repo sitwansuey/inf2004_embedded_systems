@@ -16,7 +16,7 @@ static void route(int sign) {
  /* Straight reverse, ramped, then under the 16% cap mid-way, while the obstacle is still ahead. */
  i.now_ms=20;i.distance_um=-10000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_START_POWER && !s.steering);
  i.now_ms=20+AVOID_BACKUP_MS/2;i.distance_um=-50000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==16 && !s.steering);
- const uint32_t t=10+AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;
+ uint32_t t=10+AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;
  /* Reverse done: stand still, then turn out (the plan is mirrored for the return). */
  i.now_ms=20+AVOID_BACKUP_MS;i.distance_um=-100000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
  i.now_ms=10+t;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command && s.approach_mm==300 && s.return_mm==300);
@@ -27,19 +27,25 @@ static void route(int sign) {
  i.now_ms=t+40;i.distance_um=200000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && !s.command && s.look_side && s.return_mm==300);
  i.front_clear=0;i.side_observed=i.side_ready=i.side_clear=1;
  for(unsigned n=0;n<3;++n){i.now_ms=i.side_sample_ms=t+60U+n*20U;vc_step(&s,&i);assert(!s.command);}
- /* Clear: AVOID_CLEAR_RUN_MM straight on, then straight back through 2x the heading. */
+ /* Clear: at least AVOID_CLEAR_RUN_MM and AVOID_CLEAR_RUN_MS straight on,
+  * then straight back through the heading plus the 45 deg return heading
+  * (AVOID_RETURN_MIN_DEG). */
  assert(s.phase==VC_DIAGONAL && s.clear_run && !s.look_side);
  i.now_ms=t+120;i.front_clear=1;i.side_observed=0;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1 && !s.steering);
- i.now_ms=t+130;i.distance_um+=AVOID_CLEAR_RUN_MM*1000-1;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1);
- i.now_ms=t+140;i.distance_um+=1;vc_step(&s,&i);
+ i.now_ms=t+130;i.distance_um+=AVOID_CLEAR_RUN_MM*1000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1);
+ /* The distance is done; the run lasts AVOID_CLEAR_RUN_MS from its first drive tick (t+120). */
+ i.now_ms=t+119+AVOID_CLEAR_RUN_MS;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1);
+ t+=AVOID_CLEAR_RUN_MS;
+ i.now_ms=t+140;vc_step(&s,&i);
  assert(s.phase==VC_TURN_IN && s.direct_return && s.command==1 && s.steering==sign*376 && s.return_mm==300+AVOID_CLEAR_RUN_MM);
- i.now_ms=t+150;i.yaw_mdeg=-sign*39000;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1);
- i.now_ms=t+160;i.yaw_mdeg=-sign*40000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.steering);
- /* No line on the way back: on past the mirrored distance by
+ i.now_ms=t+150;i.yaw_mdeg=-sign*44000;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1);
+ i.now_ms=t+160;i.yaw_mdeg=-sign*45000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.steering);
+ /* No line on the way back: on past the expected distance (the 320 mm
+  * diagonal at 40 deg is 206 mm off the line: 291 mm at 45 deg) by
   * AVOID_RETURN_EXTRA_MM, then restore the heading and search. */
- i.now_ms=t+170;i.distance_um+=(300+AVOID_CLEAR_RUN_MM+AVOID_RETURN_EXTRA_MM)*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
+ i.now_ms=t+170;i.distance_um+=(291+AVOID_RETURN_EXTRA_MM)*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
  i.now_ms=t+180;i.distance_um+=1;vc_step(&s,&i);
- assert(s.phase==VC_RESTORE && !s.line_found && s.restore_mdeg==sign*40000 && s.command==1 && s.steering==-sign*376);
+ assert(s.phase==VC_RESTORE && !s.line_found && s.restore_mdeg==sign*45000 && s.command==1 && s.steering==-sign*376);
  i.now_ms=t+190;i.yaw_mdeg=0;vc_step(&s,&i);
  assert(s.phase==VC_REACQUIRE && !s.command && s.spot_scan && s.search_right_first==(sign>0));
  /* The spot search turns toward the line's side first. */

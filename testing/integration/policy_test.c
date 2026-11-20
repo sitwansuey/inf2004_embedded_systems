@@ -152,16 +152,20 @@ static void controller(void) {
     /* Clear: AVOID_CLEAR_RUN_MM further on, then turn back. */
     assert(s.phase==VC_PASS && s.clear_run && !s.look_side);
     i.front_clear=1;i.side_observed=0;i.now_ms+=20;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1);
-    i.distance_um+=AVOID_CLEAR_RUN_MM*1000;vc_step(&s,&i);
+    i.distance_um+=AVOID_CLEAR_RUN_MM*1000;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1);
+    /* ... and AVOID_CLEAR_RUN_MS of driving from its first drive tick. */
+    i.now_ms+=AVOID_CLEAR_RUN_MS;vc_step(&s,&i);
     assert(s.phase==VC_TURN_IN && s.command==1 && s.steering==376);
-    i.yaw_mdeg=-30000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
+    /* Back toward the line at the 45 deg return heading (AVOID_RETURN_MIN_DEG). */
+    i.yaw_mdeg=-44000;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1);
+    i.yaw_mdeg=-45000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
     /* The lead (right) sensor touches the line, then releases it into the
      * gap: the line is under the robot. Arc back to the heading held before
      * the obstacle, then track. */
     i.line_black_mask=1;i.distance_um+=50000;vc_step(&s,&i);
     assert(s.phase==VC_RETURN && s.command==1 && s.nav_touched && !s.line_found);
     i.line_black_mask=0;i.distance_um+=10000;vc_step(&s,&i);
-    assert(s.phase==VC_RESTORE && s.line_found && s.restore_mdeg==30000 && s.command==1 && s.steering==-376);
+    assert(s.phase==VC_RESTORE && s.line_found && s.restore_mdeg==45000 && s.command==1 && s.steering==-376);
     i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_TRACK && !s.command);
     assert(s.pending_nav==2);i.obstacle=0;
     vc_track_requested(&s,i.now_ms);i.steering=0;vc_step(&s,&i);

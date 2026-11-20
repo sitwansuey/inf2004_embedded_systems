@@ -108,6 +108,7 @@ typedef struct {
     uint32_t brake_started_ms, brake_moved_ms; /* VC_BACKUP stand-still: start, last odometry movement */
     int32_t brake_last_um; /* odometry at the last movement while braking */
     uint32_t soft_start_ms; /* avoidance arc started driving from standstill */
+    uint32_t clear_run_ms; /* first drive tick of the clear run (clear_run_timing) */
     uint32_t side_last_ms, side_check_started_ms;
     uint8_t side_clear_count, side_present_count, side_have_sample;
     uint16_t bypass_steering;
@@ -138,8 +139,9 @@ typedef struct {
     uint8_t nav_offset : 1; /* junction seen: straight on for nav_offset_mm, then turn */
     uint8_t spot_scan : 1; /* REACQUIRE after a turn ended without a line touch: only a sensor on black ends it */
     uint8_t uturn_guard : 1; /* uturn_end_um is valid: repeat U-turns are ignored nearby */
-    uint8_t direct_return : 1; /* side clear at the end of the diagonal: TURN_IN turns 2x turn_deg straight back */
-    uint8_t clear_run : 1; /* side look clear: AVOID_CLEAR_RUN_MM straight on before TURN_IN */
+    uint8_t direct_return : 1; /* side clear at the end of the diagonal: TURN_IN turns straight back through turn_deg plus the return heading */
+    uint8_t clear_run : 1; /* side look clear: AVOID_CLEAR_RUN_MM and AVOID_CLEAR_RUN_MS straight on before TURN_IN */
+    uint8_t clear_run_timing : 1; /* the clear run has driven: clear_run_ms is set */
     uint8_t line_gap : 1; /* line data missing since line_gap_ms */
     uint8_t sonar_gap : 1; /* no fresh sonar sample since sonar_gap_ms */
     uint8_t front_wait : 1;
