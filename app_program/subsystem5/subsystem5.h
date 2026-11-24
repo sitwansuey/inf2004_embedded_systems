@@ -5,12 +5,14 @@
 #include "../shared/avoidance_config.h"
 #define S5_PRI_MAIN 20
 #define S5_LOCK_WAIT_MS 5
-#define S5_OBSTACLE_MM 200U /* acquisition at 20 cm, inclusive */
+/* Acquisition at 20 cm, inclusive. The vehicle detects an obstacle earlier
+ * (VC_DETECT_MM, vehicle_approach.h) and holds still about here for it. */
+#define S5_OBSTACLE_MM 200U
 /* Consecutive forward echoes within S5_OBSTACLE_MM that confirm an obstacle
  * (S5 starts acquisition; the vehicle stops tracking). A far or off-axis
  * echo restarts the count; a no-echo retry is no reading and neither counts
- * nor restarts it, but three in a row (open space) do. */
-#define S5_ACQUISITION_SAMPLES 3U
+ * nor restarts it, but three in a row (open space) do. 2 (3 in 8c). */
+#define S5_ACQUISITION_SAMPLES 2U
 #define S5_SCAN_MOTION_TOLERANCE_COUNTS 3 /* about 1 mm with measured 631 counts / 220 mm */
 #define S5_SCAN_MOTION_RESTARTS 2U
 #define S5_SCAN_ECHO_FAILURES 3U /* retry at the same angle before resetting */

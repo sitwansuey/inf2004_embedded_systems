@@ -26,6 +26,8 @@ test:
 	./.build/bypass_return
 	$(CC) $(CFLAGS) -D_USE_MATH_DEFINES reverse_track_test.c $(LDFLAGS) -lm -o .build/reverse_track
 	.build/reverse_track
+	$(CC) $(CFLAGS) approach_test.c $(LDFLAGS) -o .build/approach
+	.build/approach
 	$(CC) $(CFLAGS) line_steer_test.c $(LDFLAGS) -o .build/line_steer
 	.build/line_steer
 	$(CC) $(CFLAGS) obstacle_confirm_test.c $(LDFLAGS) -o .build/obstacle_confirm

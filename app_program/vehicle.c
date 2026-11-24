@@ -9,11 +9,15 @@
 #include "subsystem4/encoder_input.h"
 #include "subsystem4/imu_mount.h"
 #include "vehicle_obstacle_confirm.h"
+#include "vehicle_approach.h"
 #include "vehicle_ramp.h"
 #include "vehicle_edge_trace.h"
 #include <math.h>
 #include "subsystem2/s2_data.h"
 #include "subsystem5/subsystem5.h"
+#if VC_DETECT_MM <= S5_OBSTACLE_MM || VC_DETECT_SAMPLES < 1U || VC_APPROACH_STOP_MM > S5_OBSTACLE_MM
+#error Approach: detect beyond S5_OBSTACLE_MM, stop within it
+#endif
 #include "subsystem5/s5_width.h"
 #include "shared/events.h"
 #include "vehicle_reverse_track.h"
@@ -154,6 +158,10 @@ static void vehicle_task(INT code,void *context) {
     uint8_t shown_ok=0;BOOL shown_seen=FALSE; /* last decode count shown on the dashboard */
     uint32_t tilt_ok_ms=0;BOOL tilt_seen=FALSE; /* last valid gravity tilt */
     vehicle_obstacle_confirm_t obstacle_confirm={0};
+    /* Early detection within VC_DETECT_MM and the approach to the
+     * manoeuvre distance (vehicle_approach.h). */
+    vehicle_obstacle_confirm_t detect_confirm={0};vehicle_approach_t approach={0};
+    unsigned approach_seen=APPROACH_NONE;
 #if BOARD_RAMP_SPEED
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
 #endif
@@ -461,6 +469,8 @@ static void vehicle_task(INT code,void *context) {
         BOOL no_echo=!scan.valid && (scan.echo_result==S5_ECHO_NO_RISE || scan.echo_result==S5_ECHO_NO_FALL);
         BOOL obstacle_confirmed=vehicle_obstacle_confirm_step(&obstacle_confirm,so && (scan.valid || open),
             scan.time_ms,forward && scan.valid && scan.distance_mm<=S5_OBSTACLE_MM,S5_ACQUISITION_SAMPLES);
+        BOOL detect_confirmed=vehicle_obstacle_confirm_step(&detect_confirm,so && (scan.valid || open),
+            scan.time_ms,forward && scan.valid && scan.distance_mm<=VC_DETECT_MM,VC_DETECT_SAMPLES);
         /* Avoidance arcs retain their no-echo tolerance only after a clear
          * forward sample follows the last pan. Published target angle 0
          * alone is not a forward observation. */
@@ -929,6 +939,33 @@ static void vehicle_task(INT code,void *context) {
             }
         }
 #endif
+        {
+            /* Obstacle approach (vehicle_approach.h): detected at 30 cm, the
+             * robot follows the line on to about 20 cm and holds still there
+             * for S5's scan (8c: S5's 20 cm trigger alone, which this sonar
+             * often met only 3-4 cm from a box face). */
+            BOOL tracking=state.vehicle.armed && state.vehicle.phase==VC_TRACK;
+#if BOARD_BARCODE_RETRY_DRIVE
+            tracking=tracking && br_state==BR_IDLE;
+#endif
+            BOOL detected=detect_confirmed && forward && scan.valid && scan.distance_mm<=VC_DETECT_MM;
+            BOOL far=so && forward && ((scan.valid && scan.distance_mm>VC_DETECT_MM) || open);
+            unsigned a=vehicle_approach_step(&approach,tracking,detected,scan.distance_mm,far,
+                input.odom_valid,odom->distance_um,now.lo,VC_APPROACH_STOP_MM+VC_APPROACH_BRAKE_MM,
+                VC_APPROACH_HOLD_MS,VC_APPROACH_SLACK_MM);
+            if(a==APPROACH_HOLD) {state.vehicle.command=0;state.vehicle.power=0;}
+            if(a!=approach_seen) {
+                if(a==APPROACH_DRIVE && approach_seen==APPROACH_NONE)
+                    tm_printf((UB *)"[APPROACH] obstacle %u mm ahead: driving %u mm on, then holding for the scan\n",
+                        (unsigned)approach.range_mm,(unsigned)approach.go_mm);
+                else if(a==APPROACH_HOLD)
+                    tm_printf((UB *)"[APPROACH] at the manoeuvre distance: holding for S5's scan\n");
+                else if(a==APPROACH_DRIVE)
+                    tm_printf((UB *)"[APPROACH] no scan after %u ms: following on\n",(unsigned)VC_APPROACH_HOLD_MS);
+                else tm_printf((UB *)"[APPROACH] ended (phase %u)\n",(unsigned)state.vehicle.phase);
+                approach_seen=a;
+            }
+        }
         /* Avoidance smoothing restarts from 0 outside a forward avoidance arc;
          * its ramps are timed from the last tick outside it. */
         if(state.vehicle.command!=S2_MOVE_FORWARD || state.vehicle.phase<VC_TURN_OUT ||

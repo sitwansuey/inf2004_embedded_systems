@@ -46,7 +46,7 @@ const labels = {
   accel_x_mps2:['Acceleration X','m/s²'],accel_y_mps2:['Acceleration Y','m/s²'],accel_z_mps2:['Acceleration Z','m/s²'],
   mag_x_ut:['Magnetic field X','µT'],mag_y_ut:['Magnetic field Y','µT'],mag_z_ut:['Magnetic field Z','µT'],
   pitch_deg:['Pitch','°'],roll_deg:['Roll','°'],
-  distance_cm:['Obstacle distance','cm'],width_cm:['Estimated width','cm'],width_left_cm:['Centre to left edge','cm'],width_right_cm:['Centre to right edge','cm'],bypass_side:['Bypass side'],
+  distance_cm:['Obstacle distance','cm'],width_cm:['Estimated width (last scan)','cm'],width_left_cm:['Centre to left edge (last scan)','cm'],width_right_cm:['Centre to right edge (last scan)','cm'],bypass_side:['Bypass side (last scan)'],
   line_error:['Line position error'],hump_height_cm:['Current hump peak','cm'],run_max_height_cm:['Run maximum height','cm'],servo_angle_deg:['Servo angle','°'],
   power_percent:['Commanded power','%'],speed_mps:['Vehicle speed','m/s'],
   fault_cause:['Fault cause'],valid:['Estimate validity']

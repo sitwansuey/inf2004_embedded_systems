@@ -45,9 +45,11 @@ ID 0 obstacle and scan fields (local display keys):
 | 12 | `Robopico/Actuators/vehicle_controller/dropped` | the robot's internal drop count modulo 256 (wraps, like the subtype 11 sequence); the receiver shows the drops of the last 60 s from the differences between records. The first record after a broker reconnect or a robot silence is only a baseline |
 | 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
 
-Subtype 8 values 101–127 and bypass side 3 are rejected. Like every reading,
-the three width fields keep their latest value until a new report replaces
-them; a quality record with bit 0 clear, or a broker reconnect, clears them.
+Subtype 8 values 101–127 and bypass side 3 are rejected. The three width
+fields and the bypass side are the last obstacle scan's results: the receiver
+keeps them until the next scan reports new ones. A quality record with bit 0
+clear, a broker reconnect, a robot silence or a bypass side of `None` (no plan
+now) does not clear them.
 
 The prior packed16/v1 topic, individual sensor topics and JSON topics are
 not consumed. Demo/JSON import remain explicit browser-only features.
