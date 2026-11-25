@@ -23,7 +23,7 @@ LFLAGS := -mcpu=cortex-m7 -mthumb -ffreestanding \
     -O0 -g3 \
     -mfloat-abi=soft \
 
-LNKFILE := "../etc/linker/nucleo_h723/tkernel_map.ld"
+LNKFILE := "../include/etc/linker/nucleo_h723/tkernel_map.ld"
 
 include mtkernel_3/lib/libtm/sysdepend/nucleo_h723/subdir.mk
 include mtkernel_3/lib/libtm/sysdepend/no_device/subdir.mk

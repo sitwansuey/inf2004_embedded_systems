@@ -20,7 +20,7 @@ LFLAGS := -mcpu=cortex-m3 -mthumb -ffreestanding \
     -nostartfiles \
     -O0 -g3 \
 
-LNKFILE := "../etc/linker/iote_m367/tkernel_map.ld"
+LNKFILE := "../include/etc/linker/iote_m367/tkernel_map.ld"
 
 include mtkernel_3/lib/libtm/sysdepend/iote_m367/subdir.mk
 include mtkernel_3/lib/libtm/sysdepend/no_device/subdir.mk
