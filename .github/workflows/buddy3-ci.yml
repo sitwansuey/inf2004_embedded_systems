@@ -47,9 +47,17 @@ jobs:
       - name: Fetch Pico SDK 2.2.0 and required drivers
         run: |
           git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git "$RUNNER_TEMP/pico-sdk"
-          git -C "$RUNNER_TEMP/pico-sdk" submodule update --init --depth 1 lib/tinyusb lib/cyw43-driver
+          git -C "$RUNNER_TEMP/pico-sdk" submodule update --init --depth 1 lib/tinyusb lib/cyw43-driver lib/lwip
           echo "PICO_SDK_PATH=$RUNNER_TEMP/pico-sdk" >> "$GITHUB_ENV"
       - name: Compile Buddy 3 with real ARM ABI and kernel headers
         run: make -C testing/subsystem3 arm-check
       - name: Build complete standard firmware
         run: make -k -C build_make -j2
+      # NET=lwip MQTT=1 changes .build_profile, so build_make discards the
+      # standard build's objects before building (pico_rp2040.mk).
+      - name: Build networked firmware (NET=lwip MQTT=1)
+        run: |
+          # Placeholder credentials only: the real wifi_secrets.h is
+          # git-ignored and never needed to prove the image compiles and links.
+          cp config/wifi_secrets.example.h config/wifi_secrets.h
+          make -C build_make -j2 NET=lwip MQTT=1
