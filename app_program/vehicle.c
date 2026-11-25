@@ -672,10 +672,15 @@ static void vehicle_task(INT code,void *context) {
             if(br_state==BR_BRAKE || br_state==BR_REVERSE || br_state==BR_WAIT) input.obstacle=0;
         }
 #endif
-        /* A barcode is being read (>= 3 elements): the follower is off;
-         * line_marker_steer holds the line (BOARD_BARCODE_READ_LINE_STEER). */
+        /* A barcode is being read (BOARD_BARCODE_READ_MIN_ELEMENTS or more):
+         * the follower is off and the slow speed applies from that bar on;
+         * line_marker_steer may hold the line (BOARD_BARCODE_READ_LINE_STEER). */
         BOOL marker_reading=li && line.configured &&
-            line.output.barcode_result==S3_BARCODE_RESULT_READING && line.output.barcode_elements>=3U;
+            line.output.barcode_result==S3_BARCODE_RESULT_READING
+#if BOARD_BARCODE_READ_MIN_ELEMENTS
+            && line.output.barcode_elements>=BOARD_BARCODE_READ_MIN_ELEMENTS
+#endif
+            ;
         /* Line lost while tracking (vehicle_policy.c): mask-pivot only, as
          * the edge-tracing IR rides the edge below black and that follower
          * faults a lost line itself. Off while a barcode is read or re-read

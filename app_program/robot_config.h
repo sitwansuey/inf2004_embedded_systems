@@ -107,7 +107,8 @@
 #define BOARD_BARCODE_RETRY_BRAKE_MS 200U /* settle before reversing direction */
 #endif
 #ifndef BOARD_BARCODE_RETRY_SPEED_PERCENT
-#define BOARD_BARCODE_RETRY_SPEED_PERCENT 30U /* re-read speed, % of the normal demand */
+#define BOARD_BARCODE_RETRY_SPEED_PERCENT 50U /* re-read speed, % of the normal demand (8f: 30,
+    i.e. 6% at a 20% demand, where the wheels stalled and lurched mid-marker; 25 Nov) */
 #endif
 #ifndef BOARD_BARCODE_RETRY_REVERSE_MAX_MM
 #define BOARD_BARCODE_RETRY_REVERSE_MAX_MM 800U /* reverse bound if no read result */
@@ -224,11 +225,25 @@
 #ifndef BOARD_LINE_STEER_RAMP_MS
 #define BOARD_LINE_STEER_RAMP_MS 150U /* MIN -> read steer while the same sensor stays on black */
 #endif
-/* While a barcode is read (>= 3 elements) the follower is off; still steer
- * gently toward a single straddle sensor on black, up to this (0 = drive
- * straight as before; reads on a bend used to lose the line). */
+/* While a barcode is read (BOARD_BARCODE_READ_MIN_ELEMENTS or more) the
+ * follower is off and the robot reads on at the slow speed; it may steer
+ * gently toward a single straddle sensor on black, up to this (0: straight on).
+ * 25 Nov: with 250, and the follower on until the 3rd bar, pivots and steering
+ * under the sensor distorted the frame bars of most reads (the bars are
+ * measured by wheel travel, which a pivot misstates). 0 now: a marker on a bend
+ * may lose the line; markers belong on straights. */
 #ifndef BOARD_BARCODE_READ_LINE_STEER
-#define BOARD_BARCODE_READ_LINE_STEER 250
+#define BOARD_BARCODE_READ_LINE_STEER 0
+#endif
+/* Completed bars/spaces before the follower switches off and the slow speed
+ * starts: 0 = from the first black edge of a marker (8f: 3, so the first bars
+ * were read at full speed with the follower still pivoting). A single crossing
+ * line now also gets a short slow, straight stretch (until 30 mm of white). */
+#ifndef BOARD_BARCODE_READ_MIN_ELEMENTS
+#define BOARD_BARCODE_READ_MIN_ELEMENTS 0U
+#endif
+#if BOARD_BARCODE_READ_MIN_ELEMENTS > 29
+#error BOARD_BARCODE_READ_MIN_ELEMENTS must be 0..29
 #endif
 #if BOARD_BARCODE_READ_LINE_STEER < 0 || BOARD_BARCODE_READ_LINE_STEER > 400
 #error BOARD_BARCODE_READ_LINE_STEER must be 0..400

@@ -4,15 +4,27 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-/* S3's USB log lines (tm_printf on the robot), captured. */
+/* S3's USB log lines (tm_printf on the robot), captured. The per-read
+ * barcode diagnostics ([S3BAR], BOARD_BARCODE_LOG) are counted apart. */
 static unsigned int log_lines;
 static char log_last[160];
+static unsigned int bar_lines;
+static char bar_last[640];
 static int s3_test_log(const UB *p_format, ...)
 {
+    char line[640];
     va_list args;
     va_start(args, p_format);
-    (void)vsnprintf(log_last, sizeof(log_last), (const char *)p_format, args);
+    (void)vsnprintf(line, sizeof(line), (const char *)p_format, args);
     va_end(args);
+    if (strncmp(line, "[S3BAR]", 7U) == 0)
+    {
+        (void)memcpy(bar_last, line, sizeof(bar_last));
+        ++bar_lines;
+        return 0;
+    }
+    (void)memcpy(log_last, line, sizeof(log_last));
+    log_last[sizeof(log_last) - 1U] = '\0';
     ++log_lines;
     return 0;
 }
@@ -324,6 +336,7 @@ static void reset(void)
     fail_start = false; fail_time = false; busy_mutex = false; locked = false;
     busy_for_poll = false; last_lock_timeout = TMO_POL;
     logged_partial = 0U; logged_abort = 0U; log_lines = 0U; log_last[0] = '\0';
+    bar_lines = 0U; bar_last[0] = '\0';
     gpio_reads = 0U; gpio_configs = 0U; gpio_config_error = E_OK;
     race_override = false; queue_count = 0U; auto_renew = true;
     h_sample_cycle=0;fake_cycle=(T_CCYC){0};fake_cycle_active=false;fail_cycle=false;

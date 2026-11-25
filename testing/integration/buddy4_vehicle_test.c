@@ -89,6 +89,9 @@ static unsigned reverse_tick, after_reverse;
 #define READ_FROM 12U
 #define READ_UNTIL 16U
 static unsigned read_count, read_max, normal_count, normal_min;
+/* The first slow tick of mode 11: the stub reports 2 elements at READ_FROM-1,
+ * which counts as reading when BOARD_BARCODE_READ_MIN_ELEMENTS <= 2. */
+#define READ_SLOW_FROM (BOARD_BARCODE_READ_MIN_ELEMENTS<=2U?READ_FROM-1U:READ_FROM)
 /* Mode 12: one >1.8 g accelerometer sample while armed and tracking.
  * Mode 21: the same impact clipped at +/-2 g (the driver marks it invalid). */
 #define SHOCK_AT 9U
@@ -504,7 +507,7 @@ static void count_move(s2_move_command_t command,UINT power)
     else if(reverse_tick==iteration+1U)++after_reverse;
     if(shock_mode() && iteration>SHOCK_AT && command==S2_MOVE_FORWARD && power)++after_shock;
     if(failure_mode==11U && command==S2_MOVE_FORWARD) {
-        if(iteration>=READ_FROM && iteration<READ_UNTIL) {++read_count;if(power>read_max)read_max=power;}
+        if(iteration>=READ_SLOW_FROM && iteration<READ_UNTIL) {++read_count;if(power>read_max)read_max=power;}
         else {++normal_count;if(power<normal_min)normal_min=power;}
     }
     if(command==S2_MOVE_REVERSE) {++reverse_requests;if(iteration>BR_GLITCH_AT)++reverse_after_glitch;}
@@ -561,8 +564,9 @@ ER s3_status_get(s3_status_t *s) {
             s->output.last_symbol=ok==1U?'F':'B';
         }
     }
-    /* A marker in progress (bar, gap, bar...): a single crossing line with
-     * fewer than 3 elements must not slow the robot (checked at READ_FROM-1). */
+    /* A marker in progress (bar, gap, bar...): with fewer completed elements
+     * than BOARD_BARCODE_READ_MIN_ELEMENTS (8f: 3) it must not slow the robot
+     * (checked at READ_FROM-1, 2 elements); from the default 0 it does. */
     if(failure_mode==11U && iteration>=READ_FROM-1U && iteration<READ_UNTIL) {
         s->output.barcode_result=S3_BARCODE_RESULT_READING;
         s->output.barcode_elements=(uint8_t)(iteration<READ_FROM?2U:3U+iteration-READ_FROM);
@@ -870,7 +874,7 @@ static void check_published(void)
 static void check_read_steer(void)
 {
     const int32_t cap=BOARD_BARCODE_READ_LINE_STEER;
-    assert(cap>0);
+    assert(cap>=0); /* 0 (the default): straight on while reading */
     unsigned right=0,left=0,straight=0;
     for(unsigned n=8U;n<SR_ITERATIONS;++n) {
         assert(pub_armed[n] && pub_phase[n]==VC_TRACK && sent_kind[n]==SENT_FOLLOW);
@@ -880,8 +884,8 @@ static void check_read_steer(void)
         assert(sent_power[n]<30U); /* the marker is read at the slow speed */
 #endif
         switch(scenario_mask(n)) {
-        case 1U: assert(steer>0 && steer<=cap);++right;break;
-        case 2U: assert(steer<0 && steer>=-cap);++left;break;
+        case 1U: if(cap){assert(steer>0 && steer<=cap);}else assert(steer==0);++right;break;
+        case 2U: if(cap){assert(steer<0 && steer>=-cap);}else assert(steer==0);++left;break;
         default: assert(steer==0);++straight;break;
         }
     }
@@ -1356,7 +1360,7 @@ int main(void)
             assert(slow<30U);
 #endif
             assert(saved.vehicle.armed && saved.vehicle.phase==VC_TRACK);
-            assert(read_count==READ_UNTIL-READ_FROM && read_max==slow);
+            assert(read_count==READ_UNTIL-READ_SLOW_FROM && read_max==slow);
             assert(normal_count>=6U && normal_min==30U); /* full speed before and after */
         }
         if(failure_mode==20U)

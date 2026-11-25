@@ -387,6 +387,9 @@ static void test_barcode_partial_and_abort(void)
     CHECK(queue_count == 1U && queue[0].event.kind == S3_EVENT_NAVIGATION);
     CHECK(queue[0].event.symbol == 'A' && queue[0].generation == control.generation);
     CHECK(log_lines == 2U); /* a full read logs nothing */
+    /* ...except its [S3BAR] diagnostic line: the result, letter and runs. */
+    CHECK(bar_lines >= 1U && strstr(bar_last, "[S3BAR] ok A") != NULL);
+    CHECK(strstr(bar_last, " units=") != NULL && strstr(bar_last, " runs=") != NULL);
     /* Default profile: the same hiccup is not counted (no re-read). */
     setup();
     for (i = 0U; i < 25U; ++i) { (void)tick(false); }

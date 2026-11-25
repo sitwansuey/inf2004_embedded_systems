@@ -293,7 +293,9 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
                 if (i->now_ms-s->rescan_ms>=AVOID_RESCAN_WAIT_MS) sensor_fault(s,VC_CAUSE_SONAR);
                 return;
             }
-            s->rescan_wait=0;s->rescan_request=0;
+            /* The new scan gets the full ACQUIRE time (30 s): a whole scan
+             * takes ~12 s on the robot, so three would not fit in one. */
+            s->rescan_wait=0;s->rescan_request=0;s->entered_ms=i->now_ms;
         }
         if(i->scan_blocked){no_way_around(s,i);return;}
         if (i->front_clear && !i->obstacle && !i->scan_ready) { enter(s,i,VC_REACQUIRE);return; }

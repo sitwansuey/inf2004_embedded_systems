@@ -280,6 +280,24 @@ static void rescan(void){
  i.now_ms=20;i.scan_blocked=0;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;vc_step(&s,&i);
  assert(s.phase==VC_ACQUIRE && s.rescan_wait); /* a stale READY of the blocked scan does not count */
  i.now_ms=30;i.scan_id=6;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.turn_deg==40 && !s.rescan_wait && !s.rescan_request);
+ /* Robot timing (25 Nov review): a full scan takes ~12-13 s. Scan 1 BLOCKED at
+  * 12.7 s, retry 1 BLOCKED at 26 s, retry 2 READY at 38 s: each rescan has its
+  * own 30 s, so the bypass starts (no VC_TIMEOUT at 30 s). */
+ s=(vc_state_t){0};i=good();i.scan_id=20;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.now_ms=0;vc_step(&s,&i);
+ i.now_ms=12700;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==1);
+ i.now_ms=13200;i.scan_blocked=0;i.scan_id=21;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.rescan_wait);
+ i.now_ms=26000;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==2);
+ i.now_ms=26500;i.scan_blocked=0;i.scan_id=22;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
+ i.now_ms=31000;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE); /* past 30 s from the first entry */
+ i.now_ms=38000;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;vc_step(&s,&i);assert(s.phase==VC_BACKUP);
+ /* The same with retry 2 BLOCKED too: the sonar fault, not the run timeout. */
+ s=(vc_state_t){0};i=good();i.scan_id=30;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.now_ms=0;vc_step(&s,&i);
+ i.now_ms=12700;i.scan_blocked=1;vc_step(&s,&i);
+ i.now_ms=13200;i.scan_blocked=0;i.scan_id=31;vc_step(&s,&i);
+ i.now_ms=26000;i.scan_blocked=1;vc_step(&s,&i);
+ i.now_ms=26500;i.scan_blocked=0;i.scan_id=32;vc_step(&s,&i);
+ i.now_ms=38000;i.scan_blocked=1;vc_step(&s,&i);
+ assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
  /* Each new obstacle (TRACK -> ACQUIRE) gets the full count again. */
  s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));s.rescans=2;i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
  assert(s.phase==VC_ACQUIRE && !s.rescans);
