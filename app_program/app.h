@@ -54,8 +54,10 @@ IMPORT ID app_start_task_stack(FP entry, PRI pri, UW prc, const char *name, INT 
  *  kernel object exists before any task can use it.
  *    subsystemN_init()   create this subsystem's kernel objects
  *    subsystemN_start()  create and start this subsystem's tasks
- *    subsystem3_test()   on-target check, only in test builds (make TEST=1);
- *        usermain calls it in the integrated test image.
+ *    subsystemN_test()   passive on-target checks, only in test builds
+ *        (make TEST=1): usermain calls all five in the integrated test
+ *        image, subsystem2_test in S2_ONLY=1 and subsystem4_test in
+ *        S4_ONLY=1.  None of them commands motion.
  * --------------------------------------------------------------------- */
 IMPORT ER subsystem1_init(void);
 IMPORT ER subsystem2_init(void);
@@ -70,7 +72,11 @@ IMPORT ER subsystem4_start(void);
 IMPORT ER subsystem5_start(void);
 
 #if APP_TEST
+IMPORT void subsystem1_test(void);
+IMPORT void subsystem2_test(void);
 IMPORT void subsystem3_test(void);
+IMPORT void subsystem4_test(void);
+IMPORT void subsystem5_test(void);
 #endif
 
 /* Print a readable message if a kernel call failed (negative error code) */

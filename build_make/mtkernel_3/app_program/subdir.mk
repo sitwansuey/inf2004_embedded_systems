@@ -6,6 +6,10 @@
 ifeq ($(S2_ONLY),1)
 TEMP_SRCS = ../app_program/app_main.c ../app_program/subsystem2/subsystem2.c \
             ../app_program/subsystem2/s2_data.c ../app_program/shared/edr.c
+# TEST=1 S2_ONLY=1 also runs S2's passive on-target checks (app_main.c).
+ifeq ($(TEST),1)
+TEMP_SRCS += ../app_program/subsystem2/subsystem2_test.c
+endif
 else ifeq ($(S4_ONLY),1)
 TEMP_SRCS = ../app_program/app_main.c $(wildcard ../app_program/subsystem4/*.c) \
             ../app_program/shared/edr.c ../app_program/subsystem2/odometry.c

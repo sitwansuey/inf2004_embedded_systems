@@ -97,9 +97,26 @@ EXPORT INT usermain(void) {
 #if APP_S2_ONLY
     er=subsystem2_init();
     if(er>=0)er=subsystem2_start();
+#if APP_TEST
+    /* Test image (make TEST=1 S2_ONLY=1): S2's passive checks on their own.
+     * They read the motion status and encoders; no motor is driven. */
+    if(er>=0) {
+        tm_printf((UB *)"[TEST] === test run start ===\n");
+        subsystem2_test();
+        tm_printf((UB *)"[TEST] === test run end ===\n");
+    }
+#endif
 #elif APP_S4_ONLY
     er=subsystem4_init();
     if(er>=0)er=subsystem4_start();
+#if APP_TEST
+    /* Test image (make TEST=1 S4_ONLY=1): the IMU checks on their own. */
+    if(er>=0) {
+        tm_printf((UB *)"[TEST] === test run start ===\n");
+        subsystem4_test();
+        tm_printf((UB *)"[TEST] === test run end ===\n");
+    }
+#endif
 #else
     er=subsystem1_init();
     if(er>=0)er=subsystem2_init();
@@ -120,12 +137,20 @@ EXPORT INT usermain(void) {
     if(er>=0)tm_printf((UB *)"Explicit S5 diagnostic owns the hardware; integrated controller not started.\n");
 #endif
 #if APP_TEST
-    /* Test image (make TEST=1 NET=lwip MQTT=1): run the passive on-target
-     * check here in the initial task while the system runs. It only reads
-     * state; it sends no motion command and does not change the controller. */
+    /* Test image (make TEST=1 NET=lwip MQTT=1): run every subsystem's
+     * passive on-target checks in turn, here in the initial task, while the
+     * system runs (a few seconds: each test waits, bounded, with
+     * tk_dly_tsk() for its tasks' first samples). They only read state;
+     * none sends a motion command, moves the servo or changes the
+     * controller (S2-U33 checks that a STOP from this task is refused).
+     * The initial task has a 4 KB stack in test images (inittask.h). */
     if(er>=0) {
         tm_printf((UB *)"[TEST] === test run start ===\n");
+        subsystem1_test();
+        subsystem2_test();
         subsystem3_test();
+        subsystem4_test();
+        subsystem5_test();
         tm_printf((UB *)"[TEST] passive integrated checks completed; no motor test requested\n");
         tm_printf((UB *)"[TEST] === test run end ===\n");
     }
