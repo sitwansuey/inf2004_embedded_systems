@@ -129,7 +129,7 @@ $(BINARY): test_buddy3.c $(CORE_SOURCES) $(CORE_HEADERS)
 	mkdir -p .build
 	$(CC) $(CPPFLAGS) $(CFLAGS) test_buddy3.c $(CORE_SOURCES) $(LDFLAGS) -o $@
 
-# BOARD_IR_MODE 0: a board without the IR ADC pins (S3-U21 expects ADC mode
+# BOARD_IR_MODE 0: a board without the IR ADC pins (S3-U19 expects ADC mode
 # to be refused); the mission default (mode 3) is covered by test_mixed_barcode.
 $(ADAPTER): $(ADAPTER_SOURCES) $(ADAPTER_DEPS)
 	mkdir -p .build

@@ -159,6 +159,12 @@ static void controller(void) {
     /* Back toward the line at the 45 deg return heading (AVOID_RETURN_MIN_DEG). */
     i.yaw_mdeg=-44000;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1);
     i.yaw_mdeg=-45000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
+    /* The line search is off for AVOID_TURN_IN_LINE_DELAY_MS of driving from
+     * the turn-in's first drive tick: a touch that early is ignored. */
+    i.line_black_mask=1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.nav_touched);
+    i.line_black_mask=0;
+    for(unsigned n=0;n<AVOID_TURN_IN_LINE_DELAY_MS/20U;++n){i.now_ms+=20;assert(vc_renew(&s,i.now_ms,1000,30));vc_step(&s,&i);}
+    assert(s.phase==VC_RETURN && s.turn_in_driven_ms>=AVOID_TURN_IN_LINE_DELAY_MS);
     /* The lead (right) sensor touches the line, then releases it into the
      * gap: the line is under the robot. Arc back to the heading held before
      * the obstacle, then track. */
@@ -179,7 +185,7 @@ static void controller(void) {
     /* Never resume expired or interrupted open-loop maneuvers. */
     s=armed();s.phase=VC_TURN_OUT;s.entered_ms=100;i=healthy();i.now_ms=10101;
     s.armed_ms=10101;vc_step(&s,&i);assert(s.phase==VC_FAULT);
-    puts("INT-CR1-01 controller: priority, expiry, stale data, complete bounded bypass, STOP handoffs PASS");
+    puts("INT-01 controller: priority, expiry, stale data, complete bounded bypass, STOP handoffs PASS");
 }
 static void odometry(void) {
     odom_config_t c={100,200,100};odom_t s={0};
@@ -191,7 +197,7 @@ static void odometry(void) {
     s=(odom_t){0};odom_step(&s,&c,UINT32_MAX-10,0,0,true);
     odom_step(&s,&c,9,1,1,true);assert(s.valid && odom_speed_mm_s(&s)==100);
     odom_step(&s,&c,29,INT_MAX,INT_MAX,true);assert(!s.valid);
-    puts("INT-CR1-02 odometry: wrap, scale, speed, yaw, gaps and discontinuities PASS");
+    puts("INT-02 odometry: wrap, scale, speed, yaw, gaps and discontinuities PASS");
 }
 static void terrain(void) {
     terrain_t s={0};int32_t a[3]={0,0,1000};
@@ -215,7 +221,7 @@ static void terrain(void) {
     time+=20;a[0]=1900;terrain_step(&s,time,a,true,distance,true,true,0,0);
     assert(s.shock && s.state==TERRAIN_SHOCK && s.maximum_mm==50 && !s.height_valid);
     time+=20;a[0]=0;terrain_step(&s,time,a,false,distance,true,true,0,0);assert(!s.tilt_valid);
-    puts("INT-CR1-03 terrain: calibration gate, ordered hump, maximum, impact and invalid samples PASS");
+    puts("INT-03 terrain: calibration gate, ordered hump, maximum, impact and invalid samples PASS");
 }
 static void mount(void) {
     /* This robot: sensor -Y to the front, +X to the left, +Z up. */

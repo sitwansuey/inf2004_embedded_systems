@@ -245,6 +245,6 @@ int main(void)
     puts("IMU fault: a one-tick S4 IMU fault is held for the next snapshot, ID 12 bit 0x04, then cleared PASS");
     puts("Shock extras: at most one per 200 ms; a failed send or a snapshot without ID 12 keeps impact/IMU fault for the next PASS");
     puts("IMU fault count: a VC count change sets ID 12 bit 0x04 once, even if no VC result this loop read had the fault PASS");
-    puts("INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
+    puts("INT-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS");
     return 0;
 }

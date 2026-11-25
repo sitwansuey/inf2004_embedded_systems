@@ -68,6 +68,6 @@ int main(void)
 {
     test_paused_forward_gaps();
     test_active_fault_stays_latched();
-    printf("S3-U44 paused timing: %u checks, %u failures\n",checks,failures);
+    printf("S3-U42 paused timing: %u checks, %u failures\n",checks,failures);
     return failures?1:0;
 }

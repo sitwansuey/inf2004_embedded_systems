@@ -2,7 +2,8 @@
  * used by navigation turns and the spot scan): tyre scrub needs more torque
  * than straight driving, so a spin gets its own PWM ceiling, a breakaway kick
  * per wheel and a longer no-progress timeout. Straight commands and the line
- * follower's pivots (5/6, one wheel stopped) keep their tuned values. */
+ * follower's pivots (5/6, one wheel stopped) keep their tuned values, except
+ * that a very slow one gets the same breakaway kick (s2_low_kick_milli). */
 #ifndef S2_TURN_DRIVE_H
 #define S2_TURN_DRIVE_H
 #include <stdint.h>
@@ -27,6 +28,18 @@ static inline unsigned s2_turn_kick_milli(unsigned command,uint32_t elapsed_ms,
     uint32_t kick_ms,unsigned kick,unsigned limit)
 {
     if(!s2_turn_command(command) || elapsed_ms>=kick_ms)return 0;
+    return (kick<limit?kick:limit)*1000U;
+}
+/* PWM floor (milli-percent) for a straight, reverse or pivot move commanded
+ * below below_percent: there the feed-forward PWM can sit under the wheels'
+ * breakaway torque and the PI may not catch up before the 500 ms stall limit
+ * (the barcode re-read runs at 6-10 %). Capped at the ceiling; 0 for spins
+ * (s2_turn_kick_milli), STOP or zero power, at or above below_percent, or
+ * when below_percent == 0. */
+static inline unsigned s2_low_kick_milli(unsigned command,unsigned power,
+    unsigned below_percent,unsigned kick,unsigned limit)
+{
+    if(command==0U || s2_turn_command(command) || power==0U || power>=below_percent)return 0;
     return (kick<limit?kick:limit)*1000U;
 }
 /* Per-wheel breakaway kick during a spin. The kick holds until the wheel has

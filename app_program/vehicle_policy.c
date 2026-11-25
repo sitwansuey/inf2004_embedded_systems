@@ -59,7 +59,7 @@ void vc_stop(vc_state_t *s,unsigned reason) {
     s->last_line_side=0;s->search_right_first=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
     s->clear_run=0;s->clear_run_timing=0;s->line_gap=0;s->sonar_gap=0;s->odom_gap=0;s->front_wait=0;s->line_found=0;s->line_seen=0;
-    s->rescans=0;s->rescan_wait=0;s->rescan_request=0;
+    s->rescans=0;s->rescan_wait=0;s->rescan_request=0;s->turn_in_timing=0;
     s->fault=(uint8_t)(reason&15U);s->phase=reason?VC_FAULT:VC_DISARMED;
     s->fault_cause=0; /* sensor_fault() sets it after this */
 }
@@ -100,6 +100,18 @@ void vc_track_requested(vc_state_t *s,uint32_t now) {
 }
 static unsigned soft_start(vc_state_t *s,uint32_t now,bool driving,unsigned demand);
 static int yaw_delta(int32_t now,int32_t origin);
+/* Bypass turn-in driving time, for its line wait: it starts on the turn's
+ * first drive tick, and each later drive tick adds the ms since the previous
+ * one, at most VC_TURN_IN_STEP_MAX_MS. The VC runs every 20 ms, so a longer
+ * step spans a hold (sonar or odometry gap, the forward check) and the robot
+ * was standing, not turning. */
+#define VC_TURN_IN_STEP_MAX_MS 40U
+static void turn_in_drive(vc_state_t *s,uint32_t now) {
+    if (!s->turn_in_timing) {s->turn_in_timing=1;s->turn_in_ms=now;s->turn_in_driven_ms=0;return;}
+    uint32_t step=now-s->turn_in_ms;
+    s->turn_in_ms=now;
+    s->turn_in_driven_ms+=step>VC_TURN_IN_STEP_MAX_MS?VC_TURN_IN_STEP_MAX_MS:step;
+}
 static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     bool continuous=s->armed && s->phase>=VC_TURN_OUT && s->phase<=VC_RESTORE &&
         phase>=VC_TURN_OUT && phase<=VC_RESTORE && !s->look_side && i->front_clear;
@@ -115,7 +127,7 @@ static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
     s->track_wait=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
     s->nav_search=0;s->nav_offset=0;s->spot_scan=0; /* pending_nav itself is kept */
-    if(!keep_touch) s->nav_touched=0;
+    if(!keep_touch) {s->nav_touched=0;s->turn_in_timing=0;}
     s->clear_run=0;s->clear_run_timing=0;s->line_gap=0;s->line_seen=0; /* TRACK measures line-lost from its entry */
     s->side_clear_count=s->side_present_count=s->side_have_sample=0;
     if(continuous) {
@@ -125,6 +137,8 @@ static void enter(vc_state_t *s,const vc_input_t *i,unsigned phase) {
         if(phase==VC_ALIGN || phase==VC_TURN_IN)s->steering=(int16_t)(s->turn_deg>0?(int)s->bypass_steering:-(int)s->bypass_steering);
         else if(phase==VC_RESTORE)s->steering=(int16_t)(s->restore_mdeg>0?-(int)s->bypass_steering:(int)s->bypass_steering);
     }
+    /* A turn-in that drives on its entry tick starts its line wait here. */
+    if(phase==VC_TURN_IN && s->command) turn_in_drive(s,i->now_ms);
 }
 /* Power cap t ms into a ramp: AVOID_BACKUP_START_POWER rising to top over
  * AVOID_BACKUP_RAMP_MS. */
@@ -170,6 +184,23 @@ static void start_side_look(vc_state_t *s,const vc_input_t *i) {
 }
 static int yaw_delta(int32_t now,int32_t origin) {
     int d=now-origin; if(d>180000)d-=360000;if(d< -180000)d+=360000;return d;
+}
+/* Bypass turn-in, by its driving time: *wait while the line search is off
+ * (AVOID_TURN_IN_LINE_DELAY_MS), then *far for AVOID_TURN_IN_FAR_MS (the far
+ * sensor alone counts as the line). Both false before the turn has driven and
+ * with the delay set to 0. */
+static void turn_in_window(const vc_state_t *s,bool *wait,bool *far) {
+    *wait=false;*far=false;
+#if AVOID_TURN_IN_LINE_DELAY_MS
+    if (!s->turn_in_timing) return;
+    uint32_t turned=s->turn_in_driven_ms;
+    if (turned<AVOID_TURN_IN_LINE_DELAY_MS) {*wait=true;return;}
+#if AVOID_TURN_IN_FAR_MS
+    *far=turned-AVOID_TURN_IN_LINE_DELAY_MS<AVOID_TURN_IN_FAR_MS;
+#endif
+#else
+    (void)s;
+#endif
 }
 void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (!s || !i) return;
@@ -389,17 +420,27 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         return;
     } else {
         if (!i->front_clear && !s->look_side) return;
+        /* Ticks that get here drive (holds returned above): count them as
+         * the turn-in's driving time, from its first drive tick on into
+         * RETURN and RESTORE. */
+        if (s->phase==VC_TURN_IN ||
+            ((s->phase==VC_RETURN || s->phase==VC_RESTORE) && s->turn_in_timing)) turn_in_drive(s,i->now_ms);
         /* Line search on the way back from a bypass: in TURN_IN, RETURN and
          * RESTORE the sensor on the line's side touches it first (the touch is
          * kept across those phases). Once it releases into the gap between the
          * sensors, or the line reaches the far sensor, or both are on it, the
          * line is under the robot: arc back to the heading held before the
          * obstacle (VC_RESTORE), then track. A first touch by the lead sensor
-         * alone does not count. */
+         * alone does not count. Nothing counts (touches included) for the
+         * first AVOID_TURN_IN_LINE_DELAY_MS of the turn-in; for
+         * AVOID_TURN_IN_FAR_MS after that the far sensor alone also counts
+         * (the lead may have crossed the line during the wait). */
+        bool line_wait=false,far_counts=false;
+        turn_in_window(s,&line_wait,&far_counts);
         if ((s->phase==VC_TURN_IN || s->phase==VC_RETURN || s->phase==VC_RESTORE) &&
-            i->line_fresh && !s->line_found) {
+            i->line_fresh && !s->line_found && !line_wait) {
             unsigned mask=i->line_black_mask&3U, lead=s->turn_deg>0?1U:2U;
-            if (mask==3U || (s->nav_touched && mask!=lead)) {
+            if (mask==3U || (s->nav_touched && mask!=lead) || (far_counts && mask==(lead^3U))) {
                 s->line_found=1;
                 if (s->phase!=VC_RESTORE) {enter(s,i,VC_RESTORE);return;}
             } else if (mask&lead) s->nav_touched=1;

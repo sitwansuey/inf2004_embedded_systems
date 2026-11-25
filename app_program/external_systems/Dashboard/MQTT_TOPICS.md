@@ -1,133 +1,142 @@
-# One MQTT topic, multiple dashboard fields
+# MQTT topics and dashboard fields
 
-**Subscribed wire topic:** `Robopico/sensors/edr16/v1`
+The topic selects the decoder. All publications below use QoS 0 and are
+non-retained. The dashboard subscribes to telemetry, events and replies;
+the robot subscribes to commands.
 
-Each payload is exactly two bytes, low byte first. `(word & 15)` identifies the
-reading; `(word >> 4)` supplies the data. The receiver validates before storing
-any values. All mapping below happens locally after unmarshalling; these are
-not additional MQTT subscriptions or publications.
-
-| ID | Dashboard card | Display fields / conversion |
+| Topic | Publisher → receiver | Payload |
 |---|---|---|
-| 0 | Mission/terrain/navigation cards | subtype-specific status; see wire contract |
-| 1 | Left wheel encoder | encoder_left, count modulo 4096 |
-| 2 | Right wheel encoder | encoder_right, count modulo 4096 |
-| 3 | Servo Motor | servo_angle_deg, 0–180 degrees |
-| 4 | Ultrasonic Ranger | distance_cm |
-| 5 | Left IR | ir_left, raw |
-| 6 | Right IR | ir_right, raw |
-| 7 | Barcode IR | ir_barcode, raw |
-| 8–10 | Magnetometer | mag_x_ut / mag_y_ut / mag_z_ut = (data−2048)/10 |
-| 11 | Motor control | direction, power_percent, state |
-| 12 | Motor control, Accelerometer | fault_flags, bitmask 0–127: motor timeout 32 / error 64, IMU fault 4 (also `accelerometer/imu_fault`) |
-| 13–15 | Accelerometer | accel_x_mps2 / accel_y_mps2 / accel_z_mps2 = (data−2048)*9.80665/1000 |
+| `Robopico/sensors/edr16/v1` | Robot → dashboard | One two-byte EDR16 telemetry record |
+| `Robopico/events/edr16/v1` | Robot → dashboard | One two-byte event record |
+| `csc02/command` | Dashboard → robot | Six-byte command |
+| `csc02/command/ack` | Robot → dashboard | Six-byte reply |
 
-The browser keeps legacy-shaped display keys such as
-`Robopico/sensors/left_encoder/encoder_left`. Their only purpose is selecting
-fields in existing cards. The Python receiver does not subscribe to those keys.
+## Telemetry fields
 
-ID 11 extracts command = data & 7, power = (data >> 3) & 127, state = data >> 10.
-Validation rejects command >6, power >100 and state >2. Zero bytes are valid.
-Wrong lengths, invalid servo angles and invalid fault masks are rejected.
-ID zero carries the mission-status subtype and value.
+Each record is little-endian: `id = word & 15`, `data = word >> 4`.
+`packed16.py` maps it to local display keys. Those keys do not cause extra
+subscriptions or publications. The receiver ignores retained messages.
 
-ID 0 obstacle and scan fields (local display keys):
-
-| Subtype / value | Display key | Conversion |
+| ID | Dashboard card | Field / conversion |
 |---|---|---|
-| 0, low nibble | `Robopico/Actuators/vehicle_controller/state` | phase name; 13 = `Reverse` |
-| 0, high nibble | `Robopico/Actuators/vehicle_controller/fault_code` | controller fault 0–8; 8 = lifted (9–15 rejected) |
-| 8, 0–100 | `Robopico/sensors/ultrasonic_ranger/width_cm` | value × 0.5 cm (total width) |
-| 8, 128–191 | `Robopico/sensors/ultrasonic_ranger/width_left_cm` | (value & 63) × 0.8 cm, centre to left edge |
-| 8, 192–255 | `Robopico/sensors/ultrasonic_ranger/width_right_cm` | (value & 63) × 0.8 cm, centre to right edge |
-| 9, bits 5–0 | `Robopico/Actuators/vehicle_controller/quality` | value & 63 (also `safety_state` bit 2, `accelerometer/impact` bit 1) |
-| 9, bits 7–6 | `Robopico/Actuators/vehicle_controller/fault_cause` | `None/other`, `Sonar`, `Tilt`, `Odometry`: the cause with fault code 1 (sensor; `None/other` means an avoidance-step check such as an invalid manoeuvre distance; side/pan timeouts use Sonar). With fault code 2 (line) the same codes mean 0 other, 1 line data stale (gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event (or an S3 sampler latch that keeps coming back for 1 s although the controller re-sends TRACK every 100 ms), 3 line not found (the on-the-spot search after a turn, a bypass, or `BOARD_LINE_LOST_MM` of tracking with neither straddle IR on black); the browser shows those names. 0 with any other fault |
-| 12 | `Robopico/Actuators/vehicle_controller/dropped` | the robot's internal drop count modulo 256 (wraps, like the subtype 11 sequence); the receiver shows the drops of the last 60 s from the differences between records. The first record after a broker reconnect or a robot silence is only a baseline |
-| 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
+| 0 | Vehicle controller, navigation and terrain | Mission-status subtype; see the subtype table below and [DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md) |
+| 1 | Left wheel encoder | `encoder_left`, count modulo 4096 |
+| 2 | Right wheel encoder | `encoder_right`, count modulo 4096 |
+| 3 | Servo Motor | `servo_angle_deg`, commanded angle 0–180° |
+| 4 | Ultrasonic Ranger | `distance_cm`, whole centimetres |
+| 5 | Left IR | `ir_left`, raw 0–4095 |
+| 6 | Right IR | `ir_right`, raw 0–4095 |
+| 7 | Barcode IR | `ir_barcode`; digital 0/1 with `BOARD_IR_MODE` 3 (the mission setting) |
+| 8–10 | Magnetometer | `mag_x_ut`, `mag_y_ut`, `mag_z_ut`: `(data - 2048) / 10` µT |
+| 11 | Motor control | `direction`, `power_percent`, `state` |
+| 12 | Motor control, Accelerometer | `fault_flags`; timeout `0x20`, motor error `0x40`, IMU fault `0x04` |
+| 13–15 | Accelerometer | `accel_x_mps2`, `accel_y_mps2`, `accel_z_mps2`: `(data - 2048) * 9.80665 / 1000` m/s² |
 
-The robot reports the widths with each scanned edge reduced by the sonar beam's
-half-angle (`S5_BEAM_HALF_DEG`, 20 deg): the HC-SR04 keeps hearing an obstacle's
-corner about that far past its real edge. The bypass plan uses the measured
-edges. The obstacle "scanned" event shows the same corrected width.
+Each 55-byte snapshot is published as up to 33 two-byte records. The telemetry
+queue carries impact and IMU-fault bits across replaced or abandoned
+snapshots so that the next snapshot can still report them.
 
-Subtype 8 values 101–127 and bypass side 3 are rejected. The three width
-fields and the bypass side are the last obstacle scan's results: the receiver
-keeps them until the next scan reports new ones. A quality record with bit 0
-clear, a broker reconnect, a robot silence or a bypass side of `None` (no plan
-now) does not clear them.
+ID 11 uses `command = data & 7`, `power = (data >> 3) & 127` and
+`state = data >> 10`. Commands above 6, power above 100 and states above 2
+are rejected. ID 12 accepts only bits 0–6. Zero bytes are valid.
 
-The prior packed16/v1 topic, individual sensor topics and JSON topics are
-not consumed. Demo/JSON import remain explicit browser-only features.
+ID 0 stores the subtype in data bits 11–8 and its value in bits 7–0. Selected
+local keys are:
 
-## Event topic (Events tab)
-
-**Subscribed:** `Robopico/events/edr16/v1`. One robot event per message, two
-bytes, little-endian, in the same EDR16 shape (low nibble = event ID, high 12
-bits = value); see `app_program/shared/events.h`. The robot uses a 160-byte event buffer (20 two-byte records with kernel
-overhead), so events from a short link drop arrive after it reconnects: once the
-broker has acknowledged nothing for 3 s the robot keeps them queued instead of
-handing them to lwIP (only those handed over in the last ~3 s before an outage
-can be lost). The link event (ID 5) is not queued with them: the robot holds
-it separately and publishes it first after a (re)connection, so a queue full
-of outage events cannot drop it.
-
-| ID | Event | 12-bit value |
+| Subtype / bits | Local display key | Meaning |
 |---|---|---|
-| 1 | Barcode attempt (one per finished read) | bits 0-1 attempt (1 initial scan, 2 reverse scan, 3 final attempt); bits 2-6 bars+spaces read (0..31, a full `*X*` is 29); bits 7-11 letter (0 failed, 1..26 = A..Z) |
-| 2 | Instruction decoded | bits 0-4 letter 1..26; bits 5-7 turn (0 none/not mapped, 1 left, 2 right, 3 straight, 4 U-turn) |
-| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: S4's completed height for this traversal in 2 mm, or 0 when no valid hump completed); bits 3-11 value |
-| 4 | Obstacle | bits 0-1 kind (1 detected: distance cm; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
-| 5 | Link | bits 0-1 kind (1 reconnected to the broker after N s without it, counted from the first publish it never acknowledged; 2 first connection, N s after boot); bits 2-11 seconds |
+| 0, low nibble | `Robopico/Actuators/vehicle_controller/state` | Phase 0–13; 13 = Reverse |
+| 0, high nibble | `Robopico/Actuators/vehicle_controller/fault_code` | Fault 0–8; 8 = lifted |
+| 8, value 0–100 | `Robopico/sensors/ultrasonic_ranger/width_cm` | Total width, value × 0.5 cm |
+| 8, value 128–191 | `Robopico/sensors/ultrasonic_ranger/width_left_cm` | Left half-width, `(value & 63) × 0.8 cm` |
+| 8, value 192–255 | `Robopico/sensors/ultrasonic_ranger/width_right_cm` | Right half-width, `(value & 63) × 0.8 cm` |
+| 9, bits 0–5 | `Robopico/Actuators/vehicle_controller/quality` | Bit 0 width valid, 1 impact, 2 armed, 3 bypass validated (build setting), 4 odometry valid, 5 servo status valid |
+| 9, bits 6–7 | `Robopico/Actuators/vehicle_controller/fault_cause` | Fault 1: other, Sonar, Tilt, Odometry. Fault 2: other, line data stale, S3 fault event, line not found |
+| 12 | `Robopico/Actuators/vehicle_controller/dropped` | Wire counter modulo 256; receiver displays differences over 60 s |
+| 15, bits 6–7 | `Robopico/Actuators/servo_motor/bypass_side` | None, Left or Right |
 
-An instruction (ID 2) follows the barcode attempt (ID 1) that decoded it.
-The receiver keeps the last 200 rows and adds its own: "Robot offline" when
-robot data stops for 3 s (Wi-Fi or broker link lost), "Robot back online",
-"Robot stopped: fault N (name)" once per new controller fault code (status
-subtype 0), "Impact reported" / "IMU fault reported" once per rising edge
-(each is also shown true for 2 s), and its own broker link lost/restored.
-Supported physical sensors not yet connected remain blank. ID zero supplies decoded navigation, height/maximum, controller state and
-other documented derived fields. Free-text events are not transmitted.
+Quality bit 2 also drives
+`Robopico/Actuators/vehicle_controller/safety_state` (Armed/Stopped), and
+bit 1 drives `Robopico/sensors/accelerometer/impact`.
+A side-check or forward-pan timeout reports fault cause Sonar. Cause 0 with
+fault 1 means another check, for example an avoidance step with an invalid manoeuvre distance.
 
-Full bit layout: [DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md).
+Subtype 8 values 101–127 and bypass side 3 are rejected. Displayed widths
+use `s5_width_reported()`, which subtracts `S5_BEAM_HALF_DEG` (20°) from each
+measured edge angle before calculating its half-width. The bypass plan keeps
+the measured bounds and clearance. The obstacle-scanned event uses the same
+corrected width, rounded to centimetres.
 
-## Command topic (dashboard buttons only)
+The receiver keeps widths and the chosen side as the last scan's results.
+Clearing quality bit 0, reconnecting, robot silence or a later side of None
+does not erase them. New scan results replace them. Other live fields are
+cleared when unavailable or when the broker disconnects or reconnects. The
+browser marks readings stale after 5 s.
 
-`dashboard.py` publishes non-retained QoS 0 frames on `csc02/command` and
-waits for the matching reply on `csc02/command/ack`. Request (6 bytes):
-`C1 opcode b2 b3 b4 seq`; ACK (6 bytes): `C2 seq opcode result phase fault`
-(result 0 accepted, 1 rejected, 2 Start needs Reset, 3 expired; phase 0–13,
-fault 0–8, 8 = lifted). Commands older than 100 ms on the robot are answered
-with result 3. Every valid six-byte frame gets an ACK: a command queued
-before a STOP the robot then handled is answered 1 (superseded), a full
-command queue 1, and of two STOPs that arrive before the robot takes one the
-first is answered 0 at once (the robot stops once, for both). Replies the
-robot's network side makes itself carry the controller's last published
-phase and fault. The dashboard numbers its frames 0–127; sequence bit 7
-marks a command typed on the USB console, whose ACK is also published here
-and is ignored by the dashboard. When no broker is reachable and the reply
-buffer fills, the robot drops its oldest reply (counted in status subtype 12).
+## Event topic
 
-| Opcode | Request | Behaviour |
+`Robopico/events/edr16/v1` uses the same two-byte shape but a separate ID
+space. Decode with `decode_event()` in `tools/edr_decode.py`. The event value is
+the upper 12 bits. The source of the layout is
+`app_program/shared/events.h`.
+
+| ID | Event | Value layout |
+|---|---|---|
+| 1 | Barcode attempt | Bits 0–1 attempt (1 initial scan, 2 reverse re-read, 3 final slow pass); bits 2–6 bars and spaces read, 0–31 (a full `*X*` is 29); bits 7–11 letter, 0 failed, 1–26 A–Z |
+| 2 | Instruction | Bits 0–4 letter 1–26; bits 5–7 action 0 none, 1 left, 2 right, 3 straight, 4 U-turn; bits 8–11 zero |
+| 3 | Hump | Bits 0–2 kind; bits 3–11 value. Kind 1: tilt in 0.1°. Kinds 2/3: S4 crest/completed height in 2 mm, zero if unavailable. Kinds 4/5: controller crest/peak estimate in 2 mm |
+| 4 | Obstacle | Bits 0–1 kind; bits 2–3 side or completion reason; bits 4–11 value. Kind 1: detected range cm. Kind 2 with side 1/2: scanned width cm; side 0: retry number 1–3. Kind 3: bypass heading degrees. Kind 0: elapsed seconds and completion reason |
+| 5 | Broker link | Bits 0–1 kind: 1 reconnected, 2 first connection; bits 2–11 seconds, saturated at 1023 (kind 1: since the first publish the broker did not acknowledge; kind 2: since boot) |
+
+Obstacle sides are 1 left and 2 right. For completion kind 0, bits 2–3 mean
+0 fault/STOP, 1 line found on return, 2 spot search, 3 obstacle went away.
+The instruction event follows the attempt that decoded it. Crest and level
+events use kinds 4/5 when the controller has a height estimate (wheel
+distance and tilt) and kinds 2/3 with S4's height otherwise; the dashboard
+marks estimate rows. The terrain telemetry heights still come from S4.
+
+Robot events use S1's bounded buffer. After 3 s without a publish completing,
+the network task holds queued events. Link events are held separately
+and sent first after connection. QoS 0 and a full queue can still lose events.
+The receiver adds its own offline/online, broker, controller-fault and
+impact/IMU-fault rows and keeps the last 200 rows. Impact and IMU-fault flags
+remain visible for 2 s.
+
+Full bit layout, validation and limits:
+[DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md).
+
+## Command topic
+
+Requests on `csc02/command` are six bytes: `C1 opcode b2 b3 b4 seq`.
+Replies on `csc02/command/ack` are `C2 seq opcode result phase fault`.
+Byte values in the frame examples below are hexadecimal.
+
+| Opcode | Request | Meaning |
 |---|---|---|
 | 0 | `C1 00 00 00 00 SS` | STOP |
-| 1 | `C1 01 DD LL LL SS` | timed ARM, demand 1–50, lease 1–1000 ms (not sent by the dashboard) |
+| 1 | `C1 01 DD L0 L1 SS` | Timed ARM: demand 1–50 decimal; lease 1–1000 ms in little-endian bytes L0/L1 |
 | 2 | `C1 02 00 00 00 SS` | RESET while stopped |
-| 3 | `C1 03 14 00 00 SS` | autonomous START, demand 20 |
-| 4 | `C1 04 LL AA 00 SS` | MAP: barcode letter LL (1–26 = A–Z) performs action AA at the next junction |
+| 3 | `C1 03 14 00 00 SS` | Dashboard START at demand 20 decimal; protocol accepts 1–50 |
+| 4 | `C1 04 LL AA 00 SS` | MAP letter LL to action AA |
 
-Opcode 4 actions: 0 ignore (read, no turn), 1 left, 2 right, 3 forward,
-4 U-turn. `LL = 0, AA = 0` restores the built-in codebook (A U-turn, F left,
-Z right; others no turn) for every letter; any other out-of-range pair is
-rejected (result 1). MAP is accepted in any phase and only changes future
-decodes. Mappings live in robot RAM, so after a robot reboot press **Send all**
-(it writes all 26 letters A..Z from the dashboard's table, one ACKed frame
-each, with no codebook reset first).
-The dashboard's `barcode_map` (in `/api/telemetry`) changes only on result 0.
+MAP uses letter 1–26 for A–Z and action 0 Ignore, 1 Left, 2 Right, 3 Forward,
+4 U-turn. Letter/action 0/0 restores A U-turn, F Left and Z Right. MAP changes
+future decodes in RAM and is accepted in any phase. **Send all** sends 26
+acknowledged mappings from the receiver's table without a preceding reset.
 
-A flat-top hump posts one detected/crest/level cycle. The level height is
-latched at traversal completion, so a later jolt cannot substitute a stale
-height. Plain descents have no hump height. S4 impact/fault counters cover
-samples between controller reads. The two-slot telemetry queue selects the
-newest snapshot and carries impact/IMU bits across discarded snapshots.
-Shock-triggered extras are limited to one per 200 ms. These changes keep
-the existing EDR16 layout and the 2 s dashboard flag hold.
+Reply results are 0 accepted, 1 rejected, 2 RESET needed before ARM/START,
+and 3 expired. Phase is 0–13 and fault is 0–8. Queued commands aged 100 ms
+or more expire. STOP bypasses the command queue; commands superseded by a
+handled STOP are rejected. A six-byte frame that fails the command checks
+(for example an out-of-range MAP pair) or finds the command queue full gets
+result 1; frames of any other length get no reply. Coalesced STOPs each
+receive an accepted reply. A full reply buffer drops its oldest reply and
+counts the drop.
+
+The dashboard uses sequence numbers 0–127. USB frames set bit 7; their replies
+also appear here and are ignored by the dashboard. USB keys `s`, `a`, `r`
+and `g` use this same command path; USB ARM/START demand is 30 decimal and
+ARM's lease is 500 ms. The dashboard does not send ARM. After an MQTT
+connection or a received MQTT STOP, the network task gates ARM/START
+until RESET has been passed to the controller's command queue. Controller
+readiness is checked separately and can still reject a command.

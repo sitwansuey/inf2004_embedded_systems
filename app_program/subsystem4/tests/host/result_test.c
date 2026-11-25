@@ -51,6 +51,6 @@ int main(int argc,char **argv)
     }
     assert(!s4_result_encode(NULL,bytes,sizeof(bytes)));
     assert(!s4_result_decode(NULL,12,&out));
-    puts("S4-U30 result codec: exact size, boundaries, padding, fault mapping, semantic checks and unchanged errors PASS");
+    puts("S4-U21 result codec: exact size, boundaries, padding, fault mapping, semantic checks and unchanged errors PASS");
     return 0;
 }

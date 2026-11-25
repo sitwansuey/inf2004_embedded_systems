@@ -147,11 +147,11 @@ static void test_worker_loop(void)
 
 int main(void)
 {
-    RUN("S3-U34 kernel tick cadence/rollover", test_kernel_cadence);
-    RUN("S3-U35 late reply dropped, resubmitted", test_late_delivery);
-    RUN("S3-U36 conversion deadline drops the scan only", test_conversion_deadline);
-    RUN("S3-U56 read overrun still latched", test_read_overrun_latched);
-    RUN("S3-U57 worker loop survives a dropped scan", test_worker_loop);
+    RUN("S3-U32 kernel tick cadence/rollover", test_kernel_cadence);
+    RUN("S3-U33 late reply dropped, resubmitted", test_late_delivery);
+    RUN("S3-U34 conversion deadline drops the scan only", test_conversion_deadline);
+    RUN("S3-U52 read overrun still latched", test_read_overrun_latched);
+    RUN("S3-U53 worker loop survives a dropped scan", test_worker_loop);
     (void)printf("Buddy 3 ADC tick: %u groups, %u checks, %u failures\n", groups, checks, failures);
     return failures == 0U ? 0 : 1;
 }

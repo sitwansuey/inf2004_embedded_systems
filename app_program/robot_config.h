@@ -605,6 +605,21 @@
     BOARD_TURN_STALL_MS < 500 || BOARD_TURN_STALL_MS > 5000)
 #error Turn drive needs PID_MAX_POWER <= TURN_MAX_POWER <= 100, KICK_POWER <= TURN_MAX_POWER, KICK_MS <= 1000, STALL_MS 500..5000
 #endif
+/* Low-speed breakaway (PID builds, turn_drive.h): a straight, reverse or
+ * follower-pivot move commanded below LOW_KICK_BELOW % gets the spin kick's
+ * timing (KICK_MS, KICK_COUNTS, REKICK_MS) at LOW_KICK_POWER % PWM. The
+ * barcode re-read drives at 6-10 % and stalled from standstill (fault 7,
+ * 2026-11-20 and 2026-11-24). Moves at or above LOW_KICK_BELOW (normal 20/30 %
+ * runs, the 15 % crest and search caps) are unchanged. 0: off. */
+#ifndef BOARD_LOW_KICK_BELOW
+#define BOARD_LOW_KICK_BELOW 15U
+#endif
+#ifndef BOARD_LOW_KICK_POWER
+#define BOARD_LOW_KICK_POWER 30U
+#endif
+#if BOARD_PID_ENABLED && (BOARD_LOW_KICK_BELOW > 100 || BOARD_LOW_KICK_POWER > BOARD_PID_MAX_POWER)
+#error Low-speed kick needs LOW_KICK_BELOW <= 100 and LOW_KICK_POWER <= PID_MAX_POWER
+#endif
 /* Preserve Buddy 5's existing Grove wiring (subsystem5 branch, app.h).
  * The Week 6 document lists these roles in the opposite order. */
 #define BOARD_ULTRASONIC_TRIG_GPIO 1U

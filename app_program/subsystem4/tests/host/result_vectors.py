@@ -38,4 +38,4 @@ for bit in range(93,96):
     try:decoder.decode(payload)
     except ValueError:invalid+=1
     else:raise AssertionError("padding accepted")
-print(f"S4-U31 result receivers: {valid} valid and {invalid} rejected C/Python vectors PASS")
+print(f"S4-U22 result receivers: {valid} valid and {invalid} rejected C/Python vectors PASS")

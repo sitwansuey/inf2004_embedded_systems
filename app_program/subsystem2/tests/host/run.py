@@ -40,7 +40,8 @@ PROFILES = (
     ("integrated-custom-timeout", (
         "-DAPP_S2_ONLY=0", "-DS2_ENCODER_ENABLED=1",
         "-DS2_COMMAND_TIMEOUT_MS=750U")),
-    # Robot speed PID and trims; spin/pivot ceiling, kick and stall defaults.
+    # Robot speed PID and trims; spin/pivot ceiling, kick, low-speed kick
+    # and stall defaults (the robot_config.h values).
     ("integrated-pid-turn", (
         "-DAPP_S2_ONLY=0", "-DS2_ENCODER_ENABLED=1", "-DBOARD_PID_ENABLED=1",
         "-DBOARD_PID_MAX_CPS=1950", "-DBOARD_PID_KP_MILLI=30",
@@ -48,6 +49,7 @@ PROFILES = (
         "-DBOARD_PID_MAX_POWER=35", "-DBOARD_PID_TURN_MAX_POWER=55",
         "-DBOARD_TURN_KICK_MS=150U", "-DBOARD_TURN_KICK_POWER=45",
         "-DBOARD_TURN_STALL_MS=1200U", "-DBOARD_TURN_KICK_COUNTS=5", "-DBOARD_TURN_REKICK_MS=100U",
+        "-DBOARD_LOW_KICK_BELOW=15U", "-DBOARD_LOW_KICK_POWER=30U",
         "-DS2_MOTOR1_TRIM_PERCENT=86U", "-DS2_MOTOR2_TRIM_PERCENT=93U")),
 )
 
@@ -77,7 +79,7 @@ def run_tests(compiler: str) -> None:
             shutil.copy2(HERE / filename, temporary / filename)
         shutil.copy2(HERE / "tk/syslib.h", temporary / "tk/syslib.h")
         for filename in (
-            "subsystem2.c", "subsystem2.h", "subsystem2_test.c",
+            "subsystem2.c", "subsystem2.h",
             "s2_data.c", "s2_data.h", "speed_pid.h", "wheel_steering.h",
             "turn_drive.h",
         ):
@@ -97,7 +99,6 @@ def run_tests(compiler: str) -> None:
                 "-Wpedantic", "-DAPP_TEST=1", "-I", str(temporary),
                 *flags,
                 str(temporary / "subsystem2_host_test.c"),
-                str(subsystem / "subsystem2_test.c"),
                 str(subsystem / "s2_data.c"),
                 str(shared / "edr.c"),
                 "-o", str(executable),

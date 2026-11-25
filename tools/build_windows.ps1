@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][string]$PicoSdkPath,
-    [ValidateSet('Default','Mqtt','PassiveTest','SingleCore','Uart','S2Bench','S4Bench')]
+    [ValidateSet('Default','Mqtt','PassiveTest','SingleCore','Uart','S4Bench')]
     [string]$Profile='Default',
     [string]$Distribution='Ubuntu',
     [ValidateSet('WSL','Native')][string]$Backend='WSL',

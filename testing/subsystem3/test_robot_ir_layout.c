@@ -45,6 +45,6 @@ int main(void)
     s3_line_reset(&line);raw[0]=4095U;
     s3_line_update(&line,&cfg.line,raw,7U,50U,&result);
     CHECK(result.state == S3_LINE_JUNCTION && result.black_mask == 3U);
-    printf("S3-U42 confirmed layout: %u checks, %u failures\n",checks,failures);
+    printf("S3-U40 confirmed layout: %u checks, %u failures\n",checks,failures);
     return failures == 0U ? 0 : 1;
 }

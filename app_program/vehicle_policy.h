@@ -156,6 +156,12 @@ typedef struct {
     uint8_t rescan_wait : 1;
     uint8_t rescan_request : 1;
     uint32_t rescan_id, rescan_ms;
+    /* Bypass turn-in: the turn has driven; turn_in_driven_ms is its driving
+     * time since its first drive tick (holds do not count; turn_in_ms is the
+     * last drive tick). The line search waits AVOID_TURN_IN_LINE_DELAY_MS of
+     * it. Kept across TURN_IN -> RETURN -> RESTORE like nav_touched. */
+    uint8_t turn_in_timing : 1;
+    uint32_t turn_in_ms, turn_in_driven_ms;
 } vc_state_t;
 enum { VC_CAUSE_OTHER,VC_CAUSE_SONAR,VC_CAUSE_TILT,VC_CAUSE_ODOM };
 /* VC_LINE causes (same 2-bit fault_cause field). */

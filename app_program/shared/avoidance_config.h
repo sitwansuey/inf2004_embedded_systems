@@ -40,6 +40,22 @@
 #ifndef AVOID_RETURN_MAX_MM
 #define AVOID_RETURN_MAX_MM 1000U
 #endif
+/* Turning back in (VC_TURN_IN, after the clear side look and the clear run):
+ * the line search that hands back to line tracking stays off for this much
+ * driving, counted from the turn's first drive tick (holds for a sonar or
+ * odometry gap or the forward check do not count), and on into VC_RETURN if
+ * the turn ends sooner. 25 Nov (8g): a sensor on black as the turn began counted as
+ * the line at once; the robot restored its heading and tracked from there,
+ * lost the line and faulted (VC_LINE, not found). For AVOID_TURN_IN_FAR_MS
+ * after the wait the far sensor alone also counts as the line: the lead
+ * sensor may have crossed it during the wait (the 8g runs found the line
+ * about 1 s into the turn). 0: search from the start of the turn (8g). */
+#ifndef AVOID_TURN_IN_LINE_DELAY_MS
+#define AVOID_TURN_IN_LINE_DELAY_MS 1000U
+#endif
+#ifndef AVOID_TURN_IN_FAR_MS
+#define AVOID_TURN_IN_FAR_MS 500U
+#endif
 /* No way round (S5 BLOCKED, or a finished scan with no valid width): scan
  * again from the same spot up to AVOID_RESCAN_RETRIES times before the sonar
  * fault. Each retry resets S5 (MONITOR) and waits up to AVOID_RESCAN_WAIT_MS

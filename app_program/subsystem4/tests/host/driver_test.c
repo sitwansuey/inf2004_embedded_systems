@@ -347,15 +347,15 @@ static void test_lock_recovery_and_arguments(void)
 int main(void)
 {
     test_configuration();
-    puts("[TEST] S4-U10 PASS  sensor identity/configuration and initialization faults");
+    puts("[TEST] S4-U01 PASS  sensor identity/configuration and initialization faults");
     test_decode_and_freshness();
-    puts("[TEST] S4-U11 PASS  signed decoding, XYZ ordering, units and freshness");
+    puts("[TEST] S4-U02 PASS  signed decoding, XYZ ordering, units and freshness");
     test_clipping();
-    puts("[TEST] S4-U12 PASS  clipped/out-of-range samples are invalid");
+    puts("[TEST] S4-U03 PASS  clipped/out-of-range samples are invalid");
     test_independent_failures();
-    puts("[TEST] S4-U13 PASS  partial reads and independent channel failures");
+    puts("[TEST] S4-U04 PASS  partial reads and independent channel failures");
     test_lock_recovery_and_arguments();
-    puts("[TEST] S4-U14 PASS  magnetic lock recovery and invalid API arguments");
+    puts("[TEST] S4-U05 PASS  magnetic lock recovery and invalid API arguments");
     puts("PASS: configuration/identity, signed decoding/axis order/units,");
     puts("      freshness/timestamps/overrun, clipping, independent I/O failures,");
     puts("      partial-read rejection, lock recovery and invalid arguments.");

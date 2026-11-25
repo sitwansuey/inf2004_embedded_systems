@@ -491,19 +491,19 @@ static void test_adc_boundary(void)
 
 int main(void)
 {
-    RUN("S3-U15 lifecycle/disabled", test_disabled_and_lifecycle);
-    RUN("S3-U16 controller leases", test_controller_leases_and_safety);
-    RUN("S3-U32 controller enum bounds", test_controller_enum_boundaries);
-    RUN("S3-U17 safety publication race", test_override_publication_race);
-    RUN("S3-U18 event handoff/staleness", test_event_handoff_and_staleness);
-    RUN("S3-U19 event queue full", test_transport_overflow);
-    RUN("S3-U51 controller barcode map", test_controller_set_map);
-    RUN("S3-U52 decoded turn survives a later latch (L1/L6)", test_turn_survives_latch);
-    RUN("S3-U53 request gap limit aligned (L6)", test_request_gap_alignment);
-    RUN("S3-U54 controller tolerates a busy lock (L7)", test_controller_busy_lock);
-    RUN("S3-U55 partial and fault-cut barcode reads (L2)", test_barcode_partial_and_abort);
-    RUN("S3-U20 sensor configuration", test_sensor_configuration);
-    RUN("S3-U21 ADC boundary", test_adc_boundary);
+    RUN("S3-U13 lifecycle/disabled", test_disabled_and_lifecycle);
+    RUN("S3-U14 controller leases", test_controller_leases_and_safety);
+    RUN("S3-U30 controller enum bounds", test_controller_enum_boundaries);
+    RUN("S3-U15 safety publication race", test_override_publication_race);
+    RUN("S3-U16 event handoff/staleness", test_event_handoff_and_staleness);
+    RUN("S3-U17 event queue full", test_transport_overflow);
+    RUN("S3-U47 controller barcode map", test_controller_set_map);
+    RUN("S3-U48 decoded turn survives a later latch (L1/L6)", test_turn_survives_latch);
+    RUN("S3-U49 request gap limit aligned (L6)", test_request_gap_alignment);
+    RUN("S3-U50 controller tolerates a busy lock (L7)", test_controller_busy_lock);
+    RUN("S3-U51 partial and fault-cut barcode reads (L2)", test_barcode_partial_and_abort);
+    RUN("S3-U18 sensor configuration", test_sensor_configuration);
+    RUN("S3-U19 ADC boundary", test_adc_boundary);
     (void)printf("Buddy 3 adapter: %u groups, %u checks, %u failures\n",
                  groups, checks, failures);
     return (failures == 0U) ? 0 : 1;

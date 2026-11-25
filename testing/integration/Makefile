@@ -28,6 +28,8 @@ test:
 	.build/reverse_track
 	$(CC) $(CFLAGS) approach_test.c $(LDFLAGS) -o .build/approach
 	.build/approach
+	$(CC) $(CFLAGS) -D_USE_MATH_DEFINES hump_height_test.c $(LDFLAGS) -lm -o .build/hump_height
+	.build/hump_height
 	$(CC) $(CFLAGS) line_steer_test.c $(LDFLAGS) -o .build/line_steer
 	.build/line_steer
 	$(CC) $(CFLAGS) obstacle_confirm_test.c $(LDFLAGS) -o .build/obstacle_confirm

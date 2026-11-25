@@ -1,202 +1,192 @@
 # Testing
 
-All test records for the robot live in this folder. A test only counts as
-done when it is **written down here with its result and a saved log**.
+All test records for the robot live here. A test counts as done only when
+its result and saved evidence are recorded. `TEST_LOG.md` files and the
+contents of `logs/` are tracked in git.
 
-```
+```text
 testing/
-├── README.md              this guide
-├── subsystem1/            one folder per subsystem, kept by its owner
-│   ├── TEST_LOG.md        test cases + results
-│   └── logs/              saved console output, photos, scope captures
-├── ...                    (subsystem3/ and subsystem5/ also hold host test sources)
-├── subsystem5/
-├── integration/           tests across two or more subsystems (shared), plus host tests
-├── system/                tests of the whole robot against its requirements (shared)
-├── data_representation/   EDR16 wire-format checks (host) and their TEST_LOG.md
-└── evidence/              review evidence from October, kept as it is
+├── subsystem1/ … subsystem5/  TEST_LOG.md and logs/ (S3 and S5 also hold host test sources)
+├── integration/              shared interface tests, host sources and logs
+├── system/                   whole-robot tests and logs
+└── data_representation/      EDR16 host checks and TEST_LOG.md
 ```
 
-| Folder | Owner | Covers |
-|---|---|---|
-| `subsystem1/` | Buddy 1 (2500238) | binary telemetry, command/telemetry buffers, dashboard, LED on GP19 |
-| `subsystem2/` | Buddy 2 (2500613) | motor PWM/PID, encoders, motor watchdogs |
-| `subsystem3/` | Buddy 3 (2500383) | IR line sensors, GP28 barcode sampler, navigation events |
-| `subsystem4/` | Buddy 4 (2500243) | GY-511 IMU acquisition, terrain/hump algorithm |
-| `subsystem5/` | Buddy 5 (2502324) | HC-SR04 sonar and servo, edge scan |
-| `integration/`, `system/` | whole team | vehicle controller (`vehicle.c`), watchdog supervisor, whole-robot behaviour |
-
-Some `TEST_LOG.md` files were restored from October and keep an older table
-layout. Leave those tables as they are. Add new test cases and results to the
-*Test cases* and *Results* tables in the same file.
+See [TEAM.md](../TEAM.md) for subsystem owners and interfaces IF-01 to IF-22.
+The records are [S1](subsystem1/TEST_LOG.md), [S2](subsystem2/TEST_LOG.md),
+[S3](subsystem3/TEST_LOG.md), [S4](subsystem4/TEST_LOG.md),
+[S5](subsystem5/TEST_LOG.md), [integration](integration/TEST_LOG.md),
+[system](system/TEST_LOG.md) and [data representation](data_representation/TEST_LOG.md).
 
 ## Three levels of test
 
-| Level | ID format | Tests what | Written by | Where |
+| Level | ID format | What it checks | Written by | Record |
 |---|---|---|---|---|
-| Unit | `S1-U01`, `S2-U01`, … | one subsystem on its own | the subsystem owner | `subsystemN/TEST_LOG.md` |
-| Integration | `INT-01`, … | an interface between subsystems (TEAM.md section 5) | the owners on both sides | `integration/TEST_LOG.md` |
-| System | `SYS-01`, … | the finished robot against a requirement (FR1-FR13, NFR1-NFR8) | whole team | `system/TEST_LOG.md` |
+| Unit | `S<n>-U<nn>` | One subsystem | Subsystem owner | `subsystemN/TEST_LOG.md` |
+| Integration | `INT-<nn>` | An interface in `TEAM.md` | Owners on both sides | `integration/TEST_LOG.md` |
+| System | `SYS-<nn>` | The complete robot against FR1-FR13 and NFR1-NFR8 | Whole team | `system/TEST_LOG.md` |
 
-Test IDs never change and are never reused, even if a test is dropped. Mark a
-dropped test "retired - do not reuse" in its row. Do not delete the row. New
-IDs continue the numbering. Older Buddy 3 rows also use `S3-M` (manual),
-`S3-B` (build), `S3-I` (integration probe) and `S3-CI` (failure propagation)
-IDs. Those IDs stay.
+From now on, keep IDs stable and never reuse them. The IDs were renumbered
+on 2026-11-21 and, in every log except S2, again on 2026-11-25; some old
+numbers now name different tests. Each log's **ID changes on 2026-11-21**
+and **ID changes on 2026-11-25** tables, applied in date order, map older
+console output and results;
+keep the saved output unchanged. S3 also uses `S3-B` (build) and
+`S3-CI` (failure propagation) IDs; older S3 rows also use `S3-I` (integration
+probe) IDs.
 
-Values for the *Method* column:
-
-- **auto**: a `TEST_CHECK` in an on-target test image. Say which image
-  (integrated, S2_ONLY or S4_ONLY, see *Test images*).
-- **auto (host)**: a host test on a PC. Give the exact command and the test or
-  recipe name.
-- **manual**: a person follows numbered steps and measures the result (LED,
-  scope, tape measure, stopwatch, dashboard). Give a measurable expected result.
-
-## Test images
-
-The on-target tests are built only into a test image (`TEST=1`). A normal
-`make` leaves them out. Build in `build_make` (the root README shows how to
-set up the compiler and `PICO_SDK_PATH`):
-
-| Image | Command | UF2 file | What runs |
-|---|---|---|---|
-| Integrated, passive | `make TEST=1 NET=lwip MQTT=1 -j8` | `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2` | The whole robot starts DISARMED. Then the S1, S3, S4 and S5 checks run in turn. No motor moves. |
-| Motor bench | `make TEST=1 S2_ONLY=1 -j8` | `mtk3pico_smp1_usb_cdc_wifi_s2_enc_test.uf2` | Only S2 starts. Each motor move runs for 2 s at 30 %, then the command watchdog check runs. **Raise the wheels first.** |
-| IMU bench | `make TEST=1 S4_ONLY=1 -j8` | `mtk3pico_smp1_usb_cdc_wifi_enc_s4_test.uf2` | Only S4 starts. The S4 checks run with no other subsystem running. |
-
-- The integrated image needs your local `config/wifi_secrets.h` (copy
-  `config/wifi_secrets.example.h` and fill it in). Never commit it.
-- Each image prints `[TEST] === test run start ===`, then one
-  `[TEST] <ID> PASS|FAIL` line per check and a `SUMMARY` line per subsystem,
-  then `[TEST] === test run end ===`.
-- A check may print `SKIP` instead (for example `S4-U06` when the IMU is not
-  found). A SKIP is not a PASS.
-- Between its `[TEST]` lines, the S2 test also prints `[S2 TEST]` and
-  `[S2 ENCODER]` progress lines.
-- An `ERROR <what>: <code>` line means a kernel call failed. Note it in the
-  result row.
-- You can switch between images freely. The makefile throws away objects
-  built for another image, and each image has its own file name.
-- `tools/build_windows.ps1 -Profile S2Bench` builds the same motor bench image.
+Use **auto (host)** for PC tests, **auto** for on-target `TEST_CHECK` checks,
+**manual** for observations and measurements on the robot, and
+**manual (video)** when a filmed run is the evidence, as in the core system
+tests. Name the exact command or build and give a measurable expected result.
 
 ## How to run and record a test
 
-1. **Define it first.** Add a row to the *Test cases* table in the right
-   `TEST_LOG.md`: ID, what it checks, the requirement or interface, method,
-   steps, and the expected result.
-2. **Automate it if you can.** Add a `TEST_CHECK` with the same ID to
-   `app_program/subsystemN/subsystemN_test.c` (see `app_program/test_report.h`).
-   Checks in the integrated image must stay passive: they read state and
-   wait, and never command a motor. A check that moves the robot belongs in
-   the motor bench image. Keep test functions small: they run in the initial
-   task, which has a 1 KB stack. A host test goes in that subsystem's host
-   suite (see *Host tests*). A test that needs eyes or instruments (the LED
-   blinks, a wheel turns, the robot stops before a box) is a *manual* test.
-   Write its steps in the table instead.
-3. **Build the test image and flash it.**
+1. **Define it first.** Add a case to the correct `TEST_LOG.md`: ID, purpose,
+   requirement or interface, method, steps and expected result.
+2. **Choose the test path.** Use the host entry points below for software
+   checks. The integrated `TEST=1` image calls only `subsystem3_test()`
+   (`app_program/subsystem3/subsystem3_test.c`), a passive `S3-U01`
+   normalization check. It does not test all five subsystems at boot. To add
+   an on-target check, put a `TEST_CHECK` (see `app_program/test_report.h`) in
+   a test function and call it from the `#if APP_TEST` block in
+   `app_program/app_main.c`. That file is shared code, so agree the change
+   with the team. Keep the check passive and small: it runs in the initial
+   task, which has a 4 KB stack in a `TEST=1` image. Write manual steps for
+   measurements such as stopping distance, wheel direction, scan accuracy and
+   hump height.
+3. **Run the selected command or build and flash the required image.** For
+   the integrated passive check, with the SDK and Arm compiler set up:
+
    ```sh
-   cd build_make
-   make TEST=1 NET=lwip MQTT=1 -j8   # integrated, passive
-   make TEST=1 S2_ONLY=1 -j8         # motor bench, wheels raised
-   make TEST=1 S4_ONLY=1 -j8         # IMU bench
+   make -C build_make TEST=1 NET=lwip MQTT=1 -j8
    ```
-   Hold BOOTSEL while you plug in the USB cable, then copy the `.uf2` file to
-   the `RPI-RP2` drive. The Pico restarts. The tests start right after boot
-   and take a few seconds.
-4. **Save the console output** to `logs/`, named `YYYY-MM-DD_<what>.txt`.
-   The USB console runs at 115200 8N1. On Windows, find the port in Device
-   Manager under *Ports (COM & LPT)*. Run the commands below from the
-   repository root.
-   - **Windows, PuTTY:** in *Session*, choose connection type *Serial*, your
-     COM port and speed 115200. In *Session → Logging*, choose *All session
-     output* and set the log file to a new file in the repository's
-     `testing\integration\logs\` folder, for example
-     `2026-11-21_passive_test.txt`. Then open the session.
-   - **Windows, Python:** install pyserial once with
-     `pip install -r tools/robot_console_requirements.txt`, then run
-     ```sh
-     python tools/robot_console.py --port COM5 --seconds 60 --log testing/integration/logs/2026-11-21_passive_test.txt
-     ```
-     It only listens. `--seconds` is the recording time, at most 120
-     (default 15). Never add `--arm` (it drives the robot) or `--reset` to a
-     test run. It puts a time stamp before each block it reads, which can
-     split a line. Use PuTTY when you need clean lines.
-   - **macOS / Linux:**
-     ```sh
-     cat /dev/cu.usbmodem1101 | tee testing/integration/logs/2026-11-21_passive_test.txt   # macOS
-     cat /dev/ttyACM0 | tee testing/integration/logs/2026-11-21_passive_test.txt           # Linux
-     ```
-     Press Ctrl-C when it is done.
 
-   The USB port disappears when the Pico resets and comes back a moment
-   later. Open the terminal as soon as the port is back, because output
-   printed before that can be lost. If the log has no
-   `[TEST] === test run start ===` line, reset the Pico and try again.
+   This produces `build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`.
+   It needs the builder's git-ignored `config/wifi_secrets.h`, copied from
+   `config/wifi_secrets.example.h`. Without Wi-Fi secrets,
+   `.\tools\build_windows.ps1 -Backend Native -ArmToolchainBin <Arm bin folder> -PicoSdkPath <SDK path> -Profile PassiveTest`
+   builds the same check without MQTT, as
+   `build_make/mtk3pico_smp1_usb_cdc_wifi_enc_test.uf2`. You can switch
+   between images freely: the makefile discards objects built for another
+   profile, and each image has its own file name. Hold BOOTSEL while plugging
+   in USB and copy the image to `RPI-RP2`. The robot boots `DISARMED`; the
+   passive check sends no motion command. For manual mission tests, use the
+   mission image (`NET=lwip MQTT=1`, or `-Profile Mqtt`) and the steps in the
+   case. See the [root build guide](../README.md).
+4. **Save the output and measurements.** Save the output to a new file in that
+   area's `logs/` folder, named `YYYY-MM-DD_<what>.txt` with the run date and a
+   short description. For shared runs, save one log in `integration/logs/` or
+   `system/logs/` and link it from each result that uses it.
 
-   The integrated image prints the S1, S3, S4 and S5 results in one log. Save
-   it once in `integration/logs/` and link it from each subsystem's result
-   row. For manual tests, save photos or scope screenshots in `logs/` the
-   same way (keep each file under a few MB). Videos go in `videos/` instead
-   (see below).
-5. **Record the result.** Add a row to the *Results* table: date, test ID,
-   the commit you tested (`git rev-parse --short HEAD`), who ran it,
-   PASS/FAIL, and the log file. Say which image you used in *Notes*. Commit
-   the log and the table together.
+   The USB console is 115200 baud. In PuTTY, choose connection type **Serial**
+   and the Pico's COM port; find it in Device Manager under **Ports (COM & LPT)**.
+   Enable **Session → Logging → All session output** before running the test.
+   For a read-only Python capture, install pyserial once with
+   `python -m pip install -r tools/robot_console_requirements.txt`, then run
+   from the repository root:
+
+   ```sh
+   python tools/robot_console.py --port COM5 --seconds 60 --log testing/subsystem3/logs/YYYY-MM-DD_passive.txt
+   ```
+
+   Change the port and filename. The tool defaults to 15 s and accepts up to
+   120 s. It timestamps read blocks, which may split console lines. Leave
+   out `--arm` and `--reset` for passive capture; `--arm` drives the robot.
+   It does not reconnect automatically after a reset. Reopen the port as soon
+   as it returns: the check runs right after start-up and does not wait for
+   the console. For an on-target check, capture the `[TEST]` start marker,
+   `S3-U01` result, summary and end marker. Missing output is not a PASS; if
+   the start marker is missing, reset the Pico and capture again. On macOS or
+   Linux, `cat /dev/cu.usbmodem1101 | tee <log>` (macOS) or
+   `cat /dev/ttyACM0 | tee <log>` (Linux) also works; press Ctrl-C when done.
+
+   Save manual measurements, photos and scope captures with the run's log.
+   Keep image files under a few MB. Share videos as unlisted YouTube links
+   as described below. For host tests, run the command in Git Bash or MSYS2
+   and copy its output to a new log, for example:
+
+   ```bash
+   python -B testing/integration/run.py 2>&1 | tee testing/integration/logs/YYYY-MM-DD_host.txt
+   echo "exit code: ${PIPESTATUS[0]}"
+   ```
+
+   `${PIPESTATUS[0]}` is the runner's exit code (`$?` would be `tee`'s).
+   Check it as well as the output. Record skipped checks and missing
+   dependencies; a SKIP or compile-only run is not an executed test PASS.
+5. **Record the result.** Append the actual date, test ID, tested commit
+   (`git rev-parse --short HEAD`), tester, result and evidence path to the
+   *Results* table. Include build options, local overrides and relevant
+   measurements in *Notes*. Commit the result and evidence together.
+
+**Result values**
+
+- **PASS**: every step was run and every expected result was seen (in the log, the console or the video).
+- **FAIL**: the test ran and at least one expected result was not met.
+- **INCOMPLETE**: the test ran, but not every step was done, or the evidence does not show every expected result (a partial run).
+- **BLOCKED**: the test could not be run (a tool or the hardware was missing); used in some October records.
+
+On 2026-11-25 every test whose latest result was INCOMPLETE was removed (each affected log lists the removed IDs under **ID changes on 2026-11-25**; S2 had none), the tests filmed for the video set were narrowed to what their video shows, and the IDs were renumbered so each series runs with no gaps.
 
 ## Host tests
 
-Host tests build the robot's C and Python code on a PC, with stand-ins for
-the kernel and the hardware. They check logic, not hardware accuracy. None of
-them flashes or starts a robot. Run them from the repository root in a shell
-with GCC, GNU Make and Python on PATH (MSYS2 or Git Bash on Windows):
+Run from the repository root with Python 3 and native GCC on `PATH`.
+Make targets also need GNU Make and a compatible shell; use MSYS2 or WSL on
+Windows. Use `python3` where `python` is not found. The S3 `arm-check` target
+needs `arm-none-eabi-gcc`. The `analyze` targets use GCC's `-fanalyzer`. These checks do not flash the robot.
 
-| Command | Covers |
+| Entry point | Coverage |
 |---|---|
-| `python -B testing/data_representation/run.py` (or `check_data.cmd` / `check_data.sh`) | EDR16 C/Python codecs, the S1 telemetry queue, the S5 status codec, every Dashboard `test_*.py`, and the S2 host profiles |
-| `make -C testing/subsystem3 test analyze check-headers arm-check verify-failure` | IR algorithms, adapter, ADC, ARM/header checks |
-| `python -B app_program/subsystem2/tests/host/run.py` | B2 adapters and watchdog in nine host profiles (also stage 3 of the EDR check) |
-| `make -C app_program/subsystem4/tests/host analyze sizes` | B4 driver, compact storage, checked encoder/terrain/result path, GCC analysis; `sanitize` adds ASan/UBSan |
-| `make -C testing/integration test`, or `python -B testing/integration/run.py` | controller, avoidance, queue and telemetry/MQTT boundaries; `run.py` runs the same recipes with any native compiler (Windows included) |
-| `python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py"` | the dashboard unit tests on their own (decoder, commands, events, obstacle width) |
+| `python -B testing/data_representation/run.py` | Three stages: Python EDR16/S5/dashboard tests; C codec and S1 queue tests; S2's nine host profiles |
+| `.\check_data.cmd --no-pause` (Windows) or `sh check_data.sh` | Root launchers for the same EDR16 runner; write `edr-check-report.json` (git-ignored) in the repository root |
+| `python -B app_program/subsystem2/tests/host/run.py` | Motor commands, encoders, STOP, command expiry, PID and failure paths in nine simulated profiles |
+| `make -C testing/subsystem3 test analyze check-headers arm-check verify-failure` | IR/barcode algorithms and adapters, ADC, kernel headers, Arm compilation and failure propagation |
+| `make -C app_program/subsystem4/tests/host analyze sizes` (needs `python3` on `PATH`) | Sensor drivers, compact records, terrain/result and odometry checks; GCC analysis and host sizes |
+| `python -B testing/integration/run.py` (any OS, Windows included) or `make -C testing/integration test` (needs `python3` on `PATH`) | Vehicle policy and controller, avoidance, barcode retries, hump estimate, line tracing, watchdog policy, S5 sonar and servo drivers, queues, MQTT and telemetry-to-dashboard routing |
+| `python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py"` | Dashboard decoding, commands, robot events, widths and browser field routing |
 
-- `verify-failure` makes one check fail on purpose, to prove that a failure
-  stops the run. Its wrapper passing is the expected result.
-- The Python runners take `--compiler PATH` when your native GCC/Clang is
-  not on PATH.
-- Some native Windows GCC builds lack the ASan/UBSan runtimes. GitHub CI
-  (`.github/workflows/`) runs the subsystem 3, subsystem 4, integration and
-  EDR16 suites on every push and pull request, with ASan/UBSan for
-  subsystem 4 and integration.
-- Save the output like a console log:
-  `<command> 2>&1 | tee testing/<folder>/logs/YYYY-MM-DD_<what>.txt`.
-- `app_program/robot_config.h` defaults are the robot's mission profile. Host
-  builds define `ROBOT_CONFIG_NO_LOCAL`, so a git-ignored
-  `robot_config.local.h` never leaks into a test. A test that needs another
-  scenario passes explicit `-D` flags (for example `-DBOARD_IR_MODE=2` or
-  `-DBOARD_MOTORS_DISABLED=1`).
+The three Python runners accept `--compiler PATH` for native GCC or Clang.
+The S5 Python test invokes the compiler named by `CC`. Browser field routing
+needs Node.js on `PATH`. The dashboard's C event-packing test needs `gcc`;
+its width-producer test is skipped unless `testing/integration/.build/width_avoidance`
+(`.exe` on Windows) exists, built by either integration entry point. Check
+skips before calling a run complete.
+
+The `app_program/robot_config.h` defaults are the robot's mission profile.
+Host builds define `ROBOT_CONFIG_NO_LOCAL`, so a git-ignored
+`robot_config.local.h` never changes a host test. A test that needs another
+scenario passes explicit `-D` flags (for example `-DBOARD_IR_MODE=2` or
+`-DBOARD_MOTORS_DISABLED=1`).
+
+`verify-failure` deliberately fails a check and verifies that the failure is
+reported. The wrapper succeeding is the expected result. S4 and integration
+also have `sanitize` targets for ASan/UBSan; some Windows toolchains lack
+those runtimes. The workflows in `.github/workflows/` define the S3, S4,
+integration and EDR16 CI checks. A workflow definition is not a saved run result.
+
+The records contain results from specific commits and historical formats.
+Use the result row and linked log;
+do not treat an old PASS as evidence for a later build.
 
 ## Videos of tests and demos
 
-A manual test (an LED, a motor, a sensor reacting) is best shown with a short
-video. Record 15–60 s showing the test ID and the hardware, share it as an
-**unlisted YouTube** link (the only way videos are shared), list it in
-**`videos/README.md`**, and put the link in the *Log / evidence* column of
-the test's result row. `videos/README.md` explains how.
+Record 15–60 s showing the test ID, hardware and result. Upload as an
+**unlisted YouTube** video, list it in [videos/README.md](../videos/README.md),
+and add the link to the test result's *Log / evidence* column. Videos are
+shared only through those links; do not commit video files.
 
 ## Rules
 
-- **Never edit or delete an old result.** If a test fails, record the FAIL,
-  fix the code, re-run, and add a new PASS row. The history is the evidence.
-- **Always record the commit.** A result is meaningless without the exact
-  code it was run on. Commit your work *before* testing.
-- **A FAIL needs a note** saying what went wrong and, later, which commit fixed it.
-- **Logs and results go into git**, in this folder, next to the test log
-  that uses them.
-- Never commit `config/wifi_secrets.h`. Check a log for passwords before you
-  commit it.
-- Motor tests run only in the motor bench image, with the wheels raised.
-- Hardware numbers (RAM use, latency, STOP timing, calibration) come from the
-  final firmware on the robot. A host test does not replace them.
-- Before merging a change into `main`, re-run your subsystem's unit tests.
+- Never edit or delete an old result. Record a failure, fix the code, rerun
+  and append a new result. Mark retired cases without reusing their IDs.
+- Commit the code before testing and always record that commit. Record local
+  build overrides too, so the run can be repeated.
+- A FAIL needs a note explaining what failed and, later, the fixing commit.
+- Keep results and saved logs in git. Check evidence for credentials before
+  adding it; never commit `config/wifi_secrets.h`.
+- Follow the case's hardware setup. Support the robot with its wheels clear
+  for stationary motor checks; driving and course tests need a clear course.
+- Measure physical accuracy, STOP timing, task timing and memory use on the
+  final firmware where the case requires it. Host checks do not replace them.
+- Before merging into `main`, rerun the affected subsystem's unit tests.
   Before a demo or hand-in, run every test and record the full set.

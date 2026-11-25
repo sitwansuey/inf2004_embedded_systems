@@ -148,7 +148,7 @@ static void test_magnetometer_only(void)
     model.mag_fail = false;
     for (unsigned n = 0; n < 100U && !cycle.device.mag_ready; ++n) REQUIRE(run());
     REQUIRE(cycle.device.mag_ready && view_now().init_attempts == 1);
-    puts("[TEST] S4-U41 PASS  a dead or failing magnetometer never takes the accelerometer down");
+    puts("[TEST] S4-U32 PASS  a dead or failing magnetometer never takes the accelerometer down");
 }
 
 /* I7: the first re-init runs on the next cycle; 1 s back-off only after a
@@ -178,7 +178,7 @@ static void test_reinit_timing(void)
     model.accel_fail = false;
     for (unsigned n = 0; n < S4_RETRY_MS / 10U + 2U; ++n) (void)run();
     REQUIRE(view_now().init_attempts == 5 && run());
-    puts("[TEST] S4-U42 PASS  re-init on the next cycle, back-off only after a failed attempt, bus cleared first");
+    puts("[TEST] S4-U33 PASS  re-init on the next cycle, back-off only after a failed attempt, bus cleared first");
 }
 
 /* I10: a device that answers but sends no data (a supply dip restored its
@@ -200,7 +200,7 @@ static void test_answers_without_data(void)
      * the VC's 800 ms tilt grace. */
     REQUIRE(cycles * 10U <= 300U);
     REQUIRE(view_now().accel_faults >= faults + 2U);
-    puts("[TEST] S4-U43 PASS  a sensor that answers without data is re-initialised");
+    puts("[TEST] S4-U34 PASS  a sensor that answers without data is re-initialised");
 }
 
 /* Two open-drain lines and a slave that holds SDA low until it has been
@@ -279,7 +279,7 @@ static void test_bus_clear(void)
     }
     REQUIRE(!clear_bus(&wire, S4_I2C_CLEAR_CLOCKS + 1U));
     REQUIRE(wire.rises == S4_I2C_CLEAR_CLOCKS && !wire.scl_low && !wire.sda_low);
-    puts("[TEST] S4-U44 PASS  a held SDA is clocked free (up to 9 clocks) and ends with a STOP");
+    puts("[TEST] S4-U35 PASS  a held SDA is clocked free (up to 9 clocks) and ends with a STOP");
 }
 
 int main(void)

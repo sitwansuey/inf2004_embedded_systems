@@ -11,6 +11,7 @@
 #include "vehicle_obstacle_confirm.h"
 #include "vehicle_approach.h"
 #include "vehicle_ramp.h"
+#include "vehicle_hump.h"
 #include "vehicle_edge_trace.h"
 #include <math.h>
 #include "subsystem2/s2_data.h"
@@ -164,6 +165,7 @@ static void vehicle_task(INT code,void *context) {
     unsigned approach_seen=APPROACH_NONE;
 #if BOARD_RAMP_SPEED
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
+    vehicle_hump_t hump={0}; /* the controller's hump height (event log) */
 #endif
 #if BOARD_LIFT_FAULT_MS
     BOOL lift_timing=FALSE;uint32_t lift_since=0; /* robot lifted (no surface under the IRs) */
@@ -347,7 +349,7 @@ static void vehicle_task(INT code,void *context) {
             if(c.wire[1]==2 && !state.vehicle.armed && mo_fresh && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
 #if BOARD_RAMP_SPEED
-                ramp=(vehicle_ramp_t){0};ramp_seen=RAMP_FLAT;hump_seen=0;
+                ramp=(vehicle_ramp_t){0};ramp_seen=RAMP_FLAT;hump_seen=0;hump=(vehicle_hump_t){0};
 #endif
                 requested_sensor_mode=FALSE; /* RESET also restarts a latched S5 scan. */
                 arm_hold=FALSE; /* RESET also lets ARM in again after a STOP */
@@ -929,25 +931,39 @@ static void vehicle_task(INT code,void *context) {
         {
             int32_t p=terrain_pitch_cdeg(&terrain),r=terrain_roll_cdeg(&terrain);
             int32_t tilt=(int32_t)lround(sqrt((double)p*p+(double)r*r));
-            ramp.level_blocked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST;
+            /* The controller's hump height: back to 0 on level ground while
+             * no ramp is in progress (this tick's ramp state is not known
+             * yet: last tick's). While it is still up on a hump it climbed,
+             * the hump is not over, as while S4 tracks a climb: S4 misses
+             * low (2-5 cm) humps, which otherwise ended at the top and
+             * came down at full speed as a new "climb". */
+            vehicle_hump_step(&hump,state.vehicle.armed,
+                ramp.state==RAMP_FLAT && !ramp.timing && terrain.tilt_valid && tilt<=BOARD_RAMP_LEVEL_CDEG,
+                terrain.tilt_valid,p,odom->valid,odom->distance_um,now.lo,BOARD_IMU_SMOOTH_MS,
+                VC_HUMP_MAX_STEP_UM,VC_HUMP_STALE_TICKS);
+            ramp.level_blocked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST ||
+                vehicle_hump_up(&hump,VC_HUMP_MIN_UM,VC_HUMP_TOP_UM);
             unsigned rs=vehicle_ramp_step(&ramp,now.lo,state.vehicle.armed,terrain.tilt_valid,
                 tilt,p,r,BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
                 BOARD_RAMP_CREST_DROP_CDEG,BOARD_RAMP_HOLD_MS,BOARD_RAMP_LEVEL_MS);
             if(rs!=ramp_seen) {
                 /* Event log: hump climbing, crest (slow down), level again.
-                 * Heights are this hump's, in 2 mm: S4's running peak while
-                 * it tracks the hump; level uses only this traversal's
+                 * Heights are this hump's, in 2 mm: the controller's
+                 * estimate (its height so far, then its highest point) when
+                 * it has one; otherwise S4's running peak while it tracks
+                 * the hump, and at the level only this traversal's
                  * completed-height latch, or zero. */
                 BOOL hump_tracked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST ||
                     terrain.state==TERRAIN_DESCENT;
-                unsigned peak=((unsigned)terrain.peak_um+1000U)/2000U;
+                unsigned peak=((unsigned)terrain.peak_um+1000U)/2000U,estimate=vehicle_hump_peak_2mm(&hump);
                 if(rs==RAMP_UP) {
                     hump_seen=terrain.humps;
                     s1_event_post(EV_HUMP,ev_hump(EV_HUMP_DETECTED,(unsigned)(tilt/10)));
                 }
-                else if(rs==RAMP_DOWN) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_CREST,hump_tracked?peak:0U));
-                else if(rs==RAMP_DONE) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_LEVEL,
-                    terrain.humps!=hump_seen?(unsigned)terrain.hump_mm/2U:0U));
+                else if(rs==RAMP_DOWN) s1_event_post(EV_HUMP,estimate?ev_hump(EV_HUMP_CREST_EST,estimate):
+                    ev_hump(EV_HUMP_CREST,hump_tracked?peak:0U));
+                else if(rs==RAMP_DONE) s1_event_post(EV_HUMP,estimate?ev_hump(EV_HUMP_LEVEL_EST,estimate):
+                    ev_hump(EV_HUMP_LEVEL,terrain.humps!=hump_seen?(unsigned)terrain.hump_mm/2U:0U));
                 ramp_seen=rs;
             }
             if(rs==RAMP_DONE) {

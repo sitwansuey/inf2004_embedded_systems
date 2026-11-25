@@ -99,7 +99,7 @@ static void calibration_domain(void)
 int main(void)
 {
     speed_domain();signed_turns_and_rejections();calibration_domain();
-    printf("S4-U32 PASS 4001 speeds, signed delta/yaw bounds and wraps, "
+    printf("S4-U23 PASS 4001 speeds, signed delta/yaw bounds and wraps, "
            "discontinuity/overflow, checked calibration; odometry=%zu calibration=%zu bytes\n",
            sizeof(odom_t),sizeof(odom_calibration_t));
     return 0;

@@ -26,11 +26,15 @@ static inline unsigned ev_instruction(unsigned letter, unsigned turn)
 {
     return (letter > 26U ? 0U : letter) | ((turn & 7U) << 5U);
 }
-/* EV_HUMP: bits 0-2 kind, bits 3-11 value. Heights are this hump's, from
- * subsystem 4's terrain estimate; 0 when it lost the hump's height. */
+/* EV_HUMP: bits 0-2 kind, bits 3-11 value. Heights are this hump's, in 2 mm.
+ * The controller's estimate (vehicle_hump.h: wheel distance x tilt from
+ * level ground) is sent when it has one (kinds 4 and 5); otherwise
+ * subsystem 4's terrain height (kinds 2 and 3), 0 when it lost it. */
 enum { EV_HUMP_DETECTED = 1, /* climbing: tilt in 0.1 deg */
-       EV_HUMP_CREST,        /* going down (slow): height so far in 2 mm */
-       EV_HUMP_LEVEL };      /* level again: its highest point in 2 mm */
+       EV_HUMP_CREST,        /* going down (slow): S4's height so far */
+       EV_HUMP_LEVEL,        /* level again: S4's completed height */
+       EV_HUMP_CREST_EST,    /* going down (slow): the controller's height so far */
+       EV_HUMP_LEVEL_EST };  /* level again: the controller's highest point */
 static inline unsigned ev_hump(unsigned kind, unsigned value)
 {
     return (kind & 7U) | ((value > 511U ? 511U : value) << 3U);

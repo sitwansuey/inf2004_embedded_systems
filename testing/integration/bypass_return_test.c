@@ -7,7 +7,10 @@
  * TURN_IN/RETURN/RESTORE) or, with no line, AVOID_RETURN_MAX_MM (or
  * AVOID_RETURN_EXTRA_MM past the expected distance, if further), RESTORE to
  * the heading held at detection, then TRACK or the spot
- * search; and the line-data and sonar gap holds. */
+ * search; no line search for the first AVOID_TURN_IN_LINE_DELAY_MS of the
+ * turn-in (from its first drive tick, on into RETURN), then the far sensor
+ * alone also counts for AVOID_TURN_IN_FAR_MS; and the line-data and sonar
+ * gap holds. */
 #include "../../app_program/vehicle_policy.h"
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +33,12 @@ static int restore_then_track(vc_state_t *s,uint32_t *t,int32_t *d,int32_t *yaw)
     }
     return s->phase==VC_TRACK;
 }
+/* n VC ticks of 20 ms (the robot's real period), driving on, with this line mask. */
+static void ticks(vc_state_t *s,uint32_t *t,int32_t *d,int32_t yaw,unsigned n,unsigned mask) {
+    for (unsigned k=0;k<n;++k) {vc_input_t i=base(*t+=20,*d+=2000,yaw);i.line_black_mask=(uint8_t)mask;vc_step(s,&i);}
+}
+/* Turn-in ticks to the end of the line wait: its first drive tick counts 0 ms. */
+#define WAIT_TICKS (AVOID_TURN_IN_LINE_DELAY_MS/20U)
 static void armed_in(vc_state_t *s,unsigned phase,int turn_deg,unsigned return_mm) {
     memset(s,0,sizeof *s);
     vc_start(s,0,20);
@@ -48,10 +57,12 @@ int main(void) {
     armed_in(&s,VC_RETURN,30,200);t=0;d=0;
     for(unsigned k=0;k<5;++k){t+=10;d+=2000;vc_input_t i=base(t,d,0);i.line_black_mask=1;vc_step(&s,&i);}
     CHECK(s.phase==VC_RETURN && s.command==1,"lead touch alone keeps heading back");
-    /* 3. Touch in TURN_IN survives into RETURN; release there -> TRACK. */
+    /* 3. Touch in TURN_IN survives into RETURN; release there -> TRACK. (The
+     * turn first drives AVOID_TURN_IN_LINE_DELAY_MS with the search off.) */
     armed_in(&s,VC_TURN_IN,30,200);t=0;d=0;
     yaw=0;
-    {vc_input_t i=base(t+=10,d+=2000,yaw);i.line_black_mask=1;vc_step(&s,&i);}
+    ticks(&s,&t,&d,yaw,WAIT_TICKS,0);
+    ticks(&s,&t,&d,yaw,1,1);
     CHECK(s.nav_touched==1,"touch latched in TURN_IN");
     for(int k=0;k<40 && s.phase==VC_TURN_IN;++k){yaw-=2000;vc_input_t i=base(t+=10,d+=2000,yaw);i.line_black_mask=1;vc_step(&s,&i);}
     CHECK(s.phase==VC_RETURN,"TURN_IN completed into RETURN");
@@ -215,7 +226,87 @@ int main(void) {
     {vc_input_t i=base(t+=10,d,0);vc_step(&s,&i);CHECK(s.phase==VC_REACQUIRE && s.command==3,"spot search turns left first (right bypass)");}
     {vc_input_t i=base(t+=10,d,5000);i.line_touch=1;i.line_black_mask=2;vc_step(&s,&i);CHECK(s.line_settling,"touch: settle");}
     {vc_input_t i=base(t+=20,d,5000);i.line_touch=1;i.line_black_mask=2;vc_step(&s,&i);CHECK(s.phase==VC_TRACK,"then track");}
+    /* 22. Turning back in: nothing counts as the line for the first
+     * AVOID_TURN_IN_LINE_DELAY_MS of the turn's driving (left bypass, lead =
+     * right sensor). 25 Nov (8g): the far sensor on black as the turn began,
+     * then the lead, handed over at once. The turn drives on meanwhile. */
+    armed_in(&s,VC_TURN_IN,30,200);t=100000;s.entered_ms=t;d=0;yaw=0;
+    ticks(&s,&t,&d,yaw,1,2);
+    CHECK(s.phase==VC_TURN_IN && s.command==1 && s.turn_in_timing && s.turn_in_driven_ms==0,"turn-in drives; the line wait starts");
+    {const unsigned early[]={2,3,1,1,0,2,0,3,0};
+     for(unsigned k=0;k<sizeof early/sizeof early[0];++k) ticks(&s,&t,&d,yaw,5,early[k]);}
+    CHECK(s.phase==VC_TURN_IN && s.command==1 && !s.nav_touched && !s.line_found && s.turn_in_driven_ms==900,
+          "far, both, lead, release in the first 900 ms of turning: ignored, still turning");
+    ticks(&s,&t,&d,yaw,4,1);
+    CHECK(s.phase==VC_TURN_IN && !s.nav_touched && s.turn_in_driven_ms==AVOID_TURN_IN_LINE_DELAY_MS-20U,
+          "lead touch up to 20 ms before the wait ends: ignored");
+    ticks(&s,&t,&d,yaw,1,1);
+    CHECK(s.phase==VC_TURN_IN && s.nav_touched && !s.line_found,"lead touch once the wait is over: latched");
+    ticks(&s,&t,&d,yaw,1,0);
+    CHECK(s.phase==VC_RESTORE && s.line_found,"then the release hands over (RESTORE)");
+    /* 23. Through the real entry: the clear run at the end of the diagonal
+     * turns in on a drive tick, and the wait starts there; a hold for the
+     * forward check after it does not count, and neither the entry tick nor
+     * the first drive tick after the hold looks for the line. */
+    armed_in(&s,VC_DIAGONAL,30,0);s.approach_mm=150;t=110000;s.entered_ms=t;d=0;yaw=0;
+    while(s.phase==VC_DIAGONAL && !s.look_side && d<1000000){vc_input_t i=base(t+=20,d+=2000,0);vc_step(&s,&i);}
+    for(int k=0;k<3;++k){vc_input_t i=base(t+=70,d,0);i.side_observed=1;i.side_ready=1;i.side_clear=1;i.side_sample_ms=t;vc_step(&s,&i);}
+    while(s.phase==VC_DIAGONAL && d<2000000){vc_input_t i=base(t+=20,d+=1000,0);i.line_black_mask=3;vc_step(&s,&i);}
+    CHECK(s.phase==VC_TURN_IN && s.command==1 && s.turn_in_timing && s.turn_in_driven_ms==0 && !s.line_found,
+          "clear run -> TURN_IN drives on its entry tick and starts the wait (both sensors black ignored)");
+    for(int k=0;k<50;++k){vc_input_t i=base(t+=20,d,yaw);i.front_clear=0;i.line_black_mask=1;vc_step(&s,&i);}
+    CHECK(s.phase==VC_TURN_IN && s.command==0 && !s.nav_touched && s.turn_in_driven_ms==0,"1 s hold for the forward check: stopped, not counted");
+    ticks(&s,&t,&d,yaw,1,3);
+    CHECK(s.phase==VC_TURN_IN && s.command==1 && !s.line_found && s.turn_in_driven_ms<100U,
+          "first drive tick after the hold: both black ignored, the hold not counted");
+    /* 23b. Holds after the turn has started (sonar gap, odometry gap, the
+     * forward check) do not count either; after the wait the far window works
+     * in TURN_IN as in RETURN. */
+    armed_in(&s,VC_TURN_IN,30,200);t=120000;s.entered_ms=t;d=0;yaw=0;
+    ticks(&s,&t,&d,yaw,10,0);
+    CHECK(s.turn_in_driven_ms==180,"10 drive ticks: 180 ms of turning");
+    for(int k=0;k<45;++k){vc_input_t i=base(t+=20,d,yaw);i.sensor_fresh=0;i.line_black_mask=2;vc_step(&s,&i);}
+    CHECK(s.phase==VC_TURN_IN && s.armed && s.command==0,"900 ms sonar gap: held, no fault");
+    for(int k=0;k<7;++k){vc_input_t i=base(t+=20,d,yaw);i.odom_valid=0;i.line_black_mask=2;vc_step(&s,&i);}
+    for(int k=0;k<25;++k){vc_input_t i=base(t+=20,d,yaw);i.front_clear=0;i.line_black_mask=2;vc_step(&s,&i);}
+    CHECK(s.phase==VC_TURN_IN && s.armed && s.command==0 && s.turn_in_driven_ms==180,"odometry gap and forward hold: held, not counted");
+    ticks(&s,&t,&d,yaw,1,2);
+    CHECK(s.phase==VC_TURN_IN && s.command==1 && !s.line_found && s.turn_in_driven_ms<300U,
+          "1.5 s later, still in the wait: the far sensor on black where the turn began is ignored");
+    {unsigned n=0;while(s.turn_in_driven_ms<AVOID_TURN_IN_LINE_DELAY_MS && n<200U){ticks(&s,&t,&d,yaw,1,0);++n;}}
+    CHECK(s.phase==VC_TURN_IN && !s.line_found && s.turn_in_driven_ms==AVOID_TURN_IN_LINE_DELAY_MS,"wait over, nothing under the sensors");
+    ticks(&s,&t,&d,yaw,1,2);
+    CHECK(s.phase==VC_RESTORE && s.line_found,"far sensor alone just after the wait, in TURN_IN -> RESTORE");
+    /* 24. A turn that ends sooner: the wait carries on into RETURN. */
+    armed_in(&s,VC_TURN_IN,30,200);t=130000;s.entered_ms=t;d=0;yaw=0;
+    ticks(&s,&t,&d,yaw,15,0);
+    yaw=-45000;ticks(&s,&t,&d,yaw,1,0);
+    CHECK(s.phase==VC_RETURN && s.turn_in_timing && s.turn_in_driven_ms==300,"turn done after 300 ms: RETURN keeps the wait");
+    ticks(&s,&t,&d,yaw,5,1);ticks(&s,&t,&d,yaw,5,0);
+    CHECK(s.phase==VC_RETURN && s.command==1 && !s.nav_touched,"touch and release 320-500 ms in: ignored, straight on");
+    ticks(&s,&t,&d,yaw,25,0);
+    CHECK(s.phase==VC_RETURN && s.turn_in_driven_ms==AVOID_TURN_IN_LINE_DELAY_MS,"RETURN counts on to the end of the wait");
+    ticks(&s,&t,&d,yaw,2,1);ticks(&s,&t,&d,yaw,1,0);
+    CHECK(s.phase==VC_RESTORE && s.line_found,"after the wait, touch and release in RETURN hand over");
+    /* 25. For AVOID_TURN_IN_FAR_MS after the wait the far sensor alone counts
+     * (the lead crossed the line during the wait); later it does not. */
+    armed_in(&s,VC_RETURN,30,200);t=140000;s.entered_ms=t;d=0;
+    s.turn_in_timing=1;s.turn_in_ms=t;s.turn_in_driven_ms=AVOID_TURN_IN_LINE_DELAY_MS+AVOID_TURN_IN_FAR_MS-40U;
+    ticks(&s,&t,&d,0,1,2);
+    CHECK(s.phase==VC_RESTORE && s.line_found,"far sensor alone 20 ms before the far window ends -> RESTORE");
+    armed_in(&s,VC_RETURN,30,200);t=150000;s.entered_ms=t;d=0;
+    s.turn_in_timing=1;s.turn_in_ms=t;s.turn_in_driven_ms=AVOID_TURN_IN_LINE_DELAY_MS+AVOID_TURN_IN_FAR_MS-20U;
+    ticks(&s,&t,&d,0,1,2);
+    CHECK(s.phase==VC_RETURN && !s.line_found,"far sensor alone once the far window is over: not the line");
+    armed_in(&s,VC_RETURN,-30,200);t=160000;s.entered_ms=t;d=0;
+    s.turn_in_timing=1;s.turn_in_ms=t;s.turn_in_driven_ms=AVOID_TURN_IN_LINE_DELAY_MS-20U;
+    ticks(&s,&t,&d,0,1,1);
+    CHECK(s.phase==VC_RESTORE && s.line_found,"right bypass: far (right) sensor alone as the wait ends -> RESTORE");
+    /* 26. The wait belongs to one return: TRACK and a stop clear it. */
+    yaw=0;CHECK(restore_then_track(&s,&t,&d,&yaw) && !s.turn_in_timing,"back in TRACK: wait cleared");
+    s.turn_in_timing=1;vc_stop(&s,0);
+    CHECK(!s.turn_in_timing,"STOP clears the wait");
     if(fails) {printf("bypass_return: %d FAILED\n",fails);return 1;}
-    puts("Bypass return: diagonal side look (clear run, direct 2x return), align and pass in steps, return until the line is under the robot or the extra distance, RESTORE to the detection heading, TRACK or spot search; line-data and sonar gap holds PASS");
+    puts("Bypass return: diagonal side look (clear run, direct 2x return), align and pass in steps, return until the line is under the robot or the extra distance, RESTORE to the detection heading, TRACK or spot search; no line search for the first second of the turn-in (far sensor alone right after it); line-data and sonar gap holds PASS");
     return 0;
 }

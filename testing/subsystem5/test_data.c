@@ -19,7 +19,6 @@ ER s5_hw_timer_init(void) { return E_OK; }
 void s5_hw_io_init(void) {}
 void s5_hw_servo(INT angle) { (void)angle; }
 void s5_hw_sample(s5_status_t *sample) { (void)sample; }
-void subsystem5_test(void) {}
 
 int main(void)
 {

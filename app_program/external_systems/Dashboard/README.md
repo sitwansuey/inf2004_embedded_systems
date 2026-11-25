@@ -1,32 +1,11 @@
-# Single-topic EDR16 dashboard
+# MQTT robot dashboard
 
-The dashboard subscribes (QoS 0) to three topics: telemetry on
-`Robopico/sensors/edr16/v1`, robot events on `Robopico/events/edr16/v1` and
-command replies on `csc02/command/ack`. Every telemetry and event payload is
-exactly two binary bytes. There are no wildcard
-subscriptions and no per-sensor MQTT subscriptions. Messages on other topics
-are ignored.
-
-## Marshalling and unmarshalling
-
-1. Firmware `edr_encode(id, data, bytes, 2)` marshals bits 15–4 = data and bits
-   3–0 = ID into two little-endian bytes. B1 copies and publishes those bytes.
-2. Python `tools/edr_decode.py::decode_packet` unmarshals the bytes, validates
-   the ID/range and converts signed offsets into physical units.
-3. `packed16.py::decode_messages` maps each reading to a local display field.
-   ID 11 expands to motor direction, power and state. No broker republishing
-   takes place; the apparent sensor topic names are internal display keys.
-4. `dashboard.py` stores the latest values and serves `/api/telemetry`.
-   JavaScript polls this endpoint and updates the matching sensor cards.
-
-The receiver rejects malformed/old/text/JSON payloads on the wire topic without
-replacing valid readings. Its API includes received/rejected packet counts,
-receiver identity and last reception time. Browser state resets if the receiver
-restarts, allowing sequence numbers to start again. Reception time is a desktop
-time, not a robot measurement timestamp. Every reading keeps its latest value
-until a new one replaces it (the page marks it stale after 5 seconds without an
-update). Status availability/quality records and an MQTT reconnect clear
-invalid data.
+The dashboard shows telemetry and robot events and sends RESET, START, STOP
+and barcode MAP commands. Python receives MQTT and serves the page; the
+browser polls `/api/telemetry`. See [TEAM.md](../../../TEAM.md) for ownership
+and [MQTT_TOPICS.md](MQTT_TOPICS.md) for topics and command frames. Every
+value shown reaches the dashboard through S1; see the
+[data routes in TEAM.md](../../../TEAM.md#data-to-the-dashboard-through-s1).
 
 ## Run
 
@@ -37,34 +16,61 @@ python -m pip install -r app_program/external_systems/Dashboard/requirements.txt
 python app_program/external_systems/Dashboard/dashboard.py --broker localhost --mqtt-port 1883
 ```
 
-Open http://127.0.0.1:8001. Start your broker separately; use its reachable LAN
-address if it is on another computer. The Pico's local wifi_secrets.h must
-point to the same broker. Optional MQTT_USERNAME/MQTT_PASSWORD environment
-variables (or `--username`, with the password still from MQTT_PASSWORD)
-provide dashboard credentials. Keep the repository layout because the
-receiver imports the canonical codec from tools/.
+Open <http://127.0.0.1:8001>. Start the MQTT broker separately. Replace
+`localhost` with its address if it runs on another computer. The robot's
+`config/wifi_secrets.h` must use the same reachable broker; see the
+[root build guide](../../../README.md). Keep the repository layout because
+`packed16.py` imports `tools/edr_decode.py`.
+
+`--port` changes the HTTP port; the server binds to `127.0.0.1`. Robot
+commands are accepted only from the page opened at `http://127.0.0.1:<port>/`
+or `http://localhost:<port>/`. The page uses local HTML, CSS and JavaScript
+assets and needs no frontend build step or CDN.
+
+To check the receiver without a robot (broker running, from the repository root):
+
+```python
+from paho.mqtt import publish
+from tools.edr_decode import MQTT_TOPIC, encode_packet
+publish.single(MQTT_TOPIC, payload=encode_packet(1, 100), hostname="localhost", port=1883)
+```
+
+The Left wheel encoder card then shows 100. Publish the two raw bytes `41 06`,
+not the text "4106". If the broker requires a login, pass its username and
+password in the `auth` argument to `publish.single()`.
 
 ## Broker access
 
-MQTT does not tell the robot who published a command, and the firmware does
-not check. On an open broker any device on the same network can publish
-RESET then START on `csc02/command`. To stop that, make the broker require a
-login and let only the dashboard account publish commands. Nothing changes
-until you do this: with no login defined, the robot and the dashboard
-connect anonymously as before.
+The dashboard reads `MQTT_USERNAME` and `MQTT_PASSWORD` from the environment.
+`--username` can override the username; the password still comes from
+`MQTT_PASSWORD`. The robot uses optional macros with the same names in its
+secrets file. Without credentials, both can connect anonymously if the
+broker allows it.
 
-1. Create a password file with one account for the dashboard and one for the
-   robot (mosquitto 2.x; `-c` creates the file, so use it only the first time):
+The firmware does not check who published a command. On an open broker any
+device on the same network can publish RESET and then START on
+`csc02/command`. To prevent this, make the broker require a login and let
+only the dashboard account publish commands. Until you do, the robot and the
+dashboard connect anonymously.
+
+| Account | Publish | Subscribe |
+|---|---|---|
+| Dashboard | `csc02/command` | `csc02/command/ack`, `Robopico/sensors/edr16/v1`, `Robopico/events/edr16/v1` |
+| Robot | `csc02/command/ack`, `Robopico/sensors/edr16/v1`, `Robopico/events/edr16/v1` | `csc02/command` |
+
+With mosquitto 2.x:
+
+1. Create a password file with one account for each (`-c` creates the file,
+   so use it only the first time):
 
    ```powershell
    mosquitto_passwd -c C:\mosquitto\passwd dashboard
    mosquitto_passwd C:\mosquitto\passwd robopico
    ```
 
-2. Create an ACL file, `C:\mosquitto\acl`:
+2. Create `C:\mosquitto\acl` with the permissions in the table:
 
    ```text
-   # Only the dashboard may command the robot.
    user dashboard
    topic write csc02/command
    topic read csc02/command/ack
@@ -78,7 +84,7 @@ connect anonymously as before.
    topic write Robopico/events/edr16/v1
    ```
 
-3. Point the broker at both files (`mosquitto.conf`) and restart it:
+3. Add these lines to `mosquitto.conf` and restart the broker:
 
    ```text
    listener 1883
@@ -87,133 +93,141 @@ connect anonymously as before.
    acl_file C:\mosquitto\acl
    ```
 
-4. Robot: in `config/wifi_secrets.h` set `MQTT_USERNAME "robopico"` and
-   `MQTT_PASSWORD` to that account's password, then rebuild and flash.
-   Dashboard: set `MQTT_USERNAME=dashboard` and `MQTT_PASSWORD` in the
-   environment before starting `dashboard.py`.
+4. Robot: set `MQTT_USERNAME "robopico"` and `MQTT_PASSWORD` in
+   `config/wifi_secrets.h`, then rebuild and flash. Dashboard: set
+   `MQTT_USERNAME=dashboard` and `MQTT_PASSWORD` in the environment before
+   starting `dashboard.py`.
 
-A client with no login, or with the robot's login, is then refused on
-`csc02/command`. The passwords travel in clear text on plain port 1883, so
-this keeps out other devices on the robot hotspot, not someone sniffing the
-Wi-Fi. If the robot cannot log in, its console prints
-`mqtt: connection status 4` or `5` (bad login, not authorised) every 3 s.
+Passwords travel in clear text on port 1883. This keeps other devices on the
+network from sending commands, but it does not protect against someone
+capturing Wi-Fi traffic. If the robot cannot log in, its console prints
+`mqtt: connection status 4` (bad user name or password) or `5` (not
+authorised) and retries every 3 s.
 
-An explicit test publication (requires a running broker; simulated value):
+## Receiving and display
 
-```python
-from paho.mqtt import publish
-from tools.edr_decode import MQTT_TOPIC, encode_packet
-publish.single(MQTT_TOPIC, payload=encode_packet(1, 100), hostname="localhost", port=1883)
-# Payload bytes 41 06 -> Left wheel encoder card: 100.
-```
+The receiver subscribes at QoS 0 to exactly three topics:
+`Robopico/sensors/edr16/v1`, `Robopico/events/edr16/v1` and
+`csc02/command/ack`. Telemetry and event payloads are each two binary bytes.
+Command replies are six bytes. Retained messages and unrelated topics are
+ignored.
 
-Publish the raw bytes, not the four-character string "4106". Firmware reads
-servo/ultrasonic and other owner snapshots. ID 0 adds decoded barcode/navigation,
-controller state and fault (0–8, 8 = lifted), speed, tilt, scan state and
-hump/current-run maximum to their cards. ID 12 also carries the IMU fault bit
-(Accelerometer card, IMU fault). Status subtype 12 is the robot's drop count
-modulo 256; the Vehicle controller card shows "Dropped, last 60 s" from the
-differences (the first record after a broker reconnect or a robot silence is
-only a baseline). The Sensors tab lists only fields the
-robot transmits. Event text is not transmitted: robot events arrive as two-byte
-records on `Robopico/events/edr16/v1` and `packed16.describe_event` turns them
-into log rows.
-See `docs/DATA_REPRESENTATION.md` for the ID 0 subtype table and units.
+For telemetry, `decode_packet()` in `tools/edr_decode.py` checks the ID and
+range and converts units. `decode_messages()` in `packed16.py` maps the
+result to local display keys. These keys are not extra MQTT topics. Malformed packets are
+counted and do not replace valid readings. Decode robot events with
+`decode_event()`, not the sensor decoder.
 
-## Layout
+The receiver keeps the latest reading. The browser waits 250 ms between
+polls and marks readings stale after 5 s without an update. Availability and quality
+records clear unusable live values. Broker disconnects and reconnects clear
+live observations. The last scan's total width, left/right half-widths and
+chosen side remain until new scan results replace them, including across a
+reconnect or robot silence. A later side of None does not erase a stored side.
+If `dashboard.py` restarts, the browser clears its readings because the
+receiver ID changes.
 
-The page copies the layout and look of main's React dashboard, rebuilt in
-plain HTML/CSS/JavaScript served by `dashboard.py`: no build step, no npm and
-no fonts or CDN files, so it works offline on the robot hotspot. The Robot
-test card (Reset robot, Start test, STOP, the robot's safety state and tiles
-for mission state, motion, terrain validity, fault code, barcode letter and
-instruction) stays above every tab. The tabs are:
+The receiver logs the robot offline after 3 s without telemetry or events,
+then logs it back online when data returns. It keeps the last 200 event rows.
+It also logs broker changes, new controller faults and rising impact/IMU-fault
+flags. Each impact and IMU-fault flag stays visible for 2 s. Reception time is
+the computer's time, not the robot's measurement time. The 2 s hold keeps an
+impact or IMU fault visible when it occurs in just one 200 ms snapshot,
+shorter than the browser's 250 ms poll. A false value received during the
+hold waits until it ends. `/api/telemetry` also reports received and rejected
+packet counts and the last reception time.
 
-- Overview: power, range and servo dials, motor card, receiver health and
-  subsystem coverage (click a row to open its sensors).
-- Barcodes: Barcode actions form, last barcode, Codebook A–Z and barcode reads.
-- Live views: proximity radar, line sensor bars and acceleration.
-- Trends: 60 s of this browser session for the wheel encoders, line sensors
-  (left/right IR and line error) and acceleration.
-- Sensors: every display field, filterable by subsystem.
-- Events: the receiver's event log, newest first (last 200 rows): robot
-  events from `Robopico/events/edr16/v1` (barcode attempts, decoded
-  instructions, humps, obstacles, Wi-Fi/broker reconnects, decoded by
-  `packed16.describe_event`), plus the receiver's own rows: robot offline (no
-  data for 3 s) / back online, each new controller fault code, each new
-  impact or IMU fault, and its broker link. Demo and imported events show
-  only while live updates are paused.
+The Vehicle controller card shows **Dropped, last 60 s** from differences in
+the robot's modulo-256 drop counter. The first record after reconnect or
+robot silence establishes a baseline. It counts what the robot itself
+discarded (replaced or abandoned telemetry snapshots, events or commands that
+found a full queue, and replies pushed out of a full reply buffer), not MQTT
+messages lost on the network.
 
-Impact (quality bit 1) and IMU fault (ID 12 bit 0x04) are true in a single
-200 ms snapshot, shorter than the page's 250 ms poll. `dashboard.py` shows
-each one as Yes for 2 s after it is reported (a false value arriving
-meanwhile waits) and logs one event row per rising edge.
+## Page layout
 
-The selected tab is kept in the URL hash, for example
-http://127.0.0.1:8001/#barcodes. Load demo and Import JSON pause live updates
-until Resume live. Clear display drops this browser's readings and history and
-re-reads the receiver snapshot. Readings are marked stale after 5 seconds
-without an update.
+The Robot test card sits between the tab bar and the tab content, so it shows on every tab:
+
+- **Overview:** power, range, servo, motor state, receiver health and subsystem coverage.
+- **Barcodes:** mapping form, last barcode, A-Z codebook and read history.
+- **Live views:** proximity radar, line sensors and acceleration.
+- **Trends:** 60 s of browser-session encoder, line-sensor and acceleration history.
+- **Sensors:** display fields filtered by subsystem.
+- **Events:** robot and receiver events, newest first.
+
+The URL hash keeps the selected tab, for example
+<http://127.0.0.1:8001/#barcodes>. **Load demo** and **Import JSON** pause live
+updates until **Resume live**. **Clear display** clears the browser display
+and history, then reads the receiver snapshot again. Demo and imported
+events show only while live updates are paused. Clicking a subsystem row
+on Overview opens its sensors.
 
 ## Robot commands and barcode actions
 
-The Robot test buttons send RESET/START/STOP frames on `csc02/command` and
-show the robot's ACK from `csc02/command/ack`. The Barcode actions panel sends
-opcode 4 (MAP) to choose what a decoded letter does at the next junction:
-Forward, Left, Right, U-turn or Ignore (read, no turn). Reset to defaults
-restores A U-turn, F Left, Z Right. The Codebook A–Z grid on the Barcodes tab
-shows the mapping last accepted by the robot; letters absent from it are read
-without a turn, and a dot marks the last letter read. Clicking a letter only
-loads it and its current action into the form; Send applies it. Mappings live
-in robot RAM; after a robot reboot press Send all.
-`POST /api/command` accepts `{"action":"map","letter":"A","turn":"left"}`,
-`{"action":"map_reset"}` and `{"action":"send_all"}`. Frame layout:
-[MQTT_TOPICS.md](MQTT_TOPICS.md#command-topic-dashboard-buttons-only).
+With the robot ready to run, press **Reset robot**, then **Start test**.
+START requests an autonomous mission at 20% demand. **STOP** ends motion.
+The robot replies on `csc02/command/ack`; the page reports acceptance,
+refusal or a missing reply. The robot boots DISARMED and needs RESET before
+START. After an MQTT (re)connect or an MQTT STOP, the
+network task refuses ARM and START until a RESET has been passed to the
+controller's command queue; the controller can still refuse that RESET.
+The robot's local faults and watchdog still apply.
 
-## Tests
+The Barcode actions form sends MAP (opcode 4). Actions are Ignore, Left,
+Right, Forward and U-turn. Reset to defaults restores A U-turn, F Left and
+Z Right; other letters have no turn. A decoded action runs at the next
+junction. Clicking a letter loads its current action into the form; **Send**
+applies it. The table changes only after an accepted reply.
+
+Mappings live in robot RAM. After a robot reboot, **Send all** sends the
+receiver's table as 26 acknowledged A-Z frames. It does not reset the codebook
+first. `POST /api/command` accepts actions `reset`, `start`, `stop`, `map`,
+`map_reset` and `send_all`. A mapping request is, for example,
+`{"action":"map","letter":"A","turn":"left"}`. See
+[the command format](MQTT_TOPICS.md#command-topic).
+
+Hump crest and level events carry the controller's height estimate (from
+wheel distance and tilt) when it has one, and the event row says so.
+Otherwise they carry S4's height, using different event kinds. The terrain
+cards always show S4's terrain result, worked out by the VC with S4's
+terrain code. Widths shown to the user include the
+sonar beam correction.
+The layouts and units are in
+[DATA_REPRESENTATION.md](../../../docs/DATA_REPRESENTATION.md).
+
+## Tests and evidence
+
+Run from the repository root:
 
 ```powershell
 python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py" -v
 ```
 
-- `test_events.py`: every robot event (barcode attempts, instructions, hump,
-  obstacle, link) to its log text, invalid records, the 200-row log, robot
-  offline/back online, new fault codes, the receiver's own broker link, and
-  (with gcc) the real `shared/events.h` packing decoded by
-  `tools/edr_decode.py`.
-- `test_packed16.py`: exact-topic subscription/reconnection, all 15 IDs,
-  physical units, status subtypes (including fault 8, lifted), malformed
-  packets, ignored unrelated topics, barcode read history, the 2 s hold and
-  event row for impact and IMU fault, HTTP JSON and field
-  routing. With Node.js on PATH it also runs `test_dashboard_display.cjs`,
-  which executes the real dashboard JavaScript with a minimal DOM and checks
-  that all 18 decoded fields appear on the correct cards.
-- `test_commands.py`: Reset/Start/STOP frames, ACK matching and validation,
-  sequences 0..127 (a USB command's ACK, bit 7, is ignored),
-  MAP, Reset to defaults and Send all, and the origin and JSON checks on
-  `POST /api/command`.
-- `test_obstacle_width.py`: width pages, retention and clearing. Its C producer
-  case is skipped until `make -C testing/integration test` has built
-  `.build/width_avoidance`.
+- `test_commands.py` checks frames, sequence/opcode matching, refusal, MAP,
+  Send all and the local command API's request checks.
+- `test_events.py` checks event decoding and text, invalid events, offline and
+  broker events, fault rows and the event limit. Its firmware-packing check
+  needs `gcc` on `PATH`.
+- `test_packed16.py` checks topics, units, status, invalidation, held flags,
+  drop counts, barcode history and HTTP output. With Node.js on `PATH`, it
+  also runs `test_dashboard_display.cjs` against the page code.
+- `test_obstacle_width.py` checks width pages and scan-result retention. Its
+  C-producer check needs `testing/integration/.build/width_avoidance` (`.exe`
+  on Windows), built by `python -B testing/integration/run.py --compiler gcc`
+  or `make -C testing/integration test`. Without it, that case is skipped.
 
-CI (`testing/data_representation/run.py`, stage 1) discovers and runs every
-`test_*.py` in this folder; `test_obstacle_width.py`'s C producer case is
-skipped unless the integration `width_avoidance` build exists.
+`testing/data_representation/run.py` discovers all Python tests here.
+`testing/integration/run.py` also checks the production C snapshot through
+EDR16, Python and, when Node.js is available, browser routing. Check skipped
+or omitted cases before reporting a complete run.
 
-These are simulated tests, not a live Pico/broker validation. See
-[MQTT_TOPICS.md](MQTT_TOPICS.md) for routing.
-
-Checkpoint 8c reports a flat-top hump as one event cycle. Its level row uses
-S4's completed-height latch, or shows not measured if none completed. A
-plain descent gets the controller's slope cap without a measured hump.
-Impact and IMU-fault counters cover brief samples between controller reads;
-the telemetry queue preserves those flags when it discards older snapshots.
-Impact extras are limited to one per 200 ms. The wire layout stays EDR16 v1.
-A side-check or forward-pan timeout now shows sensor fault cause Sonar.
-
-The robot retries a stalled first Wi-Fi join after 20 s without UP, then
-waits 1 s between leave and join. After an earlier UP, the no-link bound
-is 10 s. Rejected join requests retry every 5 s. The reconnect event is
-sent before the outage backlog. These paths still need a hardware AP-off
-test. The browser display check ran with VS Code's bundled Node runtime
-(18 fields). No repository tooling code changed for W10.
+Record results under the IDs in
+[testing/subsystem1/TEST_LOG.md](../../../testing/subsystem1/TEST_LOG.md),
+which covers the four Python test files above, the data-representation and
+integration runners, and manual broker and robot checks. Interface tests
+are in [testing/integration/TEST_LOG.md](../../../testing/integration/TEST_LOG.md)
+and whole-robot dashboard checks in
+[testing/system/TEST_LOG.md](../../../testing/system/TEST_LOG.md). Save each
+run's output in that folder's `logs/` and link it from the result row. Host
+checks do not establish live broker delivery, physical accuracy or course
+performance. See the [recording rules](../../../testing/README.md).

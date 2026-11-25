@@ -98,7 +98,8 @@ def decode_event(packet):
         ok = 1 <= fields["letter"] <= 26 and fields["turn"] <= 4 and value >> 8 == 0
     elif event_id == 3:
         fields = {"kind":value & 7, "value":value >> 3}
-        ok = 1 <= fields["kind"] <= 3
+        # 1 detected, 2/3 crest/level (S4 height), 4/5 crest/level (controller estimate)
+        ok = 1 <= fields["kind"] <= 5
     elif event_id == 4:
         fields = {"kind":value & 3, "side":(value >> 2) & 3, "value":value >> 4}
         # kind 0 "how": 0 ended by a fault/STOP, 1..3 back on the line;

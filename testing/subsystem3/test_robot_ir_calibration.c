@@ -74,6 +74,6 @@ int main(void) {
     CHECK(!robot_ir_apply_adc_calibration(&cfg));
     CHECK(BOARD_IR_MODE==0 || BOARD_IR_MODE==1);
 #endif
-    printf("S3-U43 measured calibration: %u checks, %u failures\n",checks,failures);
+    printf("S3-U41 measured calibration: %u checks, %u failures\n",checks,failures);
     return failures?1:0;
 }
