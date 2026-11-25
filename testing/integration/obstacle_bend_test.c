@@ -40,10 +40,12 @@ static void route(int sign) {
  assert(s.phase==VC_TURN_IN && s.direct_return && s.command==1 && s.steering==sign*376 && s.return_mm==300+AVOID_CLEAR_RUN_MM);
  i.now_ms=t+150;i.yaw_mdeg=-sign*44000;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1);
  i.now_ms=t+160;i.yaw_mdeg=-sign*45000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.steering);
- /* No line on the way back: on past the expected distance (the 320 mm
-  * diagonal at 40 deg is 206 mm off the line: 291 mm at 45 deg) by
-  * AVOID_RETURN_EXTRA_MM, then restore the heading and search. */
- i.now_ms=t+170;i.distance_um+=(291+AVOID_RETURN_EXTRA_MM)*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
+ /* No line on the way back: straight on well past the expected distance
+  * (the 320 mm diagonal at 40 deg is 206 mm off the line: 291 mm at 45 deg,
+  * plus AVOID_RETURN_EXTRA_MM) up to AVOID_RETURN_MAX_MM, then restore the
+  * heading and search. */
+ _Static_assert(291+AVOID_RETURN_EXTRA_MM<AVOID_RETURN_MAX_MM,"return limit is the maximum");
+ i.now_ms=t+170;i.distance_um+=AVOID_RETURN_MAX_MM*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
  i.now_ms=t+180;i.distance_um+=1;vc_step(&s,&i);
  assert(s.phase==VC_RESTORE && !s.line_found && s.restore_mdeg==sign*45000 && s.command==1 && s.steering==-sign*376);
  i.now_ms=t+190;i.yaw_mdeg=0;vc_step(&s,&i);

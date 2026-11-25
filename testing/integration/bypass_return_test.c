@@ -4,8 +4,9 @@
  * heading, at least AVOID_RETURN_MIN_DEG; still there: align and pass it,
  * looking every AVOID_PASS_STEP_MM), the return that drives on until the
  * line is under the robot (lead-sensor touch kept across
- * TURN_IN/RETURN/RESTORE) or AVOID_RETURN_EXTRA_MM past the expected
- * distance, RESTORE to the heading held at detection, then TRACK or the spot
+ * TURN_IN/RETURN/RESTORE) or, with no line, AVOID_RETURN_MAX_MM (or
+ * AVOID_RETURN_EXTRA_MM past the expected distance, if further), RESTORE to
+ * the heading held at detection, then TRACK or the spot
  * search; and the line-data and sonar gap holds. */
 #include "../../app_program/vehicle_policy.h"
 #include <stdio.h>
@@ -74,23 +75,32 @@ int main(void) {
     {vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=2;vc_step(&s,&i);}
     {vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=0;vc_step(&s,&i);}
     yaw=0;CHECK(restore_then_track(&s,&t,&d,&yaw),"right bypass: left touch then release -> RESTORE -> TRACK");
-    /* 7. No line: drives on past the expected distance (200 mm at 30 deg is
-     * 100 mm off the line: 141 mm at the 45 deg return heading), restores
-     * only after that plus the extra. */
+    /* 7. No line: drives on straight well past the expected distance (200 mm
+     * at 30 deg is 100 mm off the line: 141 mm at the 45 deg return heading,
+     * plus the extra 391 mm), restoring only after AVOID_RETURN_MAX_MM. */
     armed_in(&s,VC_RETURN,30,200);t=0;d=0;
-    while(s.phase==VC_RETURN && d<1000000){vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=0;vc_step(&s,&i);}
-    printf("no line: RETURN ended at %d mm (expected 141 + extra %u)\n",(int)(d/1000),AVOID_RETURN_EXTRA_MM);
+    while(s.phase==VC_RETURN && d<2000000){
+        vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=0;vc_step(&s,&i);
+        if(s.phase==VC_RETURN)CHECK(s.command==1 && s.steering==0,"straight on in RETURN");
+    }
+    printf("no line: RETURN ended at %d mm (limit %u)\n",(int)(d/1000),AVOID_RETURN_MAX_MM);
     CHECK(s.phase==VC_RESTORE,"no line -> RESTORE");
-    CHECK(d/1000>=141+(int)AVOID_RETURN_EXTRA_MM && d/1000<=143+(int)AVOID_RETURN_EXTRA_MM,
-          "RETURN drove past the expected distance plus the extra");
-    /* 8. Touch in RETURN, extra distance exhausted, release in RESTORE -> TRACK. */
+    CHECK(d/1000>=(int)AVOID_RETURN_MAX_MM && d/1000<=(int)AVOID_RETURN_MAX_MM+2,
+          "RETURN drove straight on to AVOID_RETURN_MAX_MM");
+    /* 7b. A return expected further out (1500 mm at 30 deg: 750 mm off the
+     * line, 1061 mm at 45 deg) keeps that plus the extra, 1311 mm. */
+    armed_in(&s,VC_RETURN,30,1500);t=0;d=0;
+    while(s.phase==VC_RETURN && d<3000000){vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=0;vc_step(&s,&i);}
+    CHECK(s.phase==VC_RESTORE && d/1000>=1061+(int)AVOID_RETURN_EXTRA_MM && d/1000<=1063+(int)AVOID_RETURN_EXTRA_MM,
+          "long return: the expected distance plus the extra when beyond AVOID_RETURN_MAX_MM");
+    /* 8. Touch in RETURN, distance exhausted, release in RESTORE -> TRACK. */
     armed_in(&s,VC_RETURN,30,0);t=0;d=0;
-    while(s.phase==VC_RETURN && d<1000000){vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=1;vc_step(&s,&i);}
+    while(s.phase==VC_RETURN && d<2000000){vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=1;vc_step(&s,&i);}
     CHECK(s.phase==VC_RESTORE && s.nav_touched,"touch kept into RESTORE");
     {vc_input_t i=base(t+=10,d+=2000,0);i.line_black_mask=0;vc_step(&s,&i);}
     yaw=0;CHECK(restore_then_track(&s,&t,&d,&yaw),"release in RESTORE -> TRACK");
     /* 9. A stale touch from a nav turn does not carry into a new bypass return. */
-    armed_in(&s,VC_PASS,30,200);s.nav_touched=1;s.look_side=1;s.side_check_started_ms=0;
+    armed_in(&s,VC_PASS,30,200);t=0;s.nav_touched=1;s.look_side=1;s.side_check_started_ms=0;
     for(int k=0;k<4 && s.phase==VC_PASS;++k){vc_input_t i=base(t+=10,d,0);i.side_observed=1;i.side_ready=1;i.side_clear=1;i.side_sample_ms=t;vc_step(&s,&i);}
     for(int k=0;k<200 && s.phase==VC_PASS;++k){vc_input_t i=base(t+=10,d+=1000,0);vc_step(&s,&i);} /* the clear run */
     CHECK(s.phase==VC_TURN_IN && !s.nav_touched,"PASS -> TURN_IN clears an old touch");

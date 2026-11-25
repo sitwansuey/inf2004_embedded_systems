@@ -29,10 +29,17 @@
  * shallowest heading, not below this, that still clears the obstacle edge. */
 #define AVOID_MIN_TURN_DEG 20U
 #define AVOID_STEER_RAMP_MS 615U
-/* VC_RETURN heads back toward the line until a sensor finds it. The mirrored
- * diagonal is only where the line is expected: drive on up to this much
- * further before restoring the heading for an on-the-spot search. */
+/* VC_RETURN heads back toward the line in a straight line until a sensor
+ * finds it, however far out the bypass ended (8d gave up 250 mm past the
+ * expected distance, turned back to the old heading and searched on the spot,
+ * so a bypass that ended further out never turned back in). Only after
+ * AVOID_RETURN_MAX_MM without the line (or the expected distance plus
+ * AVOID_RETURN_EXTRA_MM, if further) does it restore the heading and search.
+ * At AVOID_POWER (~0.3 m/s) 1 m takes 3-4 s, inside the 10 s phase limit. */
 #define AVOID_RETURN_EXTRA_MM 250U
+#ifndef AVOID_RETURN_MAX_MM
+#define AVOID_RETURN_MAX_MM 1000U
+#endif
 /* VC_RETURN heads back toward the line at least this steeply (deg from the
  * pre-obstacle heading), so it rejoins nearer the obstacle. A steeper
  * diagonal keeps its own angle. The return distance is the diagonal's

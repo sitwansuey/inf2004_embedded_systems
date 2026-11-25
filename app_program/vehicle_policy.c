@@ -420,11 +420,13 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
             s->command=1;break;
         }
         case VC_RETURN: {
-            /* Head back until the line is found (handed over above). Only past
-             * the expected distance (return_limit_mm) plus AVOID_RETURN_EXTRA_MM,
-             * with no touch, straighten up and search on the spot. */
-            if ((int64_t)i->distance_um-s->origin_um>=
-                ((int64_t)return_limit_mm(s)+AVOID_RETURN_EXTRA_MM)*1000) {
+            /* Head back straight until the line is found (handed over above).
+             * Only after AVOID_RETURN_MAX_MM with no line (or the expected
+             * distance plus AVOID_RETURN_EXTRA_MM, if further) straighten up
+             * and search on the spot. */
+            uint32_t limit=return_limit_mm(s)+AVOID_RETURN_EXTRA_MM;
+            if (limit<AVOID_RETURN_MAX_MM) limit=AVOID_RETURN_MAX_MM;
+            if ((int64_t)i->distance_um-s->origin_um>=(int64_t)limit*1000) {
                 enter(s,i,VC_RESTORE);return;
             }
             s->command=1;break;
