@@ -40,7 +40,8 @@ enum { EV_OBSTACLE_BACK = 0,  /* avoidance over; how 0 ended by a fault or STOP 
                                  1 back on the line on the return, 2 by the spot search,
                                  3 obstacle went away; value = seconds since detection */
        EV_OBSTACLE_DETECTED,  /* value = distance cm */
-       EV_OBSTACLE_SCANNED,   /* side 1 left / 2 right; value = width cm */
+       EV_OBSTACLE_SCANNED,   /* side 1 left / 2 right; value = width cm. Side 0: no way
+                                 round, scanning again; value = the retry (1..3) */
        EV_OBSTACLE_BYPASS };  /* side; value = turn-out heading deg */
 static inline unsigned ev_obstacle(unsigned kind, unsigned side, unsigned value)
 {

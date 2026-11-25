@@ -97,6 +97,8 @@ def describe_event(payload):
         kind, side, value = e["kind"], e["side"], e["value"]
         if kind == 1:
             return "Obstacle", "WARN", f"Obstacle detected {value} cm ahead"
+        if kind == 2 and side == 0:
+            return "Obstacle", "WARN", f"No way round found: scanning again (retry {value})"
         if kind == 2:
             return "Obstacle", "INFO", f"Obstacle scanned: {value} cm wide, bypass on the {SIDES[side]}"
         if kind == 3:

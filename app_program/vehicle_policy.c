@@ -59,12 +59,29 @@ void vc_stop(vc_state_t *s,unsigned reason) {
     s->last_line_side=0;s->search_right_first=0;
     s->search_command=0;s->line_settling=0;s->line_found_ms=0;
     s->clear_run=0;s->clear_run_timing=0;s->line_gap=0;s->sonar_gap=0;s->odom_gap=0;s->front_wait=0;s->line_found=0;s->line_seen=0;
+    s->rescans=0;s->rescan_wait=0;s->rescan_request=0;
     s->fault=(uint8_t)(reason&15U);s->phase=reason?VC_FAULT:VC_DISARMED;
     s->fault_cause=0; /* sensor_fault() sets it after this */
 }
 /* VC_SENSOR with the reason kept for telemetry while the fault is latched. */
 static void sensor_fault(vc_state_t *s,unsigned cause) {
     vc_stop(s,VC_SENSOR);s->fault_cause=(uint8_t)(cause&3U);
+}
+/* VC_ACQUIRE, no way round: while rescans remain (and the bypass is enabled)
+ * stay stopped in ACQUIRE and have vehicle.c reset S5 for a fresh scan from
+ * the same spot; otherwise the sonar fault, as before. */
+static void no_way_around(vc_state_t *s,const vc_input_t *i) {
+#if AVOID_RESCAN_RETRIES
+    if (s->rescans<AVOID_RESCAN_RETRIES && i->bypass_enabled && i->bypass_steering &&
+        i->bypass_steering<=400U) {
+        s->rescans=(uint8_t)(s->rescans+1U)&3U;
+        s->rescan_id=i->scan_id;s->rescan_ms=i->now_ms;
+        s->rescan_wait=1;s->rescan_request=1;
+        return;
+    }
+#endif
+    (void)i; /* unused when AVOID_RESCAN_RETRIES is 0 */
+    sensor_fault(s,VC_CAUSE_SONAR);
 }
 /* VC_LINE with its reason (VC_LINE_CAUSE_*), likewise. */
 static void line_fault(vc_state_t *s,unsigned cause) {
@@ -221,7 +238,11 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
     if (odom_hold) return;
 
     if (s->phase==VC_TRACK) {
-        if (i->obstacle) { enter(s,i,VC_ACQUIRE);s->avoid_yaw=i->yaw_mdeg;return; }
+        if (i->obstacle) {
+            enter(s,i,VC_ACQUIRE);s->avoid_yaw=i->yaw_mdeg;
+            s->rescans=0;s->rescan_wait=0;s->rescan_request=0; /* a new obstacle */
+            return;
+        }
         /* Line-lost distance (checked below) starts again on TRACK entry, on a
          * straddle sensor on black, while the check is off and while a
          * decoded turn is pending (its junction search has its own bound).
@@ -264,10 +285,20 @@ void vc_step(vc_state_t *s,const vc_input_t *i) {
         /* Either front sensor on black is sufficient to keep following forward. */
         s->command=1;
     } else if (s->phase==VC_ACQUIRE) {
-        if(i->scan_blocked){sensor_fault(s,VC_CAUSE_SONAR);return;}
+        /* After a rescan request nothing S5 shows counts until it has
+         * started a new scan (stale BLOCKED or READY included); none within
+         * AVOID_RESCAN_WAIT_MS: the sonar fault. */
+        if (s->rescan_wait) {
+            if (i->scan_id==s->rescan_id) {
+                if (i->now_ms-s->rescan_ms>=AVOID_RESCAN_WAIT_MS) sensor_fault(s,VC_CAUSE_SONAR);
+                return;
+            }
+            s->rescan_wait=0;s->rescan_request=0;
+        }
+        if(i->scan_blocked){no_way_around(s,i);return;}
         if (i->front_clear && !i->obstacle && !i->scan_ready) { enter(s,i,VC_REACQUIRE);return; }
         if (!i->scan_ready) return;
-        if(!i->width_valid || i->obstacle_width_mm>AVOID_MAX_WIDTH_MM){sensor_fault(s,VC_CAUSE_SONAR);return;}
+        if(!i->width_valid || i->obstacle_width_mm>AVOID_MAX_WIDTH_MM){no_way_around(s,i);return;}
         if (!i->bypass_enabled || !i->bypass_steering || i->bypass_steering>400U) { vc_stop(s,VC_UNCALIBRATED);return; }
         if (!i->turn_deg || abs(i->turn_deg)>80 || !i->approach_mm || i->return_mm>1000) {
             sensor_fault(s,VC_CAUSE_SONAR);return;

@@ -497,6 +497,7 @@ static void vehicle_task(INT code,void *context) {
             scan.object_width_max_mm<=AVOID_MAX_WIDTH_MM;
         input.obstacle_width_mm=(uint16_t)(input.width_valid?scan.object_width_max_mm:0U);
         input.scan_blocked=input.sensor_fresh && scan.state==S5_BLOCKED;
+        input.scan_id=scan.scan_id;
         input.sensor_acquiring=so && s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION;
         input.scan_ready=input.sensor_fresh && scan.state==S5_READY && plan_usable && scan.approach_plan_valid;
         int side_angle=state.vehicle.side?90:-90;
@@ -759,6 +760,18 @@ static void vehicle_task(INT code,void *context) {
         }
         unsigned phase_before=state.vehicle.phase;
         vc_step(&state.vehicle,&input);
+        /* No way round: reset S5 (MONITOR at 0 deg) for a fresh scan from the
+         * same spot; the policy waits for its new scan_id. A busy lock or a
+         * scan_id that just changed is retried next tick. */
+        if(state.vehicle.rescan_request && state.vehicle.phase==VC_ACQUIRE && so_fresh) {
+            ER er=s5_navigation_set(scan.scan_id,S5_MONITOR,0);
+            if(er>=E_OK) {
+                state.vehicle.rescan_request=0;requested_sensor_mode=TRUE;
+                tm_printf((UB *)"[VC] no way round (scan %u): scanning again, retry %u of %u\n",
+                    (unsigned)scan.scan_id,(unsigned)state.vehicle.rescans,(unsigned)AVOID_RESCAN_RETRIES);
+                s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_SCANNED,0U,state.vehicle.rescans));
+            } else if(er!=E_OBJ && er!=E_TMOUT) vc_stop(&state.vehicle,VC_TRANSPORT);
+        }
         /* Event log: obstacle detected / back on the line. */
         if(phase_before==VC_TRACK && state.vehicle.phase==VC_ACQUIRE) {
             /* Range at detection. S5 publishes its confirming echo already
@@ -787,8 +800,12 @@ static void vehicle_task(INT code,void *context) {
             UW range=left?scan.left_bound_distance_mm:scan.right_bound_distance_mm;
             bypass_edge=bound>=0 && bound<=80 && range && range<=5000U;
             avoid_scanned=TRUE;
+            /* The event shows the reported (beam-corrected) width; the plan
+             * keeps object_width_max_mm. */
+            UW shown_left,shown_right;
+            s5_width_reported(&scan,&shown_left,&shown_right);
             s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_SCANNED,left?1U:2U,
-                (unsigned)((scan.object_width_max_mm+5U)/10U)));
+                (unsigned)((shown_left+shown_right+5U)/10U)));
             if(bypass_edge) {
                 UW half=(scan.object_width_max_mm+1U)/2U;
                 bypass_x=range*s5_cosine_q10000[90-bound]/10000U;

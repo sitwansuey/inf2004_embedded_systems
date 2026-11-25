@@ -45,6 +45,11 @@ ID 0 obstacle and scan fields (local display keys):
 | 12 | `Robopico/Actuators/vehicle_controller/dropped` | the robot's internal drop count modulo 256 (wraps, like the subtype 11 sequence); the receiver shows the drops of the last 60 s from the differences between records. The first record after a broker reconnect or a robot silence is only a baseline |
 | 15, bits 7–6 | `Robopico/Actuators/servo_motor/bypass_side` | `None`, `Left`, `Right` |
 
+The robot reports the widths with each scanned edge reduced by the sonar beam's
+half-angle (`S5_BEAM_HALF_DEG`, 20 deg): the HC-SR04 keeps hearing an obstacle's
+corner about that far past its real edge. The bypass plan uses the measured
+edges. The obstacle "scanned" event shows the same corrected width.
+
 Subtype 8 values 101–127 and bypass side 3 are rejected. The three width
 fields and the bypass side are the last obstacle scan's results: the receiver
 keeps them until the next scan reports new ones. A quality record with bit 0

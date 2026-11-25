@@ -70,7 +70,11 @@ class EventTextTests(unittest.TestCase):
         # how 0: the avoidance ended in a fault or a STOP.
         self.assertEqual(describe_event(record(4, 0 | 7 << 4)),
                          ("Obstacle", "WARN", "Obstacle avoidance stopped after 7 s (fault or STOP)"))
-        for bad in (record(4, 1 | 1 << 2), record(4, 2), record(4, 3), record(4, 3 | 3 << 2)):
+        # Side 0 on a scan: no way round, scanning again (retry 1..3).
+        self.assertEqual(describe_event(record(4, 2 | 1 << 4)),
+                         ("Obstacle", "WARN", "No way round found: scanning again (retry 1)"))
+        self.assertIn("retry 2", describe_event(record(4, 2 | 2 << 4))[2])
+        for bad in (record(4, 1 | 1 << 2), record(4, 2), record(4, 2 | 4 << 4), record(4, 3), record(4, 3 | 3 << 2)):
             with self.assertRaises(ValueError):
                 describe_event(bad)
 

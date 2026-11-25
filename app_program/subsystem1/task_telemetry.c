@@ -7,6 +7,7 @@
 #include "../subsystem3/subsystem3.h"
 #include "../subsystem4/subsystem4.h"
 #include "../subsystem5/subsystem5.h"
+#include "../subsystem5/s5_width.h"
 /* A new shock count sends an extra snapshot at once, but at most one per
  * this many ms (a hump's jolts can come every 40 ms); a later one rides the
  * next snapshot. Fault changes are never limited. */
@@ -48,6 +49,10 @@ void telemetry_task(INT code,void *context) {
         BOOL width_valid=so && o.object_width_valid && o.object_width_max_mm<=500U &&
             o.object_left_mm<=5000U && o.object_right_mm<=5000U &&
             o.object_width_mm==o.object_left_mm+o.object_right_mm;
+        /* Reported width: the edges less the sonar beam's half-angle
+         * (s5_width_reported); validity and the plan stay S5's own. */
+        UW shown_left=0U,shown_right=0U;
+        if(width_valid)s5_width_reported(&o,&shown_left,&shown_right);
         unsigned side=so && o.approach_plan_valid?(o.planned_rotate_deg>0?1U:o.planned_rotate_deg<0?2U:0U):0U;
         BOOL width_new=width_valid && (o.scan_id!=width_scan || o.object_left_mm!=width_left || o.object_right_mm!=width_right);
         /* A shock no longer changes the fault, so a new one is sent at once. */
@@ -94,7 +99,7 @@ void telemetry_task(INT code,void *context) {
             v[TEL_MZ_MG]=bounded(a.latest.mag.milli_units[2],-2048,2047);
             v[TEL_PITCH_CDEG]=terrain.pitch_cdeg;v[TEL_ROLL_CDEG]=terrain.roll_cdeg;v[TEL_TERRAIN]=terrain.terrain;
             v[TEL_HEIGHT_MM]=terrain.height_mm;v[TEL_HIGHEST_MM]=terrain.maximum_mm;
-            v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=width_valid?bounded(o.object_width_mm,0,500):0;
+            v[TEL_DISTANCE_MM]=us?o.distance_mm:0;v[TEL_WIDTH_MM]=width_valid?bounded(shown_left+shown_right,0,500):0;
             v[TEL_SERVO_DEG]=o.angle_deg;v[TEL_SCAN_STATE]=o.state;
             v[TEL_QUALITY]=(width_valid?1:0)|(((terrain.flags&S4_RESULT_SHOCK) || shock_new)?2:0)|(s.vehicle.armed?4:0)|
                 (BOARD_BYPASS_VALIDATED?8:0)|(s.odometry_valid?16:0)|
@@ -103,8 +108,8 @@ void telemetry_task(INT code,void *context) {
             v[TEL_MOTOR_ERROR]=s2_motor_error_code(mo?m.last_error:E_SYS);
             v[TEL_BARCODE_ELEMENTS]=li?(l.output.barcode_elements>31U?31U:l.output.barcode_elements):0;
             v[TEL_BARCODE_RESULT]=li && l.output.barcode_result<=3U?l.output.barcode_result:0;
-            v[TEL_WIDTH_LEFT_MM]=width_valid?bounded(o.object_left_mm,0,1000):0;
-            v[TEL_WIDTH_RIGHT_MM]=width_valid?bounded(o.object_right_mm,0,1000):0;
+            v[TEL_WIDTH_LEFT_MM]=width_valid?bounded(shown_left,0,1000):0;
+            v[TEL_WIDTH_RIGHT_MM]=width_valid?bounded(shown_right,0,1000):0;
             v[TEL_BYPASS_SIDE]=side;
             v[TEL_FAULT_CAUSE]=s.vehicle.fault==VC_SENSOR || s.vehicle.fault==VC_LINE?s.vehicle.fault_cause:0;
             v[TEL_IMU_FAULT]=imu_fault?1:0;

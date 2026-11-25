@@ -40,6 +40,22 @@
 #ifndef AVOID_RETURN_MAX_MM
 #define AVOID_RETURN_MAX_MM 1000U
 #endif
+/* No way round (S5 BLOCKED, or a finished scan with no valid width): scan
+ * again from the same spot up to AVOID_RESCAN_RETRIES times before the sonar
+ * fault. Each retry resets S5 (MONITOR) and waits up to AVOID_RESCAN_WAIT_MS
+ * for it to start its next scan; a stray echo beside the box often blocks one
+ * scan and not the next (25 Nov: the scan right after such a fault found a way
+ * round). Only with the bypass enabled; the count restarts for each new
+ * obstacle. 0: fault at once (8e). */
+#ifndef AVOID_RESCAN_RETRIES
+#define AVOID_RESCAN_RETRIES 2U
+#endif
+#ifndef AVOID_RESCAN_WAIT_MS
+#define AVOID_RESCAN_WAIT_MS 3000U
+#endif
+#if AVOID_RESCAN_RETRIES > 3
+#error AVOID_RESCAN_RETRIES must be 0..3
+#endif
 /* VC_RETURN heads back toward the line at least this steeply (deg from the
  * pre-obstacle heading), so it rejoins nearer the obstacle. A steeper
  * diagonal keeps its own angle. The return distance is the diagonal's

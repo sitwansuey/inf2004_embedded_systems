@@ -31,6 +31,18 @@
 #define S5_SCAN_COARSE_STEPS 3
 #define S5_REFINE_STEP_DEG 1
 #define S5_TARGET_DEPTH_TOLERANCE_MM 20U
+/* The HC-SR04 beam still returns an obstacle's corner about this far past
+ * its true edge, so a sweep finds each edge this much too wide (24 Nov: a
+ * 15 cm box at 18 cm gave edges at 41 and 45 deg instead of ~23 deg). Only the
+ * REPORTED width subtracts it (s5_width_reported: telemetry and the event
+ * log); the bypass plan keeps the measured bounds and their clearance.
+ * 0: report the uncorrected tangent width. */
+#ifndef S5_BEAM_HALF_DEG
+#define S5_BEAM_HALF_DEG 20
+#endif
+#if S5_BEAM_HALF_DEG < 0 || S5_BEAM_HALF_DEG > 45
+#error S5_BEAM_HALF_DEG must be 0..45
+#endif
 #define S5_SERVO_MS_PER_DEG 10U
 /* Positive angles point left of the vehicle's forward direction. */
 typedef enum
