@@ -421,7 +421,8 @@ int main(void) {
     assert(s5_scan_step(&s,&c)==-20 && s.state==S5_VERIFY_CLEAR && c.width_hold && !s.approach_plan_valid);
     s.time_ms=300;assert(s5_scan_step(&s,&c)==0 && s.state==S5_BLOCKED && !c.width_hold);
     assert(!s.approach_plan_valid && !s.object_width_valid && !s.object_left_mm && !s.object_right_mm);
-    puts("INT-04 scan: 3 consecutive near echoes start it (far or open resets, a no-echo retry does not), wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS");
+    printf("INT-04 scan: %u consecutive near echoes (S5_ACQUISITION_SAMPLES) start it (far or open resets, a no-echo retry does not), wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS\n",
+           (unsigned)S5_ACQUISITION_SAMPLES);
     s=(s5_status_t){.object_width_valid=1,.left_bound_valid=1,.right_bound_valid=1,
         .obstacle_distance_mm=150,.left_bound_deg=20,.right_bound_deg=-10,
         .left_bound_distance_mm=160,.right_bound_distance_mm=160};

@@ -45,9 +45,12 @@ tests. Name the exact command or build and give a measurable expected result.
 1. **Define it first.** Add a case to the correct `TEST_LOG.md`: ID, purpose,
    requirement or interface, method, steps and expected result.
 2. **Choose the test path.** Use the host entry points below for software
-   checks. The integrated `TEST=1` image calls only `subsystem3_test()`
-   (`app_program/subsystem3/subsystem3_test.c`), a passive `S3-U01`
-   normalization check. It does not test all five subsystems at boot. To add
+   checks. The integrated `TEST=1` image calls
+   `subsystem1_test()` to `subsystem5_test()` (`app_program/subsystemN/subsystemN_test.c`):
+   passive checks of each subsystem's published status, plus S3-U01 normalization
+   and the S1/S5 codec round-trips. `TEST=1 S2_ONLY=1` runs only `subsystem2_test()` and
+   `TEST=1 S4_ONLY=1` only `subsystem4_test()`. None of them drives a motor, the
+   servo or the sonar; they are not hardware tests of the robot's motion. To add
    an on-target check, put a `TEST_CHECK` (see `app_program/test_report.h`) in
    a test function and call it from the `#if APP_TEST` block in
    `app_program/app_main.c`. That file is shared code, so agree the change
@@ -127,6 +130,8 @@ tests. Name the exact command or build and give a measurable expected result.
 - **BLOCKED**: the test could not be run (a tool or the hardware was missing); used in some October records.
 
 On 2026-11-25 every test whose latest result was INCOMPLETE was removed (each affected log lists the removed IDs under **ID changes on 2026-11-25**; S2 had none), the tests filmed for the video set were narrowed to what their video shows, and the IDs were renumbered so each series runs with no gaps.
+
+ID history note (audit, 2026-11-25): in git, both renumberings arrived in one commit, `5f93cb6`, which also deleted result rows, including two FAIL rows (S1-U11 and SYS-14 in the old numbering). Those rows are restored word for word in a *Restored result rows* table under *Results* in each affected log. The S1-S5, integration and system logs now end with *Audit notes*: an *ID history (git record)* table mapping the IDs at `d18dd38` (`ed197b3` for the system log) to today's IDs, and notes on unclear commit cells and missing evidence files.
 
 ## Host tests
 

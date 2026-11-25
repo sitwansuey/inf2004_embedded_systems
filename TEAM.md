@@ -25,10 +25,25 @@ subsystem, ask its owner or open a pull request for them to review.
 - the Vehicle Controller (VC): `app_program/vehicle.c`, `vehicle_policy.c`, the
   `vehicle_*.h` helpers, `ir_line_trace.c/.h`, `app_state.c/.h`, `app_logging.c/.h`;
 - the watchdog supervisor: `app_watchdog.c/.h`, `shared/watchdog_policy.c`,
-  `include/tm/robot_health.h`;
+  `include/tm/robot_health.h`, `lib/libtm/sysdepend/pico_rp2040/robot_health.c`;
 - the robot profile: `robot_config.h`, `robot_ir_config.h`,
-  `robot_ir_calibration.h`, `board_pins.h`;
-- `app_program/shared/`, `app_main.c`, `app.h` and this file.
+  `robot_ir_calibration.h`, `board_pins.h`, `robot_config.local.example.h`;
+- `app_program/shared/`, `app_main.c`, `app.h`, `test_report.h` and this file;
+- every change to the template's kernel, library, driver, configuration and
+  build files (section 5, *Changes to shared template files*).
+
+**Who owns the VC, and why it is not in a subsystem folder.** The VC is the
+one task that commands motion in the mission build. It uses the interfaces of
+all five subsystems (section 5), so it is no single student's part of the
+robot. It has no individual owner: the five members own it together, like the
+template's `app_main.c` and `app.h`, and it sits beside them at the top of
+`app_program/` rather than in a `subsystemN/` folder, where the section 1 rule
+would make one student the only person allowed to change it. Any member may
+propose a change to shared code, by a pull request; `.github/CODEOWNERS`
+requests a review from all five members for every file outside the subsystem,
+subsystem test (`testing/subsystemN/`) and dashboard folders, which go to
+their owners. The data formats between the VC and each subsystem
+are agreed with that subsystem's owner (section 5, *Agreed by*).
 
 Shared code is changed only by agreement of the team; claiming an empty row in
 this file (a pin, a peripheral, an interface ID) is the exception. It is tested
@@ -185,9 +200,66 @@ IF-16).
 | S1 (Ron Tan) | all of the above as EDR16 records on MQTT; command replies | IF-15, IF-16, IF-19 | Ron Tan (S1), team |
 
 Interface numbers from before this table (the template's IF-03 S3 → S4 summary
-and IF-05 LED task control) are retired. `subsystem1.h`,
-`subsystem4/sensor_data.h` and `testing/subsystem4/TEST_LOG.md` (S4-U11, now
-IF-10) still use them and need updating by their owners.
+and IF-05 LED task control) are retired. The comments in `subsystem1.h` and
+`subsystem4/sensor_data.h` now say so. Still to update by their owners: the
+comment on `tid_led` in `subsystem1/subsystem1.c` (still "IF-05") and S4-U11
+in `testing/subsystem4/TEST_LOG.md` (still "IF-06"; the interface is IF-10).
+
+### Changes to shared template files
+
+The team imported the course template in commit `359b763` (2026-10-10). Every
+file under `kernel/`, `lib/`, `include/`, `device/`, `config/` and
+`build_make/` that differs from that import is listed here (compared with
+`git diff 359b763`, ignoring line endings; `config/config.h` and the other
+kernel configuration files are unchanged). These files are shared by the whole
+team, and the template asks for MQTT changes to the shared network library to
+be agreed "with the team and the instructor first". *Agreement* says what this
+file records; "not recorded" means no agreement is written down here, not that
+there was none. *Commits* are those that changed the file after the import
+(`git log 359b763..HEAD -- <file>`).
+
+| File(s) | What changed | Why | Needed by | Commits | Agreement |
+|---|---|---|---|---|---|
+| `lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.c`, `mqtt_utk.h` | The template's heartbeat publish is replaced by S1's MQTT link: EDR16 telemetry, robot events and command replies are published, `csc02/command` is subscribed, the RESET gate and optional broker login are added, and `mqtt_utk_poll_telemetry()` and `mqtt_utk_link_lost()` are new. Includes `app_program/subsystem1/network_bridge.h`. | lwIP and MQTT may only be called from the network task (section 3), so S1's code that sends and receives runs inside it and polls S1's kernel objects. | S1 (and the dashboard) | `7c3d323`, `176587a`, `373ad6d`, `56d0d37`, `6764fd7`, `dd3e555`, `85cc435`, `921f76d`, `3ca4ecb`, `7a6c373`, `14b6c4f` | team: IF-15 to IF-17 and IF-19 rows; instructor: not recorded |
+| `lib/liblwip/sysdepend/pico_rp2040/lwipopts.h` | `MQTT_OUTPUT_RINGBUF_SIZE` 2048 and `MQTT_REQ_MAX_IN_FLIGHT` 64 (lwIP defaults 256 and 4). | The defaults held only about 8 EDR16 publishes and capped telemetry near 30 messages a second. | S1 | `921f76d` | not recorded |
+| `lib/libwifi/sysdepend/pico_rp2040/cyw43_utk.c`, `cyw43_utk.h` | Calls `mqtt_utk_poll_telemetry()` every poll; turns Wi-Fi power save off after bring-up and every join; re-joins after an AP loss or a rejected join; adds the network watchdog heartbeat and `health_net_ready`; holds at boot after repeated crashes; adds loop timing. Includes `app_program/shared/task_timing.h` (and through it `robot_config.h`). | Power save added hundreds of ms to command replies; a lost association left the robot off the network until reboot; the watchdog must see the network loop. | S1 (MQTT), shared watchdog, S2 timing report | `373ad6d`, `7a6c373`, `14b6c4f`, `89f1bdc` | heartbeat: IF-20 row; timing: IF-22 row; power save and re-join: not recorded |
+| `lib/libwifi/sysdepend/pico_rp2040/cyw43_utk_compat.c` | Watchdog heartbeat inside the driver's delay hooks; the weak `panic()` and `hard_assertion_failure()` write the crash record and reboot instead of halting. | A slow but bounded driver call must not look like a frozen task; a halted core gave no message. | shared watchdog | `89f1bdc` | IF-20 row (heartbeat); kernel/library edit: not recorded |
+| `lib/libwifi/sysdepend/pico_rp2040/cyw43_utk_kernel.c` | Comment only (real poll period). | — | — | `7a6c373` | — |
+| `lib/libtm/sysdepend/pico_rp2040/usb/usb_console.c`, `usb_tinyusb_glue.c` | USB input is passed byte by byte (up to 32 per pass) to a weak `app_usb_rx_byte()` instead of being discarded; new `tm_tusb_read_char()`. | S1's USB command keys (IF-18). | S1 | `373ad6d` | team: IF-18 row; kernel/library edit: not recorded |
+| `lib/libtm/sysdepend/pico_rp2040/usb/usb_sdk_compat.c`, `lib/liblwip/sysdepend/pico_rp2040/sys_arch.c` | `panic()`, `hard_assertion_failure()` and `lwip_utk_assert()` write the crash record and reboot through the watchdog instead of spinning. | A spin froze every lower-priority task on that core with no message. | shared watchdog | `89f1bdc` | not recorded |
+| `include/tm/robot_health.h`, `lib/libtm/sysdepend/pico_rp2040/robot_health.c` (new) | Heartbeat counters, hardware watchdog and crash-record access. | It lives under `include/` and `lib/` so that the kernel's fault handler and the SDK/CYW43/lwIP ports can use it without including `app_program/` headers. | shared watchdog (IF-20) | `89f1bdc` | IF-20 row (all five members) |
+| `kernel/sysdepend/cpu/core/armv6m/exc_hdr.c` | HardFault writes the crash record, starts a 500 ms watchdog and reboots (Pico only). | A halted core left the other core running with this core's tasks dead. | shared watchdog | `89f1bdc` | not recorded |
+| `kernel/sysdepend/pico_rp2040/hw_setting.c` | Stops the watchdog at boot, starts its 1 MHz tick and releases the TIMER from reset. | Crash-record uptime and the fault handler's watchdog are valid from boot, not only after S4 or S5 start. | shared watchdog | `89f1bdc` | not recorded |
+| `include/sys/inittask.h` | Initial task stack 4 KB in `TEST=1` images (1 KB otherwise). | The on-target self-test runs in the initial task. | `TEST=1` builds (on-target checks of S1 to S5) | `ed197b3`, `5f93cb6` | not recorded |
+| `device/adc/sysdepend/rp2040/adc_cnf_sysdep.h` | Includes `app_program/robot_config.h` and enables the GP26–GP28 analogue pads from `BOARD_IR_MODE` (GP26/GP27 in modes 2 and 3, GP28 only in mode 2); conversion timeout 1000 → 5 ms. | The pads must match S3's wiring: in mode 3 GP28 is a digital input and must keep its digital function. The short timeout bounds each conversion wait well inside S3's 20 ms conversion deadline (`subsystem3/drv_ir_adc.h`). | S3 | `373ad6d`, `921f76d` | not recorded |
+| `device/adc/sysdepend/rp2040/adc_rp2040.c` | The ADC ready waits give up after 100000 polls (`E_TMOUT`) instead of spinning for ever. | A stuck ADC must not hang S3's worker or the start-up. | S3 | `373ad6d` | not recorded |
+| `config/wifi_secrets.example.h` | Adds `MQTT_USERNAME` and `MQTT_PASSWORD` (both `NULL`). | Optional broker login (S1). | S1 | `7c3d323`, `14b6c4f` | not recorded |
+| `build_make/pico_rp2040.mk` | New options `S2_ONLY`, `S2_ENCODER_ENABLED`, `S2_COMMAND_TIMEOUT_MS`, `S4_ONLY` (checks, image-name suffixes, `-D` macros, profile stamp); `LNKFILE` moved to `include/etc/` (below). | S2 and S4 bench builds and S2's encoder and timeout settings. | S2, S4 | `7da5095`, `edee296`, `25589b3`, `373ad6d`, `58b89c2`, `5f0b8c7`, `ac7d949` | not recorded |
+| `build_make/mtkernel_3/app_program/subdir.mk` | Source lists for `S2_ONLY=1` and `S4_ONLY=1`; includes `app_program/subsystem4/sdk.mk` in every other build; `-Wall -Wextra -Werror` for all `app_program` objects. | Bench builds; S4 needs SDK I2C code. | S2, S4, team | `7da5095`, `edee296`, `25589b3`, `e59a4fe`, `373ad6d`, `ac7d949`, `5f93cb6`; 2026-11-25 cleanup: `subsystem2_test.c` added to the `S2_ONLY=1` list in `TEST=1` builds only | not recorded |
+| `build_make/mtkernel_3/lib/libtm/sysdepend/pico_rp2040/subdir.mk` | Builds `robot_health.o`. | Watchdog support code. | shared watchdog | `89f1bdc` | not recorded |
+| `build_make/makefile` | Links with `-lm`. | The VC and S4 terrain code use `<math.h>`. | VC, S4 | `373ad6d` | not recorded |
+| `etc/linker/` → `include/etc/linker/` (all ten linker scripts, unchanged) | Moved. No commit message explains it: it first appears in the merge `211c6c8` ("Latest push", 2026-10-27), whose parents both still have `etc/`. `pico_rp2040.mk` was pointed at the new place in `ac7d949`; the five non-Pico board makefiles (`iote_*.mk`, `nucleo_h723.mk`) kept `../etc/` and could not find their scripts until their paths were updated in the 2026-11-25 cleanup. The Pico build does not use those five makefiles. No non-Pico board is built or tested in this repository (no CI job or test record). | — | none (Pico build unchanged) | `211c6c8`, `ac7d949` | not recorded |
+| `app_program/subsystem4/sdk.mk` (included by the shared `subdir.mk`) | Adds `-DPICO_NO_HARDWARE=0 -DNDEBUG -ffunction-sections -fdata-sections`, the S4 SDK include paths and `-I` for the USB port to the global `CFLAGS`, and `--gc-sections` to `LFLAGS`, so they apply to the kernel and every subsystem, not only S4. Compiles SDK `i2c.c`, `timeout_helper.c` and `ticks.c` (plus `gpio.c` and `timer.c` when `WIFI=none`). Stops the build when `PICO_SDK_PATH` is missing, including `CONSOLE=uart WIFI=none`, which the template could build without the SDK. | S4 uses the SDK's I2C driver. | S4 (all builds) | `edee296`, `373ad6d`, `ac7d949` | not recorded |
+
+`sdk.mk` is left as it is: limiting its flags to S4's objects, or building
+without the SDK again, would change the kernel's and the other subsystems'
+compiled code in every robot image. That is a firmware change the team would
+have to agree and re-test on the robot. Every build of this robot, including
+`CONSOLE=uart WIFI=none`, therefore needs `PICO_SDK_PATH`; the one exception is
+the S2 bench build `S2_ONLY=1 CONSOLE=uart WIFI=none`, which leaves out S4 and
+the USB and radio drivers.
+
+**Why `device/` and `lib/` include `app_program/` headers.** Three shared
+files reach into the application: `adc_cnf_sysdep.h` includes
+`robot_config.h` (the ADC pads follow `BOARD_IR_MODE`), `cyw43_utk.c` includes
+`shared/task_timing.h` (loop timing, and `BOARD_WIFI_POWER_SAVE` from
+`robot_config.h`), and `mqtt_utk.c` includes `subsystem1/network_bridge.h`
+(S1's command frame and queue API). They use the robot's settings or S1's
+queues from code that must run in the kernel's driver or network task. The
+cost is that these kernel and library files now depend on application
+headers: a change to `robot_config.h`, `task_timing.h` or `network_bridge.h`
+also rebuilds and can change them, so such a change is reviewed as a
+shared-file change.
 
 ## 6. Kernel object budget
 
@@ -279,8 +351,9 @@ dashboard link); the mission build is `NET=lwip MQTT=1`. The UART and
 crash-report builds (`CONSOLE=uart`, `CRASH_REPORT=1`) need GP0/GP1 for UART0,
 so S5 is not built and the integrated robot cannot drive in them: an ARM or START stops with fault 1 (sonar) within 1 s.
 `S2_ONLY=1` and `S4_ONLY=1` are bench builds that compile and start only that
-subsystem (no VC, S1, S3, S5 or watchdog). `TEST=1` adds `subsystem3_test()`,
-run by the initial task while the robot runs. The S5 test builds (`TEST=1`
+subsystem (no VC, S1, S3, S5 or watchdog). `TEST=1` adds the passive on-target checks (`subsystem1_test()` to
+`subsystem5_test()` in the integrated image, `subsystem2_test()` in `S2_ONLY=1`,
+`subsystem4_test()` in `S4_ONLY=1`), run by the initial task while the robot runs. The S5 test builds (`TEST=1`
 with `APP_S5_MASTER_TEST`, `APP_ACQUISITION_TEST`, `APP_ACQUISITION_LEFT_TEST`
 or `APP_S5_SERVO_TEST`) replace the S5 scan task with a diagnostic task (20,
 core 1) and do not start the VC; that task binds to S2 and drives the motors

@@ -37,7 +37,7 @@ typedef struct
     uint32_t mag_io_errors;
     uint32_t accel_overruns;
     uint32_t publish_errors;
-    uint32_t legacy_lines_received; /* retired IF-03 count, always 0 */
+    uint32_t legacy_lines_received; /* retired template IF-03 count, always 0 */
     /* Monotonic (modulo 2^32), counted by S4 on every accel sample or poll,
      * so a consumer that reads less often compares them with its last copy
      * instead of sampling the latest flags:
@@ -55,7 +55,7 @@ typedef struct
 enum {
     S4_COUNT_INIT, S4_COUNT_HEARTBEAT, S4_COUNT_ACCEL, S4_COUNT_MAG,
     S4_COUNT_ACCEL_ERROR, S4_COUNT_MAG_ERROR, S4_COUNT_OVERRUN,
-    S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY /* retired IF-03, stays 0 */,
+    S4_COUNT_PUBLISH_ERROR, S4_COUNT_LEGACY /* retired template IF-03, stays 0 */,
     S4_COUNT_IMPACT, S4_COUNT_FAULT, S4_COUNT_TOTAL
 };
 #define S4_CACHE_BITS (212U + 32U * S4_COUNT_TOTAL)

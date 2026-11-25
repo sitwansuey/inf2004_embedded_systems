@@ -22,7 +22,7 @@ LFLAGS := -mcpu=cortex-m4 -mthumb -ffreestanding \
     -O0 -g3 \
     -mfloat-abi=soft \
 
-LNKFILE := "../etc/linker/iote_stm32l4/tkernel_map.ld"
+LNKFILE := "../include/etc/linker/iote_stm32l4/tkernel_map.ld"
 
 include mtkernel_3/lib/libtm/sysdepend/iote_stm32l4/subdir.mk
 include mtkernel_3/lib/libtm/sysdepend/no_device/subdir.mk

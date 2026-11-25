@@ -19,7 +19,7 @@ LFLAGS := -mcpu=rx230 -misa=v2 -mlittle-endian-data \
     -O0 -ffunction-sections -fdata-sections -g2 \
     -nostartfiles -nostdlib
 
-LNKFILE := "..\etc\linker\iote_rx231\tkernel_map.ld"
+LNKFILE := "..\include\etc\linker\iote_rx231\tkernel_map.ld"
 
 include mtkernel_3/lib/libtm/sysdepend/iote_rx231/subdir.mk
 include mtkernel_3/lib/libtm/sysdepend/no_device/subdir.mk

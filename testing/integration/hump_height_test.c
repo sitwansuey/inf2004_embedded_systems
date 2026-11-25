@@ -2,6 +2,11 @@
  * the ramp handling (vehicle_ramp.h) until the robot is back down. */
 #include <assert.h>
 #include <math.h>
+/* M_PI is not ISO C: glibc hides it under -std=c11 (no _DEFAULT_SOURCE),
+ * and _USE_MATH_DEFINES only matters to Windows/MinGW headers. */
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include "../../app_program/vehicle_hump.h"

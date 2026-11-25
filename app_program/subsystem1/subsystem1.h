@@ -20,7 +20,8 @@ IMPORT void telemetry_task(INT code,void *context);
 #define S1_LED_PIN	19		/* GP19: LED + 330R resistor to GND */
 #define S1_TICK_MS	250		/* LED toggles every tick */
 
-/* IF-05: the LED task's ID */
+/* The LED task's ID, used only inside S1 (the template's IF-05 LED
+ * task control is retired; TEAM.md section 5) */
 IMPORT ID	tid_led;
 
 /* Private to subsystem 1, shared between its own .c files */

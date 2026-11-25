@@ -10,7 +10,19 @@ build_make/.build_profile
 
 # Real WiFi credentials -- never commit these. Copy config/wifi_secrets.example.h
 # to config/wifi_secrets.h and fill in your own network's SSID/password.
+# Any other local copy (wifi_secrets.backup.h, my_secrets.h, ...) is ignored
+# too; only the *.example.h template is tracked.
 config/wifi_secrets.h
+config/*secret*.h
+!config/*.example.h
+
+# Archives are not source: share builds and exports outside git.
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+*.tgz
 
 # Videos are shared as unlisted YouTube links (videos/README.md), never committed
 *.mp4
@@ -37,10 +49,10 @@ edr-check-report.json
 
 # Supplementary documentation, evidence and session records remain local.
 # Promote selected final-submission evidence explicitly when ready.
+# Subsystem READMEs (app_program/subsystemN/README.md) are tracked.
 /docs/*
 !/docs/DATA_REPRESENTATION.md
 /testing/evidence/
-/app_program/subsystem*/README.md
 *.log
 # Test records are committed (testing/README.md): TEST_LOG.md files and the
 # saved console logs in each testing/<area>/logs/ folder.

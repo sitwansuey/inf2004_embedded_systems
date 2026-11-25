@@ -92,7 +92,8 @@ TEST_SUFFIX := _test
 endif
 
 # S2_ONLY=1 boots only the motor subsystem.
-# TEST=1 then runs the motor/rotation/watchdog checks at startup.
+# TEST=1 then runs subsystem2_test(): passive status and encoder checks
+# (S2-U29 to S2-U33), no motor motion.
 S2_ONLY ?= 0
 S2_ENCODER_ENABLED ?= 1
 S2_COMMAND_TIMEOUT_MS ?= 1000

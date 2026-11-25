@@ -221,19 +221,30 @@ static const follow_step_t *follow_step(unsigned n)
  * N near 150 mm, D no-echo, C close 40 mm, I invalidated by S5 re-centring)
  * and what TRACK must do (d drive, s hold still, a VC_ACQUIRE): the held
  * echo counts once; a no-echo holds only right after a near echo and is no
- * reading; C and I hold; acquisition only on the third near echo.
+ * reading; C and I hold; F ends the streak; acquisition only on the
+ * S5_ACQUISITION_SAMPLES-th (8d: 2, was 3) consecutive new near echo.
+ * Every near echo here (150 or 40 mm) is also within the vehicle's 30 cm
+ * detection (VC_DETECT_MM, VC_DETECT_SAMPLES 2) and F (400 mm) is beyond it,
+ * so the approach (vehicle_approach.h) completes its count in the same tick
+ * as S5's and never holds the robot before the acquisition.
  * Each new sample goes through S5's own acquisition step, as its scan task
- * does (subsystem5.c): S5 counts the same echoes, so the third near echo
+ * does (subsystem5.c): S5 counts the same echoes, so the second near echo
  * starts SCAN_LEFT and is published already turning to 20 deg (invalid);
  * S5 then settles the servo for 200 ms, so the VC re-reads that status. The
  * VC acquires on S5's stage with no forward echo in hand, and EV_OBSTACLE
  * detected must still carry the 15 cm. I is S5's status invalidated outside
- * its step (re-centring), published as is. */
+ * its step (re-centring), published as is.
+ * 8c's table (HHHHHFNNDFDCFINNDNNN, acquiring on the third near echo) would
+ * acquire at its first N N pair under the 2-echo rule and never reach the
+ * D/C/I checks, so each near echo before the last one is now followed by
+ * something that ends or pauses the streak. */
+_Static_assert(S5_ACQUISITION_SAMPLES==2U && VC_DETECT_SAMPLES==2U && VC_DETECT_MM>=150U && VC_DETECT_MM<400U,
+               "mode 15 table assumes 2-echo acquisition and detection (8d)");
 #define OC_FROM 12U
-static const char oc_sample[]="HHHHHFNNDFDCFINNDNNN";
-static const char oc_expect[]="ddddddddsddsdsddsaaa";
+static const char oc_sample[]="HHHHHFNDFDCFINDNNN";
+static const char oc_expect[]="dddddddsddsdsdsaaa";
 #define OC_ITERATIONS (OC_FROM+sizeof(oc_sample)-1U)
-#define OC_ACQUIRE_AT (OC_FROM+17U) /* the third near echo */
+#define OC_ACQUIRE_AT (OC_FROM+15U) /* the second consecutive near echo (N D N: the no-echo neither counts nor resets) */
 static s5_status_t oc_status;static s5_scan_context_t oc_scan;static bool oc_sampled;
 static void oc_s5_publish(s5_status_t *s,char sample)
 {
@@ -1270,7 +1281,7 @@ int main(void)
             assert(event_count==1U && event_id[0]==EV_BARCODE && event_value[0]==ev_barcode(1U,0U,0U) &&
                    event_tick[0]==BR_MISS_AT);
         else if(failure_mode==15U) {
-            /* S5 published the third echo as it really does (SCAN_LEFT,
+            /* S5 published the second echo as it really does (SCAN_LEFT,
              * turning to 20 deg, invalid); the event has its forward range. */
             assert(oc_status.state==S5_SCAN_LEFT && !oc_status.valid && oc_status.angle_deg==S5_SCAN_STEP_DEG &&
                    oc_status.sample_angle_deg==0 && oc_status.obstacle_distance_mm==150U);
@@ -1333,9 +1344,13 @@ int main(void)
 #endif
 #if BOARD_RAMP_SPEED
         else if(failure_mode==17U) {
+            /* The controller has its own height estimate for this hump
+             * (vehicle_hump.h, added with 5f93cb6), so crest and level are
+             * sent as the _EST kinds (events.h: S4's kinds 2/3 only when
+             * the controller has no estimate). */
             assert(event_count==3U && event_id[0]==EV_HUMP && event_id[1]==EV_HUMP && event_id[2]==EV_HUMP);
-            assert((event_value[0]&7U)==EV_HUMP_DETECTED && (event_value[1]&7U)==EV_HUMP_CREST &&
-                   (event_value[2]&7U)==EV_HUMP_LEVEL);
+            assert((event_value[0]&7U)==EV_HUMP_DETECTED && (event_value[1]&7U)==EV_HUMP_CREST_EST &&
+                   (event_value[2]&7U)==EV_HUMP_LEVEL_EST);
             /* Detected only after 400 ms of tilt; a ~10 deg climb is reported in 0.1 deg. */
             assert(event_tick[0]>=HUMP_FROM+BOARD_RAMP_HOLD_MS/TICK_MS && event_tick[0]<HUMP_LEVEL);
             assert((event_value[0]>>3U)>=(unsigned)BOARD_RAMP_TILT_CDEG/10U && (event_value[0]>>3U)<=100U);
@@ -1481,16 +1496,30 @@ int main(void)
 #endif
         }
     }
+    /* Straight (0) and pivot right/left (3, 4) are always published. A
+     * steered follow (1, 2) comes from the edge-tracing follower or, with the
+     * mask-pivot follower, only from the barcode-read steer; since 8g
+     * (ac5485d) BOARD_BARCODE_READ_LINE_STEER defaults to 0 (straight on
+     * while reading), so a mask-pivot build without a read steer never
+     * publishes 1 or 2. */
+#if BOARD_LINE_MASK_PIVOT && !BOARD_BARCODE_READ_LINE_STEER
+    assert(codes_seen==0x19U); /* straight and pivot right/left published; no steered follow */
+#else
     assert(codes_seen==0x1FU); /* straight, steer right/left and pivot right/left all published */
+#endif
+#if BOARD_BARCODE_READ_LINE_STEER
     puts("Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS");
+#else
+    puts("Straddle barcode read: BOARD_BARCODE_READ_LINE_STEER 0, straight on (no steer, no pivot) whichever straddle sensors are on black PASS");
+#endif
 #if BOARD_LINE_MASK_PIVOT
     puts("Mask-pivot follower: right/left IR black pivots that way at once, both/neither straight; a TRACK STOP resumes on the current sample PASS");
 #else
     puts("Edge tracing: proportional steer with power drop, far-side pivot, crossing straight, deep-edge pivot after 250 ms PASS");
 #endif
     puts("Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS");
-    puts("Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 3 consecutive new near echoes acquire PASS");
-    puts("Obstacle detected through S5's real step (third echo published turning, invalid): EV_OBSTACLE carries its 15 cm PASS");
+    puts("Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 2 consecutive new near echoes acquire PASS");
+    puts("Obstacle detected through S5's real step (second echo published turning, invalid): EV_OBSTACLE carries its 15 cm PASS");
     puts("Sonar gap: tracking holds still, a sonar fault only after VC_SONAR_GAP_MS PASS");
     puts("S5 lock busy across a phase change: the last snapshot is reused, the sensor mode is requested after a fresh read PASS");
     puts("Avoidance ended by a STOP: EV_OBSTACLE back with how 0 PASS");

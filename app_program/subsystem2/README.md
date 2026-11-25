@@ -136,8 +136,9 @@ controller access, setup/lock failures, PID output, kicks and stall handling.
 They use simulated kernel, time, GPIO and PWM services.
 
 Record results in [testing/subsystem2/TEST_LOG.md](../../testing/subsystem2/TEST_LOG.md)
-and save output under `testing/subsystem2/logs/`. That record holds only the
-host cases S2-U01 to S2-U09; physical wheel direction, wheel speed and
+and save output under `testing/subsystem2/logs/`. That record holds the
+host cases S2-U01 to S2-U09 and the passive on-target `TEST=1` checks S2-U29
+to S2-U33 (status and encoder reads, no motion); physical wheel direction, wheel speed and
 stopping time have no hardware case there yet, so define one before
 measuring them. See [testing/README.md](../../testing/README.md) for the
 run-and-record rules.
