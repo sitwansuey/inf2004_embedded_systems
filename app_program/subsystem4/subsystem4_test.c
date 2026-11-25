@@ -55,8 +55,9 @@ void subsystem4_test(void)
                after.task_heartbeat != before.task_heartbeat,
                "acquisition task keeps running");
 
-    /* S4-U54: the IMU answered with the LSM303DLHC identity and accepted
-     * its configuration (bounded wait for the first attempt) */
+    /* S4-U54: the IMU accelerometer accepted its configuration (bounded
+     * wait for the first attempt). lsm303dlhc_init() does not check the
+     * magnetometer result; S4-U55 covers the magnetometer data. */
     result = s4_sensor_get_status(&before);
     while ((result == E_OK) && !before.configured &&
            (waited < S4_TEST_READY_MS))
@@ -68,7 +69,7 @@ void subsystem4_test(void)
     TEST_CHECK("S4-U54",
                result == E_OK && before.configured &&
                before.init_result == LSM303_OK,
-               "IMU identity read and configuration accepted");
+               "IMU accelerometer configuration accepted");
 
     if ((result == E_OK) && before.configured)
     {

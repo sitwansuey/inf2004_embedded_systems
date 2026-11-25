@@ -25,8 +25,8 @@ Install the Pico C SDK, the Arm GNU Toolchain (`arm-none-eabi-gcc`), GNU Make
 and a host C++ compiler for `elf2uf2`. The SDK needs its `lib/tinyusb`,
 `lib/cyw43-driver` and `lib/lwip` submodules for the MQTT mission build.
 The SDK and compiler are separate installations. Every build of this robot
-needs `PICO_SDK_PATH`, including `CONSOLE=uart WIFI=none`: S4 compiles the
-SDK's I2C driver (`app_program/subsystem4/sdk.mk`; see TEAM.md section 5).
+needs `PICO_SDK_PATH`, including `CONSOLE=uart WIFI=none`, except the S2 bench
+build `S2_ONLY=1 CONSOLE=uart WIFI=none`: S4 compiles the SDK's I2C driver (`app_program/subsystem4/sdk.mk`; see TEAM.md section 5).
 The example below uses SDK 2.3.0; the CI firmware job fetches SDK 2.2.0.
 
 On Windows, the build helper supports WSL Ubuntu or native MSYS2. A native
