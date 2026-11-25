@@ -45,9 +45,12 @@ tests. Name the exact command or build and give a measurable expected result.
 1. **Define it first.** Add a case to the correct `TEST_LOG.md`: ID, purpose,
    requirement or interface, method, steps and expected result.
 2. **Choose the test path.** Use the host entry points below for software
-   checks. The integrated `TEST=1` image calls only `subsystem3_test()`
-   (`app_program/subsystem3/subsystem3_test.c`), a passive `S3-U01`
-   normalization check. It does not test all five subsystems at boot. To add
+   checks. The integrated `TEST=1` image calls
+   `subsystem1_test()` to `subsystem5_test()` (`app_program/subsystemN/subsystemN_test.c`):
+   passive checks of each subsystem's published status, plus S3-U01 normalization
+   and the S1/S5 codec round-trips. `TEST=1 S2_ONLY=1` runs only `subsystem2_test()` and
+   `TEST=1 S4_ONLY=1` only `subsystem4_test()`. None of them drives a motor, the
+   servo or the sonar; they are not hardware tests of the robot's motion. To add
    an on-target check, put a `TEST_CHECK` (see `app_program/test_report.h`) in
    a test function and call it from the `#if APP_TEST` block in
    `app_program/app_main.c`. That file is shared code, so agree the change

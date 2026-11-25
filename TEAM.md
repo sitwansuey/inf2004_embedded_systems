@@ -229,7 +229,7 @@ there was none. *Commits* are those that changed the file after the import
 | `include/tm/robot_health.h`, `lib/libtm/sysdepend/pico_rp2040/robot_health.c` (new) | Heartbeat counters, hardware watchdog and crash-record access. | It lives under `include/` and `lib/` so that the kernel's fault handler and the SDK/CYW43/lwIP ports can use it without including `app_program/` headers. | shared watchdog (IF-20) | `89f1bdc` | IF-20 row (all five members) |
 | `kernel/sysdepend/cpu/core/armv6m/exc_hdr.c` | HardFault writes the crash record, starts a 500 ms watchdog and reboots (Pico only). | A halted core left the other core running with this core's tasks dead. | shared watchdog | `89f1bdc` | not recorded |
 | `kernel/sysdepend/pico_rp2040/hw_setting.c` | Stops the watchdog at boot, starts its 1 MHz tick and releases the TIMER from reset. | Crash-record uptime and the fault handler's watchdog are valid from boot, not only after S4 or S5 start. | shared watchdog | `89f1bdc` | not recorded |
-| `include/sys/inittask.h` | Initial task stack 4 KB in `TEST=1` images (1 KB otherwise). | The on-target self-test runs in the initial task. | `TEST=1` builds (S3-U01) | `ed197b3`, `5f93cb6` | not recorded |
+| `include/sys/inittask.h` | Initial task stack 4 KB in `TEST=1` images (1 KB otherwise). | The on-target self-test runs in the initial task. | `TEST=1` builds (on-target checks of S1 to S5) | `ed197b3`, `5f93cb6` | not recorded |
 | `device/adc/sysdepend/rp2040/adc_cnf_sysdep.h` | Includes `app_program/robot_config.h` and enables the GP26–GP28 analogue pads from `BOARD_IR_MODE` (GP26/GP27 in modes 2 and 3, GP28 only in mode 2); conversion timeout 1000 → 5 ms. | The pads must match S3's wiring: in mode 3 GP28 is a digital input and must keep its digital function. The short timeout bounds each conversion wait well inside S3's 20 ms conversion deadline (`subsystem3/drv_ir_adc.h`). | S3 | `373ad6d`, `921f76d` | not recorded |
 | `device/adc/sysdepend/rp2040/adc_rp2040.c` | The ADC ready waits give up after 100000 polls (`E_TMOUT`) instead of spinning for ever. | A stuck ADC must not hang S3's worker or the start-up. | S3 | `373ad6d` | not recorded |
 | `config/wifi_secrets.example.h` | Adds `MQTT_USERNAME` and `MQTT_PASSWORD` (both `NULL`). | Optional broker login (S1). | S1 | `7c3d323`, `14b6c4f` | not recorded |
@@ -348,8 +348,9 @@ dashboard link); the mission build is `NET=lwip MQTT=1`. The UART and
 crash-report builds (`CONSOLE=uart`, `CRASH_REPORT=1`) need GP0/GP1 for UART0,
 so S5 is not built and the integrated robot cannot drive in them: an ARM or START stops with fault 1 (sonar) within 1 s.
 `S2_ONLY=1` and `S4_ONLY=1` are bench builds that compile and start only that
-subsystem (no VC, S1, S3, S5 or watchdog). `TEST=1` adds `subsystem3_test()`,
-run by the initial task while the robot runs. The S5 test builds (`TEST=1`
+subsystem (no VC, S1, S3, S5 or watchdog). `TEST=1` adds the passive on-target checks (`subsystem1_test()` to
+`subsystem5_test()` in the integrated image, `subsystem2_test()` in `S2_ONLY=1`,
+`subsystem4_test()` in `S4_ONLY=1`), run by the initial task while the robot runs. The S5 test builds (`TEST=1`
 with `APP_S5_MASTER_TEST`, `APP_ACQUISITION_TEST`, `APP_ACQUISITION_LEFT_TEST`
 or `APP_S5_SERVO_TEST`) replace the S5 scan task with a diagnostic task (20,
 core 1) and do not start the VC; that task binds to S2 and drives the motors

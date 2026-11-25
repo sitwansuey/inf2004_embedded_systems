@@ -17,6 +17,9 @@ Define a test here before running it. Test IDs never change.
 | S1-U05 | production snapshots reach the dashboard correctly | FR12, FR13, FR11 | auto (host) | `edr_stream_test.c`, `edr_stream_test.py` via `python -B testing/integration/run.py --compiler gcc` | `EDR16 production snapshot through Python/dashboard PASS`; `Integration recipes PASS` |
 | S1-U06 | snapshots are built every 200 ms | NFR7 | manual | 1. Leave the robot DISARMED, still and fault-free on the desk, linked to the broker; do not touch it. 2. Run `mosquitto_sub -h <broker> -t Robopico/sensors/edr16/v1 -F "%x" -W 60 > logs/YYYY-MM-DD_rate60.txt` (add dashboard login if needed). 3. Keep only the status sequence records (ID 0, subtype 11, one per snapshot): hex `x0by`, sequence `16*y + x`. 4. Take each step between consecutive sequence values modulo 256, add the steps up, then add 1. | 300 ± 2 snapshots built in 60 s |
 | S1-U07 | robot reconnects after a broker restart | FR12 | manual (video) | 1. Leave the robot DISARMED and linked; open the dashboard. 2. Run `net stop mosquitto`. 3. When the dashboard shows the broker lost, run `net start mosquitto`. | Dashboard shows broker lost, then "MQTT subscribed"; robot values return live within 10 s of broker start. |
+| S1-U21 | status LED cyclic handler is running | S1 status LED (GP19) | auto (integrated TEST=1) | `subsystem1_test.c` via `make -C build_make TEST=1 NET=lwip MQTT=1 -j8`; flash `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`. Power up DISARMED, at rest, with every sensor connected; save the USB console from `[TEST] === test run start ===` to `[TEST] === test run end ===`. | `[TEST] S1-U21 PASS  LED cyclic handler is running` |
+| S1-U22 | LED task sleeps between ticks (in WAIT in at least 9 of 10 samples over about 1 s) | S1 status LED (GP19) | auto (integrated TEST=1) | `subsystem1_test.c` via `make -C build_make TEST=1 NET=lwip MQTT=1 -j8`; flash `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`. Power up DISARMED, at rest, with every sensor connected; save the USB console from `[TEST] === test run start ===` to `[TEST] === test run end ===`. | `[TEST] S1-U22 PASS  LED task sleeps between ticks` |
+| S1-U23 | 55-byte telemetry snapshot round-trips range-end values on the target compiler and version 2 is rejected | IF-15 (snapshot format, `telemetry_codec.h`) | auto (integrated TEST=1) | `subsystem1_test.c` via `make -C build_make TEST=1 NET=lwip MQTT=1 -j8`; flash `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`. Power up DISARMED, at rest, with every sensor connected; save the USB console from `[TEST] === test run start ===` to `[TEST] === test run end ===`. | `[TEST] S1-U23 PASS  telemetry snapshot codec round-trips and rejects bad version` |
 
 The IDs were renumbered on 2026-11-21 and again on 2026-11-25 so they run in order with no gaps. The old IDs are listed under *ID changes* below.
 
@@ -26,8 +29,9 @@ S1-U01 to S1-U04 also run together:
 `python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py" -v` (43 tests).
 Run every host command from the repository root.
 
-Subsystem 1 has no on-target `TEST_CHECK`. The host
-tests above and the integration tests below cover it.
+S1-U21 to S1-U23 (added 2026-11-25) are passive on-target checks in `app_program/subsystem1/subsystem1_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. No result is recorded yet; they have not been run on the robot.
+
+Method for these rows: **auto (integrated TEST=1)** = a `TEST_CHECK` that runs on the robot in the integrated test image.
 
 Host tests across an interface have INT IDs. They are defined and recorded in
 `testing/integration/TEST_LOG.md`, not here. Those on Subsystem 1 code:

@@ -90,6 +90,6 @@ headers, and `verify-failure` checks that a failing assertion fails the
 run. The `Buddy 3 CI` workflow runs the same targets.
 
 On the robot, `make -C build_make TEST=1 NET=lwip MQTT=1 -j8` builds the
-passive on-target check `S3-U01` (`subsystem3_test.c`); see
+passive on-target checks `S3-U01`, `S3-U66` and `S3-U67` (`subsystem3_test.c`); see
 [testing/README.md](../../testing/README.md). Test cases, results and saved
 logs are in [testing/subsystem3/](../../testing/subsystem3/TEST_LOG.md).

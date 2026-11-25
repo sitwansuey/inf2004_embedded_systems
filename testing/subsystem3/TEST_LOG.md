@@ -76,6 +76,8 @@ Define a test here before running it. Test IDs never change.
 | S3-B03 | subsystem sources compile for Cortex-M0+ in both SMP modes |  | auto (host) | `subsystem3.c`, `subsystem3_test.c` via `make -C testing/subsystem3 arm-check` | `PASS: Buddy 3 ARM object compilation SMP=0`; `PASS: Buddy 3 ARM object compilation SMP=1` |
 | S3-B04 | host tests pass with static analysis enabled |  | auto (host) | `test_buddy3.c` and host suite via `make -C testing/subsystem3 analyze` | `exit code 0`; no analyzer warnings, 0 failures. |
 | S3-CI01 | a failed assertion makes the test target fail |  | auto (host) | `test_buddy3.c` via `make -C testing/subsystem3 verify-failure` | `PASS: test target propagated a real failed assertion` |
+| S3-U66 | IR sampler is configured and keeps publishing fresh scans with acquisition `E_OK` | FR8; IF-08 (`s3_status_get()`) | auto (integrated TEST=1) | `subsystem3_test.c` via `make -C build_make TEST=1 NET=lwip MQTT=1 -j8`; flash `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`. Power up DISARMED, at rest, with every sensor connected; save the USB console from `[TEST] === test run start ===` to `[TEST] === test run end ===`. | `[TEST] S3-U66 PASS  IR sampler configured and publishing fresh scans` |
+| S3-U67 | latest IR scan has a non-zero valid mask and every raw channel within 0..4095 | FR8; IF-08 (`s3_status_get()`) | auto (integrated TEST=1) | `subsystem3_test.c` via `make -C build_make TEST=1 NET=lwip MQTT=1 -j8`; flash `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`. Power up DISARMED, at rest, with every sensor connected; save the USB console from `[TEST] === test run start ===` to `[TEST] === test run end ===`. | `[TEST] S3-U67 PASS  IR raw readings within the ADC range` |
 
 The rows were added on 2026-11-20 for the checkpoint 8c code (15aebfc). The older definition tables further down ("Buddy 3 implementation test definitions", "Phase 2 definitions and final verification") are kept unchanged and use the old IDs.
 
@@ -88,6 +90,8 @@ On Windows, run it from PowerShell with `C:\msys64\ucrt64\bin;C:\msys64\usr\bin`
 Each program prints PASS lines or "0 failures". Any failure makes `make` stop with an error.
 Also check that the output has no FAIL line. *N* is the printed check count; it changes as tests are added.
 On-target **auto** rows name their build profile. S3 has only the integrated `make TEST=1 NET=lwip MQTT=1` profile.
+
+S3-U66 and S3-U67 (added 2026-11-25) run after S3-U01 in the same `subsystem3_test()`. They read S3's published status only. They take new numbers because S3-U02 to S3-U65 have all been used. No result is recorded yet; they have not been run on the robot.
 
 <details>
 <summary>ID changes on 2026-11-21 (old ID → new ID)</summary>

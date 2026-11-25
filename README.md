@@ -122,8 +122,10 @@ for this robot.
 
 `S2_ONLY=1` and `S4_ONLY=1` are bench builds that start only that
 subsystem: no vehicle controller, no other subsystem and no watchdog.
-`TEST=1` in the integrated build runs the passive `subsystem3_test()` check; it does not run a full set
-of subsystem hardware tests. See [testing/](testing/README.md) for the host
+`TEST=1` adds passive on-target checks: the integrated build runs
+`subsystem1_test()` to `subsystem5_test()`, `S2_ONLY=1` runs `subsystem2_test()` and
+`S4_ONLY=1` runs `subsystem4_test()`. They read status and round-trip codecs; they
+command no motor, servo or sonar and are not hardware tests of the robot's motion. See [testing/](testing/README.md) for the host
 suites and hardware test procedure.
 
 For a crash report, build with:
