@@ -1,12 +1,8 @@
 # System — test log
 
-Tests of the complete product against its requirements, run on the final hardware set-up. Run the full set before every demo and before hand-in.
-
-See `testing/README.md` for how to run tests and record results.
+Whole-robot tests against the project requirements on the final hardware setup.
 
 ## Test cases
-
-Define a test here before running it. Test IDs never change.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
@@ -79,11 +75,8 @@ Removed on 2026-11-25 (latest result INCOMPLETE; a new ID with the same number i
 
 ## Results
 
-Add a new row for every run. Never edit or delete old rows.
-
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| YYYY-MM-DD | SYS-01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
 | 2026-11-19 | SYS-02 | `7a6c373` | Ron Tan | PASS | `logs/2026-11-19_mqtt_rate60.txt`, `logs/2026-11-19_t7_mqtt_idle.txt`, `logs/2026-11-19_flash_8b_boot.txt` | Robot disarmed and still. Rate test: 311 sequence numbers in 62 s (about 301 per 60 s). Idle capture t7: 446 sequence numbers in 88.9 s (300.3 per 60 s), with no impacts or fault changes. |
 | 2026-11-20 | SYS-01 | `662c1ef` | Ron Tan | PASS | `logs/2026-11-20_track_run3_mqtt.txt` | 2 bypasses. Status showed the phase (Acquisition to Restore heading), side and widths (27.5 cm, L 16.0 / R 11.2; 24.0 cm, L 12.0 / R 12.8). Events in order: detected (18 and 17 cm), scanned (width, side), bypass started (side, heading), back on the line (how, 22 and 19 s). The event width is 1-1.5 cm above the status width (29 vs 27.5; 25 vs 24.0). |
 | 2026-11-20 | SYS-03 | `89f1bdc` / `662c1ef` | Ron Tan | PASS | https://youtu.be/jEHOhwIJ0F8 | Track day; the clip has no clock. That day the robot ran `89f1bdc` (from 13:48), a test build (from 15:26) and `662c1ef` (from 15:35); all three have the same line following. The robot drives down the straight past the blue tape (0:00-0:04), round the U-bend (0:04-0:10), through the S-bend (0:10-0:16) and into the next corner, still turning when the clip ends (0:21); it stays on the line throughout. Nobody touches it (at 0:18 a hand slides away a phone lying on the mat beside it). The dashboard is not in shot. The clip starts 16.5 s into the original recording, cutting the part where the robot stands still. |

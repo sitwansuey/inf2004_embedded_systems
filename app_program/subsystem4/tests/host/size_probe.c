@@ -6,31 +6,38 @@
 #ifndef S4_ARM_LAYOUT
 #include <stdio.h>
 #endif
-typedef struct {
-    bool fresh, valid, overrun;
+typedef struct
+{
+    bool                 fresh, valid, overrun;
     lsm303_data_status_t status;
-    int16_t raw[3]; int32_t milli_units[3]; uint64_t read_time_us;
+    int16_t              raw[3];
+    int32_t              milli_units[3];
+    uint64_t             read_time_us;
 } before_sample_t;
-typedef struct {
+typedef struct
+{
     before_sample_t accel, mag;
 } before_frame_t;
-typedef struct {
-    before_frame_t latest;
+typedef struct
+{
+    before_frame_t  latest;
     lsm303_result_t init_result, poll_result;
-    bool configured, accel_usable, mag_usable;
-    uint32_t accel_age_ms, mag_age_ms, init_attempts, task_heartbeat;
-    uint32_t accel_samples, mag_samples, accel_io_errors, mag_io_errors;
-    uint32_t accel_overruns, publish_errors, legacy_lines_received;
-    uint64_t observed_time_us;
+    bool            configured, accel_usable, mag_usable;
+    uint32_t        accel_age_ms, mag_age_ms, init_attempts, task_heartbeat;
+    uint32_t        accel_samples, mag_samples, accel_io_errors, mag_io_errors;
+    uint32_t        accel_overruns, publish_errors, legacy_lines_received;
+    uint64_t        observed_time_us;
 } before_status_t;
-typedef struct {
-    uint32_t time_ms,left,right;
-    int32_t distance_um,speed_mm_s,delta_um,turn_mdeg;
-    uint8_t initialized : 1;
-    uint8_t valid : 1;
+typedef struct
+{
+    uint32_t time_ms, left, right;
+    int32_t  distance_um, speed_mm_s, delta_um, turn_mdeg;
+    uint8_t  initialized : 1;
+    uint8_t  valid : 1;
 } before_odometry_t;
 #ifdef S4_ARM_LAYOUT
-/* nm -S reports byte sizes for the real ARM ABI without executing target code. */
+/* nm -S reports byte sizes for the real ARM ABI without executing target code.
+ */
 char s4_before_sample[sizeof(before_sample_t)];
 char s4_after_sample[sizeof(lsm303_sample_t)];
 char s4_before_status[sizeof(before_status_t)];
@@ -44,15 +51,22 @@ char s4_after_odometry[sizeof(odom_t)];
 char s4_before_calibration[sizeof(odom_config_t)];
 char s4_after_calibration[sizeof(odom_calibration_t)];
 #else
-int main(void)
+int
+main (void)
 {
-    printf("Native sizeof: sample %zu -> %zu; status %zu -> %zu; terrain %zu; encoder input %zu\n",
-        sizeof(before_sample_t),sizeof(lsm303_sample_t),sizeof(before_status_t),
-        sizeof(s4_sensor_status_t),sizeof(terrain_t),sizeof(s4_encoder_input_t));
+    printf("Native sizeof: sample %zu -> %zu; status %zu -> %zu; terrain %zu; "
+           "encoder input %zu\n",
+           sizeof(before_sample_t), sizeof(lsm303_sample_t),
+           sizeof(before_status_t), sizeof(s4_sensor_status_t),
+           sizeof(terrain_t), sizeof(s4_encoder_input_t));
     printf("Persistent cache %zu bytes; shared S4 result %u bytes (%u bits)\n",
-        sizeof(s4_sensor_cache_t),(unsigned)S4_RESULT_SIZE,(unsigned)S4_RESULT_BITS);
+           sizeof(s4_sensor_cache_t), (unsigned) S4_RESULT_SIZE,
+           (unsigned) S4_RESULT_BITS);
     printf("Odometry %zu -> %zu; persistent calibration %zu -> %zu bytes\n",
-        sizeof(before_odometry_t),sizeof(odom_t),sizeof(odom_config_t),sizeof(odom_calibration_t));
+           sizeof(before_odometry_t), sizeof(odom_t), sizeof(odom_config_t),
+           sizeof(odom_calibration_t));
     return 0;
 }
 #endif
+
+/*** end of file ***/

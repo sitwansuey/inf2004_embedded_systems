@@ -31,18 +31,20 @@
 #define S2_TEST_REST_MS 300U
 
 #if S2_ENCODER_ENABLED
-static UW s2_test_wheel_total(const s2_encoder_status_t *p_status, BOOL motor1)
+static UW
+s2_test_wheel_total (const s2_encoder_status_t * p_status, BOOL motor1)
 {
-    return motor1 ?
-        p_status->motor1_positive_pulses + p_status->motor1_negative_pulses :
-        p_status->positive_pulses + p_status->negative_pulses;
+    return motor1 ? p_status->motor1_positive_pulses +
+                        p_status->motor1_negative_pulses
+                  : p_status->positive_pulses + p_status->negative_pulses;
 }
 #endif
 
-EXPORT void subsystem2_test(void)
+EXPORT void
+subsystem2_test (void)
 {
     s2_motion_status_t status = {0};
-    ER er;
+    ER                 er;
 
     TEST_INIT();
 
@@ -53,17 +55,17 @@ EXPORT void subsystem2_test(void)
     /* S2-U30: at power-up (DISARMED, no motion command) the motor owner
      * reports STOP at 0% and the STOPPED state */
     er = s2_motion_get_status(&status);
-    TEST_CHECK("S2-U30", (er == E_OK) &&
-               (status.state == S2_MOTION_STOPPED) &&
-               (status.command == S2_MOVE_STOP) &&
-               (status.power_percent == 0U),
+    TEST_CHECK("S2-U30",
+               (er == E_OK) && (status.state == S2_MOTION_STOPPED) &&
+                   (status.command == S2_MOVE_STOP) &&
+                   (status.power_percent == 0U),
                "motor output is STOPPED at 0% after boot");
 
 #if S2_ENCODER_ENABLED
     {
-        s2_encoder_status_t first = {0};
+        s2_encoder_status_t first  = {0};
         s2_encoder_status_t second = {0};
-        UINT waited = 0U;
+        UINT                waited = 0U;
 
         /* S2-U31: the encoder snapshot becomes valid (bounded wait) */
         er = s2_encoder_get_status(&first);
@@ -84,11 +86,12 @@ EXPORT void subsystem2_test(void)
             tk_dly_tsk(S2_TEST_REST_MS);
             er = s2_encoder_get_status(&second);
         }
-        TEST_CHECK("S2-U32", (er == E_OK) && (second.valid != 0U) &&
-                   (s2_test_wheel_total(&second, TRUE) ==
-                    s2_test_wheel_total(&first, TRUE)) &&
-                   (s2_test_wheel_total(&second, FALSE) ==
-                    s2_test_wheel_total(&first, FALSE)),
+        TEST_CHECK("S2-U32",
+                   (er == E_OK) && (second.valid != 0U) &&
+                       (s2_test_wheel_total(&second, TRUE) ==
+                        s2_test_wheel_total(&first, TRUE)) &&
+                       (s2_test_wheel_total(&second, FALSE) ==
+                        s2_test_wheel_total(&first, FALSE)),
                    "encoder counts stay still at rest");
     }
 #else
@@ -97,8 +100,8 @@ EXPORT void subsystem2_test(void)
 
         TEST_CHECK("S2-U31", s2_encoder_get_status(&encoder) == E_NOSPT,
                    "encoders disabled: snapshot reports E_NOSPT");
-        tm_printf((UB *)"[TEST] S2-U32 SKIP  encoders disabled "
-                  "(S2_ENCODER_ENABLED=0)\n");
+        tm_printf((UB *) "[TEST] S2-U32 SKIP  encoders disabled "
+                         "(S2_ENCODER_ENABLED=0)\n");
     }
 #endif
 
@@ -108,9 +111,11 @@ EXPORT void subsystem2_test(void)
     TEST_CHECK("S2-U33", s2_movement_send(S2_MOVE_STOP, 0U) == E_OACV,
                "motion command from a non-controller task is refused");
 #else
-    tm_printf((UB *)"[TEST] S2-U33 SKIP  S2_ONLY=1 has no bound controller\n");
+    tm_printf((UB *) "[TEST] S2-U33 SKIP  S2_ONLY=1 has no bound controller\n");
 #endif
 
     TEST_SUMMARY("subsystem2");
 }
 #endif
+
+/*** end of file ***/

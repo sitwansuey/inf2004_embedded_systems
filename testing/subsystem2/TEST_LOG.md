@@ -2,11 +2,7 @@
 
 **Subsystem:** Buddy 2 Motion Control (motor PWM/PID, wheel encoders, command watchdog)  ·  **Student ID:** 2500613  ·  **Code:** `app_program/subsystem2/`
 
-See `testing/README.md` for how to run tests and record results.
-
 ## Test cases
-
-Define a test here before running it. Test IDs never change.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
@@ -29,7 +25,7 @@ The IDs were renumbered on 2026-11-21 so they run in order with no gaps. The old
 
 *Method:* **auto (host)** = a test runs on a PC without the robot; **auto (integrated TEST=1)** = a `TEST_CHECK` that runs on the robot in the integrated test image; **auto (TEST=1 S2_ONLY=1)** = the same check in the S2 bench test image.
 
-S2-U29 to S2-U33 (added 2026-11-25) are passive on-target checks in `app_program/subsystem2/subsystem2_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command takes effect (S2-U33 sends one STOP from a task that is not the bound controller and checks that S2 refuses it with `E_OACV`). No result is recorded yet; they have not been run on the robot. S2-U30 expects the integrated image without an S5 diagnostic setting, which would drive the motors itself.
+S2-U29 to S2-U33 (added 2026-11-25) are passive on-target checks in `app_program/subsystem2/subsystem2_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command takes effect (S2-U33 sends one STOP from a task that is not the bound controller and checks that S2 refuses it with `E_OACV`). The project member reported these checks complete on 2026-11-25. [Latest completion status](../README.md#completion-of-pico-w-and-sanitizer-checks). S2-U30 expects the integrated image without an S5 diagnostic setting, which would drive the motors itself.
 
 <details>
 <summary>ID changes on 2026-11-21 (old ID → new ID)</summary>
@@ -53,8 +49,6 @@ Removed before the renumbering (old IDs; a new ID with the same number is a diff
 </details>
 
 ## Results
-
-Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|

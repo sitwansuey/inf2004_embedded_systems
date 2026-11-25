@@ -1,0 +1,91 @@
+Date: 2026-11-25
+Compiler: GCC 16.2.0 (MSYS2)
+Source: Local working tree based on fe14666 with uncommitted BARR-C changes
+Command: make -B -C app_program/subsystem4/tests/host CC=gcc analyze sizes
+Exit status: 0
+Local workspace paths are redacted.
+
+make: Entering directory '<repo>/app_program/subsystem4/tests/host'
+make -B test CFLAGS='-O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer'
+make[1]: Entering directory '<repo>/app_program/subsystem4/tests/host'
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer driver_test.c ../../drv_lsm303dlhc.c  -o ".build/driver_test"
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer data_test.c ../../sensor_data.c  -o ".build/data_test"
+cp ../../packed_bits.h ../../subsystem4.c ../../subsystem4.h ../../sensor_data.h ../../drv_lsm303dlhc.h .build/shim/subsystem4/
+cp app.h .build/shim/app.h
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer api_test.c .build/shim/subsystem4/subsystem4.c ../../sensor_data.c  -o ".build/api_test"
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer terrain_input_test.c ../../encoder_input.c ../../terrain.c ../../../subsystem2/odometry.c ../../../shared/edr.c  -lm -o ".build/terrain_input_test"
+In file included from ../../encoder_input.h:5,
+                 from terrain_input_test.c:1:
+../../terrain.h:105:1: note: offset of packed bit-field 'flat_samples' has changed in GCC 4.4
+  105 | } terrain_t;
+      | ^
+In file included from ../../encoder_input.h:5,
+                 from ../../encoder_input.c:1:
+../../terrain.h:105:1: note: offset of packed bit-field 'flat_samples' has changed in GCC 4.4
+  105 | } terrain_t;
+      | ^
+In file included from ../../terrain.c:4:
+../../terrain.h:105:1: note: offset of packed bit-field 'flat_samples' has changed in GCC 4.4
+  105 | } terrain_t;
+      | ^
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer result_test.c ../../result_data.c  -o ".build/result_test"
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer odometry_storage_test.c ../../../subsystem2/odometry.c ../../../shared/edr.c  -o ".build/odometry_storage_test"
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic -fanalyzer recovery_test.c ../../sensor_cycle.c ../../drv_lsm303dlhc.c ../../sensor_data.c  -o ".build/recovery_test"
+./.build/driver_test
+[TEST] S4-U01 PASS  sensor identity/configuration and initialization faults
+[TEST] S4-U02 PASS  signed decoding, XYZ ordering, units and freshness
+[TEST] S4-U03 PASS  clipped/out-of-range samples are invalid
+[TEST] S4-U04 PASS  partial reads and independent channel failures
+[TEST] S4-U05 PASS  magnetic lock recovery and invalid API arguments
+PASS: configuration/identity, signed decoding/axis order/units,
+      freshness/timestamps/overrun, clipping, independent I/O failures,
+      partial-read rejection, lock recovery and invalid arguments.
+./.build/data_test
+[TEST] S4-U06 PASS  absent/uninitialized state cannot publish usable data
+[TEST] S4-U07 PASS  no-data polls preserve timestamps; stale data expires
+[TEST] S4-U08 PASS  per-channel faults, recovery and reinitialization
+[TEST] S4-U25 PASS  a current clipped accel sample is reported clipped, never usable
+[TEST] S4-U31 PASS  impacts and accel faults are counted per sample, mag faults never
+[TEST] S4-U09 PASS  clipping, future timestamps, 64-bit time and age saturation
+S4-U20 compact cache: 564 bits/71 bytes, raw/time boundaries, exact units, counter isolation/wrap PASS
+./.build/api_test
+[TEST] S4-U10 PASS  two-phase lifecycle, mutex failure retry and argument checks
+[TEST] S4-U13 PASS  unset/changed wall clock cannot alter shared operating time
+[TEST] S4-U11 PASS  protected snapshot, timeout propagation and kernel-clock wrap
+[TEST] S4-U18 PASS  clock errors cannot publish a fresh sample or replace caller output
+[TEST] S4-U12 PASS  task priorities/affinity and duplicate-start rejection
+./.build/terrain_input_test
+S4-U14 PASS exact lengths, reserved bits, invalid records, failed API and retained maximum
+S4-U15 PASS duplicates, zero intervals, stale/future input, skew, gaps and reboot history
+S4-U16 PASS unsigned/signed count boundaries, timer wrap, half-range and discontinuity
+S4-U17 PASS completed humps, partial recovery, reversal, shock, pause, calibration and run reset
+S4-U24 PASS a clipped (+/-2 g) sample is a shock on every axis, never tilt or height
+S4-U26 PASS a plain descent is DESCENT without a height, a deep far side stays DESCENT
+S4-U27 PASS one shock/clipped/skewed/missing sample keeps a hump; more than 60 ms abandons it
+S4-U28 PASS hump end latched with a count; invalid end reports 0 and clears the peak
+S4-U29 PASS the shock flag clears on the next sample, usable or not
+S4-U30 PASS one wheel back a count during a pivot keeps the hump; a reversal ends it
+S4-U19 PASS smaller/larger completed humps update maximum only upward
+./.build/result_test
+S4-U21 result codec: exact size, boundaries, padding, fault mapping, semantic checks and unchanged errors PASS
+./.build/odometry_storage_test
+S4-U23 PASS 4001 speeds, signed delta/yaw bounds and wraps, discontinuity/overflow, checked calibration; odometry=23 calibration=5 bytes
+./.build/recovery_test
+[TEST] S4-U32 PASS  a dead or failing magnetometer never takes the accelerometer down
+[TEST] S4-U33 PASS  re-init on the next cycle, back-off only after a failed attempt, bus cleared first
+[TEST] S4-U34 PASS  a sensor that answers without data is re-initialised
+[TEST] S4-U35 PASS  a held SDA is clocked free (up to 9 clocks) and ends with a STOP
+python3 result_vectors.py
+S4-U22 result receivers: 57 valid and 202 rejected C/Python vectors PASS
+make[1]: Leaving directory '<repo>/app_program/subsystem4/tests/host'
+gcc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic size_probe.c -o .build/size_probe
+In file included from ../../encoder_input.h:5,
+                 from size_probe.c:4:
+../../terrain.h:105:1: note: offset of packed bit-field 'flat_samples' has changed in GCC 4.4
+  105 | } terrain_t;
+      | ^
+./.build/size_probe
+Native sizeof: sample 40 -> 32; status 144 -> 128; terrain 24; encoder input 24
+Persistent cache 71 bytes; shared S4 result 12 bytes (93 bits)
+Odometry 32 -> 23; persistent calibration 12 -> 5 bytes
+make: Leaving directory '<repo>/app_program/subsystem4/tests/host'

@@ -26,22 +26,25 @@
 #include <stdint.h>
 #include "../../include/tm/robot_health.h"
 
-typedef struct {
+typedef struct
+{
     uint32_t window_ms;     /* a heartbeat older than this is stale */
     uint32_t grace_ms;      /* no arming before this uptime */
     uint32_t required_mask; /* bit i: heartbeat i is monitored */
 } wdt_policy_config_t;
 
-typedef struct {
+typedef struct
+{
     uint32_t count[HEALTH_HB_COUNT];      /* last value seen */
     uint32_t changed_ms[HEALTH_HB_COUNT]; /* when it last advanced */
     uint32_t seen_mask;                   /* advanced at least once */
     uint32_t stale_age_ms;                /* STALE: its age then */
-    uint8_t armed, tripped, stale_id;
-    uint8_t stale_mask;                   /* STALE: every loop older than window_ms / 2 */
+    uint8_t  armed, tripped, stale_id;
+    uint8_t  stale_mask; /* STALE: every loop older than window_ms / 2 */
 } wdt_policy_t;
 
-typedef enum {
+typedef enum
+{
     WDT_WAIT,  /* not armed yet: leave the watchdog off */
     WDT_ARM,   /* start the watchdog now (and feed) */
     WDT_FEED,  /* feed it */
@@ -49,16 +52,18 @@ typedef enum {
     WDT_HOLD   /* already stale: never feed again */
 } wdt_action_t;
 
-void wdt_policy_init(wdt_policy_t *p);
-wdt_action_t wdt_policy_step(wdt_policy_t *p, const wdt_policy_config_t *c,
-                             const uint32_t count[HEALTH_HB_COUNT],
-                             uint32_t now_ms, bool boot_done);
+void         wdt_policy_init (wdt_policy_t * p);
+wdt_action_t wdt_policy_step (wdt_policy_t * p, const wdt_policy_config_t * c,
+                              const uint32_t count[HEALTH_HB_COUNT],
+                              uint32_t now_ms, bool boot_done);
 /* Required heartbeats never seen, or older than window_ms, at now_ms. */
-uint32_t wdt_policy_missing(const wdt_policy_t *p, const wdt_policy_config_t *c,
-                            uint32_t now_ms);
+uint32_t wdt_policy_missing (const wdt_policy_t *        p,
+                             const wdt_policy_config_t * c, uint32_t now_ms);
 /* "VC", "motor", "network", "telemetry", "IMU"; "?" out of range. */
-const char *wdt_heartbeat_name(uint32_t id);
+const char * wdt_heartbeat_name (uint32_t id);
 /* "panic", "hard assert", "lwIP assert", "hard fault", "heartbeat stale",
  * "watchdog armed"; "?" out of range. */
-const char *wdt_reason_name(uint32_t reason);
+const char * wdt_reason_name (uint32_t reason);
 #endif
+
+/*** end of file ***/

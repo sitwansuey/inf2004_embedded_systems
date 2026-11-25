@@ -17,46 +17,80 @@
 #ifndef TASK_TIMING_LATE_US
 #define TASK_TIMING_LATE_US 25000U
 #endif
-typedef struct {
-    uint32_t runs;       /* completed runs since boot */
-    uint32_t late;       /* releases more than TASK_TIMING_LATE_US after the previous one */
-    uint32_t max_run_us; /* longest run since boot: release to done, pauses left out */
+typedef struct
+{
+    uint32_t runs; /* completed runs since boot */
+    uint32_t late; /* releases more than TASK_TIMING_LATE_US after the previous
+                      one */
+    uint32_t max_run_us; /* longest run since boot: release to done, pauses left
+                            out */
     uint32_t max_gap_us; /* longest time between two releases since boot */
     uint32_t release_us, start_us, run_us; /* the current run */
-    uint32_t released;   /* a run is open (release seen, done not yet) */
-    uint32_t seen;       /* any release seen: the first one has no gap */
+    uint32_t released; /* a run is open (release seen, done not yet) */
+    uint32_t seen;     /* any release seen: the first one has no gap */
 } task_timing_t;
-enum { TASK_TIMING_VC, TASK_TIMING_MOTOR, TASK_TIMING_NET, TASK_TIMING_COUNT };
+enum
+{
+    TASK_TIMING_VC,
+    TASK_TIMING_MOTOR,
+    TASK_TIMING_NET,
+    TASK_TIMING_COUNT
+};
 #if BOARD_TIMING_STATS
 /* Defined in app_main.c, which every firmware build links. */
 extern task_timing_t app_task_timing[TASK_TIMING_COUNT];
 #endif
 /* The loop woke for new work (its period or a message). */
-static inline void task_timing_release(task_timing_t *t,uint32_t now_us)
+static inline void
+task_timing_release (task_timing_t * t, uint32_t now_us)
 {
-    if (t->seen) {
-        uint32_t gap=now_us-t->release_us;
-        if (gap>t->max_gap_us) t->max_gap_us=gap;
-        if (gap>TASK_TIMING_LATE_US) ++t->late;
+    if (t->seen)
+    {
+        uint32_t gap = now_us - t->release_us;
+        if (gap > t->max_gap_us)
+        {
+            t->max_gap_us = gap;
+        }
+        if (gap > TASK_TIMING_LATE_US)
+        {
+            ++t->late;
+        }
     }
-    t->seen=1U;t->released=1U;
-    t->release_us=t->start_us=now_us;t->run_us=0U;
+    t->seen       = 1U;
+    t->released   = 1U;
+    t->release_us = t->start_us = now_us;
+    t->run_us                   = 0U;
 }
 /* About to sleep inside the run / back from that sleep. */
-static inline void task_timing_pause(task_timing_t *t,uint32_t now_us)
+static inline void
+task_timing_pause (task_timing_t * t, uint32_t now_us)
 {
-    if (t->released) t->run_us+=now_us-t->start_us;
+    if (t->released)
+    {
+        t->run_us += now_us - t->start_us;
+    }
 }
-static inline void task_timing_resume(task_timing_t *t,uint32_t now_us)
+static inline void
+task_timing_resume (task_timing_t * t, uint32_t now_us)
 {
-    t->start_us=now_us;
+    t->start_us = now_us;
 }
 /* The run is over: the loop is about to wait for its next release. */
-static inline void task_timing_done(task_timing_t *t,uint32_t now_us)
+static inline void
+task_timing_done (task_timing_t * t, uint32_t now_us)
 {
-    if (!t->released) return;
-    uint32_t run=t->run_us+(now_us-t->start_us);
-    if (run>t->max_run_us) t->max_run_us=run;
-    ++t->runs;t->released=0U;
+    if (!t->released)
+    {
+        return;
+    }
+    uint32_t run = t->run_us + (now_us - t->start_us);
+    if (run > t->max_run_us)
+    {
+        t->max_run_us = run;
+    }
+    ++t->runs;
+    t->released = 0U;
 }
 #endif
+
+/*** end of file ***/

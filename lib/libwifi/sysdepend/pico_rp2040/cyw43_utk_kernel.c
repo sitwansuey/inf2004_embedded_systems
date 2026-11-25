@@ -3,25 +3,26 @@
 
 #include <tk/tkernel.h>
 
-IMPORT void cyw43_utk_task(INT stacd, void *exinf);
+IMPORT void cyw43_utk_task (INT stacd, void * exinf);
 
 /* USB CDC drains at priority 3 on the same physical core.  Keep radio polling
  * below it so firmware download and the poll cadence (tk_dly_tsk(2) in
  * cyw43_utk.c: 10 ms tick plus the guard tick, so ~20 ms) cannot overflow the
  * console ring, while remaining well above the qualification task. */
-#define CYW43_TASK_PRIORITY  4
+#define CYW43_TASK_PRIORITY 4
 #if TM_NET_LWIP
 /* lwIP's own call chains (tcp_input/dhcp/etharp) run on this same task and
  * go deeper than the bare radio poll loop did. */
-#define CYW43_TASK_STACK     (8 * 1024)
+#define CYW43_TASK_STACK (8 * 1024)
 #else
-#define CYW43_TASK_STACK     (6 * 1024)
+#define CYW43_TASK_STACK (6 * 1024)
 #endif
 
-EXPORT ER cyw43_utk_start(void)
+EXPORT ER
+cyw43_utk_start (void)
 {
     T_CTSK ctsk = {0};
-    ID task;
+    ID     task;
 
     /* Pinned to processor 1 (core 0) for the same reason usb_console.c pins
      * its service task: the CYW43439's PIO/DMA and pin ownership, and the
@@ -35,14 +36,19 @@ EXPORT ER cyw43_utk_start(void)
     ctsk.tskatr = TA_HLNG | TA_RNG1;
     ctsk.assprc = 0;
 #endif
-	ctsk.task = (FP)cyw43_utk_task;
+    ctsk.task    = (FP) cyw43_utk_task;
     ctsk.itskpri = CYW43_TASK_PRIORITY;
-    ctsk.stksz = CYW43_TASK_STACK;
+    ctsk.stksz   = CYW43_TASK_STACK;
 #if USE_OBJECT_NAME
-    ctsk.dsname = (UB*)"cyw43";
+    ctsk.dsname = (UB *) "cyw43";
 #endif
 
     task = tk_cre_tsk(&ctsk);
-    if(task < E_OK) return task;
+    if (task < E_OK)
+    {
+        return task;
+    }
     return tk_sta_tsk(task, 0);
 }
+
+/*** end of file ***/

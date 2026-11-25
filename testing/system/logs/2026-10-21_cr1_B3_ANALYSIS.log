@@ -1,4 +1,4 @@
-make: Entering directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/subsystem3'
+make: Entering directory '<workspace>/src/testing/subsystem3'
 make --no-print-directory -B test CFLAGS="-std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1"
 mkdir -p .build
 gcc -I../../app_program/subsystem3 -std=c11 -Wall -Wextra -Werror -pedantic -Wshadow -Wconversion -O2 -fanalyzer -O1 test_buddy3.c ../../app_program/subsystem3/buddy3_line.c ../../app_program/subsystem3/buddy3_barcode.c ../../app_program/subsystem3/buddy3_core.c  -o .build/test_buddy3
@@ -70,4 +70,4 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 PASS: Buddy 3 ARM object compilation SMP=0
 PASS: Buddy 3 ARM object compilation SMP=1
-make: Leaving directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/subsystem3'
+make: Leaving directory '<workspace>/src/testing/subsystem3'

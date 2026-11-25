@@ -24,12 +24,16 @@
 #ifndef APP_S5_SERVO_TEST
 #define APP_S5_SERVO_TEST 0
 #endif
-#define APP_S5_DIAGNOSTICS (APP_S5_MASTER_TEST || APP_ACQUISITION_TEST || APP_ACQUISITION_LEFT_TEST || APP_S5_SERVO_TEST)
+#define APP_S5_DIAGNOSTICS                                                     \
+    (APP_S5_MASTER_TEST || APP_ACQUISITION_TEST ||                             \
+     APP_ACQUISITION_LEFT_TEST || APP_S5_SERVO_TEST)
 #if APP_S5_DIAGNOSTICS && !APP_TEST
 #error S5 diagnostics require APP_TEST=1
 #endif
 #ifndef BOARD_MOTORS_DISABLED
-#define BOARD_MOTORS_DISABLED 0 /* 1: USB bench lock, the motors never drive */
+#define BOARD_MOTORS_DISABLED                                                  \
+    0 /* 1: USB bench lock, the motors never drive                             \
+       */
 #endif
 #if BOARD_MOTORS_DISABLED != 0 && BOARD_MOTORS_DISABLED != 1
 #error BOARD_MOTORS_DISABLED must be 0 or 1
@@ -66,9 +70,9 @@
 #ifndef BOARD_WATCHDOG_GRACE_MS
 #define BOARD_WATCHDOG_GRACE_MS 20000U
 #endif
-#if BOARD_WATCHDOG_TIMEOUT_MS < 500 || BOARD_WATCHDOG_TIMEOUT_MS > 8000 || \
+#if BOARD_WATCHDOG_TIMEOUT_MS < 500 || BOARD_WATCHDOG_TIMEOUT_MS > 8000 ||     \
     BOARD_WATCHDOG_WINDOW_MS < 300 || BOARD_WATCHDOG_WINDOW_MS > 5000
-#error BOARD_WATCHDOG_TIMEOUT_MS must be 500..8000 and BOARD_WATCHDOG_WINDOW_MS 300..5000
+#error Watchdog timeout/window outside supported range
 #endif
 /* CYW43 radio power save (lib/libwifi/.../cyw43_utk.c). 0: off
  * (CYW43_NONE_PM) after init and after every join; 1: driver default
@@ -95,50 +99,67 @@
  * matter); BOARD_BARCODE_END_QUIET_MS is only the time backstop for a robot
  * that stops on the marker. */
 #ifndef BOARD_BARCODE_END_GAP_MM
-#define BOARD_BARCODE_END_GAP_MM 30U /* no GP28 change over 30 mm = end of barcode */
+#define BOARD_BARCODE_END_GAP_MM                                               \
+    30U /* no GP28 change over 30 mm = end of barcode */
 #endif
 #ifndef BOARD_BARCODE_END_QUIET_MS
-#define BOARD_BARCODE_END_QUIET_MS 4000U /* backstop: no GP28 change for 4 s */
+#define BOARD_BARCODE_END_QUIET_MS                                             \
+    4000U /* backstop: no GP28 change for 4 s                                  \
+           */
 #endif
 #ifndef BOARD_BARCODE_RETRY_DRIVE
 #define BOARD_BARCODE_RETRY_DRIVE 1
 #endif
 #ifndef BOARD_BARCODE_RETRY_BRAKE_MS
-#define BOARD_BARCODE_RETRY_BRAKE_MS 200U /* settle before reversing direction */
+#define BOARD_BARCODE_RETRY_BRAKE_MS                                           \
+    200U /* settle before reversing direction */
 #endif
 #ifndef BOARD_BARCODE_RETRY_SPEED_PERCENT
-#define BOARD_BARCODE_RETRY_SPEED_PERCENT 50U /* re-read speed, % of the normal demand (8f: 30,
-    i.e. 6% at a 20% demand, where the wheels stalled and lurched mid-marker; 25 Nov) */
+#define BOARD_BARCODE_RETRY_SPEED_PERCENT                                      \
+    50U /* re-read speed, % of the normal demand (8f: 30,                      \
+i.e. 6% at a 20% demand, where the wheels stalled and lurched mid-marker; 25   \
+Nov) */
 #endif
 #ifndef BOARD_BARCODE_RETRY_REVERSE_MAX_MM
-#define BOARD_BARCODE_RETRY_REVERSE_MAX_MM 800U /* reverse bound if no read result */
+#define BOARD_BARCODE_RETRY_REVERSE_MAX_MM                                     \
+    800U /* reverse bound if no read result */
 #endif
 #ifndef BOARD_BARCODE_RETRY_SLOW_EXTRA_MM
-#define BOARD_BARCODE_RETRY_SLOW_EXTRA_MM 150U /* slow pass beyond the reverse distance */
+#define BOARD_BARCODE_RETRY_SLOW_EXTRA_MM                                      \
+    150U /* slow pass beyond the reverse distance */
 #endif
 #ifndef BOARD_BARCODE_RETRY_COOLDOWN_MM
-#define BOARD_BARCODE_RETRY_COOLDOWN_MM 300U /* ignore late results of the same marker */
+#define BOARD_BARCODE_RETRY_COOLDOWN_MM                                        \
+    300U /* ignore late results of the same marker */
 #endif
 #ifndef BOARD_BARCODE_RETRY_MIN_POWER
-#define BOARD_BARCODE_RETRY_MIN_POWER 5U /* PID speed target floor for the slow passes */
+#define BOARD_BARCODE_RETRY_MIN_POWER                                          \
+    5U /* PID speed target floor for the slow passes */
 #endif
 #ifndef BOARD_BARCODE_RETRY_REVERSE_MIN_POWER
-#define BOARD_BARCODE_RETRY_REVERSE_MIN_POWER 10U /* reverse re-read floor: 6% stalled the wheels in reverse */
+#define BOARD_BARCODE_RETRY_REVERSE_MIN_POWER                                  \
+    10U /* reverse re-read floor: 6% stalled the wheels in reverse */
 #endif
 #ifndef BOARD_BARCODE_RETRY_STATE_MS
-#define BOARD_BARCODE_RETRY_STATE_MS 20000U /* any retry step longer than this gives up */
+#define BOARD_BARCODE_RETRY_STATE_MS                                           \
+    20000U /* any retry step longer than this gives up */
 #endif
 #ifndef BOARD_BARCODE_RETRY_REVERSE_ELEMENTS
-#define BOARD_BARCODE_RETRY_REVERSE_ELEMENTS 29U /* a whole *X* (15 bars + 14 spaces) counted: the reverse may end before REVERSE_MIN_MS, still END_GAP+RUNUP past the read */
+#define BOARD_BARCODE_RETRY_REVERSE_ELEMENTS                                   \
+    29U /* a whole *X* (15 bars + 14 spaces) counted: the reverse may end      \
+           before REVERSE_MIN_MS, still END_GAP+RUNUP past the read */
 #endif
 #ifndef BOARD_BARCODE_RETRY_IDLE_MS
-#define BOARD_BARCODE_RETRY_IDLE_MS 3000U /* no barcode state change while reversing/waiting = failed */
+#define BOARD_BARCODE_RETRY_IDLE_MS                                            \
+    3000U /* no barcode state change while reversing/waiting = failed */
 #endif
 #ifndef BOARD_BARCODE_RETRY_RUNUP_MM
-#define BOARD_BARCODE_RETRY_RUNUP_MM 50U /* reverse this far beyond the end gap past the first bar */
+#define BOARD_BARCODE_RETRY_RUNUP_MM                                           \
+    50U /* reverse this far beyond the end gap past the first bar */
 #endif
 #ifndef BOARD_BARCODE_RETRY_REVERSE_MIN_MS
-#define BOARD_BARCODE_RETRY_REVERSE_MIN_MS 5000U /* reverse at least this long before declaring failure */
+#define BOARD_BARCODE_RETRY_REVERSE_MIN_MS                                     \
+    5000U /* reverse at least this long before declaring failure */
 #endif
 /* First normal-speed pass: once GP28 starts a marker (S3 READING), read the
  * rest of it at the re-read speed above. Bars are measured by travelled
@@ -151,7 +172,8 @@
  * black): straight on by the sensor-to-wheel offset, so the wheels pivot on
  * the crossing. No junction within SEARCH_MM: it turns there. */
 #ifndef BOARD_NAV_JUNCTION_OFFSET_MM
-#define BOARD_NAV_JUNCTION_OFFSET_MM 90U /* front IR sensors to the wheel axle */
+#define BOARD_NAV_JUNCTION_OFFSET_MM                                           \
+    90U /* front IR sensors to the wheel axle */
 #endif
 #ifndef BOARD_NAV_JUNCTION_SEARCH_MM
 #define BOARD_NAV_JUNCTION_SEARCH_MM 600U /* stop waiting for a junction */
@@ -182,15 +204,21 @@
 #ifndef BOARD_NAV_UTURN_MAX_DEG
 #define BOARD_NAV_UTURN_MAX_DEG 210U
 #endif
-#if BOARD_NAV_TURN_POWER < 1 || BOARD_NAV_TURN_POWER > 50 || BOARD_NAV_TURN_SEEK_POWER < 1 || BOARD_NAV_TURN_SEEK_POWER > 50
+#if BOARD_NAV_TURN_POWER < 1 || BOARD_NAV_TURN_POWER > 50 ||                   \
+    BOARD_NAV_TURN_SEEK_POWER < 1 || BOARD_NAV_TURN_SEEK_POWER > 50
 #error Navigation turn powers must be 1..50 percent
 #endif
-#if (BOARD_NAV_TURN_MAX_DEG && (BOARD_NAV_TURN_MIN_DEG > 90 || BOARD_NAV_TURN_MAX_DEG < 90 || BOARD_NAV_TURN_MAX_DEG > 180)) || \
-    (BOARD_NAV_UTURN_MAX_DEG && (BOARD_NAV_UTURN_MIN_DEG > 180 || BOARD_NAV_UTURN_MAX_DEG < 180 || BOARD_NAV_UTURN_MAX_DEG > 255))
-#error Navigation turn windows must be MIN <= 90 <= MAX <= 180 (U-turn: MIN <= 180 <= MAX <= 255)
+#if (BOARD_NAV_TURN_MAX_DEG &&                                                 \
+     (BOARD_NAV_TURN_MIN_DEG > 90 || BOARD_NAV_TURN_MAX_DEG < 90 ||            \
+      BOARD_NAV_TURN_MAX_DEG > 180)) ||                                        \
+    (BOARD_NAV_UTURN_MAX_DEG &&                                                \
+     (BOARD_NAV_UTURN_MIN_DEG > 180 || BOARD_NAV_UTURN_MAX_DEG < 180 ||        \
+      BOARD_NAV_UTURN_MAX_DEG > 255))
+#error Navigation turn windows are invalid
 #endif
 #ifndef BOARD_NAV_UTURN_IGNORE_MM
-#define BOARD_NAV_UTURN_IGNORE_MM 1200U /* after a U-turn, re-reading the same marker does not turn again */
+#define BOARD_NAV_UTURN_IGNORE_MM                                              \
+    1200U /* after a U-turn, re-reading the same marker does not turn again */
 #endif
 /* After a barcode U-turn, rotate on the spot (+/-30, +/-60 deg sweep) until a
  * line sensor is on black before tracking; a turn that ended on a line touch
@@ -203,27 +231,35 @@
  * when only the right/left straddle sensor is on black. The obstacle reverse
  * (VC_BACKUP) holds its heading with the same gains, line term off. */
 #ifndef BOARD_BARCODE_RETRY_REVERSE_YAW_GAIN
-#define BOARD_BARCODE_RETRY_REVERSE_YAW_GAIN 40 /* steering per degree of heading error */
+#define BOARD_BARCODE_RETRY_REVERSE_YAW_GAIN                                   \
+    40 /* steering per degree of heading error */
 #endif
 #ifndef BOARD_BARCODE_RETRY_REVERSE_LINE_GAIN
 /* LINE/YAW sets the heading authority (200/40 = 5 deg) the line term has
  * against a wrong heading reference; below ~5x the robot drifts off. */
-#define BOARD_BARCODE_RETRY_REVERSE_LINE_GAIN 200 /* steering when one sensor touches the line */
+#define BOARD_BARCODE_RETRY_REVERSE_LINE_GAIN                                  \
+    200 /* steering when one sensor touches the line */
 #endif
 #ifndef BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT
-#define BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT 300 /* |steer| bound, S2 accepts up to 400 */
+#define BOARD_BARCODE_RETRY_REVERSE_STEER_LIMIT                                \
+    300 /* |steer| bound, S2 accepts up to 400 */
 #endif
 #ifndef BOARD_BARCODE_RETRY_YAW_REF_DIV
-#define BOARD_BARCODE_RETRY_YAW_REF_DIV 50 /* heading EMA divisor: 50 VC ticks x 20 ms = 1.0 s */
+#define BOARD_BARCODE_RETRY_YAW_REF_DIV                                        \
+    50 /* heading EMA divisor: 50 VC ticks x 20 ms = 1.0 s */
 #endif
 /* Barcode-read line steering (vehicle_line_steer.h line_marker_steer): starts
  * at BOARD_LINE_STEER_MIN and ramps over BOARD_LINE_STEER_RAMP_MS to
- * BOARD_BARCODE_READ_LINE_STEER while the same straddle sensor stays on black. */
+ * BOARD_BARCODE_READ_LINE_STEER while the same straddle sensor stays on black.
+ */
 #ifndef BOARD_LINE_STEER_MIN
-#define BOARD_LINE_STEER_MIN 200 /* first correction; 150 was too weak for bends, 250 wobbled on straights */
+#define BOARD_LINE_STEER_MIN                                                   \
+    200 /* first correction; 150 was too weak for bends, 250 wobbled on        \
+           straights */
 #endif
 #ifndef BOARD_LINE_STEER_RAMP_MS
-#define BOARD_LINE_STEER_RAMP_MS 150U /* MIN -> read steer while the same sensor stays on black */
+#define BOARD_LINE_STEER_RAMP_MS                                               \
+    150U /* MIN -> read steer while the same sensor stays on black */
 #endif
 /* While a barcode is read (BOARD_BARCODE_READ_MIN_ELEMENTS or more) the
  * follower is off and the robot reads on at the slow speed; it may steer
@@ -262,22 +298,27 @@
 #define BOARD_BARCODE_MIN_RUN_MS 20U
 #endif
 #ifndef BOARD_BARCODE_MIN_RUN_POSITION
-#define BOARD_BARCODE_MIN_RUN_POSITION 4U /* half encoder counts (~0.7 mm): shorter AND briefer = noise */
+#define BOARD_BARCODE_MIN_RUN_POSITION                                         \
+    4U /* half encoder counts (~0.7 mm): shorter AND briefer = noise */
 #endif
 #ifndef BOARD_BARCODE_DIGITAL_BLACK_LEVEL
-#define BOARD_BARCODE_DIGITAL_BLACK_LEVEL 1U /* GP28 was measured HIGH on black. */
+#define BOARD_BARCODE_DIGITAL_BLACK_LEVEL                                      \
+    1U /* GP28 was measured HIGH on black. */
 #endif
-#if BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 0 && BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 1
+#if BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 0 &&                                  \
+    BOARD_BARCODE_DIGITAL_BLACK_LEVEL != 1
 #error Barcode digital black level must be zero or one
 #endif
 #ifndef BOARD_IR_MODE
-#define BOARD_IR_MODE 3 /* 0 disabled, 1 digital, 2 ADC, 3 ADC line + GP28 digital barcode. */
+#define BOARD_IR_MODE                                                          \
+    3 /* 0 disabled, 1 digital, 2 ADC, 3 ADC line + GP28 digital barcode. */
 #endif
 /* Measured ADC endpoints (robot_ir_calibration.h) unless an override defines
  * BOARD_IR_ADC_CALIBRATED. Mode 2: GP26/27/28 all on the ADC. Mode 3 (since
  * 2026-11-09): GP26/GP27 ADC line sensors; GP28 barcode is a DIGITAL input
  * (module DO pin), HIGH = black (BOARD_BARCODE_DIGITAL_BLACK_LEVEL). */
-#if (BOARD_IR_MODE == 2 || BOARD_IR_MODE == 3) && !defined(BOARD_IR_ADC_CALIBRATED)
+#if (BOARD_IR_MODE == 2 || BOARD_IR_MODE == 3) &&                              \
+    !defined(BOARD_IR_ADC_CALIBRATED)
 #include "robot_ir_calibration.h"
 #endif
 #ifndef BOARD_IR_BLACK_LEVEL
@@ -291,16 +332,23 @@
 #define BOARD_IR_MAX_SAMPLE_GAP_MS 30U
 #endif
 #ifndef BOARD_IR_LINE_MASK
-#define BOARD_IR_LINE_MASK 3 /* GP26 right + GP27 left; GP28 is barcode-only. */
+#define BOARD_IR_LINE_MASK                                                     \
+    3 /* GP26 right + GP27 left; GP28 is barcode-only.                         \
+       */
 #endif
 #ifndef BOARD_BARCODE_SENSOR
-#define BOARD_BARCODE_SENSOR 2 /* S3 index 2 = GP28; excluded from line mask. */
+#define BOARD_BARCODE_SENSOR                                                   \
+    2 /* S3 index 2 = GP28; excluded from line mask.                           \
+       */
 #endif
 #ifndef BOARD_IR_POSITIONS
-#define BOARD_IR_POSITIONS {1000,-1000,0} /* Logical right/left; not millimetres. */
+#define BOARD_IR_POSITIONS                                                     \
+    {1000, -1000, 0} /* Logical right/left; not millimetres. */
 #endif
 #ifndef BOARD_MAP_A
-#define BOARD_MAP_A 4 /* Codebook: A=U-turn, Z=right, F=left; B-D unmapped (read, no turn). 1 left 2 right 3 straight 4 U-turn */
+#define BOARD_MAP_A                                                            \
+    4 /* Codebook: A=U-turn, Z=right, F=left; B-D unmapped (read, no turn). 1  \
+         left 2 right 3 straight 4 U-turn */
 #endif
 #ifndef BOARD_MAP_B
 #define BOARD_MAP_B 0
@@ -347,18 +395,26 @@
 #ifndef BOARD_IMU_UP_AXIS
 #define BOARD_IMU_UP_AXIS 3
 #endif
-#define BOARD_IMU_ABS_(a) ((a)<0?-(a):(a))
-#if BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS)<1 || BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS)>3 || \
-    BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS)<1 || BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS)>3 || \
-    BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)<1 || BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)>3
+#define BOARD_IMU_ABS_(a) ((a) < 0 ? -(a) : (a))
+#if BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS) < 1 ||                                \
+    BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS) > 3 ||                                \
+    BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS) < 1 ||                                 \
+    BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS) > 3 ||                                 \
+    BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS) < 1 ||                                   \
+    BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS) > 3
 #error BOARD_IMU_*_AXIS must be +/-1, +/-2 or +/-3
 #endif
 /* Distinct axes forming a right-handed frame (front x left = up): the
  * permutation's parity times the three signs must be positive. */
-#if (BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS)-BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS))* \
-    (BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)-BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS))* \
-    (BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS)-BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS))* \
-    (BOARD_IMU_FRONT_AXIS)*(BOARD_IMU_LEFT_AXIS)*(BOARD_IMU_UP_AXIS) <= 0
+#if (BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS) -                                     \
+     BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS)) *                                   \
+        (BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS) -                                   \
+         BOARD_IMU_ABS_(BOARD_IMU_FRONT_AXIS)) *                               \
+        (BOARD_IMU_ABS_(BOARD_IMU_UP_AXIS) -                                   \
+         BOARD_IMU_ABS_(BOARD_IMU_LEFT_AXIS)) *                                \
+        (BOARD_IMU_FRONT_AXIS) * (BOARD_IMU_LEFT_AXIS) *                       \
+        (BOARD_IMU_UP_AXIS) <=                                                 \
+    0
 #error BOARD_IMU_FRONT/LEFT/UP_AXIS must be three different axes, right-handed
 #endif
 /* Straddle follower black/white decision, per mille of each sensor's
@@ -373,7 +429,8 @@
 #ifndef BOARD_LINE_WHITE_PERMILLE
 #define BOARD_LINE_WHITE_PERMILLE 550U
 #endif
-#if BOARD_LINE_WHITE_PERMILLE >= BOARD_LINE_BLACK_PERMILLE || BOARD_LINE_BLACK_PERMILLE > 1000
+#if BOARD_LINE_WHITE_PERMILLE >= BOARD_LINE_BLACK_PERMILLE ||                  \
+    BOARD_LINE_BLACK_PERMILLE > 1000
 #error Straddle thresholds: WHITE < BLACK <= 1000 per mille
 #endif
 /* Lifted: while running, both line IRs at or above BOARD_LIFT_RAW (no surface
@@ -425,7 +482,7 @@
 #define BOARD_LINE_EDGE_TRACE 0
 #endif
 #if !BOARD_LINE_MASK_PIVOT && !BOARD_LINE_EDGE_TRACE
-#error Select a line follower: BOARD_LINE_MASK_PIVOT 1 (default) or BOARD_LINE_EDGE_TRACE 1
+#error Select one line follower
 #endif
 #ifndef BOARD_LINE_EDGE_RIGHT
 #define BOARD_LINE_EDGE_RIGHT 1
@@ -443,13 +500,15 @@
 #define BOARD_LINE_EDGE_DEEP 920 /* edge IR nearly fully on the line ... */
 #endif
 #ifndef BOARD_LINE_EDGE_DEEP_MS
-#define BOARD_LINE_EDGE_DEEP_MS 250U /* ... this long: pivot toward the edge side */
+#define BOARD_LINE_EDGE_DEEP_MS                                                \
+    250U /* ... this long: pivot toward the edge side */
 #endif
 #ifndef BOARD_LINE_EDGE_SLOW_PERMILLE
 #define BOARD_LINE_EDGE_SLOW_PERMILLE 350
 #endif
-#if BOARD_LINE_EDGE_SET < 100 || BOARD_LINE_EDGE_SET > 900 || BOARD_LINE_EDGE_KP_MILLI < 0 || \
-    BOARD_LINE_EDGE_SLOW_PERMILLE < 0 || BOARD_LINE_EDGE_SLOW_PERMILLE > 900
+#if BOARD_LINE_EDGE_SET < 100 || BOARD_LINE_EDGE_SET > 900 ||                  \
+    BOARD_LINE_EDGE_KP_MILLI < 0 || BOARD_LINE_EDGE_SLOW_PERMILLE < 0 ||       \
+    BOARD_LINE_EDGE_SLOW_PERMILLE > 900
 #error Edge tracing: set 100..900, kp >= 0, slow 0..900
 #endif
 /* Ramp speed handling (phase 5), 0 = off. The terrain tilt is computed
@@ -481,7 +540,8 @@
 #define BOARD_RAMP_TILT_CDEG 400
 #endif
 #ifndef BOARD_RAMP_HOLD_MS
-#define BOARD_RAMP_HOLD_MS 400U /* rejects the ~0.25 s pitch bump at the ramp entry */
+#define BOARD_RAMP_HOLD_MS                                                     \
+    400U /* rejects the ~0.25 s pitch bump at the ramp entry */
 #endif
 #ifndef BOARD_RAMP_CREST_DROP_CDEG
 #define BOARD_RAMP_CREST_DROP_CDEG 150
@@ -500,9 +560,11 @@
  * (2026-11-20, fault 7); 15% gives the speed loop more drive there. */
 #define BOARD_RAMP_DOWN_POWER 15U
 #endif
-#if BOARD_RAMP_SPEED && (BOARD_RAMP_UP_POWER > 50 || BOARD_RAMP_DOWN_POWER > 50 || \
-    BOARD_RAMP_LEVEL_CDEG >= BOARD_RAMP_TILT_CDEG || BOARD_IMU_SMOOTH_MS < 1 || BOARD_IMU_SMOOTH_MS > 5000)
-#error Ramp test: powers 0..50 (0 no cap), level below the start tilt, smoothing 1..5000 ms
+#if BOARD_RAMP_SPEED &&                                                        \
+    (BOARD_RAMP_UP_POWER > 50 || BOARD_RAMP_DOWN_POWER > 50 ||                 \
+     BOARD_RAMP_LEVEL_CDEG >= BOARD_RAMP_TILT_CDEG ||                          \
+     BOARD_IMU_SMOOTH_MS < 1 || BOARD_IMU_SMOOTH_MS > 5000)
+#error Ramp test settings are out of range
 #endif
 /* Level-ground zeros, measured 2026-11-11 over MQTT: 161 still samples in
  * three level windows, accel median (-54,-250,909) mg, sd <7 mg -> pitch
@@ -526,7 +588,8 @@
 #define BOARD_SHOCK_STOP (!BOARD_PID_ENABLED)
 #endif
 #ifndef BOARD_BYPASS_VALIDATED
-#define BOARD_BYPASS_VALIDATED 1 /* obstacle bypass on (0: stop at an obstacle) */
+#define BOARD_BYPASS_VALIDATED                                                 \
+    1 /* obstacle bypass on (0: stop at an obstacle) */
 #endif
 /* Speed PID and wheel trims: accepted 2026-11-06 floor calibration
  * (calibration/motor_recalibration_2026-11-06.json, 1088 vs 1094 counts in
@@ -547,7 +610,8 @@
 #define BOARD_PID_CALIBRATED 1
 #endif
 #ifndef BOARD_PID_MAX_CPS
-#define BOARD_PID_MAX_CPS 1950 /* measured wheel counts/s at the reference full scale */
+#define BOARD_PID_MAX_CPS                                                      \
+    1950 /* measured wheel counts/s at the reference full scale */
 #endif
 #ifndef BOARD_PID_KP_MILLI
 #define BOARD_PID_KP_MILLI 30
@@ -570,10 +634,16 @@
 #if BOARD_PID_ENABLED != 0 && BOARD_PID_ENABLED != 1
 #error BOARD_PID_ENABLED must be 0 or 1
 #endif
-#if BOARD_PID_ENABLED && (BOARD_PID_KP_MILLI < 0 || BOARD_PID_KP_MILLI > 10000 || BOARD_PID_KI_MILLI < 0 || BOARD_PID_KI_MILLI > 10000 || BOARD_PID_KD_MILLI < 0 || BOARD_PID_KD_MILLI > 10000 || (BOARD_PID_KP_MILLI + BOARD_PID_KI_MILLI + BOARD_PID_KD_MILLI) == 0)
+#if BOARD_PID_ENABLED &&                                                       \
+    (BOARD_PID_KP_MILLI < 0 || BOARD_PID_KP_MILLI > 10000 ||                   \
+     BOARD_PID_KI_MILLI < 0 || BOARD_PID_KI_MILLI > 10000 ||                   \
+     BOARD_PID_KD_MILLI < 0 || BOARD_PID_KD_MILLI > 10000 ||                   \
+     (BOARD_PID_KP_MILLI + BOARD_PID_KI_MILLI + BOARD_PID_KD_MILLI) == 0)
 #error PID gains must be in 0..10000 with at least one nonzero feedback gain
 #endif
-#if BOARD_PID_ENABLED && (BOARD_PID_MAX_CPS < 1 || BOARD_PID_MAX_CPS > 100000 || BOARD_PID_MAX_POWER < 1 || BOARD_PID_MAX_POWER > 50)
+#if BOARD_PID_ENABLED &&                                                       \
+    (BOARD_PID_MAX_CPS < 1 || BOARD_PID_MAX_CPS > 100000 ||                    \
+     BOARD_PID_MAX_POWER < 1 || BOARD_PID_MAX_POWER > 50)
 #error PID requires a measured speed scale and an output cap of 1..50 percent
 #endif
 /* In-place spins (PID builds, subsystem2/turn_drive.h; navigation turns and
@@ -592,18 +662,23 @@
 #define BOARD_TURN_KICK_POWER 45
 #endif
 #ifndef BOARD_TURN_KICK_COUNTS
-#define BOARD_TURN_KICK_COUNTS 5 /* encoder counts of real motion that end a spin kick */
+#define BOARD_TURN_KICK_COUNTS                                                 \
+    5 /* encoder counts of real motion that end a spin kick */
 #endif
 #ifndef BOARD_TURN_REKICK_MS
-#define BOARD_TURN_REKICK_MS 100U /* a spinning wheel this long without progress is kicked again */
+#define BOARD_TURN_REKICK_MS                                                   \
+    100U /* a spinning wheel this long without progress is kicked again */
 #endif
 #ifndef BOARD_TURN_STALL_MS
 #define BOARD_TURN_STALL_MS 1200U
 #endif
-#if BOARD_PID_ENABLED && (BOARD_PID_TURN_MAX_POWER < BOARD_PID_MAX_POWER || BOARD_PID_TURN_MAX_POWER > 100 || \
-    BOARD_TURN_KICK_POWER < 0 || BOARD_TURN_KICK_POWER > BOARD_PID_TURN_MAX_POWER || BOARD_TURN_KICK_MS > 1000 || \
-    BOARD_TURN_STALL_MS < 500 || BOARD_TURN_STALL_MS > 5000)
-#error Turn drive needs PID_MAX_POWER <= TURN_MAX_POWER <= 100, KICK_POWER <= TURN_MAX_POWER, KICK_MS <= 1000, STALL_MS 500..5000
+#if BOARD_PID_ENABLED &&                                                       \
+    (BOARD_PID_TURN_MAX_POWER < BOARD_PID_MAX_POWER ||                         \
+     BOARD_PID_TURN_MAX_POWER > 100 || BOARD_TURN_KICK_POWER < 0 ||            \
+     BOARD_TURN_KICK_POWER > BOARD_PID_TURN_MAX_POWER ||                       \
+     BOARD_TURN_KICK_MS > 1000 || BOARD_TURN_STALL_MS < 500 ||                 \
+     BOARD_TURN_STALL_MS > 5000)
+#error Turn drive limits, kick or stall settings are out of range
 #endif
 /* Low-speed breakaway (PID builds, turn_drive.h): a straight, reverse or
  * follower-pivot move commanded below LOW_KICK_BELOW % gets the spin kick's
@@ -617,8 +692,9 @@
 #ifndef BOARD_LOW_KICK_POWER
 #define BOARD_LOW_KICK_POWER 30U
 #endif
-#if BOARD_PID_ENABLED && (BOARD_LOW_KICK_BELOW > 100 || BOARD_LOW_KICK_POWER > BOARD_PID_MAX_POWER)
-#error Low-speed kick needs LOW_KICK_BELOW <= 100 and LOW_KICK_POWER <= PID_MAX_POWER
+#if BOARD_PID_ENABLED &&                                                       \
+    (BOARD_LOW_KICK_BELOW > 100 || BOARD_LOW_KICK_POWER > BOARD_PID_MAX_POWER)
+#error Low-speed kick settings are out of range
 #endif
 /* Preserve Buddy 5's existing Grove wiring (subsystem5 branch, app.h).
  * The Week 6 document lists these roles in the opposite order. */
@@ -640,3 +716,5 @@
 #error BOARD_SERVO_CENTER_US is the straight-ahead pulse: 1300..1700 us
 #endif
 #endif
+
+/*** end of file ***/

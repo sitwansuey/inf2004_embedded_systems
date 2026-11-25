@@ -1,83 +1,145 @@
 #include "../../app_program/subsystem1/telemetry_edr.h"
 #include <assert.h>
 #include <stdio.h>
-int main(void) {
-    int64_t v[TEL_FIELD_COUNT]={0};v[TEL_VERSION]=1;v[TEL_AVAILABLE]=255;
-    v[TEL_QUALITY]=63;v[TEL_LEFT_COUNTS]=4196;v[TEL_RIGHT_COUNTS]=-1;
-    v[TEL_IR0]=222;v[TEL_IR1]=111;v[TEL_IR2]=333;
-    v[TEL_SERVO_DEG]=-30;v[TEL_DISTANCE_MM]=325;v[TEL_WIDTH_MM]=105;
-    v[TEL_COMMAND]=1;v[TEL_POWER]=30;v[TEL_MOTOR_STATE]=1;
-    v[TEL_PHASE]=1;v[TEL_BARCODE]=4;v[TEL_NAVIGATION]=4;
-    v[TEL_HEIGHT_MM]=123;v[TEL_HIGHEST_MM]=456;v[TEL_SPEED_MM_S]=-360;
-    v[TEL_MX_MG]=-100;v[TEL_AX_MG]=1000;v[TEL_PITCH_CDEG]=-1200;
-    v[TEL_ROLL_CDEG]=400;v[TEL_TERRAIN]=2;v[TEL_LINE_ERROR]=-500;
-    v[TEL_SEQUENCE]=257;v[TEL_DROPPED]=300;
-    v[TEL_WIDTH_LEFT_MM]=86;v[TEL_WIDTH_RIGHT_MM]=1000;v[TEL_BYPASS_SIDE]=2;v[TEL_SCAN_STATE]=9;
-    v[TEL_FAULT]=1;v[TEL_FAULT_CAUSE]=2; /* sensor fault: tilt */
-    v[TEL_IMU_FAULT]=1; /* ID 12 bit 0x04 */
-    uint8_t snapshot[TELEMETRY_BYTES];int64_t decoded[TEL_FIELD_COUNT];
-    assert(telemetry_encode(snapshot,v) && telemetry_decode(snapshot,decoded));
-    {   /* Subtype 12: drops modulo 256 (300 -> 44), never saturated at 255. */
-        uint8_t word[2];unsigned id,data;
-        assert(telemetry_edr_record(decoded,15+12,word) && edr_decode(word,2,&id,&data));
-        assert(id==0 && data==((12U<<8)|44U));
+int
+main (void)
+{
+    int64_t v[TEL_FIELD_COUNT] = {0};
+    v[TEL_VERSION]             = 1;
+    v[TEL_AVAILABLE]           = 255;
+    v[TEL_QUALITY]             = 63;
+    v[TEL_LEFT_COUNTS]         = 4196;
+    v[TEL_RIGHT_COUNTS]        = -1;
+    v[TEL_IR0]                 = 222;
+    v[TEL_IR1]                 = 111;
+    v[TEL_IR2]                 = 333;
+    v[TEL_SERVO_DEG]           = -30;
+    v[TEL_DISTANCE_MM]         = 325;
+    v[TEL_WIDTH_MM]            = 105;
+    v[TEL_COMMAND]             = 1;
+    v[TEL_POWER]               = 30;
+    v[TEL_MOTOR_STATE]         = 1;
+    v[TEL_PHASE]               = 1;
+    v[TEL_BARCODE]             = 4;
+    v[TEL_NAVIGATION]          = 4;
+    v[TEL_HEIGHT_MM]           = 123;
+    v[TEL_HIGHEST_MM]          = 456;
+    v[TEL_SPEED_MM_S]          = -360;
+    v[TEL_MX_MG]               = -100;
+    v[TEL_AX_MG]               = 1000;
+    v[TEL_PITCH_CDEG]          = -1200;
+    v[TEL_ROLL_CDEG]           = 400;
+    v[TEL_TERRAIN]             = 2;
+    v[TEL_LINE_ERROR]          = -500;
+    v[TEL_SEQUENCE]            = 257;
+    v[TEL_DROPPED]             = 300;
+    v[TEL_WIDTH_LEFT_MM]       = 86;
+    v[TEL_WIDTH_RIGHT_MM]      = 1000;
+    v[TEL_BYPASS_SIDE]         = 2;
+    v[TEL_SCAN_STATE]          = 9;
+    v[TEL_FAULT]               = 1;
+    v[TEL_FAULT_CAUSE]         = 2; /* sensor fault: tilt */
+    v[TEL_IMU_FAULT]           = 1; /* ID 12 bit 0x04 */
+    uint8_t snapshot[TELEMETRY_BYTES];
+    int64_t decoded[TEL_FIELD_COUNT];
+    assert(telemetry_encode(snapshot, v) &&
+           telemetry_decode(snapshot, decoded));
+    { /* Subtype 12: drops modulo 256 (300 -> 44), never saturated at 255. */
+        uint8_t  word[2];
+        unsigned id, data;
+        assert(telemetry_edr_record(decoded, 15 + 12, word) &&
+               edr_decode(word, 2, &id, &data));
+        assert(id == 0 && data == ((12U << 8) | 44U));
     }
-    for(unsigned n=0;n<TELEMETRY_EDR_RECORDS;++n) {
-        uint8_t word[2];unsigned id,data;
-        assert(telemetry_edr_record(decoded,n,word));
-        assert(edr_decode(word,2,&id,&data));
-        printf("%02x%02x\n",word[0],word[1]);
+    for (unsigned n = 0; n < TELEMETRY_EDR_RECORDS; ++n)
+    {
+        uint8_t  word[2];
+        unsigned id, data;
+        assert(telemetry_edr_record(decoded, n, word));
+        assert(edr_decode(word, 2, &id, &data));
+        printf("%02x%02x\n", word[0], word[1]);
     }
-    {   /* Subtype 9: quality bits 0..5 kept, fault cause in bits 6..7. */
-        uint8_t word[2];unsigned id,data;
-        assert(decoded[TEL_FAULT_CAUSE]==2);
-        assert(telemetry_edr_record(decoded,15+9,word) && edr_decode(word,2,&id,&data));
-        assert(id==0 && data==((9U<<8)|63U|(2U<<6)));
-        decoded[TEL_QUALITY]=1;decoded[TEL_FAULT_CAUSE]=3;
-        assert(telemetry_edr_record(decoded,15+9,word) && edr_decode(word,2,&id,&data));
-        assert(data==((9U<<8)|1U|(3U<<6)));
-        decoded[TEL_QUALITY]=63;decoded[TEL_FAULT_CAUSE]=2;
+    { /* Subtype 9: quality bits 0..5 kept, fault cause in bits 6..7. */
+        uint8_t  word[2];
+        unsigned id, data;
+        assert(decoded[TEL_FAULT_CAUSE] == 2);
+        assert(telemetry_edr_record(decoded, 15 + 9, word) &&
+               edr_decode(word, 2, &id, &data));
+        assert(id == 0 && data == ((9U << 8) | 63U | (2U << 6)));
+        decoded[TEL_QUALITY]     = 1;
+        decoded[TEL_FAULT_CAUSE] = 3;
+        assert(telemetry_edr_record(decoded, 15 + 9, word) &&
+               edr_decode(word, 2, &id, &data));
+        assert(data == ((9U << 8) | 1U | (3U << 6)));
+        decoded[TEL_QUALITY]     = 63;
+        decoded[TEL_FAULT_CAUSE] = 2;
     }
-    decoded[TEL_AVAILABLE]=0;decoded[TEL_QUALITY]=0;
+    decoded[TEL_AVAILABLE] = 0;
+    decoded[TEL_QUALITY]   = 0;
     uint8_t word[2];
-    assert(!telemetry_edr_record(decoded,0,word));
-    assert(!telemetry_edr_record(decoded,2,word)); /* unavailable servo */
-    assert(!telemetry_edr_record(decoded,11,word)); /* unavailable motor */
-    decoded[TEL_AVAILABLE]=1;
+    assert(!telemetry_edr_record(decoded, 0, word));
+    assert(!telemetry_edr_record(decoded, 2, word));  /* unavailable servo */
+    assert(!telemetry_edr_record(decoded, 11, word)); /* unavailable motor */
+    decoded[TEL_AVAILABLE] = 1;
     /* ID 12: the motor's fault bit and the S4 IMU fault (0x04) together. */
-    for(unsigned error=0;error<=2;++error) for(unsigned imu=0;imu<=1;++imu) {
-        unsigned id,data;
-        decoded[TEL_MOTOR_ERROR]=error;decoded[TEL_IMU_FAULT]=imu;
-        assert(telemetry_encode(snapshot,decoded));
-        assert(telemetry_decode(snapshot,decoded));
-        assert(telemetry_edr_record(decoded,11,word));
-        assert(edr_decode(word,2,&id,&data));
-        assert(id==12 && data==((error==1?32U:error==2?64U:0U)|(imu?EDR_FAULT_IMU:0U)));
+    for (unsigned error = 0; error <= 2; ++error)
+    {
+        for (unsigned imu = 0; imu <= 1; ++imu)
+        {
+            unsigned id, data;
+            decoded[TEL_MOTOR_ERROR] = error;
+            decoded[TEL_IMU_FAULT]   = imu;
+            assert(telemetry_encode(snapshot, decoded));
+            assert(telemetry_decode(snapshot, decoded));
+            assert(telemetry_edr_record(decoded, 11, word));
+            assert(edr_decode(word, 2, &id, &data));
+            assert(id == 12 && data == ((error == 1   ? 32U
+                                         : error == 2 ? 64U
+                                                      : 0U) |
+                                        (imu ? EDR_FAULT_IMU : 0U)));
+        }
     }
-    decoded[TEL_IMU_FAULT]=2;assert(!telemetry_encode(snapshot,decoded)); /* one bit */
-    decoded[TEL_IMU_FAULT]=0;
-    decoded[TEL_AVAILABLE]=0;
-    assert(!telemetry_edr_record(decoded,7,word));
-    assert(!telemetry_edr_record(decoded,15+6,word));
-    assert(!telemetry_edr_record(decoded,15+13,word));
-    assert(!telemetry_edr_record(decoded,31,word) && !telemetry_edr_record(decoded,32,word)); /* quality bit 0 clear */
-    decoded[TEL_AVAILABLE]=128; /* magnetometer is independent of obstacle width */
-    assert(telemetry_edr_record(decoded,7,word));
-    {   /* Fault 8 (VC_LIFTED): the 4-bit snapshot field and EDR16 subtype 0
-         * (phase | fault<<4) carry it; 9 and above are rejected. */
-        unsigned id,data;uint8_t bad[2];
-        v[TEL_FAULT]=8;v[TEL_FAULT_CAUSE]=0;v[TEL_PHASE]=12; /* VC_FAULT */
-        assert(telemetry_encode(snapshot,v) && telemetry_decode(snapshot,decoded) && decoded[TEL_FAULT]==8);
-        assert((snapshot[7]&15U)==8U); /* bits 56-59 */
-        assert(telemetry_edr_record(decoded,15,word) && edr_decode(word,2,&id,&data));
-        assert(id==0 && data==(12U|(8U<<4U)));
-        v[TEL_FAULT]=9;assert(!telemetry_encode(snapshot,v));
-        snapshot[7]=(uint8_t)((snapshot[7]&0xF0U)|9U);assert(!telemetry_decode(snapshot,decoded));
-        assert(!edr_encode(0,12U|(9U<<4U),bad,sizeof bad));
-        bad[0]=(uint8_t)(((12U|(9U<<4U))<<4U)&255U);bad[1]=(uint8_t)((12U|(9U<<4U))>>4U);
-        assert(!edr_decode(bad,2,&id,&data));
-        for(unsigned fault=0;fault<=8U;++fault)
-            assert(edr_encode(0,1U|(fault<<4U),bad,sizeof bad) && edr_decode(bad,2,&id,&data) && data==(1U|(fault<<4U)));
+    decoded[TEL_IMU_FAULT] = 2;
+    assert(!telemetry_encode(snapshot, decoded)); /* one bit */
+    decoded[TEL_IMU_FAULT] = 0;
+    decoded[TEL_AVAILABLE] = 0;
+    assert(!telemetry_edr_record(decoded, 7, word));
+    assert(!telemetry_edr_record(decoded, 15 + 6, word));
+    assert(!telemetry_edr_record(decoded, 15 + 13, word));
+    assert(!telemetry_edr_record(decoded, 31, word) &&
+           !telemetry_edr_record(decoded, 32, word)); /* quality bit 0 clear */
+    decoded[TEL_AVAILABLE] =
+        128; /* magnetometer is independent of obstacle width */
+    assert(telemetry_edr_record(decoded, 7, word));
+    { /* Fault 8 (VC_LIFTED): the 4-bit snapshot field and EDR16 subtype 0
+       * (phase | fault<<4) carry it; 9 and above are rejected. */
+        unsigned id, data;
+        uint8_t  bad[2];
+        v[TEL_FAULT]       = 8;
+        v[TEL_FAULT_CAUSE] = 0;
+        v[TEL_PHASE]       = 12; /* VC_FAULT */
+        assert(telemetry_encode(snapshot, v) &&
+               telemetry_decode(snapshot, decoded) && decoded[TEL_FAULT] == 8);
+        assert((snapshot[7] & 15U) == 8U); /* bits 56-59 */
+        assert(telemetry_edr_record(decoded, 15, word) &&
+               edr_decode(word, 2, &id, &data));
+        assert(id == 0 && data == (12U | (8U << 4U)));
+        v[TEL_FAULT] = 9;
+        assert(!telemetry_encode(snapshot, v));
+        snapshot[7] = (uint8_t) ((snapshot[7] & 0xF0U) | 9U);
+        assert(!telemetry_decode(snapshot, decoded));
+        assert(!edr_encode(0, 12U | (9U << 4U), bad, sizeof bad));
+        bad[0] = (uint8_t) (((12U | (9U << 4U)) << 4U) & 255U);
+        bad[1] = (uint8_t) ((12U | (9U << 4U)) >> 4U);
+        assert(!edr_decode(bad, 2, &id, &data));
+        for (unsigned fault = 0; fault <= 8U; ++fault)
+        {
+            assert(edr_encode(0, 1U | (fault << 4U), bad, sizeof bad) &&
+                   edr_decode(bad, 2, &id, &data) &&
+                   data == (1U | (fault << 4U)));
+        }
     }
     return 0;
 }
+
+/*** end of file ***/

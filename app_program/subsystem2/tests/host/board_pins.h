@@ -32,18 +32,20 @@
 #define GPIO_MODE_IN 0U
 #define GPIO_MODE_OUT 1U
 
-UW in_w(UW address);
-void out_w(UW address, UW value);
-void set_w(UW address, UW value);
-void clr_w(UW address, UW value);
-ER gpio_set_pin(UINT pin, UINT mode);
-void gpio_set_val(UINT pin, UINT value);
-UINT gpio_get_val(UINT pin);
-void pwm_set_cc(UINT pin, UW duty);
-void pwm_set_enabled(UINT pin, BOOL enabled);
-void pwm_set_wrap(UINT pin, UW wrap);
-void pwm_set_pin(UINT pin);
-void ClearInt(UINT intno);
-void EnableInt(UINT intno, UINT priority);
+UW   in_w (UW address);
+void out_w (UW address, UW value);
+void set_w (UW address, UW value);
+void clr_w (UW address, UW value);
+ER   gpio_set_pin (UINT pin, UINT mode);
+void gpio_set_val (UINT pin, UINT value);
+UINT gpio_get_val (UINT pin);
+void pwm_set_cc (UINT pin, UW duty);
+void pwm_set_enabled (UINT pin, BOOL enabled);
+void pwm_set_wrap (UINT pin, UW wrap);
+void pwm_set_pin (UINT pin);
+void ClearInt (UINT intno);
+void EnableInt (UINT intno, UINT priority);
 
 #endif
+
+/*** end of file ***/

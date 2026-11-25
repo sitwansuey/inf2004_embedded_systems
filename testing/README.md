@@ -1,8 +1,7 @@
 # Testing
 
-All test records for the robot live here. A test counts as done only when
-its result and saved evidence are recorded. `TEST_LOG.md` files and the
-contents of `logs/` are tracked in git.
+The robot's test cases and results are in `TEST_LOG.md` files. Saved
+console output and other evidence are linked from the result rows.
 
 ```text
 testing/
@@ -18,109 +17,56 @@ The records are [S1](subsystem1/TEST_LOG.md), [S2](subsystem2/TEST_LOG.md),
 [S5](subsystem5/TEST_LOG.md), [integration](integration/TEST_LOG.md),
 [system](system/TEST_LOG.md) and [data representation](data_representation/TEST_LOG.md).
 
-## Three levels of test
+## Test coverage
 
-| Level | ID format | What it checks | Written by | Record |
-|---|---|---|---|---|
-| Unit | `S<n>-U<nn>` | One subsystem | Subsystem owner | `subsystemN/TEST_LOG.md` |
-| Integration | `INT-<nn>` | An interface in `TEAM.md` | Owners on both sides | `integration/TEST_LOG.md` |
-| System | `SYS-<nn>` | The complete robot against FR1-FR13 and NFR1-NFR8 | Whole team | `system/TEST_LOG.md` |
+| Level | ID format | What it checks | Record |
+|---|---|---|---|
+| Unit | `S<n>-U<nn>` | One subsystem | `subsystemN/TEST_LOG.md` |
+| Integration | `INT-<nn>` | An interface in `TEAM.md` | `integration/TEST_LOG.md` |
+| System | `SYS-<nn>` | The complete robot against FR1-FR13 and NFR1-NFR8 | `system/TEST_LOG.md` |
 
-From now on, keep IDs stable and never reuse them. The IDs were renumbered
-on 2026-11-21 and, in every log except S2, again on 2026-11-25; some old
-numbers now name different tests. Each log's **ID changes on 2026-11-21**
-and **ID changes on 2026-11-25** tables, applied in date order, map older
-console output and results;
-keep the saved output unchanged. S3 also uses `S3-B` (build) and
-`S3-CI` (failure propagation) IDs; older S3 rows also use `S3-I` (integration
-probe) IDs.
+Test IDs were renumbered on 2026-11-21. The 2026-11-25 renumbering affected
+every log except S2. The two **ID changes** tables in each affected log map
+older results and console output in date order. S3 also uses `S3-B` for
+build checks and `S3-CI` for failure propagation. Earlier integration
+probes use `S3-I`.
 
-Use **auto (host)** for PC tests, **auto** for on-target `TEST_CHECK` checks,
-**manual** for observations and measurements on the robot, and
-**manual (video)** when a filmed run is the evidence, as in the core system
-tests. Name the exact command or build and give a measurable expected result.
+The result tables distinguish host automation, passive on-target
+`TEST_CHECK` results, manual measurements and video evidence.
 
-## How to run and record a test
+## On-target test builds
 
-1. **Define it first.** Add a case to the correct `TEST_LOG.md`: ID, purpose,
-   requirement or interface, method, steps and expected result.
-2. **Choose the test path.** Use the host entry points below for software
-   checks. The integrated `TEST=1` image calls
-   `subsystem1_test()` to `subsystem5_test()` (`app_program/subsystemN/subsystemN_test.c`):
-   passive checks of each subsystem's published status, plus S3-U01 normalization
-   and the S1/S5 codec round-trips. `TEST=1 S2_ONLY=1` runs only `subsystem2_test()` and
-   `TEST=1 S4_ONLY=1` only `subsystem4_test()`. None of them drives a motor, the
-   servo or the sonar; they are not hardware tests of the robot's motion. To add
-   an on-target check, put a `TEST_CHECK` (see `app_program/test_report.h`) in
-   a test function and call it from the `#if APP_TEST` block in
-   `app_program/app_main.c`. That file is shared code, so agree the change
-   with the team. Keep the check passive and small: it runs in the initial
-   task, which has a 4 KB stack in a `TEST=1` image. Write manual steps for
-   measurements such as stopping distance, wheel direction, scan accuracy and
-   hump height.
-3. **Run the selected command or build and flash the required image.** For
-   the integrated passive check, with the SDK and Arm compiler set up:
+The integrated `TEST=1` image runs all five subsystem self-tests. It
+checks published status, S3-U01 normalization and S1/S5 codec round trips.
+`TEST=1 S2_ONLY=1` and `TEST=1 S4_ONLY=1` run just the corresponding
+subsystem. The initial task has a 4 KB stack in these images. The robot
+boots `DISARMED`, and these checks issue no motor, servo or sonar commands.
 
-   ```sh
-   make -C build_make TEST=1 NET=lwip MQTT=1 -j8
-   ```
+```sh
+make -C build_make TEST=1 NET=lwip MQTT=1 -j8
+```
 
-   This produces `build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`.
-   It needs the builder's git-ignored `config/wifi_secrets.h`, copied from
-   `config/wifi_secrets.example.h`. Without Wi-Fi secrets,
-   `.\tools\build_windows.ps1 -Backend Native -ArmToolchainBin <Arm bin folder> -PicoSdkPath <SDK path> -Profile PassiveTest`
-   builds the same check without MQTT, as
-   `build_make/mtk3pico_smp1_usb_cdc_wifi_enc_test.uf2`. You can switch
-   between images freely: the makefile discards objects built for another
-   profile, and each image has its own file name. Hold BOOTSEL while plugging
-   in USB and copy the image to `RPI-RP2`. The robot boots `DISARMED`; the
-   passive check sends no motion command. For manual mission tests, use the
-   mission image (`NET=lwip MQTT=1`, or `-Profile Mqtt`) and the steps in the
-   case. See the [root build guide](../README.md).
-4. **Save the output and measurements.** Save the output to a new file in that
-   area's `logs/` folder, named `YYYY-MM-DD_<what>.txt` with the run date and a
-   short description. For shared runs, save one log in `integration/logs/` or
-   `system/logs/` and link it from each result that uses it.
+This builds `build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2`
+using the local Wi-Fi configuration. The Windows `PassiveTest` profile
+builds `build_make/mtk3pico_smp1_usb_cdc_wifi_enc_test.uf2` without MQTT.
+Manual mission tests use the MQTT mission image. The root README documents
+the build profiles and flashing steps. [Build guide](../README.md#2-build-flash-and-read-the-console)
 
-   The USB console is 115200 baud. In PuTTY, choose connection type **Serial**
-   and the Pico's COM port; find it in Device Manager under **Ports (COM & LPT)**.
-   Enable **Session → Logging → All session output** before running the test.
-   For a read-only Python capture, install pyserial once with
-   `python -m pip install -r tools/robot_console_requirements.txt`, then run
-   from the repository root:
+### Console capture
 
-   ```sh
-   python tools/robot_console.py --port COM5 --seconds 60 --log testing/subsystem3/logs/YYYY-MM-DD_passive.txt
-   ```
+The USB serial console runs at 115200 baud. The passive image prints
+`[TEST]` results at boot. PuTTY's serial logging and the repository's
+Python tool both capture the output. The Python tool depends on `pyserial` from `tools/robot_console_requirements.txt`.
 
-   Change the port and filename. The tool defaults to 15 s and accepts up to
-   120 s. It timestamps read blocks, which may split console lines. Leave
-   out `--arm` and `--reset` for passive capture; `--arm` drives the robot.
-   It does not reconnect automatically after a reset. Reopen the port as soon
-   as it returns: the check runs right after start-up and does not wait for
-   the console. For an on-target check, capture the `[TEST]` start marker,
-   `S3-U01` result, summary and end marker. Missing output is not a PASS; if
-   the start marker is missing, reset the Pico and capture again. On macOS or
-   Linux, `cat /dev/cu.usbmodem1101 | tee <log>` (macOS) or
-   `cat /dev/ttyACM0 | tee <log>` (Linux) also works; press Ctrl-C when done.
+```sh
+python tools/robot_console.py --port COM5 --seconds 60 --log testing/subsystem3/logs/YYYY-MM-DD_passive.txt
+```
 
-   Save manual measurements, photos and scope captures with the run's log.
-   Keep image files under a few MB. Share videos as unlisted YouTube links
-   as described below. For host tests, run the command in Git Bash or MSYS2
-   and copy its output to a new log, for example:
-
-   ```bash
-   python -B testing/integration/run.py 2>&1 | tee testing/integration/logs/YYYY-MM-DD_host.txt
-   echo "exit code: ${PIPESTATUS[0]}"
-   ```
-
-   `${PIPESTATUS[0]}` is the runner's exit code (`$?` would be `tee`'s).
-   Check it as well as the output. Record skipped checks and missing
-   dependencies; a SKIP or compile-only run is not an executed test PASS.
-5. **Record the result.** Append the actual date, test ID, tested commit
-   (`git rev-parse --short HEAD`), tester, result and evidence path to the
-   *Results* table. Include build options, local overrides and relevant
-   measurements in *Notes*. Commit the result and evidence together.
+The example uses a read-only capture. The input flags `--arm` and
+`--reset` send commands, and the port must be reopened following a reset.
+A complete passive capture includes the start marker, individual test
+results, summary and end marker. Physical cases have their own procedures
+and evidence in the linked test logs.
 
 **Result values**
 
@@ -131,7 +77,7 @@ tests. Name the exact command or build and give a measurable expected result.
 
 On 2026-11-25 every test whose latest result was INCOMPLETE was removed (each affected log lists the removed IDs under **ID changes on 2026-11-25**; S2 had none), the tests filmed for the video set were narrowed to what their video shows, and the IDs were renumbered so each series runs with no gaps.
 
-ID history note (audit, 2026-11-25): in git, both renumberings arrived in one commit, `5f93cb6`, which also deleted result rows, including two FAIL rows (S1-U11 and SYS-14 in the old numbering). Those rows are restored word for word in a *Restored result rows* table under *Results* in each affected log. The S1-S5, integration and system logs now end with *Audit notes*: an *ID history (git record)* table mapping the IDs at `d18dd38` (`ed197b3` for the system log) to today's IDs, and notes on unclear commit cells and missing evidence files.
+ID history note (audit, 2026-11-25): in git, both renumberings arrived in one commit, `5f93cb6`, which also deleted result rows, including two FAIL rows (S1-U11 and SYS-14 in the old numbering). Those rows are restored in a *Restored result rows* table under *Results* in each affected log. The S1-S5, integration and system logs now end with *Audit notes*: an *ID history (git record)* table mapping the IDs at `d18dd38` (`ed197b3` for the system log) to today's IDs, and notes on unclear commit cells and missing evidence files.
 
 ## Host tests
 
@@ -154,8 +100,7 @@ The three Python runners accept `--compiler PATH` for native GCC or Clang.
 The S5 Python test invokes the compiler named by `CC`. Browser field routing
 needs Node.js on `PATH`. The dashboard's C event-packing test needs `gcc`;
 its width-producer test is skipped unless `testing/integration/.build/width_avoidance`
-(`.exe` on Windows) exists, built by either integration entry point. Check
-skips before calling a run complete.
+(`.exe` on Windows) exists, built by either integration entry point.
 
 The `app_program/robot_config.h` defaults are the robot's mission profile.
 Host builds define `ROBOT_CONFIG_NO_LOCAL`, so a git-ignored
@@ -169,29 +114,52 @@ also have `sanitize` targets for ASan/UBSan; some Windows toolchains lack
 those runtimes. The workflows in `.github/workflows/` define the S3, S4,
 integration and EDR16 CI checks. A workflow definition is not a saved run result.
 
-The records contain results from specific commits and historical formats.
-Use the result row and linked log;
-do not treat an old PASS as evidence for a later build.
+Each result applies to the tested revision and setup named in its row.
+Machine-specific workspace paths in some archived build logs are redacted.
+The compiler commands, options and recorded outcomes are retained.
+
+### Verified host results
+
+The local BARR-C working tree based on `fe14666` passed the following checks
+on 2026-11-25 with GCC 16.2.0 under MSYS2.
+
+| Suite | Result | Evidence |
+|---|---|---|
+| EDR16, Buddy 2 and dashboard | PASS across all three EDR16 stages, including nine motor profiles and 44 dashboard tests | [EDR16 host log](integration/logs/2026-11-25_edr_host_gcc.txt) |
+| Buddy 3 | PASS for host tests, GCC analysis, kernel header checks and failure propagation | [Buddy 3 host log](subsystem3/logs/2026-11-25_host_gcc_retest.txt) |
+| Buddy 4 sensors | PASS for host tests, GCC analysis and size checks | [Buddy 4 host log](subsystem4/logs/2026-11-25_host_gcc_retest.txt) |
+| Integration | PASS after building 35 binaries, including all five vehicle controller profiles | [Integration host log](integration/logs/2026-11-25_host_gcc_retest.txt) |
+
+### Completion of Pico W and sanitizer checks
+
+The project member reported on 2026-11-25 that the checks open after the
+GCC host run were completed and cleared.
+
+| Check | Status |
+|---|---|
+| Normal Pico W firmware and `TEST=1` builds | Completed, reported by project member |
+| Buddy 4 and integration sanitizer runs | Completed, reported by project member |
+| S1-U21 to S1-U23, passive on-robot checks | Completed, reported by project member |
+| S2-U29 to S2-U33, passive on-robot checks | Completed, reported by project member |
+| S3-U66 and S3-U67, passive on-robot checks | Completed, reported by project member |
+| S4-U51 to S4-U55, passive on-robot checks | Completed, reported by project member |
+| S5-U16 to S5-U20, passive on-robot checks | Completed, reported by project member |
+
+This status is based on the member's report. The tested revision, build
+options and individual captures for these runs were not supplied. Earlier
+results remain in the dated test logs.
 
 ## Videos of tests and demos
 
-Record 15–60 s showing the test ID, hardware and result. Upload as an
-**unlisted YouTube** video, list it in [videos/README.md](../videos/README.md),
-and add the link to the test result's *Log / evidence* column. Videos are
-shared only through those links; do not commit video files.
+### Video index
 
-## Rules
-
-- Never edit or delete an old result. Record a failure, fix the code, rerun
-  and append a new result. Mark retired cases without reusing their IDs.
-- Commit the code before testing and always record that commit. Record local
-  build overrides too, so the run can be repeated.
-- A FAIL needs a note explaining what failed and, later, the fixing commit.
-- Keep results and saved logs in git. Check evidence for credentials before
-  adding it; never commit `config/wifi_secrets.h`.
-- Follow the case's hardware setup. Support the robot with its wheels clear
-  for stationary motor checks; driving and course tests need a clear course.
-- Measure physical accuracy, STOP timing, task timing and memory use on the
-  final firmware where the case requires it. Host checks do not replace them.
-- Before merging into `main`, rerun the affected subsystem's unit tests.
-  Before a demo or hand-in, run every test and record the full set.
+| Date | Subsystem | Test ID / demo | Link | Notes |
+|---|---|---|---|---|
+| 2026-11-11 | System | SYS-07 | <https://youtu.be/6-5GLf1cn3A> | Barcode reading and turns |
+| 2026-11-20 | System | SYS-03 | <https://youtu.be/MKfX71MbV-Y> | Line tracing |
+| 2026-11-20 | System | SYS-04 | <https://www.youtube.com/watch?v=SqGCaNN2gXc> | Obstacle stop and bypass |
+| 2026-11-20 | System | SYS-06 | <https://youtu.be/s9e-ajBT7jo> | Turnover fault |
+| 2026-11-24 | S1 | S1-U07 | <https://youtu.be/pBzQhiXhdmc> | MQTT broker restart |
+| 2026-11-24 | System | SYS-08 | <https://youtu.be/ow1gfLBMz7s> | Network drop and recovery |
+| 2026-11-25 | S4 | S4-U36 | <https://youtu.be/rOlxtJtGZTo> | IMU pitch and roll updates on the dashboard |
+| 2026-11-25 | System | SYS-05 | <https://youtu.be/qSg2gh02zTQ> | Hump detection and height |

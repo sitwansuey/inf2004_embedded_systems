@@ -1,3 +1,7 @@
 # Keep the shell launcher usable when the repository is checked out on Windows.
 /check_data.sh text eol=lf
 /check_data.cmd text eol=crlf
+
+# BARR-C:2018 source files use LF even on Windows.
+*.c text eol=lf
+*.h text eol=lf

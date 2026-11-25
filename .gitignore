@@ -24,7 +24,7 @@ config/*secret*.h
 *.tar.gz
 *.tgz
 
-# Videos are shared as unlisted YouTube links (videos/README.md), never committed
+# Share videos as unlisted YouTube links in testing/README.md.
 *.mp4
 *.mov
 *.webm

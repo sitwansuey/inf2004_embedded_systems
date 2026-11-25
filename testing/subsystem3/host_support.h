@@ -47,55 +47,81 @@
 #endif
 #endif
 
-typedef int ID;
-typedef int ER;
-typedef int INT;
-typedef int PRI;
-typedef int32_t TMO;
-typedef int32_t W;
-typedef int32_t SZ;
-typedef uint32_t UW;
-typedef unsigned int UINT;
+typedef int           ID;
+typedef int           ER;
+typedef int           INT;
+typedef int           PRI;
+typedef int32_t       TMO;
+typedef int32_t       W;
+typedef int32_t       SZ;
+typedef uint32_t      UW;
+typedef unsigned int  UINT;
 typedef unsigned char UB;
 typedef void (*FP)(void);
-typedef struct { W hi; UW lo; } SYSTIM;
-typedef struct { UW mbxatr; } T_CMBX;
-typedef struct { UW mtxatr; } T_CMTX;
-typedef struct { UW mbfatr; INT bufsz; INT maxmsz; } T_CMBF;
 typedef struct
 {
-    FP task;
+    W  hi;
+    UW lo;
+} SYSTIM;
+typedef struct
+{
+    UW mbxatr;
+} T_CMBX;
+typedef struct
+{
+    UW mtxatr;
+} T_CMTX;
+typedef struct
+{
+    UW  mbfatr;
+    INT bufsz;
+    INT maxmsz;
+} T_CMBF;
+typedef struct
+{
+    FP  task;
     PRI itskpri;
-    UW stksz;
-    UW tskatr;
-    UW assprc;
+    UW  stksz;
+    UW  tskatr;
+    UW  assprc;
 } T_CTSK;
-typedef struct { void *exinf; UW cycatr; FP cychdr; UW cyctim; UW cycphs; UW assprc; } T_CCYC;
+typedef struct
+{
+    void * exinf;
+    UW     cycatr;
+    FP     cychdr;
+    UW     cyctim;
+    UW     cycphs;
+    UW     assprc;
+} T_CCYC;
 
-ID tk_cre_mbx(const T_CMBX *p_config);
-ID tk_cre_mtx(const T_CMTX *p_config);
-ID tk_cre_mbf(const T_CMBF *p_config);
-ID tk_cre_tsk(const T_CTSK *p_config);
-ER tk_del_mbf(ID object);
-ER tk_del_mbx(ID object);
-ER tk_del_mtx(ID object);
-ER tk_del_tsk(ID object);
-ER tk_loc_mtx(ID object, TMO timeout);
-ER tk_unl_mtx(ID object);
-ER tk_sta_tsk(ID task, INT start);
-ER tk_dly_tsk(UW time_ms);
-ID tk_cre_cyc(const T_CCYC *p_config);
-ER tk_del_cyc(ID object);
-ER tk_wup_tsk(ID task);
-INT tk_can_wup(ID task);
-ER tk_slp_tsk(TMO timeout);
-void tk_ext_tsk(void);
-ID tk_get_tid(void);
-ER tk_get_otm(SYSTIM *p_time);
-ER tk_snd_mbf(ID object, const void *p_data, INT length, TMO timeout);
-INT tk_rcv_mbf(ID object, void *p_data, TMO timeout);
-ID tk_opn_dev(const UB *p_name, UINT mode);
-ER tk_srea_dev(ID descriptor, W channel, void *p_buffer, SZ size, SZ *p_actual);
-ER gpio_set_pin(UINT pin, UINT mode);
-UINT gpio_get_val(UINT pin);
+ID   tk_cre_mbx (const T_CMBX * p_config);
+ID   tk_cre_mtx (const T_CMTX * p_config);
+ID   tk_cre_mbf (const T_CMBF * p_config);
+ID   tk_cre_tsk (const T_CTSK * p_config);
+ER   tk_del_mbf (ID object);
+ER   tk_del_mbx (ID object);
+ER   tk_del_mtx (ID object);
+ER   tk_del_tsk (ID object);
+ER   tk_loc_mtx (ID object, TMO timeout);
+ER   tk_unl_mtx (ID object);
+ER   tk_sta_tsk (ID task, INT start);
+ER   tk_dly_tsk (UW time_ms);
+ID   tk_cre_cyc (const T_CCYC * p_config);
+ER   tk_del_cyc (ID object);
+ER   tk_wup_tsk (ID task);
+INT  tk_can_wup (ID task);
+ER   tk_slp_tsk (TMO timeout);
+void tk_ext_tsk (void);
+ID   tk_get_tid (void);
+ER   tk_get_otm (SYSTIM * p_time);
+ER   tk_snd_mbf (ID object, const void * p_data, INT length, TMO timeout);
+INT  tk_rcv_mbf (ID object, void * p_data, TMO timeout);
+ID   tk_opn_dev (const UB * p_name, UINT mode);
+ER   tk_srea_dev (ID descriptor, W channel, void * p_buffer, SZ size,
+                  SZ * p_actual);
+ER   gpio_set_pin (UINT pin, UINT mode);
+UINT gpio_get_val (UINT pin);
 #endif
+
+/*** end of file ***/

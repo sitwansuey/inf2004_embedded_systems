@@ -8,11 +8,11 @@
  * low, drive(false) releases it to its pull-up; read returns its level. */
 typedef struct
 {
-    void *p_context;
-    bool (*read_sda)(void *p_context);
-    void (*drive_scl)(void *p_context, bool low);
-    void (*drive_sda)(void *p_context, bool low);
-    void (*half_period)(void *p_context);
+    void * p_context;
+    bool (*read_sda)(void * p_context);
+    void (*drive_scl)(void * p_context, bool low);
+    void (*drive_sda)(void * p_context, bool low);
+    void (*half_period)(void * p_context);
 } s4_i2c_lines_t;
 
 #define S4_I2C_CLEAR_CLOCKS 9U
@@ -21,11 +21,12 @@ typedef struct
  * powered) holds SDA low until it is clocked out. If SDA is low, clock SCL
  * up to nine times; SDA follows SCL half a period later, so every clock
  * whose SDA is free ends in a STOP. Returns true when SDA is released. */
-static inline bool s4_i2c_bus_clear(const s4_i2c_lines_t *p_lines)
+static inline bool
+s4_i2c_bus_clear (const s4_i2c_lines_t * p_lines)
 {
-    void *p_context = p_lines->p_context;
+    void *   p_context = p_lines->p_context;
     unsigned edge;
-    bool high = true;
+    bool     high = true;
 
     p_lines->drive_scl(p_context, false);
     p_lines->drive_sda(p_context, false);
@@ -53,3 +54,5 @@ static inline bool s4_i2c_bus_clear(const s4_i2c_lines_t *p_lines)
 }
 
 #endif
+
+/*** end of file ***/

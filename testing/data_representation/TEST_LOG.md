@@ -158,14 +158,14 @@ Host ABI sizes reported by the tests (motion DTO 8, encoder DTO 16, frame
 view 24 bytes) are transient host layouts and must not replace these wire
 sizes or ARM measurements.
 
-## Performance and remaining acceptance work
+## Performance and original acceptance scope
 
 The optimized native GCC test measured about **9 ns per encoder encode/decode
 pair** for one million iterations on this host. This microbenchmark excludes
 RTOS access, encoder interrupts, sensors, copying to the network queue and
 MQTT. It is not a target latency measurement or proof of a faster control loop.
 
-Before claiming integrated hardware readiness:
+These items were open at the time of the original EDR16 verification:
 
 - Buddy 1: implement length-aware copied binary handoff, test queue-full and
   disconnect behavior, then verify packets on the actual single MQTT topic.
@@ -177,8 +177,9 @@ Before claiming integrated hardware readiness:
   integrated static/dynamic RAM comparison after their payloads are adopted.
 - Buddies 3/4/5: define their actual record schemas and regression evidence.
 
-No recorded Zoom decision, hardware calibration, timing limit or test pass
-has been invented to close these remaining items.
+The later completion report records the project member’s confirmation for
+the checks open after the GCC host run.
+[Latest completion status](../README.md#completion-of-pico-w-and-sanitizer-checks).
 
 ## Pre-integration gate extension: 27 October 2026
 

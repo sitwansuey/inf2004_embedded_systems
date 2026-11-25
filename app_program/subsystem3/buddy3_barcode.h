@@ -10,7 +10,7 @@
 
 typedef struct
 {
-    uint32_t quiet_ms; /* Required blank surface before/after a capture. */
+    uint32_t quiet_ms;   /* Required blank surface before/after a capture. */
     uint32_t min_run_ms; /* Optional pulse-duration floor; zero disables it. */
     uint32_t timeout_ms;
     /* Nonzero: a capture is finished only after this long with no edge at
@@ -59,16 +59,17 @@ typedef struct
     uint32_t max_run;
     uint32_t count;
     uint32_t resync_pairs; /* Discarded leading black/white pairs; bounded. */
-    bool have_sample;
-    bool black;
-    bool rearm_requested;
-    bool completed_window_checked; /* One early decode attempt per saved window. */
+    bool     have_sample;
+    bool     black;
+    bool     rearm_requested;
+    bool completed_window_checked; /* One early decode attempt per saved window.
+                                    */
     /* end_quiet_ms mode only: totals for the whole marker, first full window
      * before any resync slide, and the first problem seen while capturing. */
-    uint32_t bars; /* black elements entered, including the opening bar */
+    uint32_t bars;     /* black elements entered, including the opening bar */
     uint32_t elements; /* completed black+white elements */
     uint32_t first_runs[S3_BARCODE_RUN_COUNT];
-    bool have_first;
+    bool     have_first;
     /* end_quiet_ms mode only: the controller saw the end of the marker (for
      * example 30 mm travelled without an edge); finish at the next edge-free
      * sample instead of waiting out end_quiet_ms. */
@@ -77,37 +78,39 @@ typedef struct
      * feed. A capture that starts with a valid position stores its runs as
      * travelled distance instead of milliseconds (the decoder uses ratios). */
     uint32_t position;
-    bool position_valid;
-    bool by_position;
+    bool     position_valid;
+    bool     by_position;
     uint32_t last_edge_position;
-    uint8_t pending; /* s3_barcode_status_t */
+    uint8_t  pending; /* s3_barcode_status_t */
 } s3_barcode_t;
 
-bool s3_barcode_config_valid(const s3_barcode_config_t *p_config);
-void s3_barcode_init(s3_barcode_t *p_barcode);
+bool s3_barcode_config_valid (const s3_barcode_config_t * p_config);
+void s3_barcode_init (s3_barcode_t * p_barcode);
 /* Abort partial capture on pause/fault. Completed/partial markers remain held
  * until the controller explicitly confirms physical marker clearance. */
-void s3_barcode_abort(s3_barcode_t *p_barcode);
-void s3_barcode_rearm(s3_barcode_t *p_barcode);
+void s3_barcode_abort (s3_barcode_t * p_barcode);
+void s3_barcode_rearm (s3_barcode_t * p_barcode);
 /* end_quiet_ms mode: finish the running capture at the next sample without an
  * edge (end_quiet_ms remains the backstop). Ignored when nothing is running. */
-void s3_barcode_request_end(s3_barcode_t *p_barcode);
-s3_barcode_status_t s3_barcode_feed(s3_barcode_t *p_barcode,
-                                   const s3_barcode_config_t *p_config,
-                                   bool black, uint32_t now_ms,
-                                   s3_symbol_t *p_symbol);
+void                s3_barcode_request_end (s3_barcode_t * p_barcode);
+s3_barcode_status_t s3_barcode_feed (s3_barcode_t *              p_barcode,
+                                     const s3_barcode_config_t * p_config,
+                                     bool black, uint32_t now_ms,
+                                     s3_symbol_t * p_symbol);
 /* Retry profiles may slide past bounded leading pulse pairs. A complete valid
  * *A..Z* can finish after white for max(quiet_ms, twice the longest saved run).
  * Other captures keep the original four-run quiet exit and absolute timeout.
  * Width/framing checks are identical; no letter is emitted before white.
  * The strict feed API above retains immediate overflow rejection. */
-s3_barcode_status_t s3_barcode_feed_resync(s3_barcode_t *p_barcode,
-                                   const s3_barcode_config_t *p_config,
-                                   bool black, uint32_t now_ms,
-                                   s3_symbol_t *p_symbol);
+s3_barcode_status_t
+s3_barcode_feed_resync (s3_barcode_t *              p_barcode,
+                        const s3_barcode_config_t * p_config, bool black,
+                        uint32_t now_ms, s3_symbol_t * p_symbol);
 /* Widths may be time or monotonic distance units. Exactly two bounded passes
  * (forward/reverse) over the saved data; no physical rescan or allocation. */
-s3_barcode_status_t s3_barcode_decode(const uint32_t *p_runs, uint32_t count,
-                                     s3_symbol_t *p_symbol);
+s3_barcode_status_t s3_barcode_decode (const uint32_t * p_runs, uint32_t count,
+                                       s3_symbol_t * p_symbol);
 
 #endif
+
+/*** end of file ***/

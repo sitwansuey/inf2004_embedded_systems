@@ -3,74 +3,215 @@
 #define TELEMETRY_EDR_H
 #include "telemetry_codec.h"
 #include "../shared/edr.h"
-#define TELEMETRY_EDR_RECORDS 33U /* 15 sensor IDs, 16 status subtypes, 2 width pages */
+#define TELEMETRY_EDR_RECORDS                                                  \
+    33U /* 15 sensor IDs, 16 status subtypes, 2 width pages */
 /* False means the corresponding observation is unavailable; skip it. */
-static inline bool telemetry_edr_record(const int64_t v[TEL_FIELD_COUNT],
-                                       unsigned index, uint8_t out[2])
+static inline bool
+telemetry_edr_record (const int64_t v[TEL_FIELD_COUNT], unsigned index,
+                      uint8_t out[2])
 {
-    if (!v || !out || index >= TELEMETRY_EDR_RECORDS) return false;
-    unsigned id=index+1U, data=0;
-    unsigned available=(unsigned)v[TEL_AVAILABLE];
-    if (index < 15U) {
-        switch (id) {
-        case 1: case 2:
-            if (!(available&2U)) return false;
-            data=(unsigned)((uint64_t)v[id==1?TEL_LEFT_COUNTS:TEL_RIGHT_COUNTS]&4095U);break;
-        case 3: if (!(v[TEL_QUALITY]&32)) return false; data=(unsigned)(v[TEL_SERVO_DEG]+90);break;
-        case 4:
-            if (!(available&16U)) return false;
-            data=(unsigned)((v[TEL_DISTANCE_MM]+5)/10);break;
-        case 5: case 6: case 7:
-            if (!(available&4U)) return false;
-            /* Board IR0 is right, IR1 left, IR2 barcode. */
-            data=(unsigned)v[id==5?TEL_IR1:id==6?TEL_IR0:TEL_IR2];break;
-        case 8: case 9: case 10:
-            if (!(available&128U)) return false;
-            data=(unsigned)(v[TEL_MX_MG+id-8U]+2048);break;
-        case 11:
-            if (!(available&1U)) return false;
-            data=(unsigned)v[TEL_COMMAND]|((unsigned)v[TEL_POWER]<<3U)|((unsigned)v[TEL_MOTOR_STATE]<<10U);break;
-        /* Shared fault bits: motor timeout/error, plus the S4 IMU fault. */
-        case 12: if (!(available&1U)) return false;
-            data=edr_motor_fault_flags((unsigned)v[TEL_MOTOR_ERROR])|(v[TEL_IMU_FAULT]?EDR_FAULT_IMU:0U);break;
-        default:
-            if (!(available&8U)) return false;
-            data=(unsigned)(v[TEL_AX_MG+id-13U]+2048);break;
-        }
-    } else if (index >= 31U) {
-        /* Paged subtype 8: 128+centre->left, 192+centre->right, 8 mm units. */
-        if (!(v[TEL_QUALITY]&1)) return false;
-        unsigned half=(unsigned)((v[index==31U?TEL_WIDTH_LEFT_MM:TEL_WIDTH_RIGHT_MM]+4)/8);
-        id=0;data=(8U<<8U)|(index==31U?128U:192U)|(half>63U?63U:half);
-    } else {
-        unsigned subtype=index-15U;id=0;
-        switch(subtype) {
-        case 0: data=(unsigned)v[TEL_PHASE]|((unsigned)v[TEL_FAULT]<<4U);break;
-        case 1: data=(unsigned)v[TEL_BARCODE]|((unsigned)v[TEL_NAVIGATION]<<5U);break;
-        case 2: if (!(available&4U))return false; data=(unsigned)v[TEL_LINE_STATE]|((unsigned)v[TEL_BLACK_MASK]<<3U);break;
-        case 3: if (!(available&32U))return false; data=(unsigned)(v[TEL_PITCH_CDEG]/100+128);break;
-        case 4: if (!(available&32U))return false; data=(unsigned)(v[TEL_ROLL_CDEG]/200+128);break;
-        /* Bits 3..7: barcode elements read, x/29 (no free mission subtype remains). */
-        case 5: data=(unsigned)v[TEL_TERRAIN]|((unsigned)v[TEL_BARCODE_ELEMENTS]<<3U);break;
-        case 6: if (!(available&64U))return false; data=(unsigned)((v[TEL_HEIGHT_MM]+2)/5);break;
-        case 7: data=(unsigned)((v[TEL_HIGHEST_MM]+2)/5);break;
-        case 8: if (!(v[TEL_QUALITY]&1))return false; data=(unsigned)((v[TEL_WIDTH_MM]+2)/5);break;
-        /* Bits 0..5 quality flags; bits 6..7 VC_SENSOR fault cause. */
-        case 9: data=(unsigned)v[TEL_QUALITY]|((unsigned)v[TEL_FAULT_CAUSE]<<6U);break;
-        case 10:data=available;break;
-        case 11:data=(unsigned)v[TEL_SEQUENCE]&255U;break;
-        /* Drops modulo 256, wrapping like 11: receivers take differences. */
-        case 12:data=(unsigned)v[TEL_DROPPED]&255U;break;
-        case 13: if (!(v[TEL_QUALITY]&16))return false;data=(unsigned)(v[TEL_SPEED_MM_S]/20+128);break;
-        case 14: if (!(available&4U))return false;data=(unsigned)(v[TEL_LINE_ERROR]/10+128);break;
-        /* Bits 4..5: barcode result 0 none, 1 reading, 2 decoded, 3 failed;
-         * bits 6..7: bypass side 0 none, 1 left, 2 right. */
-        default:data=(unsigned)v[TEL_SCAN_STATE]|((unsigned)v[TEL_BARCODE_RESULT]<<4U)|
-            ((unsigned)v[TEL_BYPASS_SIDE]<<6U);break;
-        }
-        if (data>255U) return false;
-        data|=subtype<<8U;
+    if (!v || !out || index >= TELEMETRY_EDR_RECORDS)
+    {
+        return false;
     }
-    return edr_encode(id,data,out,2U);
+    unsigned id = index + 1U, data = 0;
+    unsigned available = (unsigned) v[TEL_AVAILABLE];
+    if (index < 15U)
+    {
+        switch (id)
+        {
+            case 1:
+            case 2:
+                if (!(available & 2U))
+                {
+                    return false;
+                }
+                data = (unsigned) ((uint64_t) v[id == 1 ? TEL_LEFT_COUNTS
+                                                        : TEL_RIGHT_COUNTS] &
+                                   4095U);
+                break;
+            case 3:
+                if (!(v[TEL_QUALITY] & 32))
+                {
+                    return false;
+                }
+                data = (unsigned) (v[TEL_SERVO_DEG] + 90);
+                break;
+            case 4:
+                if (!(available & 16U))
+                {
+                    return false;
+                }
+                data = (unsigned) ((v[TEL_DISTANCE_MM] + 5) / 10);
+                break;
+            case 5:
+            case 6:
+            case 7:
+                if (!(available & 4U))
+                {
+                    return false;
+                }
+                /* Board IR0 is right, IR1 left, IR2 barcode. */
+                data = (unsigned) v[id == 5   ? TEL_IR1
+                                    : id == 6 ? TEL_IR0
+                                              : TEL_IR2];
+                break;
+            case 8:
+            case 9:
+            case 10:
+                if (!(available & 128U))
+                {
+                    return false;
+                }
+                data = (unsigned) (v[TEL_MX_MG + id - 8U] + 2048);
+                break;
+            case 11:
+                if (!(available & 1U))
+                {
+                    return false;
+                }
+                data = (unsigned) v[TEL_COMMAND] |
+                       ((unsigned) v[TEL_POWER] << 3U) |
+                       ((unsigned) v[TEL_MOTOR_STATE] << 10U);
+                break;
+            /* Shared fault bits: motor timeout/error, plus the S4 IMU fault. */
+            case 12:
+                if (!(available & 1U))
+                {
+                    return false;
+                }
+                data = edr_motor_fault_flags((unsigned) v[TEL_MOTOR_ERROR]) |
+                       (v[TEL_IMU_FAULT] ? EDR_FAULT_IMU : 0U);
+                break;
+            default:
+                if (!(available & 8U))
+                {
+                    return false;
+                }
+                data = (unsigned) (v[TEL_AX_MG + id - 13U] + 2048);
+                break;
+        }
+    }
+    else if (index >= 31U)
+    {
+        /* Paged subtype 8: 128+centre->left, 192+centre->right, 8 mm units. */
+        if (!(v[TEL_QUALITY] & 1))
+        {
+            return false;
+        }
+        unsigned half = (unsigned) ((v[index == 31U ? TEL_WIDTH_LEFT_MM
+                                                    : TEL_WIDTH_RIGHT_MM] +
+                                     4) /
+                                    8);
+        id            = 0;
+        data          = (8U << 8U) | (index == 31U ? 128U : 192U) |
+                        (half > 63U ? 63U : half);
+    }
+    else
+    {
+        unsigned subtype = index - 15U;
+        id               = 0;
+        switch (subtype)
+        {
+            case 0:
+                data =
+                    (unsigned) v[TEL_PHASE] | ((unsigned) v[TEL_FAULT] << 4U);
+                break;
+            case 1:
+                data = (unsigned) v[TEL_BARCODE] |
+                       ((unsigned) v[TEL_NAVIGATION] << 5U);
+                break;
+            case 2:
+                if (!(available & 4U))
+                {
+                    return false;
+                }
+                data = (unsigned) v[TEL_LINE_STATE] |
+                       ((unsigned) v[TEL_BLACK_MASK] << 3U);
+                break;
+            case 3:
+                if (!(available & 32U))
+                {
+                    return false;
+                }
+                data = (unsigned) (v[TEL_PITCH_CDEG] / 100 + 128);
+                break;
+            case 4:
+                if (!(available & 32U))
+                {
+                    return false;
+                }
+                data = (unsigned) (v[TEL_ROLL_CDEG] / 200 + 128);
+                break;
+            /* Bits 3..7: barcode elements read, x/29 (no free mission subtype
+             * remains). */
+            case 5:
+                data = (unsigned) v[TEL_TERRAIN] |
+                       ((unsigned) v[TEL_BARCODE_ELEMENTS] << 3U);
+                break;
+            case 6:
+                if (!(available & 64U))
+                {
+                    return false;
+                }
+                data = (unsigned) ((v[TEL_HEIGHT_MM] + 2) / 5);
+                break;
+            case 7:
+                data = (unsigned) ((v[TEL_HIGHEST_MM] + 2) / 5);
+                break;
+            case 8:
+                if (!(v[TEL_QUALITY] & 1))
+                {
+                    return false;
+                }
+                data = (unsigned) ((v[TEL_WIDTH_MM] + 2) / 5);
+                break;
+            /* Bits 0..5 quality flags; bits 6..7 VC_SENSOR fault cause. */
+            case 9:
+                data = (unsigned) v[TEL_QUALITY] |
+                       ((unsigned) v[TEL_FAULT_CAUSE] << 6U);
+                break;
+            case 10:
+                data = available;
+                break;
+            case 11:
+                data = (unsigned) v[TEL_SEQUENCE] & 255U;
+                break;
+            /* Drops modulo 256, wrapping like 11: receivers take differences.
+             */
+            case 12:
+                data = (unsigned) v[TEL_DROPPED] & 255U;
+                break;
+            case 13:
+                if (!(v[TEL_QUALITY] & 16))
+                {
+                    return false;
+                }
+                data = (unsigned) (v[TEL_SPEED_MM_S] / 20 + 128);
+                break;
+            case 14:
+                if (!(available & 4U))
+                {
+                    return false;
+                }
+                data = (unsigned) (v[TEL_LINE_ERROR] / 10 + 128);
+                break;
+            /* Bits 4..5: barcode result 0 none, 1 reading, 2 decoded, 3 failed;
+             * bits 6..7: bypass side 0 none, 1 left, 2 right. */
+            default:
+                data = (unsigned) v[TEL_SCAN_STATE] |
+                       ((unsigned) v[TEL_BARCODE_RESULT] << 4U) |
+                       ((unsigned) v[TEL_BYPASS_SIDE] << 6U);
+                break;
+        }
+        if (data > 255U)
+        {
+            return false;
+        }
+        data |= subtype << 8U;
+    }
+    return edr_encode(id, data, out, 2U);
 }
 #endif
+
+/*** end of file ***/

@@ -5,18 +5,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define LSM303_ACCEL_ADDRESS    UINT8_C(0x19)
-#define LSM303_MAG_ADDRESS      UINT8_C(0x1e)
+#define LSM303_ACCEL_ADDRESS UINT8_C(0x19)
+#define LSM303_MAG_ADDRESS UINT8_C(0x1e)
 
 /* Callbacks return true only for a complete transfer. Enforce a timeout in
  * the adapter. One task owns this driver and its I2C controller. */
 typedef struct
 {
-    void *p_context;
-    bool (*read)(void *p_context, uint8_t address, uint8_t subaddress,
-                 uint8_t *p_data, uint32_t length);
-    bool (*write)(void *p_context, uint8_t address, uint8_t reg, uint8_t value);
-    uint64_t (*now_us)(void *p_context);
+    void * p_context;
+    bool (*read)(void * p_context, uint8_t address, uint8_t subaddress,
+                 uint8_t * p_data, uint32_t length);
+    bool (*write)(void * p_context, uint8_t address, uint8_t reg,
+                  uint8_t value);
+    uint64_t (*now_us)(void * p_context);
 } lsm303_bus_t;
 
 typedef enum
@@ -42,13 +43,13 @@ typedef struct
 {
     /* Internal storage only; published as a coherent mutex-protected copy.
      * Wire encoders must use masks/shifts, never this compiler layout. */
-    uint8_t fresh : 1;
-    uint8_t valid : 1;
-    uint8_t overrun : 1;         /* Accelerometer only. */
-    uint8_t status : 3;          /* LSM303_NO_DATA .. LSM303_LOCK_DRAINED. */
-    int16_t raw[3];               /* X, Y, Z in sensor axes. */
-    int32_t milli_units[3];       /* Acceleration: mg; magnetic field: mG. */
-    uint64_t read_time_us;        /* Read completion, NOT conversion time. */
+    uint8_t  fresh : 1;
+    uint8_t  valid : 1;
+    uint8_t  overrun : 1;    /* Accelerometer only. */
+    uint8_t  status : 3;     /* LSM303_NO_DATA .. LSM303_LOCK_DRAINED. */
+    int16_t  raw[3];         /* X, Y, Z in sensor axes. */
+    int32_t  milli_units[3]; /* Acceleration: mg; magnetic field: mG. */
+    uint64_t read_time_us;   /* Read completion, NOT conversion time. */
 } lsm303_sample_t;
 
 typedef struct
@@ -60,8 +61,8 @@ typedef struct
 typedef struct
 {
     lsm303_bus_t bus;
-    bool initialized : 1; /* accelerometer configured and running */
-    bool mag_ready : 1;   /* magnetometer identified, configured, running */
+    bool         initialized : 1; /* accelerometer configured and running */
+    bool mag_ready : 1; /* magnetometer identified, configured, running */
 } lsm303_device_t;
 
 /* Fixed bring-up configuration: accel 50 Hz, +/-2 g, high resolution, BDU,
@@ -70,19 +71,21 @@ typedef struct
  * The result is the accelerometer's: the magnetometer is telemetry only, so
  * a missing or wrong magnetometer leaves mag_ready false and is not polled,
  * but never keeps the accelerometer down. */
-lsm303_result_t lsm303dlhc_init(lsm303_device_t *p_device,
-                              const lsm303_bus_t *p_bus);
+lsm303_result_t lsm303dlhc_init (lsm303_device_t *    p_device,
+                                 const lsm303_bus_t * p_bus);
 
 /* Magnetometer only (identity and configuration), on an initialized device.
  * Sets mag_ready on success. lsm303dlhc_init calls it once. */
-lsm303_result_t lsm303dlhc_init_mag(lsm303_device_t *p_device);
+lsm303_result_t lsm303dlhc_init_mag (lsm303_device_t * p_device);
 
 /* Poll each channel independently. Only fresh samples carry a timestamp.
  * NO_DATA is normal at different ODRs. If one channel fails, a successful
  * sample from the other is preserved, even when the return value is IO_ERROR.
  * A locked magnetic register bank is drained and discarded to recover from
  * an interrupted read. Clipped/out-of-range samples must not feed fusion. */
-lsm303_result_t lsm303dlhc_poll(lsm303_device_t *p_device,
-                              lsm303_frame_t *p_frame);
+lsm303_result_t lsm303dlhc_poll (lsm303_device_t * p_device,
+                                 lsm303_frame_t *  p_frame);
 
 #endif
+
+/*** end of file ***/

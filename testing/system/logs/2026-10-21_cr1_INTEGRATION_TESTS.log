@@ -1,4 +1,4 @@
-make: Entering directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/integration'
+make: Entering directory '<workspace>/src/testing/integration'
 mkdir -p .build
 cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic policy_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem2/odometry.c ../../app_program/subsystem4/terrain.c  -lm -o .build/policy
 ./.build/policy
@@ -17,4 +17,4 @@ INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemet
 cc -std=c11 -O1 -g -Wall -Wextra -Werror -pedantic -Imocks mqtt_test.c  -o .build/mqtt
 ./.build/mqtt
 INT-CR1-07 actual MQTT port: binary length/NULs, fragments, malformed input, backpressure, reconnect STOP and retry guard PASS
-make: Leaving directory '/mnt/c/Users/godga/Documents/Codex/2026-10-21/referenced-chatgpt-conversation-this-is-an-2/work/src/testing/integration'
+make: Leaving directory '<workspace>/src/testing/integration'

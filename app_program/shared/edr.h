@@ -1,6 +1,7 @@
 /* Repository-wide EDR16 v1. Every external record is exactly two bytes.
- * Low nibble = reading ID; high 12 bits = value. See docs/DATA_REPRESENTATION.md.
- * No envelope, native struct copy, timestamp, or implicit byte order. */
+ * Low nibble = reading ID; high 12 bits = value. See
+ * docs/DATA_REPRESENTATION.md. No envelope, native struct copy, timestamp, or
+ * implicit byte order. */
 #ifndef EDR_H
 #define EDR_H
 #include <stdbool.h>
@@ -9,20 +10,32 @@
 #define EDR_RECORD_SIZE 2U
 #define EDR_DATA_MAX 4095U
 #define EDR_MQTT_TOPIC "Robopico/sensors/edr16/v1"
-enum {
-    EDR_ENCODER_LEFT = 1, EDR_ENCODER_RIGHT, EDR_SERVO_ANGLE,
-    EDR_ULTRASONIC_CM, EDR_IR_LEFT, EDR_IR_RIGHT, EDR_IR_BARCODE,
-    EDR_MAG_X, EDR_MAG_Y, EDR_MAG_Z, EDR_MOTOR_STATUS, EDR_MOTOR_FAULTS,
-    EDR_ACCEL_X, EDR_ACCEL_Y, EDR_ACCEL_Z
+enum
+{
+    EDR_ENCODER_LEFT = 1,
+    EDR_ENCODER_RIGHT,
+    EDR_SERVO_ANGLE,
+    EDR_ULTRASONIC_CM,
+    EDR_IR_LEFT,
+    EDR_IR_RIGHT,
+    EDR_IR_BARCODE,
+    EDR_MAG_X,
+    EDR_MAG_Y,
+    EDR_MAG_Z,
+    EDR_MOTOR_STATUS,
+    EDR_MOTOR_FAULTS,
+    EDR_ACCEL_X,
+    EDR_ACCEL_Y,
+    EDR_ACCEL_Z
 };
-#define EDR_FAULT_STALL         0x01U
-#define EDR_FAULT_ENCODER       0x02U
-#define EDR_FAULT_IMU           0x04U
-#define EDR_FAULT_NO_ECHO       0x08U
-#define EDR_FAULT_WIFI          0x10U
-#define EDR_FAULT_TIMEOUT       0x20U
-#define EDR_FAULT_MOTOR         0x40U
-#define EDR_FAULT_MASK          0x7fU
+#define EDR_FAULT_STALL 0x01U
+#define EDR_FAULT_ENCODER 0x02U
+#define EDR_FAULT_IMU 0x04U
+#define EDR_FAULT_NO_ECHO 0x08U
+#define EDR_FAULT_WIFI 0x10U
+#define EDR_FAULT_TIMEOUT 0x20U
+#define EDR_FAULT_MOTOR 0x40U
+#define EDR_FAULT_MASK 0x7fU
 
 /* Each adapter returns a pair of independent EDR16 records, not one 32-bit
  * record. Publish each two-byte slice as its own MQTT payload. */
@@ -30,77 +43,147 @@ enum {
 #define EDR_ENCODER_SIZE (2U * EDR_RECORD_SIZE)
 
 /* Compact private motor error class, shared by both telemetry adapters. */
-enum { EDR_MOTOR_OK, EDR_MOTOR_TIMEOUT, EDR_MOTOR_ERROR };
-static inline unsigned edr_motor_fault_flags(unsigned error)
+enum
 {
-    return error == EDR_MOTOR_TIMEOUT ? EDR_FAULT_TIMEOUT :
-           error == EDR_MOTOR_ERROR ? EDR_FAULT_MOTOR : 0U;
+    EDR_MOTOR_OK,
+    EDR_MOTOR_TIMEOUT,
+    EDR_MOTOR_ERROR
+};
+static inline unsigned
+edr_motor_fault_flags (unsigned error)
+{
+    return error == EDR_MOTOR_TIMEOUT ? EDR_FAULT_TIMEOUT
+           : error == EDR_MOTOR_ERROR ? EDR_FAULT_MOTOR
+                                      : 0U;
 }
-static inline bool edr_status_valid(unsigned data)
+static inline bool
+edr_status_valid (unsigned data)
 {
-    unsigned subtype=data>>8U, value=data&255U;
-    switch(subtype) {
-    case 0: return (value&15U)<=13U && (value>>4U)<=8U; /* phase | fault<<4 (0..8, 8 lifted) */
-    case 1: return (value&31U)<=26U && (value>>5U)<=4U; /* A..Z, navigation */
-    case 2: return value<=63U && (value&7U)<=4U;
-    case 3: case 4: return value>=38U && value<=218U;
-    case 5: return (value&7U)<=5U; /* terrain | barcode bars<<3 */
-    case 6: case 7: return value<=200U;
-    case 8: return value<=100U || value>=128U; /* total 5 mm | 128+left/192+right 8 mm */
-    /* subtype 9: quality bits 0..5 (bit 5 servo status) | fault cause<<6 */
-    case 9: case 10: case 11: case 12: return true;
-    case 13: case 14: return value>=28U && value<=228U;
-    case 15: return (value&15U)<=14U && (value>>6U)<=2U; /* scan | barcode result<<4 | bypass side<<6 */
-    default: return false;
+    unsigned subtype = data >> 8U, value = data & 255U;
+    switch (subtype)
+    {
+        case 0:
+            return (value & 15U) <= 13U &&
+                   (value >> 4U) <= 8U; /* phase | fault<<4 (0..8, 8 lifted) */
+        case 1:
+            return (value & 31U) <= 26U &&
+                   (value >> 5U) <= 4U; /* A..Z, navigation */
+        case 2:
+            return value <= 63U && (value & 7U) <= 4U;
+        case 3:
+        case 4:
+            return value >= 38U && value <= 218U;
+        case 5:
+            return (value & 7U) <= 5U; /* terrain | barcode bars<<3 */
+        case 6:
+        case 7:
+            return value <= 200U;
+        case 8:
+            return value <= 100U ||
+                   value >= 128U; /* total 5 mm | 128+left/192+right 8 mm */
+        /* subtype 9: quality bits 0..5 (bit 5 servo status) | fault cause<<6 */
+        case 9:
+        case 10:
+        case 11:
+        case 12:
+            return true;
+        case 13:
+        case 14:
+            return value >= 28U && value <= 228U;
+        case 15:
+            return (value & 15U) <= 14U &&
+                   (value >> 6U) <=
+                       2U; /* scan | barcode result<<4 | bypass side<<6 */
+        default:
+            return false;
     }
 }
-static inline bool edr_value_valid(unsigned int id, unsigned int data)
+static inline bool
+edr_value_valid (unsigned int id, unsigned int data)
 {
-    if (id > 15U || data > EDR_DATA_MAX) return false;
-    if (id == 0U && !edr_status_valid(data)) return false;
-    if (id == EDR_SERVO_ANGLE && data > 180U) return false;
-    if (id == EDR_MOTOR_FAULTS && data > EDR_FAULT_MASK) return false;
+    if (id > 15U || data > EDR_DATA_MAX)
+    {
+        return false;
+    }
+    if (id == 0U && !edr_status_valid(data))
+    {
+        return false;
+    }
+    if (id == EDR_SERVO_ANGLE && data > 180U)
+    {
+        return false;
+    }
+    if (id == EDR_MOTOR_FAULTS && data > EDR_FAULT_MASK)
+    {
+        return false;
+    }
     if (id == EDR_MOTOR_STATUS &&
         ((data & 7U) > 6U || ((data >> 3U) & 127U) > 100U ||
-         (data >> 10U) > 2U)) return false;
+         (data >> 10U) > 2U))
+    {
+        return false;
+    }
     return true;
 }
-/* Error leaves every output untouched. Wider inputs are checked before narrowing. */
-static inline bool edr_pack(unsigned int id, unsigned int data, uint16_t *word)
+/* Error leaves every output untouched. Wider inputs are checked before
+ * narrowing. */
+static inline bool
+edr_pack (unsigned int id, unsigned int data, uint16_t * word)
 {
-    if (!word || !edr_value_valid(id, data)) return false;
-    *word = (uint16_t)((data << 4U) | id);
+    if (!word || !edr_value_valid(id, data))
+    {
+        return false;
+    }
+    *word = (uint16_t) ((data << 4U) | id);
     return true;
 }
-static inline bool edr_unpack(uint16_t word, unsigned int *id, unsigned int *data)
+static inline bool
+edr_unpack (uint16_t word, unsigned int * id, unsigned int * data)
 {
     unsigned int sensor = word & 15U, value = word >> 4U;
-    if (!id || !data || !edr_value_valid(sensor, value)) return false;
-    *id = sensor; *data = value;
+    if (!id || !data || !edr_value_valid(sensor, value))
+    {
+        return false;
+    }
+    *id   = sensor;
+    *data = value;
     return true;
 }
-static inline bool edr_encode(unsigned int id, unsigned int data,
-                              uint8_t *bytes, size_t capacity)
+static inline bool
+edr_encode (unsigned int id, unsigned int data, uint8_t * bytes,
+            size_t capacity)
 {
     uint16_t word;
-    if (!bytes || capacity < EDR_RECORD_SIZE || !edr_pack(id, data, &word)) return false;
-    bytes[0] = (uint8_t)(word & 255U);
-    bytes[1] = (uint8_t)(word >> 8U);
+    if (!bytes || capacity < EDR_RECORD_SIZE || !edr_pack(id, data, &word))
+    {
+        return false;
+    }
+    bytes[0] = (uint8_t) (word & 255U);
+    bytes[1] = (uint8_t) (word >> 8U);
     return true;
 }
-static inline bool edr_decode(const uint8_t *bytes, size_t size,
-                              unsigned int *id, unsigned int *data)
+static inline bool
+edr_decode (const uint8_t * bytes, size_t size, unsigned int * id,
+            unsigned int * data)
 {
     uint16_t word;
-    if (!bytes || size != EDR_RECORD_SIZE) return false;
-    word = (uint16_t)((uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8U));
+    if (!bytes || size != EDR_RECORD_SIZE)
+    {
+        return false;
+    }
+    word = (uint16_t) ((uint16_t) bytes[0] | ((uint16_t) bytes[1] << 8U));
     return edr_unpack(word, id, data);
 }
 /* Motor's internal 12-bit value: command[2:0], power[9:3], state[11:10].
  * This is DATA for ID 11, not a complete EDR16 record. */
-bool edr_motor_pack(uint8_t command, uint8_t power, uint8_t state, uint16_t *word);
-bool edr_motor_unpack(uint16_t word, uint8_t *command, uint8_t *power, uint8_t *state);
+bool edr_motor_pack (uint8_t command, uint8_t power, uint8_t state,
+                     uint16_t * word);
+bool edr_motor_unpack (uint16_t word, uint8_t * command, uint8_t * power,
+                       uint8_t * state);
 /* Local controller arithmetic uses full-width snapshots, not EDR16 counts. */
-bool edr_count_delta(uint32_t current, uint32_t previous, int32_t *delta);
-bool edr_age_is_fresh(uint32_t now_ms, uint32_t sampled_ms, uint32_t maximum_ms);
+bool edr_count_delta (uint32_t current, uint32_t previous, int32_t * delta);
+bool edr_age_is_fresh (uint32_t now_ms, uint32_t sampled_ms,
+                       uint32_t maximum_ms);
 #endif
+
+/*** end of file ***/

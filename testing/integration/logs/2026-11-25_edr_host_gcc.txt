@@ -1,0 +1,201 @@
+Date: 2026-11-25
+Compiler: GCC 16.2.0 (MSYS2)
+Source: Local working tree based on fe14666 with uncommitted BARR-C changes
+Command: python3 -B testing/data_representation/run.py --compiler gcc --report <test-output>/edr-report.json
+Exit status: 0
+Local workspace paths are redacted.
+
+EDR pre-integration check (no Pico, SDK or broker required)
+
+[CHECK] Python wire contract and dashboard decoder
+test_all_words (test_edr.CodecTests.test_all_words) ... ok
+test_cli (test_edr.CodecTests.test_cli) ... ok
+test_mission_faults (test_edr.CodecTests.test_mission_faults) ... ok
+test_ranges_and_units (test_edr.CodecTests.test_ranges_and_units) ... ok
+test_vectors (test_edr.CodecTests.test_vectors) ... ok
+test_codec_and_status_api (test_s5.Subsystem5Tests.test_codec_and_status_api) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.621s
+
+OK
+060800b45a5a5a5a78563412000000000000000000000000000000000000000000000000ffffffff000000800000000000000000ffffff7f0000000000000000000000000000000000000000000000000000000056000000d4c3b2a1
+S5 PASS: native=148 packed=92 bytes
+060800b45a5a5a5a78563412000000000000000000000000000000000000000000000000ffffffff000000800000000000000000ffffff7f0000000000000000000000000000000000000000000000000000000056000000d4c3b2a1
+S5 PASS: native=148 packed=92 bytes
+test_disconnect_and_invalid (test_commands.Commands.test_disconnect_and_invalid) ... ok
+test_http_map_validation (test_commands.Commands.test_http_map_validation) ... 127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 200 -
+ok
+test_http_origin_and_validation (test_commands.Commands.test_http_origin_and_validation) ... 127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 403 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 400 -
+127.0.0.1 - - [25/Nov/2026 19:20:45] "POST /api/command HTTP/1.1" 200 -
+ok
+test_lifted_fault_in_reply (test_commands.Commands.test_lifted_fault_in_reply) ... ok
+test_loopback_origins_and_json_errors (test_commands.Commands.test_loopback_origins_and_json_errors) ... 127.0.0.1 - - [25/Nov/2026 19:20:46] "POST /api/command HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 19:20:46] "POST /api/command HTTP/1.1" 200 -
+127.0.0.1 - - [25/Nov/2026 19:20:46] "POST /api/command HTTP/1.1" 403 -
+127.0.0.1 - - [25/Nov/2026 19:20:46] "POST /api/command HTTP/1.1" 403 -
+127.0.0.1 - - [25/Nov/2026 19:20:46] "POST /api/command HTTP/1.1" 403 -
+127.0.0.1 - - [25/Nov/2026 19:20:46] "POST /api/command HTTP/1.1" 403 -
+ok
+test_map_ack_validator (test_commands.Commands.test_map_ack_validator) ... ok
+test_map_invalid_input (test_commands.Commands.test_map_invalid_input) ... ok
+test_map_table_changes_only_on_accept (test_commands.Commands.test_map_table_changes_only_on_accept) ... ok
+test_map_wire_and_table (test_commands.Commands.test_map_wire_and_table) ... ok
+test_send_all (test_commands.Commands.test_send_all) ... ok
+test_sequences_skip_usb_bit (test_commands.Commands.test_sequences_skip_usb_bit) ... ok
+test_wire (test_commands.Commands.test_wire) ... ok
+test_wrong_ack_and_rejection (test_commands.Commands.test_wrong_ack_and_rejection) ... ok
+test_each_new_fault_is_logged_once (test_events.EventLogTests.test_each_new_fault_is_logged_once) ... ok
+test_log_is_bounded (test_events.EventLogTests.test_log_is_bounded) ... ok
+test_no_robot_offline_while_the_dashboard_lost_the_broker (test_events.EventLogTests.test_no_robot_offline_while_the_dashboard_lost_the_broker) ... MQTT disconnected; reconnecting
+MQTT disconnected; reconnecting
+MQTT connected; subscribing
+ok
+test_robot_events_are_logged (test_events.EventLogTests.test_robot_events_are_logged) ... ok
+test_robot_offline_and_back_online (test_events.EventLogTests.test_robot_offline_and_back_online) ... ok
+test_subscribes_to_events (test_events.EventLogTests.test_subscribes_to_events) ... ok
+test_barcode_attempts (test_events.EventTextTests.test_barcode_attempts) ... ok
+test_framing (test_events.EventTextTests.test_framing) ... ok
+test_hump (test_events.EventTextTests.test_hump) ... ok
+test_instruction (test_events.EventTextTests.test_instruction) ... ok
+test_link (test_events.EventTextTests.test_link) ... ok
+test_matches_the_firmware_packing (test_events.EventTextTests.test_matches_the_firmware_packing)
+Encode with the real events.h helpers, decode here. ... ok
+test_obstacle (test_events.EventTextTests.test_obstacle) ... ok
+test_bypass_side_kept_until_the_next_scan (test_obstacle_width.WidthPipeline.test_bypass_side_kept_until_the_next_scan) ... ok
+test_c_producer_to_dashboard (test_obstacle_width.WidthPipeline.test_c_producer_to_dashboard) ... ok
+test_half_widths_paged_retained_and_cleared (test_obstacle_width.WidthPipeline.test_half_widths_paged_retained_and_cleared) ... ok
+test_scan_results_kept_through_a_broker_reconnect (test_obstacle_width.WidthPipeline.test_scan_results_kept_through_a_broker_reconnect) ... ok
+test_width_kept_after_quality_bit_0_clears (test_obstacle_width.WidthPipeline.test_width_kept_after_quality_bit_0_clears) ... ok
+test_all_ids_and_units (test_packed16.DashboardTests.test_all_ids_and_units) ... ok
+test_barcode_read_history (test_packed16.DashboardTests.test_barcode_read_history) ... ok
+test_dropped_counts_last_minute (test_packed16.DashboardTests.test_dropped_counts_last_minute) ... MQTT disconnected; reconnecting
+ok
+test_exact_subscription_and_reconnect (test_packed16.DashboardTests.test_exact_subscription_and_reconnect) ... MQTT connected; subscribing
+MQTT connected; subscribing
+MQTT subscribed
+ok
+test_fault_cause_and_quality_mask (test_packed16.DashboardTests.test_fault_cause_and_quality_mask) ... ok
+test_http_snapshot_and_browser_display (test_packed16.DashboardTests.test_http_snapshot_and_browser_display) ... ok
+test_imu_fault_bit (test_packed16.DashboardTests.test_imu_fault_bit) ... ok
+test_invalid_packets_and_other_topics (test_packed16.DashboardTests.test_invalid_packets_and_other_topics) ... ok
+test_lifted_fault_code (test_packed16.DashboardTests.test_lifted_fault_code) ... ok
+test_one_snapshot_flags_are_held (test_packed16.DashboardTests.test_one_snapshot_flags_are_held) ... PASS: 18 decoded fields displayed on the correct cards
+MQTT disconnected; reconnecting
+ok
+test_retained_disconnect_and_reconnect_clear (test_packed16.DashboardTests.test_retained_disconnect_and_reconnect_clear) ... MQTT disconnected; reconnecting
+MQTT connected; subscribing
+ok
+test_servo_validity_and_invalid_status (test_packed16.DashboardTests.test_servo_validity_and_invalid_status) ... ok
+test_status_records_and_no_expiry (test_packed16.DashboardTests.test_status_records_and_no_expiry) ... ok
+
+----------------------------------------------------------------------
+Ran 44 tests in 2.437s
+
+OK
+[PASS] Python wire contract and dashboard decoder
+
+[CHECK] C99 codec, golden packets and exhaustive 16-bit records
+C compiler: /usr/bin/gcc
+EDR16 C: exhaustive words, golden bytes, motor, boundaries and local arithmetic PASS
+INT-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 14-byte events PASS
+Robot event queue: EDR16-format words, FIFO, 16 deep, full queue drops and counts, bad ids ignored PASS
+Drop counter: wraps past 65535, status subtype 12 is drops modulo 256 PASS
+Snapshots: newest first, older/stale and full-queue drops counted, impact and IMU fault handed on PASS
+Command replies: superseded commands rejected with the VC state, two STOPs both answered, full reply buffer drops the oldest PASS
+[PASS] C99 codec, golden packets and exhaustive 16-bit records
+
+[CHECK] Buddy 2 adapters and watchdog (nine host profiles)
+Buddy 2 host compiler: /usr/bin/gcc
+BUILD Buddy 2 standalone-no-encoder
+RUN Buddy 2 standalone-no-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-no-encoder
+BUILD Buddy 2 standalone-dual-encoder
+RUN Buddy 2 standalone-dual-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder
+BUILD Buddy 2 standalone-dual-encoder-swapped
+RUN Buddy 2 standalone-dual-encoder-swapped
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder-swapped
+BUILD Buddy 2 standalone-dual-encoder-shared-bank
+RUN Buddy 2 standalone-dual-encoder-shared-bank
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder-shared-bank
+BUILD Buddy 2 standalone-dual-encoder-cross-bank
+RUN Buddy 2 standalone-dual-encoder-cross-bank
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder-cross-bank
+BUILD Buddy 2 integrated-no-encoder
+RUN Buddy 2 integrated-no-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+Integrated STOP epoch: saturated pool, old commands, running motor and bounded poll PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-no-encoder
+BUILD Buddy 2 integrated-dual-encoder
+RUN Buddy 2 integrated-dual-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+Integrated STOP epoch: saturated pool, old commands, running motor and bounded poll PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-dual-encoder
+BUILD Buddy 2 integrated-custom-timeout
+RUN Buddy 2 integrated-custom-timeout
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+Integrated STOP epoch: saturated pool, old commands, running motor and bounded poll PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-custom-timeout
+BUILD Buddy 2 integrated-pid-turn
+RUN Buddy 2 integrated-pid-turn
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+PID spins: kick until real motion, re-kick, raised ceiling, longer stall; straight and pivots unchanged PASS
+PID low-speed kick: a stuck wheel reversing at 10 % is kicked after 100 ms and breaks away; rolling wheels are never kicked; a wheel that never turns still faults at 500 ms PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Stall time: kept across FORWARD<->PIVOT and short STOPs, idle wheel unchecked, spins unchanged PASS
+Follower FORWARD<->PIVOT with a held wheel: fault within 0.6 s; free wheels never fault PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-pid-turn
+[PASS] Buddy 2 adapters and watchdog (nine host profiles)
+Report: <test-output>/edr-report.json
+
+EDR CHECK PASS: all three stages passed. Run again after your integration changes.

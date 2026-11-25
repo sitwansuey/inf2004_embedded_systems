@@ -2,11 +2,7 @@
 
 **Subsystem:** Binary telemetry, command/telemetry buffers, MQTT dashboard, status LED  ·  **Student ID:** 2500238  ·  **Code:** `app_program/subsystem1/`, `app_program/external_systems/Dashboard/`
 
-See `testing/README.md` for how to run tests and record results.
-
 ## Test cases
-
-Define a test here before running it. Test IDs never change.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
@@ -29,7 +25,7 @@ S1-U01 to S1-U04 also run together:
 `python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py" -v` (43 tests).
 Run every host command from the repository root.
 
-S1-U21 to S1-U23 (added 2026-11-25) are passive on-target checks in `app_program/subsystem1/subsystem1_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. No result is recorded yet; they have not been run on the robot.
+S1-U21 to S1-U23 (added 2026-11-25) are passive on-target checks in `app_program/subsystem1/subsystem1_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. The project member reported these checks complete on 2026-11-25. [Latest completion status](../README.md#completion-of-pico-w-and-sanitizer-checks).
 
 Method for these rows: **auto (integrated TEST=1)** = a `TEST_CHECK` that runs on the robot in the integrated test image.
 
@@ -86,8 +82,6 @@ Removed on 2026-11-25 (latest result INCOMPLETE; a new ID with the same number i
 </details>
 
 ## Results
-
-Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|

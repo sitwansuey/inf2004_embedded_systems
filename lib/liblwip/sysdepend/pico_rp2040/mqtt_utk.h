@@ -1,6 +1,6 @@
 /*
- *	mqtt_utk.h
- *	MQTT client wiring for micro T-Kernel (RP2040, NO_SYS=1)
+ *    mqtt_utk.h
+ *    MQTT client wiring for micro T-Kernel (RP2040, NO_SYS=1)
  */
 
 #ifndef MQTT_UTK_H
@@ -13,10 +13,12 @@
  * connected, EDR16 observations on EDR_MQTT_TOPIC. Safe to call more
  * than once -- a second call while already connecting/connected is a no-op.
  */
-void mqtt_utk_start(void);
-void mqtt_utk_poll_telemetry(void);
+void mqtt_utk_start (void);
+void mqtt_utk_poll_telemetry (void);
 /* cyw43_utk.c is re-joining after a lost Wi-Fi link: drop the broker session
  * and let the 3 s retry reconnect once the link is back. */
-void mqtt_utk_link_lost(void);
+void mqtt_utk_link_lost (void);
 
 #endif /* MQTT_UTK_H */
+
+/*** end of file ***/

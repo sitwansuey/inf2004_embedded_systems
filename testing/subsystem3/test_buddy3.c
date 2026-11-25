@@ -7,24 +7,37 @@
 static unsigned int checks;
 static unsigned int failures;
 static unsigned int groups;
-#define CHECK(condition) do { ++checks; if (!(condition)) { \
-    ++failures; (void)printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); \
-} } while (0)
-#define RUN(id, function) do { unsigned int before = failures; ++groups; \
-    function(); (void)printf("%s %s\n", id, failures == before ? "PASS" : "FAIL"); \
-} while (0)
+#define CHECK(condition)                                                       \
+    do                                                                         \
+    {                                                                          \
+        ++checks;                                                              \
+        if (!(condition))                                                      \
+        {                                                                      \
+            ++failures;                                                        \
+            (void) printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); \
+        }                                                                      \
+    } while (0)
+#define RUN(id, function)                                                      \
+    do                                                                         \
+    {                                                                          \
+        unsigned int before = failures;                                        \
+        ++groups;                                                              \
+        function();                                                            \
+        (void) printf("%s %s\n", id, failures == before ? "PASS" : "FAIL");    \
+    } while (0)
 
 /* Independently transcribed from PDF forms 7/15: black/white runs. */
-static const uint32_t sample_a[29] = {
-    1,3,1,1,3,1,3,1,1,1,3,1,1,1,1,3,1,1,3,1,1,3,1,1,3,1,3,1,1
-};
-static const uint32_t sample_z[29] = {
-    1,3,1,1,3,1,3,1,1,1,1,3,3,1,3,1,1,1,1,1,1,3,1,1,3,1,3,1,1
-};
+static const uint32_t sample_a[29] = {1, 3, 1, 1, 3, 1, 3, 1, 1, 1,
+                                      3, 1, 1, 1, 1, 3, 1, 1, 3, 1,
+                                      1, 3, 1, 1, 3, 1, 3, 1, 1};
+static const uint32_t sample_z[29] = {1, 3, 1, 1, 3, 1, 3, 1, 1, 1,
+                                      1, 3, 3, 1, 3, 1, 1, 1, 1, 1,
+                                      1, 3, 1, 1, 3, 1, 3, 1, 1};
 
-static s3_config_t config(void)
+static s3_config_t
+config (void)
 {
-    s3_config_t result;
+    s3_config_t  result;
     unsigned int i;
     s3_config_defaults(&result);
     result.line.raw_max = 1000U;
@@ -35,7 +48,8 @@ static s3_config_t config(void)
     return result;
 }
 
-static void scale(const uint32_t *p_source, uint32_t *p_destination, uint32_t unit)
+static void
+scale (const uint32_t * p_source, uint32_t * p_destination, uint32_t unit)
 {
     size_t i;
     for (i = 0U; i < 29U; ++i)
@@ -44,7 +58,8 @@ static void scale(const uint32_t *p_source, uint32_t *p_destination, uint32_t un
     }
 }
 
-static void test_normalization(void)
+static void
+test_normalization (void)
 {
     uint16_t value = 999U;
     CHECK(s3_normalize(100U, 100U, 900U, 1023U, &value) && value == 0U);
@@ -63,14 +78,15 @@ static void test_normalization(void)
     CHECK(value == 1000U);
 }
 
-static void test_calibration(void)
+static void
+test_calibration (void)
 {
     s3_calibration_t calibration;
-    s3_config_t cfg = config();
-    s3_line_config_t before = cfg.line;
-    uint16_t white[] = {100U, 900U, 100U};
-    uint16_t black[] = {900U, 100U, 900U};
-    unsigned int i;
+    s3_config_t      cfg     = config();
+    s3_line_config_t before  = cfg.line;
+    uint16_t         white[] = {100U, 900U, 100U};
+    uint16_t         black[] = {900U, 100U, 900U};
+    unsigned int     i;
 
     s3_calibration_init(&calibration, 1000U);
     CHECK(!s3_calibration_finish(&calibration, 100U, &cfg.line));
@@ -105,21 +121,22 @@ static void test_calibration(void)
     CHECK(!s3_calibration_add(&calibration, true, black));
 }
 
-static void test_line_positions(void)
+static void
+test_line_positions (void)
 {
-    s3_config_t cfg = config();
-    s3_line_t line = {0};
+    s3_config_t      cfg  = config();
+    s3_line_t        line = {0};
     s3_line_result_t result;
-    uint16_t raw[3] = {0U, 0U, 0U};
-    unsigned int i;
+    uint16_t         raw[3] = {0U, 0U, 0U};
+    unsigned int     i;
     for (i = 0U; i < 3U; ++i)
     {
-        (void)memset(raw, 0, sizeof(raw));
+        (void) memset(raw, 0, sizeof(raw));
         raw[i] = 1000U;
         s3_line_reset(&line);
         s3_line_update(&line, &cfg.line, raw, 7U, 0U, &result);
         CHECK(result.state == S3_LINE_TRACKING);
-        CHECK(result.error == ((int)i - 1) * 1000);
+        CHECK(result.error == ((int) i - 1) * 1000);
     }
     raw[0] = 1000U;
     raw[1] = 500U;
@@ -147,12 +164,13 @@ static void test_line_positions(void)
     CHECK(result.state == S3_LINE_TRACKING); /* Cannot infer a junction. */
 }
 
-static void test_hysteresis_loss_rollover(void)
+static void
+test_hysteresis_loss_rollover (void)
 {
-    s3_config_t cfg = config();
-    s3_line_t line = {0};
+    s3_config_t      cfg  = config();
+    s3_line_t        line = {0};
     s3_line_result_t result;
-    uint16_t raw[] = {0U, 600U, 0U};
+    uint16_t         raw[] = {0U, 600U, 0U};
     s3_line_update(&line, &cfg.line, raw, 7U, 0U, &result);
     CHECK(result.state == S3_LINE_TRACKING);
     raw[1] = 500U;
@@ -180,46 +198,58 @@ static void test_hysteresis_loss_rollover(void)
     CHECK(result.state == S3_LINE_LOST);
 }
 
-static void test_config_boundaries(void)
+static void
+test_config_boundaries (void)
 {
     s3_config_t cfg = config();
-    s3_core_t core;
+    s3_core_t   core;
     CHECK(s3_config_valid(&cfg));
     cfg.line.line_mask = 0U;
     CHECK(!s3_core_init(&core, &cfg));
-    cfg = config(); cfg.barcode_sensor = 2U;
+    cfg                = config();
+    cfg.barcode_sensor = 2U;
     CHECK(!s3_config_valid(&cfg)); /* One sensor cannot serve both tracks. */
     cfg.line.line_mask = 3U;
     CHECK(s3_config_valid(&cfg));
-    cfg.map_a = (s3_navigation_t)99;
+    cfg.map_a = (s3_navigation_t) 99;
     CHECK(!s3_config_valid(&cfg));
-    cfg = config(); cfg.line.recovery_ms = UINT32_MAX;
+    cfg                  = config();
+    cfg.line.recovery_ms = UINT32_MAX;
     CHECK(!s3_config_valid(&cfg));
-    cfg = config(); cfg.line.threshold_low = cfg.line.threshold_high;
+    cfg                    = config();
+    cfg.line.threshold_low = cfg.line.threshold_high;
     CHECK(!s3_config_valid(&cfg));
-    cfg = config(); cfg.line.position[0] = 0;
+    cfg                  = config();
+    cfg.line.position[0] = 0;
     CHECK(!s3_config_valid(&cfg));
-    cfg = config(); cfg.barcode.min_run_ms = 0U;
-    CHECK(s3_config_valid(&cfg)); /* Reference supports an explicitly disabled floor. */
-    cfg = config(); cfg.max_sample_gap_ms = 0U;
+    cfg                    = config();
+    cfg.barcode.min_run_ms = 0U;
+    CHECK(s3_config_valid(
+        &cfg)); /* Reference supports an explicitly disabled floor. */
+    cfg                   = config();
+    cfg.max_sample_gap_ms = 0U;
     CHECK(!s3_config_valid(&cfg));
     CHECK(!s3_core_init(NULL, &cfg));
 }
 
-static void test_barcode_scale_direction_speed(void)
+static void
+test_barcode_scale_direction_speed (void)
 {
-    uint32_t runs[29];
-    uint32_t reverse[29];
-    s3_symbol_t symbol;
-    unsigned int scale_index;
-    size_t i;
+    uint32_t       runs[29];
+    uint32_t       reverse[29];
+    s3_symbol_t    symbol;
+    unsigned int   scale_index;
+    size_t         i;
     const uint32_t units[] = {40U, 80U, 1000U, 100000000U};
     for (scale_index = 0U; scale_index < 4U; ++scale_index)
     {
         scale(sample_a, runs, units[scale_index]);
         CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_OK);
         CHECK(symbol.symbol == 'A' && !symbol.reverse);
-        for (i = 0U; i < 29U; ++i) { reverse[i] = runs[28U - i]; }
+        for (i = 0U; i < 29U; ++i)
+        {
+            reverse[i] = runs[28U - i];
+        }
         CHECK(s3_barcode_decode(reverse, 29U, &symbol) == S3_BARCODE_OK);
         CHECK(symbol.symbol == 'A' && symbol.reverse);
         scale(sample_z, runs, units[scale_index]);
@@ -227,47 +257,68 @@ static void test_barcode_scale_direction_speed(void)
         CHECK(symbol.symbol == 'Z');
     }
     scale(sample_a, runs, 100U);
-    for (i = 0U; i < 9U; ++i) { runs[i + 10U] = sample_a[i + 10U] * 120U; }
-    for (i = 0U; i < 9U; ++i) { runs[i + 20U] = sample_a[i + 20U] * 140U; }
-    runs[9] = 110U; runs[19] = 130U;
+    for (i = 0U; i < 9U; ++i)
+    {
+        runs[i + 10U] = sample_a[i + 10U] * 120U;
+    }
+    for (i = 0U; i < 9U; ++i)
+    {
+        runs[i + 20U] = sample_a[i + 20U] * 140U;
+    }
+    runs[9]  = 110U;
+    runs[19] = 130U;
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_OK);
     CHECK(symbol.symbol == 'A');
     /* Deterministic bounded edge jitter, not fabricated hardware noise. */
-    for (i = 0U; i < 29U; ++i) { runs[i] += (uint32_t)(i % 3U) * 3U; }
+    for (i = 0U; i < 29U; ++i)
+    {
+        runs[i] += (uint32_t) (i % 3U) * 3U;
+    }
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_OK);
 }
 
-static void test_barcode_corruption(void)
+static void
+test_barcode_corruption (void)
 {
-    uint32_t runs[29];
+    uint32_t    runs[29];
     s3_symbol_t symbol;
-    size_t i;
+    size_t      i;
     CHECK(s3_barcode_decode(NULL, 29U, &symbol) != S3_BARCODE_OK);
     CHECK(symbol.symbol == 0);
     scale(sample_a, runs, 40U);
     CHECK(s3_barcode_decode(runs, 28U, &symbol) == S3_BARCODE_INCOMPLETE);
     runs[0] = 0U;
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_BAD_PATTERN);
-    scale(sample_a, runs, 40U); runs[9] = 120U;
-    CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_BAD_PATTERN);
-    scale(sample_a, runs, 40U); runs[0] = 120U;
+    scale(sample_a, runs, 40U);
+    runs[9] = 120U;
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_BAD_PATTERN);
     scale(sample_a, runs, 40U);
-    for (i = 10U; i < 19U; ++i) { runs[i] = 40U; }
-    runs[13] = 120U; runs[14] = 120U; runs[16] = 120U; /* Digit0 is outside A-Z. */
+    runs[0] = 120U;
+    CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_BAD_PATTERN);
+    scale(sample_a, runs, 40U);
+    for (i = 10U; i < 19U; ++i)
+    {
+        runs[i] = 40U;
+    }
+    runs[13] = 120U;
+    runs[14] = 120U;
+    runs[16] = 120U; /* Digit0 is outside A-Z. */
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_UNKNOWN);
     CHECK(symbol.symbol == 0);
-    for (i = 0U; i < 29U; ++i) { runs[i] = UINT32_MAX; }
+    for (i = 0U; i < 29U; ++i)
+    {
+        runs[i] = UINT32_MAX;
+    }
     CHECK(s3_barcode_decode(runs, 29U, &symbol) == S3_BARCODE_BAD_PATTERN);
-    CHECK(s3_barcode_decode(runs, UINT32_MAX, &symbol) == S3_BARCODE_INCOMPLETE);
+    CHECK(s3_barcode_decode(runs, UINT32_MAX, &symbol) ==
+          S3_BARCODE_INCOMPLETE);
 }
 
-static s3_barcode_status_t capture(s3_barcode_t *p_capture,
-                                    const s3_barcode_config_t *p_config,
-                                    const uint32_t *p_runs, uint32_t *p_time,
-                                    s3_symbol_t *p_symbol)
+static s3_barcode_status_t
+capture (s3_barcode_t * p_capture, const s3_barcode_config_t * p_config,
+         const uint32_t * p_runs, uint32_t * p_time, s3_symbol_t * p_symbol)
 {
-    size_t i;
+    size_t              i;
     s3_barcode_status_t status;
     *p_time += 10U;
     status = s3_barcode_feed(p_capture, p_config, true, *p_time, p_symbol);
@@ -275,62 +326,71 @@ static s3_barcode_status_t capture(s3_barcode_t *p_capture,
     for (i = 0U; i < 29U; ++i)
     {
         *p_time += p_runs[i];
-        status = s3_barcode_feed(p_capture, p_config, (i % 2U) != 0U,
-                                 *p_time, p_symbol);
+        status = s3_barcode_feed(p_capture, p_config, (i % 2U) != 0U, *p_time,
+                                 p_symbol);
         CHECK(status == S3_BARCODE_NONE);
     }
     *p_time += 1000U;
     return s3_barcode_feed(p_capture, p_config, false, *p_time, p_symbol);
 }
 
-static void test_capture_duplicate_rearm(void)
+static void
+test_capture_duplicate_rearm (void)
 {
     s3_barcode_t barcode;
-    s3_config_t cfg = config();
-    s3_symbol_t symbol;
-    uint32_t runs[29];
-    uint32_t now = UINT32_MAX - 1000U;
+    s3_config_t  cfg = config();
+    s3_symbol_t  symbol;
+    uint32_t     runs[29];
+    uint32_t     now = UINT32_MAX - 1000U;
     scale(sample_a, runs, 40U);
     s3_barcode_init(&barcode);
     CHECK(s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol) ==
           S3_BARCODE_NONE);
     now += 200U;
-    (void)s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
-    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) == S3_BARCODE_OK);
+    (void) s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
+    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) ==
+          S3_BARCODE_OK);
     CHECK(symbol.symbol == 'A' && barcode.state == S3_CAPTURE_HOLD);
-    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) == S3_BARCODE_NONE);
+    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) ==
+          S3_BARCODE_NONE);
     CHECK(symbol.symbol == 0);
-    s3_barcode_rearm(&barcode); now += 10U;
-    (void)s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
+    s3_barcode_rearm(&barcode);
+    now += 10U;
+    (void) s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
     CHECK(barcode.state == S3_CAPTURE_READY);
-    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) == S3_BARCODE_OK);
+    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) ==
+          S3_BARCODE_OK);
     CHECK(symbol.symbol == 'A');
     /* Slower / larger Z print: capture, not just standalone decoding. */
     scale(sample_z, runs, 80U);
-    s3_barcode_init(&barcode); now += 10U;
-    (void)s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
+    s3_barcode_init(&barcode);
+    now += 10U;
+    (void) s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
     now += 200U;
-    (void)s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
-    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) == S3_BARCODE_OK);
+    (void) s3_barcode_feed(&barcode, &cfg.barcode, false, now, &symbol);
+    CHECK(capture(&barcode, &cfg.barcode, runs, &now, &symbol) ==
+          S3_BARCODE_OK);
     CHECK(symbol.symbol == 'Z');
 }
 
-static void arm(s3_barcode_t *p_barcode, const s3_barcode_config_t *p_cfg)
+static void
+arm (s3_barcode_t * p_barcode, const s3_barcode_config_t * p_cfg)
 {
     s3_symbol_t symbol;
     s3_barcode_init(p_barcode);
-    (void)s3_barcode_feed(p_barcode, p_cfg, false, 0U, &symbol);
-    (void)s3_barcode_feed(p_barcode, p_cfg, false, 200U, &symbol);
-    (void)s3_barcode_feed(p_barcode, p_cfg, true, 210U, &symbol);
+    (void) s3_barcode_feed(p_barcode, p_cfg, false, 0U, &symbol);
+    (void) s3_barcode_feed(p_barcode, p_cfg, false, 200U, &symbol);
+    (void) s3_barcode_feed(p_barcode, p_cfg, true, 210U, &symbol);
 }
 
-static void test_capture_failures(void)
+static void
+test_capture_failures (void)
 {
-    s3_barcode_t barcode;
-    s3_config_t cfg = config();
-    s3_symbol_t symbol;
+    s3_barcode_t        barcode;
+    s3_config_t         cfg = config();
+    s3_symbol_t         symbol;
     s3_barcode_status_t result = S3_BARCODE_NONE;
-    unsigned int i;
+    unsigned int        i;
     arm(&barcode, &cfg.barcode);
     CHECK(s3_barcode_feed(&barcode, &cfg.barcode, false, 215U, &symbol) ==
           S3_BARCODE_NOISE);
@@ -345,7 +405,7 @@ static void test_capture_failures(void)
     CHECK(s3_barcode_feed(&barcode, &cfg.barcode, true, 10210U, &symbol) ==
           S3_BARCODE_TIMEOUT);
     arm(&barcode, &cfg.barcode);
-    (void)s3_barcode_feed(&barcode, &cfg.barcode, false, 250U, &symbol);
+    (void) s3_barcode_feed(&barcode, &cfg.barcode, false, 250U, &symbol);
     CHECK(s3_barcode_feed(&barcode, &cfg.barcode, false, 1250U, &symbol) ==
           S3_BARCODE_INCOMPLETE);
     arm(&barcode, &cfg.barcode);
@@ -357,35 +417,44 @@ static void test_capture_failures(void)
           S3_BARCODE_NOISE);
 }
 
-static uint32_t core_time;
-static unsigned int navigation_events;
-static unsigned int fault_events;
-static unsigned int decoded_symbols;
+static uint32_t        core_time;
+static unsigned int    navigation_events;
+static unsigned int    fault_events;
+static unsigned int    decoded_symbols;
 static s3_navigation_t expected_navigation = S3_NAV_LEFT;
-static char observed_symbol;
-static s3_output_t latest;
+static char            observed_symbol;
+static s3_output_t     latest;
 
-static void core_feed(s3_core_t *p_core, bool black)
+static void
+core_feed (s3_core_t * p_core, bool black)
 {
-    s3_sample_t sample = {.raw={1000U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
+    s3_sample_t sample = {
+        .raw = {1000U, 0U, 0U}, .valid_mask = 7U, .time_ms = 0U};
     core_time += 10U;
     sample.time_ms = core_time;
-    sample.raw[2] = black ? 1000U : 0U;
+    sample.raw[2]  = black ? 1000U : 0U;
     s3_core_step(p_core, &sample, &latest);
     if (latest.event.kind == S3_EVENT_NAVIGATION)
     {
         ++navigation_events;
         CHECK(!latest.steering_allowed && latest.awaiting_controller);
         CHECK(latest.event.command == expected_navigation);
-        observed_symbol=latest.event.symbol;
+        observed_symbol = latest.event.symbol;
     }
-    if (latest.event.kind == S3_EVENT_FAULT) { ++fault_events; }
-    if (latest.barcode_status == S3_BARCODE_OK) { ++decoded_symbols; }
+    if (latest.event.kind == S3_EVENT_FAULT)
+    {
+        ++fault_events;
+    }
+    if (latest.barcode_status == S3_BARCODE_OK)
+    {
+        ++decoded_symbols;
+    }
 }
 
-static void core_fixture(s3_core_t *p_core, uint32_t runs[29])
+static void
+core_fixture (s3_core_t * p_core, uint32_t runs[29])
 {
-    size_t i;
+    size_t   i;
     uint32_t t;
     core_feed(p_core, true);
     for (i = 0U; i < 29U; ++i)
@@ -396,27 +465,38 @@ static void core_fixture(s3_core_t *p_core, uint32_t runs[29])
             core_feed(p_core, (t == runs[i]) ? !black : black);
         }
     }
-    for (t = 0U; t < 1000U; t += 10U) { core_feed(p_core, false); }
+    for (t = 0U; t < 1000U; t += 10U)
+    {
+        core_feed(p_core, false);
+    }
 }
 
-static void setup_core(s3_core_t *p_core, bool mapped)
+static void
+setup_core (s3_core_t * p_core, bool mapped)
 {
-    s3_config_t cfg = config();
+    s3_config_t  cfg = config();
     unsigned int i;
     cfg.line.line_mask = 3U;
     cfg.barcode_sensor = 2U;
-    cfg.map_a = mapped ? S3_NAV_LEFT : S3_NAV_NONE;
+    cfg.map_a          = mapped ? S3_NAV_LEFT : S3_NAV_NONE;
     CHECK(s3_core_init(p_core, &cfg));
     CHECK(s3_core_control(p_core, S3_MODE_TRACK, false));
-    core_time = 0U; navigation_events = 0U; fault_events = 0U; decoded_symbols = 0U;
-    for (i = 0U; i < 22U; ++i) { core_feed(p_core, false); }
+    core_time         = 0U;
+    navigation_events = 0U;
+    fault_events      = 0U;
+    decoded_symbols   = 0U;
+    for (i = 0U; i < 22U; ++i)
+    {
+        core_feed(p_core, false);
+    }
     CHECK(latest.steering_allowed);
 }
 
-static void test_navigation_handoff_override(void)
+static void
+test_navigation_handoff_override (void)
 {
-    s3_core_t core;
-    uint32_t runs[29];
+    s3_core_t    core;
+    uint32_t     runs[29];
     unsigned int i;
     scale(sample_a, runs, 40U);
     setup_core(&core, true);
@@ -425,8 +505,10 @@ static void test_navigation_handoff_override(void)
     CHECK(core.awaiting_controller && !latest.steering_allowed);
     for (i = 0U; i < 70U; ++i)
     {
-        s3_sample_t absent = {.raw={0U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
-        core_time += 10U; absent.time_ms = core_time;
+        s3_sample_t absent = {
+            .raw = {0U, 0U, 0U}, .valid_mask = 7U, .time_ms = 0U};
+        core_time += 10U;
+        absent.time_ms = core_time;
         s3_core_step(&core, &absent, &latest);
         CHECK(latest.event.kind == S3_EVENT_NONE);
     }
@@ -436,7 +518,10 @@ static void test_navigation_handoff_override(void)
     core_fixture(&core, runs);
     CHECK(navigation_events == 1U && latest.steering_allowed);
     CHECK(s3_core_control(&core, S3_MODE_TRACK, true));
-    for (i = 0U; i < 22U; ++i) { core_feed(&core, false); }
+    for (i = 0U; i < 22U; ++i)
+    {
+        core_feed(&core, false);
+    }
     core_fixture(&core, runs);
     CHECK(navigation_events == 2U);
     CHECK(s3_core_control(&core, S3_MODE_OVERRIDE, false));
@@ -446,38 +531,55 @@ static void test_navigation_handoff_override(void)
     core_feed(&core, false);
     CHECK(latest.steering_allowed);
     setup_core(&core, true);
-    core_feed(&core, true); /* Pause mid capture: suffix cannot create a turn. */
+    core_feed(&core,
+              true); /* Pause mid capture: suffix cannot create a turn. */
     CHECK(s3_core_control(&core, S3_MODE_PAUSED, false));
     CHECK(s3_core_control(&core, S3_MODE_TRACK, false));
     core_fixture(&core, runs);
     CHECK(navigation_events == 0U);
 }
 
-static void test_four_navigation_commands(void)
+static void
+test_four_navigation_commands (void)
 {
-    const unsigned patterns[4]={0x109U,0x049U,0x148U,0x019U};
-    for(unsigned letter=0;letter<4;++letter) {
-        s3_core_t core;uint32_t runs[29];setup_core(&core,true);
-        core.config.map_a=S3_NAV_LEFT;core.config.map_b=S3_NAV_RIGHT;
-        core.config.map_c=S3_NAV_STRAIGHT;core.config.map_d=S3_NAV_UTURN;
-        expected_navigation=(s3_navigation_t)(letter+1U);observed_symbol=0;
-        for(unsigned ch=0;ch<3;++ch) {
-            unsigned pattern=ch==1?patterns[letter]:0x094U;
-            for(unsigned n=0;n<9;++n)runs[ch*10U+n]=(pattern&(1U<<(8U-n)))?120U:40U;
-            if(ch<2)runs[ch*10U+9U]=40U;
+    const unsigned patterns[4] = {0x109U, 0x049U, 0x148U, 0x019U};
+    for (unsigned letter = 0; letter < 4; ++letter)
+    {
+        s3_core_t core;
+        uint32_t  runs[29];
+        setup_core(&core, true);
+        core.config.map_a   = S3_NAV_LEFT;
+        core.config.map_b   = S3_NAV_RIGHT;
+        core.config.map_c   = S3_NAV_STRAIGHT;
+        core.config.map_d   = S3_NAV_UTURN;
+        expected_navigation = (s3_navigation_t) (letter + 1U);
+        observed_symbol     = 0;
+        for (unsigned ch = 0; ch < 3; ++ch)
+        {
+            unsigned pattern = ch == 1 ? patterns[letter] : 0x094U;
+            for (unsigned n = 0; n < 9; ++n)
+            {
+                runs[ch * 10U + n] = (pattern & (1U << (8U - n))) ? 120U : 40U;
+            }
+            if (ch < 2)
+            {
+                runs[ch * 10U + 9U] = 40U;
+            }
         }
-        core_fixture(&core,runs);
-        CHECK(navigation_events==1U && decoded_symbols==1U);
-        CHECK(observed_symbol==(char)('A'+letter));
+        core_fixture(&core, runs);
+        CHECK(navigation_events == 1U && decoded_symbols == 1U);
+        CHECK(observed_symbol == (char) ('A' + letter));
     }
-    expected_navigation=S3_NAV_LEFT;
+    expected_navigation = S3_NAV_LEFT;
 }
 
-static void test_unmapped_corrupt_and_fault(void)
+static void
+test_unmapped_corrupt_and_fault (void)
 {
-    s3_core_t core;
-    uint32_t runs[29];
-    s3_sample_t sample = {.raw={1000U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
+    s3_core_t   core;
+    uint32_t    runs[29];
+    s3_sample_t sample = {
+        .raw = {1000U, 0U, 0U}, .valid_mask = 7U, .time_ms = 0U};
     scale(sample_a, runs, 40U);
     setup_core(&core, false);
     core_fixture(&core, runs);
@@ -488,35 +590,46 @@ static void test_unmapped_corrupt_and_fault(void)
     CHECK(navigation_events == 0U && fault_events == 1U);
     CHECK(latest.error == S3_ERROR_BARCODE && !latest.steering_allowed);
     sample.time_ms = core_time + 10U;
-    sample.raw[2] = 1001U;
+    sample.raw[2]  = 1001U;
     s3_core_step(&core, &sample, &latest);
     CHECK(!latest.steering_allowed && latest.error == S3_ERROR_SENSOR);
-    sample.time_ms += 10U; sample.raw[2] = 0U; sample.valid_mask = 3U;
+    sample.time_ms += 10U;
+    sample.raw[2]     = 0U;
+    sample.valid_mask = 3U;
     s3_core_step(&core, &sample, &latest);
-    CHECK(latest.error == S3_ERROR_SENSOR && latest.event.kind == S3_EVENT_NONE);
+    CHECK(latest.error == S3_ERROR_SENSOR &&
+          latest.event.kind == S3_EVENT_NONE);
 }
 
-static void test_core_loss_and_time(void)
+static void
+test_core_loss_and_time (void)
 {
-    s3_core_t core;
-    s3_config_t cfg = config();
-    s3_sample_t sample = {.raw={0U, 0U, 0U},.valid_mask=7U,.time_ms=0U};
+    s3_core_t   core;
+    s3_config_t cfg    = config();
+    s3_sample_t sample = {.raw = {0U, 0U, 0U}, .valid_mask = 7U, .time_ms = 0U};
     s3_output_t output;
     unsigned int recoveries = 0U;
-    unsigned int stops = 0U;
-    uint32_t t;
+    unsigned int stops      = 0U;
+    uint32_t     t;
     CHECK(s3_core_init(&core, &cfg));
     CHECK(s3_core_control(&core, S3_MODE_TRACK, false));
     for (t = 0U; t <= 1000U; t += 10U)
     {
         sample.time_ms = t;
         s3_core_step(&core, &sample, &output);
-        if (output.event.kind == S3_EVENT_RECOVERY_REQUEST) { ++recoveries; }
-        if (output.event.kind == S3_EVENT_STOP_REQUEST) { ++stops; }
+        if (output.event.kind == S3_EVENT_RECOVERY_REQUEST)
+        {
+            ++recoveries;
+        }
+        if (output.event.kind == S3_EVENT_STOP_REQUEST)
+        {
+            ++stops;
+        }
         CHECK(!output.steering_allowed);
     }
     CHECK(recoveries == 1U && stops == 1U);
-    sample.raw[1] = 1000U; sample.time_ms += 10U;
+    sample.raw[1] = 1000U;
+    sample.time_ms += 10U;
     s3_core_step(&core, &sample, &output);
     CHECK(!output.steering_allowed && output.line.state == S3_LINE_TRACKING);
     CHECK(s3_core_control(&core, S3_MODE_TRACK, false));
@@ -539,48 +652,51 @@ static void test_core_loss_and_time(void)
     sample.time_ms = 90U;
     s3_core_step(&core, &sample, &output);
     CHECK(output.error == S3_ERROR_STALE);
-    CHECK(!s3_core_control(&core, (s3_mode_t)99, false));
+    CHECK(!s3_core_control(&core, (s3_mode_t) 99, false));
     s3_core_step(NULL, &sample, &output);
     CHECK(output.error == S3_ERROR_CONFIG);
 }
 
-static void test_enum_boundaries(void)
+static void
+test_enum_boundaries (void)
 {
-    const int invalid_navigation[] = {-1, S3_NAV_UTURN + 1, 99};
-    const int invalid_modes[] = {-1, S3_MODE_OVERRIDE + 1, 99};
-    s3_config_t cfg = config();
-    s3_core_t core;
+    const int     invalid_navigation[] = {-1, S3_NAV_UTURN + 1, 99};
+    const int     invalid_modes[]      = {-1, S3_MODE_OVERRIDE + 1, 99};
+    s3_config_t   cfg                  = config();
+    s3_core_t     core;
     unsigned char before[sizeof(core)];
-    size_t i;
+    size_t        i;
 
-    for (i = 0U; i < sizeof(invalid_navigation) / sizeof(invalid_navigation[0]); ++i)
+    for (i = 0U; i < sizeof(invalid_navigation) / sizeof(invalid_navigation[0]);
+         ++i)
     {
-        cfg = config();
-        cfg.map_a = (s3_navigation_t)invalid_navigation[i];
+        cfg       = config();
+        cfg.map_a = (s3_navigation_t) invalid_navigation[i];
         CHECK(!s3_config_valid(&cfg));
         CHECK(!s3_core_init(&core, &cfg));
-        cfg = config();
-        cfg.map_z = (s3_navigation_t)invalid_navigation[i];
+        cfg       = config();
+        cfg.map_z = (s3_navigation_t) invalid_navigation[i];
         CHECK(!s3_config_valid(&cfg));
         CHECK(!s3_core_init(&core, &cfg));
     }
-    cfg = config();
+    cfg       = config();
     cfg.map_a = S3_NAV_NONE;
     cfg.map_z = S3_NAV_UTURN;
     CHECK(s3_core_init(&core, &cfg));
     CHECK(s3_core_control(&core, S3_MODE_TRACK, false));
     s3_core_fault(&core, S3_ERROR_SENSOR);
-    (void)memcpy(before, &core, sizeof(core));
+    (void) memcpy(before, &core, sizeof(core));
     for (i = 0U; i < sizeof(invalid_modes) / sizeof(invalid_modes[0]); ++i)
     {
-        CHECK(!s3_core_control(&core, (s3_mode_t)invalid_modes[i], true));
+        CHECK(!s3_core_control(&core, (s3_mode_t) invalid_modes[i], true));
         CHECK(memcmp(before, &core, sizeof(core)) == 0);
     }
     CHECK(s3_core_control(&core, S3_MODE_PAUSED, false));
     CHECK(s3_core_control(&core, S3_MODE_OVERRIDE, false));
 }
 
-int main(int argc, char **argv)
+int
+main (int argc, char ** argv)
 {
     RUN("S3-U01 normalization", test_normalization);
     RUN("S3-U02 calibration", test_calibration);
@@ -588,7 +704,8 @@ int main(int argc, char **argv)
     RUN("S3-U04 hysteresis/loss/rollover", test_hysteresis_loss_rollover);
     RUN("S3-U05 configuration bounds", test_config_boundaries);
     RUN("S3 four-command navigation handoff", test_four_navigation_commands);
-    RUN("S3-U06 barcode scales/speed/direction", test_barcode_scale_direction_speed);
+    RUN("S3-U06 barcode scales/speed/direction",
+        test_barcode_scale_direction_speed);
     RUN("S3-U07 barcode corruption", test_barcode_corruption);
     RUN("S3-U08 capture/rearm/duplicates", test_capture_duplicate_rearm);
     RUN("S3-U09 capture failures/capacity", test_capture_failures);
@@ -600,7 +717,9 @@ int main(int argc, char **argv)
     {
         CHECK(2 + 2 == 5);
     }
-    (void)printf("Buddy 3 algorithms: %u groups, %u checks, %u failures\n",
-                 groups, checks, failures);
+    (void) printf("Buddy 3 algorithms: %u groups, %u checks, %u failures\n",
+                  groups, checks, failures);
     return (failures == 0U) ? 0 : 1;
 }
+
+/*** end of file ***/
