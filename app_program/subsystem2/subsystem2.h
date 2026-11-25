@@ -1,6 +1,7 @@
 /*
  * subsystem2.h
- * Buddy 2 -- Motor control (PWM, optional wheel-speed PID). Student ID: 2500613.
+ * Buddy 2 -- Motor control (PWM, optional wheel-speed PID). Student ID:
+ * 2500613.
  */
 
 #ifndef SUBSYSTEM2_H
@@ -36,7 +37,7 @@
 #define S2_MOTOR2_TRIM_PERCENT 98U
 #endif
 
-#if (S2_MOTOR1_TRIM_PERCENT == 0) || (S2_MOTOR1_TRIM_PERCENT > 100U) || \
+#if (S2_MOTOR1_TRIM_PERCENT == 0) || (S2_MOTOR1_TRIM_PERCENT > 100U) ||        \
     (S2_MOTOR2_TRIM_PERCENT == 0) || (S2_MOTOR2_TRIM_PERCENT > 100U)
 #error "S2_MOTORx_TRIM_PERCENT must be 1..100"
 #endif
@@ -55,17 +56,18 @@ typedef enum
     S2_MOVE_STOP,
     S2_MOVE_FORWARD,
     S2_MOVE_REVERSE,
-    S2_MOVE_LEFT,        /* Rotate counterclockwise: left reverse, right forward. */
-    S2_MOVE_RIGHT,       /* Rotate clockwise: left forward, right reverse. */
+    S2_MOVE_LEFT,  /* Rotate counterclockwise: left reverse, right forward. */
+    S2_MOVE_RIGHT, /* Rotate clockwise: left forward, right reverse. */
     S2_MOVE_PIVOT_RIGHT, /* Left wheel forward, right wheel stopped. */
     S2_MOVE_PIVOT_LEFT   /* Left wheel stopped, right wheel forward. */
 } s2_move_command_t;
 
 typedef struct
 {
-    T_MSG hdr; /* Kernel mailbox header must be first. */
+    T_MSG    hdr;   /* Kernel mailbox header must be first. */
     uint16_t motor; /* EDR motor word; no native enum layout in queued data. */
-    int16_t steering; /* Internal signed permille correction; never published as EDR. */
+    int16_t steering; /* Internal signed permille correction; never published as
+                         EDR. */
     UW issued_at_ms;
     UW stop_epoch;
 } s2_movement_msg_t;
@@ -81,7 +83,7 @@ typedef struct
 {
     s2_motion_state_t state;
     s2_move_command_t command;
-    UINT power_percent;
+    UINT              power_percent;
     ER last_error; /* E_TMOUT means the movement command expired. */
     UW last_command_ms;
 } s2_motion_status_t;
@@ -89,46 +91,48 @@ typedef struct
 typedef struct
 {
     /* Legacy field names refer to motor 2 (right wheel). */
-    UW positive_pulses;
-    UW negative_pulses;
-    UW a_edges;
-    UW b_edges;
-    UINT a_level;
-    UINT b_level;
-    UW motor1_positive_pulses;
-    UW motor1_negative_pulses;
-    UW motor1_a_edges;
-    UW motor1_b_edges;
-    UINT motor1_a_level;
-    UINT motor1_b_level;
-    INT motor1_forward_counts;
-    INT motor2_forward_counts;
-    UINT valid; /* Zero until encoder initialization completes. */
+    UW       positive_pulses;
+    UW       negative_pulses;
+    UW       a_edges;
+    UW       b_edges;
+    UINT     a_level;
+    UINT     b_level;
+    UW       motor1_positive_pulses;
+    UW       motor1_negative_pulses;
+    UW       motor1_a_edges;
+    UW       motor1_b_edges;
+    UINT     motor1_a_level;
+    UINT     motor1_b_level;
+    INT      motor1_forward_counts;
+    INT      motor2_forward_counts;
+    UINT     valid;      /* Zero until encoder initialization completes. */
     uint32_t sampled_ms; /* Boot milliseconds captured with this count copy. */
 } s2_encoder_status_t;
 
-IMPORT ER subsystem2_init(void);
-IMPORT ER subsystem2_start(void);
-IMPORT void s2_controller_bind(void);
-IMPORT ER s2_emergency_stop(void);
+IMPORT ER   subsystem2_init (void);
+IMPORT ER   subsystem2_start (void);
+IMPORT void s2_controller_bind (void);
+IMPORT ER   s2_emergency_stop (void);
 
 /* Task context only; moving commands need periodic renewal. */
-IMPORT ER s2_movement_send(s2_move_command_t command, UINT power_percent);
-IMPORT ER s2_follow_send(UINT power_percent, INT steering);
+IMPORT ER s2_movement_send (s2_move_command_t command, UINT power_percent);
+IMPORT ER s2_follow_send (UINT power_percent, INT steering);
 /* REVERSE with steering in -400..400 (PID builds only, else E_NOSPT).
  * Positive steering speeds the left wheel, turning the robot CCW. */
-IMPORT ER s2_reverse_follow_send(UINT power_percent, INT steering);
+IMPORT ER s2_reverse_follow_send (UINT power_percent, INT steering);
 /* Reports commanded output, not measured wheel motion. Task context only. */
-IMPORT ER s2_motion_get_status(s2_motion_status_t *p_status);
+IMPORT ER s2_motion_get_status (s2_motion_status_t * p_status);
 /* E_NOSPT and zeroed output when encoder diagnostics are disabled.
  * Enable with S2_ENCODER_ENABLED=1, in standalone or integrated builds.
  * Task context on either core. E_OK with valid=0 during startup.
  * Both wheels share a consistent cumulative x1 count snapshot (modulo 32 bits).
- * Forward signs follow the downloaded wiring: motor 1 negative, motor 2 positive.
- * GPIO levels are live samples.
- * sampled_ms is tk_get_otm().lo within the successful sequence-checked copy.
- * Clock errors return the error with a zeroed snapshot.
+ * Forward signs follow the downloaded wiring: motor 1 negative, motor 2
+ * positive. GPIO levels are live samples. sampled_ms is tk_get_otm().lo within
+ * the successful sequence-checked copy. Clock errors return the error with a
+ * zeroed snapshot.
  */
-IMPORT ER s2_encoder_get_status(s2_encoder_status_t *p_status);
+IMPORT ER s2_encoder_get_status (s2_encoder_status_t * p_status);
 
 #endif /* SUBSYSTEM2_H */
+
+/*** end of file ***/

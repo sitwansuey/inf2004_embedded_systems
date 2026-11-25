@@ -15,8 +15,8 @@
 #ifdef CPU_CORE_ARMV6M
 
 /*
- *	exc_hdr.c (ARMv6-M)
- *	Exception handler
+ *    exc_hdr.c (ARMv6-M)
+ *    Exception handler
  */
 
 #include <tk/tkernel.h>
@@ -24,22 +24,24 @@
 #include <kernel.h>
 #include "../../../sysdepend.h"
 #ifdef _PICO_RP2040_
-#include <tm/robot_health.h>	/* crash record and watchdog reboot */
+#include <tm/robot_health.h> /* crash record and watchdog reboot */
 #endif
 
 #if (USE_EXCEPTION_DBG_MSG && USE_TMONITOR)
-	#define EXCEPTION_DBG_MSG(a)	tm_putstring((UB*)a)
+#define EXCEPTION_DBG_MSG(a) tm_putstring((UB *) a)
 #else
-	#define EXCEPTION_DBG_MSG(a)
+#define EXCEPTION_DBG_MSG(a)
 #endif
 
 /*
  * NMI handler
  */
-WEAK_FUNC EXPORT void NMI_Handler(void)
+WEAK_FUNC EXPORT void
+NMI_Handler (void)
 {
-	EXCEPTION_DBG_MSG("NMI\n");
-	while(1);
+    EXCEPTION_DBG_MSG("NMI\n");
+    while (1)
+        ;
 }
 
 /*
@@ -57,129 +59,141 @@ WEAK_FUNC EXPORT void NMI_Handler(void)
  * stack was in use, and this kernel runs everything on MSP, but both are
  * handled so the report stays correct if that ever changes.
  */
-EXPORT volatile UW *knl_fault_frame;
+EXPORT volatile UW * knl_fault_frame;
 
-IMPORT void knl_hard_fault_report(void);
+IMPORT void knl_hard_fault_report (void);
 
-__asm__(
-"	.syntax unified			\n"
-"	.thumb				\n"
-"	.text				\n"
-"	.align	2			\n"
-"	.globl	HardFault_Handler	\n"
-"	.thumb_func			\n"
-"HardFault_Handler:			\n"
-"	mov	r0, lr			\n"
-"	movs	r1, #4			\n"
-"	tst	r0, r1			\n"
-"	beq	1f			\n"
-"	mrs	r0, psp			\n"
-"	b	2f			\n"
-"1:	mrs	r0, msp			\n"
-"2:	ldr	r1, =knl_fault_frame	\n"
-"	str	r0, [r1]		\n"
-"	b	knl_hard_fault_report	\n"
-"	.ltorg				\n"
-);
+__asm__("\t.syntax unified\t\t\t\n"
+        "\t.thumb\t\t\t\t\n"
+        "\t.text\t\t\t\t\n"
+        "\t.align\t2\t\t\t\n"
+        "\t.globl\tHardFault_Handler\t\n"
+        "\t.thumb_func\t\t\t\n"
+        "HardFault_Handler:\t\t\t\n"
+        "\tmov\tr0, lr\t\t\t\n"
+        "\tmovs\tr1, #4\t\t\t\n"
+        "\ttst\tr0, r1\t\t\t\n"
+        "\tbeq\t1f\t\t\t\n"
+        "\tmrs\tr0, psp\t\t\t\n"
+        "\tb\t2f\t\t\t\n"
+        "1:\tmrs\tr0, msp\t\t\t\n"
+        "2:\tldr\tr1, =knl_fault_frame\t\n"
+        "\tstr\tr0, [r1]\t\t\n"
+        "\tb\tknl_hard_fault_report\t\n"
+        "\t.ltorg\t\t\t\t\n");
 
-EXPORT void knl_hard_fault_report(void)
+EXPORT void
+knl_hard_fault_report (void)
 {
 #ifdef _PICO_RP2040_
-	/*
-	 * A 500 ms watchdog first, then the crash record (stacked PC and LR).
-	 * The report below only reaches a UART mirror; if printing hangs (the
-	 * fault hit inside the console lock) or faults again, the board still
-	 * reboots. health_crash_pending stops the other core's supervisor from
-	 * feeding that watchdog or overwriting the record. The next boot prints
-	 * "[RESET] ... hard fault, pc ..., lr ...". A halted core used to leave
-	 * the other one running with this core's tasks dead.
-	 */
-	{
-		volatile UW *rf = knl_fault_frame;
-		health_crash_pending = 1;
-		health_watchdog_start(500);
-		health_record_write(HEALTH_REASON_HARD_FAULT,
-				    (rf != NULL)? rf[6]: 0, (rf != NULL)? rf[5]: 0);
-	}
+    /*
+     * A 500 ms watchdog first, then the crash record (stacked PC and LR).
+     * The report below only reaches a UART mirror; if printing hangs (the
+     * fault hit inside the console lock) or faults again, the board still
+     * reboots. health_crash_pending stops the other core's supervisor from
+     * feeding that watchdog or overwriting the record. The next boot prints
+     * "[RESET] ... hard fault, pc ..., lr ...". A halted core used to leave
+     * the other one running with this core's tasks dead.
+     */
+    {
+        volatile UW * rf     = knl_fault_frame;
+        health_crash_pending = 1;
+        health_watchdog_start(500);
+        health_record_write(HEALTH_REASON_HARD_FAULT, (rf != NULL) ? rf[6] : 0,
+                            (rf != NULL) ? rf[5] : 0);
+    }
 #endif
-#if (USE_EXCEPTION_DBG_MSG  && USE_TMONITOR)
+#if (USE_EXCEPTION_DBG_MSG && USE_TMONITOR)
 
-	ID		ctskid;
-	volatile UW	*f = knl_fault_frame;
+    ID            ctskid;
+    volatile UW * f = knl_fault_frame;
 
-	if(knl_ctxtsk != NULL) {
-		ctskid = knl_ctxtsk->tskid;
-	} else {
-		ctskid = 0;
-	}
-	/* Report the processor too: a faulting core halts below while the other
-	   keeps running, so without it the log reads as if nothing happened. */
-	tm_printf((UB*)"*** Hard fault ***  prc:%d ctxtsk:%d\n",
-		  (INT)knl_current_core() + 1, ctskid);
+    if (knl_ctxtsk != NULL)
+    {
+        ctskid = knl_ctxtsk->tskid;
+    }
+    else
+    {
+        ctskid = 0;
+    }
+    /* Report the processor too: a faulting core halts below while the other
+       keeps running, so without it the log reads as if nothing happened. */
+    tm_printf((UB *) "*** Hard fault ***  prc:%d ctxtsk:%d\n",
+              (INT) knl_current_core() + 1, ctskid);
 #if TK_SUPPORT_SMP
-	/*
-	 * Both cores' scheduler slots, so the report distinguishes "the
-	 * scheduler chose this" from "something wrote this". The affinity guard
-	 * reports zero violations, yet the current task here is one pinned to
-	 * the other core, and only these values separate the two explanations.
-	 */
-	{
-		TCB *c0 = *knl_ctxtsk_core_slot(0);
-		TCB *c1 = *knl_ctxtsk_core_slot(1);
-		TCB *s0 = *knl_schedtsk_core_slot(0);
-		TCB *s1 = *knl_schedtsk_core_slot(1);
-		IMPORT BOOL knl_guards_intact(void);
-		IMPORT UW knl_smp_last_pub[];
-		IMPORT UW knl_smp_pub_count[];
-		tm_printf((UB*)"    scheduler slot guards %s\n",
-			  knl_guards_intact()? "intact": "SMASHED");
-		tm_printf((UB*)"    ctxtsk[0]=%d ctxtsk[1]=%d schedtsk[0]=%d schedtsk[1]=%d\n",
-			  (c0 == NULL)? 0: c0->tskid, (c1 == NULL)? 0: c1->tskid,
-			  (s0 == NULL)? 0: s0->tskid, (s1 == NULL)? 0: s1->tskid);
-		tm_printf((UB*)"    last publish: core0=%u core1=%u (counts %u/%u)\n",
-			  knl_smp_last_pub[0], knl_smp_last_pub[1],
-			  knl_smp_pub_count[0], knl_smp_pub_count[1]);
-	}
+    /*
+     * Both cores' scheduler slots, so the report distinguishes "the
+     * scheduler chose this" from "something wrote this". The affinity guard
+     * reports zero violations, yet the current task here is one pinned to
+     * the other core, and only these values separate the two explanations.
+     */
+    {
+        TCB *       c0 = *knl_ctxtsk_core_slot(0);
+        TCB *       c1 = *knl_ctxtsk_core_slot(1);
+        TCB *       s0 = *knl_schedtsk_core_slot(0);
+        TCB *       s1 = *knl_schedtsk_core_slot(1);
+        IMPORT BOOL knl_guards_intact(void);
+        IMPORT UW   knl_smp_last_pub[];
+        IMPORT UW   knl_smp_pub_count[];
+        tm_printf((UB *) "    scheduler slot guards %s\n",
+                  knl_guards_intact() ? "intact" : "SMASHED");
+        tm_printf((UB *) "    ctxtsk[0]=%d ctxtsk[1]=%d schedtsk[0]=%d "
+                         "schedtsk[1]=%d\n",
+                  (c0 == NULL) ? 0 : c0->tskid, (c1 == NULL) ? 0 : c1->tskid,
+                  (s0 == NULL) ? 0 : s0->tskid, (s1 == NULL) ? 0 : s1->tskid);
+        tm_printf((UB *) "    last publish: core0=%u core1=%u (counts %u/%u)\n",
+                  knl_smp_last_pub[0], knl_smp_last_pub[1],
+                  knl_smp_pub_count[0], knl_smp_pub_count[1]);
+    }
 #endif
-	if(f != NULL) {
-		tm_printf((UB*)"    pc=%08x lr=%08x psr=%08x\n", f[6], f[5], f[7]);
-		tm_printf((UB*)"    r0=%08x r1=%08x r2=%08x r3=%08x r12=%08x\n",
-			  f[0], f[1], f[2], f[3], f[4]);
-	}
+    if (f != NULL)
+    {
+        tm_printf((UB *) "    pc=%08x lr=%08x psr=%08x\n", f[6], f[5], f[7]);
+        tm_printf((UB *) "    r0=%08x r1=%08x r2=%08x r3=%08x r12=%08x\n", f[0],
+                  f[1], f[2], f[3], f[4]);
+    }
 #endif
 #ifdef _PICO_RP2040_
-	health_reboot_now();	/* record written above */
+    health_reboot_now(); /* record written above */
 #endif
-	while(1);
+    while (1)
+        ;
 }
 
 /*
  * Svcall
  */
-WEAK_FUNC EXPORT void Svcall_Handler(void)
+WEAK_FUNC EXPORT void
+Svcall_Handler (void)
 {
-	EXCEPTION_DBG_MSG("SVCall\n");
-	while(1);
+    EXCEPTION_DBG_MSG("SVCall\n");
+    while (1)
+        ;
 }
 
 /*
  * Default Handler
  */
-WEAK_FUNC EXPORT void Default_Handler(void)
+WEAK_FUNC EXPORT void
+Default_Handler (void)
 {
-#if (USE_EXCEPTION_DBG_MSG  && USE_TMONITOR)
-	INT	i;
-	_UW	*icpr;
+#if (USE_EXCEPTION_DBG_MSG && USE_TMONITOR)
+    INT   i;
+    _UW * icpr;
 
-	icpr = (_UW*)NVIC_ICPR_BASE;
+    icpr = (_UW *) NVIC_ICPR_BASE;
 
-	EXCEPTION_DBG_MSG("Undefine Exceptio ICPR: ");
-	for(i=0; i < 8; i++) {
-		tm_printf((UB*)"%x ", *icpr++);
-	}
-	EXCEPTION_DBG_MSG("\n");
+    EXCEPTION_DBG_MSG("Undefine Exceptio ICPR: ");
+    for (i = 0; i < 8; i++)
+    {
+        tm_printf((UB *) "%x ", *icpr++);
+    }
+    EXCEPTION_DBG_MSG("\n");
 #endif
-	while(1);
+    while (1)
+        ;
 }
 
 #endif /* CPU_CORE_ARMV6M */
+
+/*** end of file ***/

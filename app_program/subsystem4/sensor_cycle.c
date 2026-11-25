@@ -3,20 +3,22 @@
 
 #include <stddef.h>
 
-void s4_cycle_reset(s4_sensor_cycle_t *p_cycle, const lsm303_bus_t *p_bus,
-                    void (*recover)(void))
+void
+s4_cycle_reset (s4_sensor_cycle_t * p_cycle, const lsm303_bus_t * p_bus,
+                void (*recover)(void))
 {
-    *p_cycle = (s4_sensor_cycle_t){ 0 };
-    p_cycle->bus = *p_bus;
+    *p_cycle         = (s4_sensor_cycle_t){0};
+    p_cycle->bus     = *p_bus;
     p_cycle->recover = recover;
 }
 
-void s4_cycle_run(s4_sensor_cycle_t *p_cycle, s4_sensor_cache_t *p_state,
-                  uint64_t now_ms)
+void
+s4_cycle_run (s4_sensor_cycle_t * p_cycle, s4_sensor_cache_t * p_state,
+              uint64_t now_ms)
 {
-    lsm303_frame_t frame;
+    lsm303_frame_t  frame;
     lsm303_result_t result;
-    bool failed;
+    bool            failed;
 
     if (!p_cycle->device.initialized)
     {
@@ -32,7 +34,7 @@ void s4_cycle_run(s4_sensor_cycle_t *p_cycle, s4_sensor_cache_t *p_state,
         result = lsm303dlhc_init(&p_cycle->device, &p_cycle->bus);
         s4_data_init_result(p_state, result);
         p_cycle->failed_polls = 0;
-        p_cycle->idle_polls = 0;
+        p_cycle->idle_polls   = 0;
         /* Back off only after a failed attempt. */
         p_cycle->retry_ms = (result == LSM303_OK) ? 0U : now_ms + S4_RETRY_MS;
         p_cycle->mag_retry_ms = now_ms + S4_RETRY_MS;
@@ -40,7 +42,7 @@ void s4_cycle_run(s4_sensor_cycle_t *p_cycle, s4_sensor_cache_t *p_state,
     else if (!p_cycle->device.mag_ready && (now_ms >= p_cycle->mag_retry_ms))
     {
         /* The accelerometer keeps running whatever this returns. */
-        (void)lsm303dlhc_init_mag(&p_cycle->device);
+        (void) lsm303dlhc_init_mag(&p_cycle->device);
         p_cycle->mag_retry_ms = now_ms + S4_RETRY_MS;
     }
     if (!p_cycle->device.initialized)
@@ -65,7 +67,8 @@ void s4_cycle_run(s4_sensor_cycle_t *p_cycle, s4_sensor_cache_t *p_state,
      * magnetometer error never counts. */
     failed = (frame.accel.status == LSM303_DATA_IO_ERROR) ||
              (p_cycle->idle_polls >= S4_IDLE_POLLS);
-    p_cycle->failed_polls = failed ? (uint8_t)(p_cycle->failed_polls + 1U) : 0U;
+    p_cycle->failed_polls =
+        failed ? (uint8_t) (p_cycle->failed_polls + 1U) : 0U;
     if (p_cycle->failed_polls >= S4_FAILED_POLLS)
     {
         p_cycle->device.initialized = false;
@@ -73,3 +76,5 @@ void s4_cycle_run(s4_sensor_cycle_t *p_cycle, s4_sensor_cache_t *p_state,
         p_cycle->retry_ms = 0; /* re-initialise on the next cycle */
     }
 }
+
+/*** end of file ***/

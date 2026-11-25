@@ -12,296 +12,1020 @@
 #include "../../app_program/subsystem1/telemetry_edr.h"
 #include "../../app_program/vehicle_policy.h"
 #include "../../app_program/vehicle_motion_handoff.h"
-static s5_status_t measured(void){return(s5_status_t){.state=S5_READY,.scan_id=7,.angle_deg=0,.sample_angle_deg=0,.valid=1,.distance_mm=150,.obstacle_distance_mm=150,.left_bound_valid=1,.right_bound_valid=1,.left_bound_deg=30,.right_bound_deg=-30,.left_bound_distance_mm=173,.right_bound_distance_mm=173};}
-static void width_packet(uint8_t packet[2]){
- s5_status_t scan=measured();s5_width_from_bounds(&scan);assert(scan.object_width_valid && scan.object_width_mm==172 && scan.object_width_max_mm==181 && scan.object_left_mm==86 && scan.object_right_mm==86);
- uint8_t private_scan[S5_DATA_SIZE];s5_status_t decoded;assert(s5_data_encode(&scan,private_scan,sizeof private_scan));assert(s5_data_decode(private_scan,sizeof private_scan,&decoded));assert(decoded.object_width_mm==172 && decoded.object_width_valid && decoded.object_left_mm==86 && decoded.object_right_mm==86);
- int64_t v[TEL_FIELD_COUNT]={0},copy[TEL_FIELD_COUNT]={0};uint8_t snapshot[TELEMETRY_BYTES],half[2];v[TEL_VERSION]=1;v[TEL_WIDTH_MM]=scan.object_width_mm;v[TEL_WIDTH_LEFT_MM]=scan.object_left_mm;v[TEL_WIDTH_RIGHT_MM]=scan.object_right_mm;v[TEL_QUALITY]=1;
- assert(telemetry_encode(snapshot,v));assert(telemetry_decode(snapshot,copy));assert(telemetry_edr_record(copy,23,packet));unsigned id,data;assert(edr_decode(packet,2,&id,&data));assert(id==0 && data==(8U<<8|34U));
- assert(telemetry_edr_record(copy,31,half) && edr_decode(half,2,&id,&data) && id==0 && data==(8U<<8|128U|11U));
- assert(telemetry_edr_record(copy,32,half) && edr_decode(half,2,&id,&data) && id==0 && data==(8U<<8|192U|11U));
- copy[TEL_QUALITY]=0;assert(!telemetry_edr_record(copy,31,half) && !telemetry_edr_record(copy,32,half));
+static s5_status_t
+measured (void)
+{
+    return (s5_status_t){.state                   = S5_READY,
+                         .scan_id                 = 7,
+                         .angle_deg               = 0,
+                         .sample_angle_deg        = 0,
+                         .valid                   = 1,
+                         .distance_mm             = 150,
+                         .obstacle_distance_mm    = 150,
+                         .left_bound_valid        = 1,
+                         .right_bound_valid       = 1,
+                         .left_bound_deg          = 30,
+                         .right_bound_deg         = -30,
+                         .left_bound_distance_mm  = 173,
+                         .right_bound_distance_mm = 173};
 }
-static void geometry(void){
- s5_status_t scan=measured();assert(s5_acquisition_plan(&scan));assert(scan.approach_plan_valid && scan.planned_approach_mm>=50 && scan.planned_return_mm==scan.planned_approach_mm);
- double theta=fabs((double)scan.planned_rotate_deg)*3.141592653589793/180.0;
- double lateral=2.0*S5_BYPASS_ARC_RADIUS_MM*(1.0-cos(theta))+scan.planned_approach_mm*sin(theta);
- assert(lateral+1.0>=(scan.object_width_max_mm+1U)/2U+S5_CLEARANCE_RADIUS_MM);
- scan=measured();scan.right_bound_valid=0;assert(!s5_acquisition_plan(&scan) && !scan.object_width_valid);
- scan=measured();scan.left_bound_deg=70;scan.right_bound_deg=-70;scan.obstacle_distance_mm=200;assert(!s5_acquisition_plan(&scan) && !scan.object_width_valid);
+static void
+width_packet (uint8_t packet[2])
+{
+    s5_status_t scan = measured();
+    s5_width_from_bounds(&scan);
+    assert(scan.object_width_valid && scan.object_width_mm == 172 &&
+           scan.object_width_max_mm == 181 && scan.object_left_mm == 86 &&
+           scan.object_right_mm == 86);
+    uint8_t     private_scan[S5_DATA_SIZE];
+    s5_status_t decoded;
+    assert(s5_data_encode(&scan, private_scan, sizeof private_scan));
+    assert(s5_data_decode(private_scan, sizeof private_scan, &decoded));
+    assert(decoded.object_width_mm == 172 && decoded.object_width_valid &&
+           decoded.object_left_mm == 86 && decoded.object_right_mm == 86);
+    int64_t v[TEL_FIELD_COUNT] = {0}, copy[TEL_FIELD_COUNT] = {0};
+    uint8_t snapshot[TELEMETRY_BYTES], half[2];
+    v[TEL_VERSION]        = 1;
+    v[TEL_WIDTH_MM]       = scan.object_width_mm;
+    v[TEL_WIDTH_LEFT_MM]  = scan.object_left_mm;
+    v[TEL_WIDTH_RIGHT_MM] = scan.object_right_mm;
+    v[TEL_QUALITY]        = 1;
+    assert(telemetry_encode(snapshot, v));
+    assert(telemetry_decode(snapshot, copy));
+    assert(telemetry_edr_record(copy, 23, packet));
+    unsigned id, data;
+    assert(edr_decode(packet, 2, &id, &data));
+    assert(id == 0 && data == (8U << 8 | 34U));
+    assert(telemetry_edr_record(copy, 31, half) &&
+           edr_decode(half, 2, &id, &data) && id == 0 &&
+           data == (8U << 8 | 128U | 11U));
+    assert(telemetry_edr_record(copy, 32, half) &&
+           edr_decode(half, 2, &id, &data) && id == 0 &&
+           data == (8U << 8 | 192U | 11U));
+    copy[TEL_QUALITY] = 0;
+    assert(!telemetry_edr_record(copy, 31, half) &&
+           !telemetry_edr_record(copy, 32, half));
 }
-static vc_input_t good(void){return(vc_input_t){.line_fresh=1,.steering=1,.front_clear=1,.sensor_fresh=1,.backup_ready=1,.odom_valid=1,.terrain_valid=1,.motor_ok=1,.transport_ok=1,.bypass_enabled=1,.bypass_steering=376,.width_valid=1,.obstacle_width_mm=200};}
-static void route(int sign){
- /* t: TURN_OUT entry, after the reverse and the stand-still. */
- uint32_t t=15+AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;vc_state_t s={0};vc_input_t i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.command);
- i.now_ms=10;i.scan_ready=1;i.turn_deg=(int16_t)(sign*40);i.approach_mm=i.return_mm=180;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.approach_mm==180 && s.return_mm==180 && s.avoid_yaw==0);
- /* front_clear stays 0 and obstacle 1: the reverse is not gated by the forward sonar.
-  * It ramps START -> AVOID_BACKUP_POWER -> START. */
- i.now_ms=15;i.distance_um=-1000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_START_POWER && !s.steering);
- i.now_ms=15+AVOID_BACKUP_MS/2;i.distance_um=-60000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_POWER && !s.steering);
- i.now_ms=15+AVOID_BACKUP_MS-1;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_START_POWER);
- /* Never straight from reverse to forward: stopped for AVOID_BACKUP_BRAKE_MS first. */
- i.now_ms=15+AVOID_BACKUP_MS;i.distance_um=-120000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
- i.now_ms=t-1;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
- i.now_ms=t;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command);
- /* The turn-out starts from standstill: soft start from AVOID_BACKUP_START_POWER. */
- i.now_ms=t+20;i.front_clear=1;i.obstacle=i.scan_ready=0;vc_step(&s,&i);assert(s.command==1 && s.power==AVOID_BACKUP_START_POWER && s.steering==-sign*376);
- i.now_ms=t+30;i.yaw_mdeg=sign*40000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1 && s.power==AVOID_BACKUP_START_POWER && !s.steering);
- i.now_ms=t+40;i.distance_um=59999;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1);
- /* End of the 180 mm diagonal: stop and look to the obstacle side. */
- i.now_ms=t+50;i.distance_um=60000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && !s.command && s.look_side && s.return_mm==180);
- /* Still beside it (three fresh samples): align with the original heading. */
- i.front_clear=0;i.side_observed=i.side_ready=1;i.side_clear=0;
- for(unsigned n=0;n<3;++n){i.side_sample_ms=i.now_ms=t+60U+n*20U;vc_step(&s,&i);assert(!s.command);if(n<2)assert(s.look_side && s.phase==VC_DIAGONAL);}
- assert(s.phase==VC_ALIGN && !s.look_side && !s.direct_return);
- i.now_ms=t+120;i.front_clear=1;i.side_observed=0;vc_step(&s,&i);assert(s.command==1 && s.steering==sign*376 && s.power==AVOID_BACKUP_START_POWER);
- i.now_ms=t+130;i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1 && !s.look_side);
- /* Pass it, looking every AVOID_PASS_STEP_MM. */
- i.now_ms=t+140;i.distance_um+=AVOID_PASS_STEP_MM*1000-1;vc_step(&s,&i);assert(s.command==1 && !s.look_side);
- i.now_ms=t+150;i.distance_um+=1;vc_step(&s,&i);assert(!s.command && s.look_side);
- i.front_clear=0;i.side_observed=i.side_ready=i.side_clear=1;i.side_sample_ms=i.now_ms=t+170;vc_step(&s,&i);assert(s.side_clear_count==1 && !s.command);
- i.now_ms=t+180;vc_step(&s,&i);assert(s.side_clear_count==1 && !s.command);
- i.side_sample_ms=i.now_ms=t+190;i.side_ready=0;vc_step(&s,&i);assert(s.side_clear_count==1 && s.look_side);
- i.side_ready=1;
- for(unsigned n=0;n<2;++n){i.side_sample_ms=i.now_ms=t+210U+n*20U;vc_step(&s,&i);assert(!s.command);if(n<1)assert(s.look_side && s.phase==VC_PASS);}
- /* Clear: AVOID_CLEAR_RUN_MM further on, then turn back. */
- assert(s.phase==VC_PASS && s.clear_run && !s.look_side);
- i.now_ms=t+260;i.front_clear=1;i.side_observed=0;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1 && !s.steering);
- i.now_ms=t+270;i.distance_um+=AVOID_CLEAR_RUN_MM*1000;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1);
- /* The distance is done; the run lasts AVOID_CLEAR_RUN_MS from its first drive tick (t+260). */
- i.now_ms=t+259+AVOID_CLEAR_RUN_MS;vc_step(&s,&i);assert(s.phase==VC_PASS && s.command==1);
- t+=AVOID_CLEAR_RUN_MS;
- i.now_ms=t+270;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1 && s.steering==sign*376 && !s.direct_return);
- i.now_ms=t+280;i.yaw_mdeg=-sign*45000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.steering);
- /* No line: straight on well past the expected distance (180 mm at 40 deg
-  * is 116 mm off the line: 164 mm at the 45 deg return heading, plus
-  * AVOID_RETURN_EXTRA_MM) up to AVOID_RETURN_MAX_MM, then restore the heading. */
- _Static_assert(164+AVOID_RETURN_EXTRA_MM<AVOID_RETURN_MAX_MM,"return limit is the maximum");
- i.now_ms=t+290;i.distance_um+=AVOID_RETURN_MAX_MM*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
- i.now_ms=t+300;i.distance_um+=1;vc_step(&s,&i);assert(s.phase==VC_RESTORE && s.command==1 && s.steering==-sign*376 && s.restore_mdeg==sign*45000);
- i.now_ms=t+310;i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command && s.spot_scan && s.search_right_first==(sign>0));
+static void
+geometry (void)
+{
+    s5_status_t scan = measured();
+    assert(s5_acquisition_plan(&scan));
+    assert(scan.approach_plan_valid && scan.planned_approach_mm >= 50 &&
+           scan.planned_return_mm == scan.planned_approach_mm);
+    double theta =
+        fabs((double) scan.planned_rotate_deg) * 3.141592653589793 / 180.0;
+    double lateral = 2.0 * S5_BYPASS_ARC_RADIUS_MM * (1.0 - cos(theta)) +
+                     scan.planned_approach_mm * sin(theta);
+    assert(lateral + 1.0 >=
+           (scan.object_width_max_mm + 1U) / 2U + S5_CLEARANCE_RADIUS_MM);
+    scan                   = measured();
+    scan.right_bound_valid = 0;
+    assert(!s5_acquisition_plan(&scan) && !scan.object_width_valid);
+    scan                      = measured();
+    scan.left_bound_deg       = 70;
+    scan.right_bound_deg      = -70;
+    scan.obstacle_distance_mm = 200;
+    assert(!s5_acquisition_plan(&scan) && !scan.object_width_valid);
 }
-static void backup(void){
- vc_state_t s={0};vc_input_t i=good();assert(vc_start(&s,0,40));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
- i.now_ms=10;i.scan_ready=1;i.turn_deg=40;i.approach_mm=i.return_mm=180;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
- i.now_ms=20;i.distance_um=-299999;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==AVOID_BACKUP_START_POWER && !s.steering);
- i.now_ms=30;i.distance_um=-(int32_t)AVOID_BACKUP_MAX_MM*1000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && s.backup_braking);
- i.now_ms=30+AVOID_BACKUP_BRAKE_MS;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command);
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30};i=good();i.now_ms=50;i.distance_um=-(int32_t)AVOID_BACKUP_MAX_MM*2000-1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && !s.command);
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30};i=good();i.front_clear=0;i.obstacle=i.slope=1;s.backup_moving=1;i.now_ms=AVOID_BACKUP_MS/2;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.power==20);
- /* No fresh sonar sample: hold still, a sonar fault once the gap lasts VC_SONAR_GAP_MS. */
- i.sensor_fresh=0;i.now_ms=AVOID_BACKUP_MS/2+10;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.armed && !s.command);
- i.now_ms+=VC_SONAR_GAP_MS;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR && !s.command && !s.armed);
- /* Stay stopped while S5 is still in its scan (its motion guard would drop
-  * the published plan/widths); the 1 s reverse starts when it lets go. */
- s=(vc_state_t){0};i=good();assert(vc_start(&s,0,40));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- i.now_ms=10;i.scan_ready=1;i.turn_deg=40;i.approach_mm=i.return_mm=180;i.sensor_acquiring=1;i.backup_ready=0;
- vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
- i.now_ms=20;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command && !s.backup_moving);
- i.now_ms=60;i.sensor_acquiring=0;i.backup_ready=1;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.backup_moving);
- /* The full reverse runs from the first ready tick (60 ms). */
- i.now_ms=1059;i.distance_um=-100000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2);
- i.now_ms=1060;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.backup_braking && !s.command);
- i.now_ms=1060+AVOID_BACKUP_BRAKE_MS;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT);
- /* Ramp profile: START at both ends, AVOID_BACKUP_POWER in the middle, never above it. */
- {
-  static const struct {uint32_t t;unsigned power;} ramp[]={
-   {0,AVOID_BACKUP_START_POWER},
-   {AVOID_BACKUP_RAMP_MS/2,AVOID_BACKUP_START_POWER+(AVOID_BACKUP_POWER-AVOID_BACKUP_START_POWER)/2},
-   {AVOID_BACKUP_RAMP_MS,AVOID_BACKUP_POWER},{AVOID_BACKUP_MS/2,AVOID_BACKUP_POWER},
-   {AVOID_BACKUP_MS-AVOID_BACKUP_RAMP_MS,AVOID_BACKUP_POWER},
-   {AVOID_BACKUP_MS-AVOID_BACKUP_RAMP_MS/2,AVOID_BACKUP_START_POWER+(AVOID_BACKUP_POWER-AVOID_BACKUP_START_POWER)/2},
-   {AVOID_BACKUP_MS-1,AVOID_BACKUP_START_POWER}};
-  for(unsigned n=0;n<sizeof(ramp)/sizeof(ramp[0]);++n) {
-   s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=40,.backup_moving=1,.backup_started_ms=1000};i=good();
-   i.now_ms=1000+ramp[n].t;i.distance_um=-50000;vc_step(&s,&i);
-   assert(s.phase==VC_BACKUP && s.command==2 && s.power==ramp[n].power);
-  }
- }
- /* Still coasting after the reverse: the turn-out waits until odometry has
-  * been still for AVOID_BACKUP_STILL_MS, and coasting counts as reversed. */
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.backup_moving=1,.backup_started_ms=0};i=good();
- i.now_ms=AVOID_BACKUP_MS;i.distance_um=-150000;vc_step(&s,&i);assert(s.backup_braking && !s.command);
- i.now_ms=AVOID_BACKUP_MS+250;i.distance_um=-150000-AVOID_BACKUP_STILL_UM-1;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
- i.now_ms=AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;i.distance_um-=AVOID_BACKUP_STILL_UM; /* within STILL_UM: still */
- vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command); /* only 50 ms still */
- i.now_ms=AVOID_BACKUP_MS+250+AVOID_BACKUP_STILL_MS-1;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
- i.now_ms=AVOID_BACKUP_MS+250+AVOID_BACKUP_STILL_MS;vc_step(&s,&i);
- assert(s.phase==VC_TURN_OUT && !s.command);
- /* Tilt drops out while reversing (a jolt): VC_BACKUP carries on,
-  * and the stand-still still ends normally; TURN_OUT then requires tilt again. */
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.backup_moving=1,.backup_started_ms=0};i=good();i.terrain_valid=0;
- i.now_ms=AVOID_BACKUP_MS/2;i.distance_um=-60000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && s.armed);
- i.now_ms=AVOID_BACKUP_MS;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.backup_braking && s.armed);
- i.now_ms=AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && s.armed);
- i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_TILT);
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.backup_moving=1,.backup_started_ms=0,.turn_deg=40,.bypass_steering=376};i=good();
- i.now_ms=AVOID_BACKUP_MS;i.distance_um=-60000;vc_step(&s,&i);
- i.now_ms=AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MS;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT);
- i.now_ms+=10;i.front_clear=1;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && s.command==1); /* tilt back: turns out */
- /* ...but never stands longer than AVOID_BACKUP_BRAKE_MAX_MS, even if odometry keeps creeping. */
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.backup_moving=1,.backup_started_ms=0};i=good();
- i.now_ms=AVOID_BACKUP_MS;i.distance_um=-150000;vc_step(&s,&i);assert(s.backup_braking);
- for(uint32_t ms=20;ms<AVOID_BACKUP_BRAKE_MAX_MS;ms+=20) {
-  i.now_ms=AVOID_BACKUP_MS+ms;i.distance_um-=AVOID_BACKUP_STILL_UM+1;vc_step(&s,&i);assert(s.phase==VC_BACKUP && !s.command);
- }
- i.now_ms=AVOID_BACKUP_MS+AVOID_BACKUP_BRAKE_MAX_MS;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.command);
- /* ...but never waits longer than AVOID_BACKUP_SETTLE_MS. */
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30};i=good();i.sensor_acquiring=1;i.backup_ready=0;
- i.now_ms=AVOID_BACKUP_SETTLE_MS;vc_step(&s,&i);assert(!s.command && !s.armed && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- /* Odometry moving forward while commanding reverse is a motor fault. */
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30};i=good();i.now_ms=20;
- i.distance_um=(int32_t)AVOID_BACKUP_WRONG_WAY_MM*1000;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2);
- i.distance_um+=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_MOTOR && !s.command);
- /* Still beside it in VC_PASS: one more AVOID_PASS_STEP_MM, then look again. */
- s=(vc_state_t){.armed=1,.phase=VC_PASS,.maximum_power=30,.look_side=1};
- i=good();i.front_clear=0;i.side_observed=i.side_ready=1;i.distance_um=40000;
- for(unsigned n=1;n<=3;++n){i.now_ms=i.side_sample_ms=n*100U;vc_step(&s,&i);}
- assert(!s.look_side && !s.clear_run && s.phase==VC_PASS && s.origin_um==40000);
- i.front_clear=1;i.side_observed=0;i.now_ms=400;i.distance_um+=AVOID_PASS_STEP_MM*1000-1;vc_step(&s,&i);assert(s.command==1 && !s.look_side);
- i.now_ms=410;i.distance_um+=1;vc_step(&s,&i);assert(!s.command && s.look_side && s.phase==VC_PASS);
+static vc_input_t
+good (void)
+{
+    return (vc_input_t){.line_fresh        = 1,
+                        .steering          = 1,
+                        .front_clear       = 1,
+                        .sensor_fresh      = 1,
+                        .backup_ready      = 1,
+                        .odom_valid        = 1,
+                        .terrain_valid     = 1,
+                        .motor_ok          = 1,
+                        .transport_ok      = 1,
+                        .bypass_enabled    = 1,
+                        .bypass_steering   = 376,
+                        .width_valid       = 1,
+                        .obstacle_width_mm = 200};
 }
-static void occupied(void){
- vc_state_t s={.armed=1,.phase=VC_PASS,.maximum_power=30,.look_side=1};vc_input_t i=good();i.front_clear=0;i.side_observed=i.side_ready=1;
- for(unsigned n=1;n<=3;++n){i.now_ms=i.side_sample_ms=n*100U;vc_step(&s,&i);assert(!s.command);if(n<3)assert(s.look_side);}
- assert(!s.look_side && s.phase==VC_PASS);i.now_ms=400;i.front_clear=1;i.side_observed=0;vc_step(&s,&i);assert(s.command==1 && s.power==AVOID_BACKUP_START_POWER);
- i.now_ms=400+AVOID_BACKUP_RAMP_MS;vc_step(&s,&i);assert(s.command==1 && s.power==25 && !s.soft_start); /* pass resumes, ramped */
- s=(vc_state_t){.armed=1,.phase=VC_PASS,.maximum_power=30,.look_side=1};i=good();i.front_clear=0;i.now_ms=4000;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && !s.command);
- assert(!vehicle_sensor_pan_requires_stop(1,1,0,0,0));assert(vehicle_sensor_pan_requires_stop(1,1,0,0,90));assert(vehicle_sensor_pan_requires_stop(0,1,0,0,0));assert(vehicle_sensor_pan_requires_stop(1,0,0,0,0));
+static void
+route (int sign)
+{
+    /* t: TURN_OUT entry, after the reverse and the stand-still. */
+    uint32_t   t = 15 + AVOID_BACKUP_MS + AVOID_BACKUP_BRAKE_MS;
+    vc_state_t s = {0};
+    vc_input_t i = good();
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && !s.command);
+    i.now_ms      = 10;
+    i.scan_ready  = 1;
+    i.turn_deg    = (int16_t) (sign * 40);
+    i.approach_mm = i.return_mm = 180;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command && s.approach_mm == 180 &&
+           s.return_mm == 180 && s.avoid_yaw == 0);
+    /* front_clear stays 0 and obstacle 1: the reverse is not gated by the
+     * forward sonar. It ramps START -> AVOID_BACKUP_POWER -> START. */
+    i.now_ms      = 15;
+    i.distance_um = -1000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 &&
+           s.power == AVOID_BACKUP_START_POWER && !s.steering);
+    i.now_ms      = 15 + AVOID_BACKUP_MS / 2;
+    i.distance_um = -60000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 &&
+           s.power == AVOID_BACKUP_POWER && !s.steering);
+    i.now_ms = 15 + AVOID_BACKUP_MS - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 &&
+           s.power == AVOID_BACKUP_START_POWER);
+    /* Never straight from reverse to forward: stopped for AVOID_BACKUP_BRAKE_MS
+     * first. */
+    i.now_ms      = 15 + AVOID_BACKUP_MS;
+    i.distance_um = -120000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command && s.backup_braking);
+    i.now_ms = t - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command);
+    i.now_ms = t;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT && !s.command);
+    /* The turn-out starts from standstill: soft start from
+     * AVOID_BACKUP_START_POWER. */
+    i.now_ms      = t + 20;
+    i.front_clear = 1;
+    i.obstacle = i.scan_ready = 0;
+    vc_step(&s, &i);
+    assert(s.command == 1 && s.power == AVOID_BACKUP_START_POWER &&
+           s.steering == -sign * 376);
+    i.now_ms   = t + 30;
+    i.yaw_mdeg = sign * 40000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_DIAGONAL && s.command == 1 &&
+           s.power == AVOID_BACKUP_START_POWER && !s.steering);
+    i.now_ms      = t + 40;
+    i.distance_um = 59999;
+    vc_step(&s, &i);
+    assert(s.phase == VC_DIAGONAL && s.command == 1);
+    /* End of the 180 mm diagonal: stop and look to the obstacle side. */
+    i.now_ms      = t + 50;
+    i.distance_um = 60000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_DIAGONAL && !s.command && s.look_side &&
+           s.return_mm == 180);
+    /* Still beside it (three fresh samples): align with the original heading.
+     */
+    i.front_clear   = 0;
+    i.side_observed = i.side_ready = 1;
+    i.side_clear                   = 0;
+    for (unsigned n = 0; n < 3; ++n)
+    {
+        i.side_sample_ms = i.now_ms = t + 60U + n * 20U;
+        vc_step(&s, &i);
+        assert(!s.command);
+        if (n < 2)
+        {
+            assert(s.look_side && s.phase == VC_DIAGONAL);
+        }
+    }
+    assert(s.phase == VC_ALIGN && !s.look_side && !s.direct_return);
+    i.now_ms        = t + 120;
+    i.front_clear   = 1;
+    i.side_observed = 0;
+    vc_step(&s, &i);
+    assert(s.command == 1 && s.steering == sign * 376 &&
+           s.power == AVOID_BACKUP_START_POWER);
+    i.now_ms   = t + 130;
+    i.yaw_mdeg = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_PASS && s.command == 1 && !s.look_side);
+    /* Pass it, looking every AVOID_PASS_STEP_MM. */
+    i.now_ms = t + 140;
+    i.distance_um += AVOID_PASS_STEP_MM * 1000 - 1;
+    vc_step(&s, &i);
+    assert(s.command == 1 && !s.look_side);
+    i.now_ms = t + 150;
+    i.distance_um += 1;
+    vc_step(&s, &i);
+    assert(!s.command && s.look_side);
+    i.front_clear   = 0;
+    i.side_observed = i.side_ready = i.side_clear = 1;
+    i.side_sample_ms = i.now_ms = t + 170;
+    vc_step(&s, &i);
+    assert(s.side_clear_count == 1 && !s.command);
+    i.now_ms = t + 180;
+    vc_step(&s, &i);
+    assert(s.side_clear_count == 1 && !s.command);
+    i.side_sample_ms = i.now_ms = t + 190;
+    i.side_ready                = 0;
+    vc_step(&s, &i);
+    assert(s.side_clear_count == 1 && s.look_side);
+    i.side_ready = 1;
+    for (unsigned n = 0; n < 2; ++n)
+    {
+        i.side_sample_ms = i.now_ms = t + 210U + n * 20U;
+        vc_step(&s, &i);
+        assert(!s.command);
+        if (n < 1)
+        {
+            assert(s.look_side && s.phase == VC_PASS);
+        }
+    }
+    /* Clear: AVOID_CLEAR_RUN_MM further on, then turn back. */
+    assert(s.phase == VC_PASS && s.clear_run && !s.look_side);
+    i.now_ms        = t + 260;
+    i.front_clear   = 1;
+    i.side_observed = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_PASS && s.command == 1 && !s.steering);
+    i.now_ms = t + 270;
+    i.distance_um += AVOID_CLEAR_RUN_MM * 1000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_PASS && s.command == 1);
+    /* The distance is done; the run lasts AVOID_CLEAR_RUN_MS from its first
+     * drive tick (t+260). */
+    i.now_ms = t + 259 + AVOID_CLEAR_RUN_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_PASS && s.command == 1);
+    t += AVOID_CLEAR_RUN_MS;
+    i.now_ms = t + 270;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_IN && s.command == 1 &&
+           s.steering == sign * 376 && !s.direct_return);
+    i.now_ms   = t + 280;
+    i.yaw_mdeg = -sign * 45000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_RETURN && s.command == 1 && !s.steering);
+    /* No line: straight on well past the expected distance (180 mm at 40 deg
+     * is 116 mm off the line: 164 mm at the 45 deg return heading, plus
+     * AVOID_RETURN_EXTRA_MM) up to AVOID_RETURN_MAX_MM, then restore the
+     * heading. */
+    _Static_assert(164 + AVOID_RETURN_EXTRA_MM < AVOID_RETURN_MAX_MM,
+                   "return limit is the maximum");
+    i.now_ms = t + 290;
+    i.distance_um += AVOID_RETURN_MAX_MM * 1000 - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_RETURN && s.command == 1);
+    i.now_ms = t + 300;
+    i.distance_um += 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_RESTORE && s.command == 1 &&
+           s.steering == -sign * 376 && s.restore_mdeg == sign * 45000);
+    i.now_ms   = t + 310;
+    i.yaw_mdeg = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_REACQUIRE && !s.command && s.spot_scan &&
+           s.search_right_first == (sign > 0));
+}
+static void
+backup (void)
+{
+    vc_state_t s = {0};
+    vc_input_t i = good();
+    assert(vc_start(&s, 0, 40));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE);
+    i.now_ms      = 10;
+    i.scan_ready  = 1;
+    i.turn_deg    = 40;
+    i.approach_mm = i.return_mm = 180;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command);
+    i.now_ms      = 20;
+    i.distance_um = -299999;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 &&
+           s.power == AVOID_BACKUP_START_POWER && !s.steering);
+    i.now_ms      = 30;
+    i.distance_um = -(int32_t) AVOID_BACKUP_MAX_MM * 1000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command && s.backup_braking);
+    i.now_ms = 30 + AVOID_BACKUP_BRAKE_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT && !s.command);
+    s = (vc_state_t){.armed = 1, .phase = VC_BACKUP, .maximum_power = 30};
+    i = good();
+    i.now_ms      = 50;
+    i.distance_um = -(int32_t) AVOID_BACKUP_MAX_MM * 2000 - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR && !s.command);
+    s = (vc_state_t){.armed = 1, .phase = VC_BACKUP, .maximum_power = 30};
+    i = good();
+    i.front_clear = 0;
+    i.obstacle = i.slope = 1;
+    s.backup_moving      = 1;
+    i.now_ms             = AVOID_BACKUP_MS / 2;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 && s.power == 20);
+    /* No fresh sonar sample: hold still, a sonar fault once the gap lasts
+     * VC_SONAR_GAP_MS. */
+    i.sensor_fresh = 0;
+    i.now_ms       = AVOID_BACKUP_MS / 2 + 10;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.armed && !s.command);
+    i.now_ms += VC_SONAR_GAP_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR &&
+           s.fault_cause == VC_CAUSE_SONAR && !s.command && !s.armed);
+    /* Stay stopped while S5 is still in its scan (its motion guard would drop
+     * the published plan/widths); the 1 s reverse starts when it lets go. */
+    s = (vc_state_t){0};
+    i = good();
+    assert(vc_start(&s, 0, 40));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    i.now_ms      = 10;
+    i.scan_ready  = 1;
+    i.turn_deg    = 40;
+    i.approach_mm = i.return_mm = 180;
+    i.sensor_acquiring          = 1;
+    i.backup_ready              = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command);
+    i.now_ms = 20;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command && !s.backup_moving);
+    i.now_ms           = 60;
+    i.sensor_acquiring = 0;
+    i.backup_ready     = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 && s.backup_moving);
+    /* The full reverse runs from the first ready tick (60 ms). */
+    i.now_ms      = 1059;
+    i.distance_um = -100000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2);
+    i.now_ms = 1060;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.backup_braking && !s.command);
+    i.now_ms = 1060 + AVOID_BACKUP_BRAKE_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT);
+    /* Ramp profile: START at both ends, AVOID_BACKUP_POWER in the middle, never
+     * above it. */
+    {
+        static const struct
+        {
+            uint32_t t;
+            unsigned power;
+        } ramp[] = {
+            {0, AVOID_BACKUP_START_POWER},
+            {AVOID_BACKUP_RAMP_MS / 2,
+             AVOID_BACKUP_START_POWER +
+                 (AVOID_BACKUP_POWER - AVOID_BACKUP_START_POWER) / 2},
+            {AVOID_BACKUP_RAMP_MS, AVOID_BACKUP_POWER},
+            {AVOID_BACKUP_MS / 2, AVOID_BACKUP_POWER},
+            {AVOID_BACKUP_MS - AVOID_BACKUP_RAMP_MS, AVOID_BACKUP_POWER},
+            {AVOID_BACKUP_MS - AVOID_BACKUP_RAMP_MS / 2,
+             AVOID_BACKUP_START_POWER +
+                 (AVOID_BACKUP_POWER - AVOID_BACKUP_START_POWER) / 2},
+            {AVOID_BACKUP_MS - 1, AVOID_BACKUP_START_POWER}};
+        for (unsigned n = 0; n < sizeof(ramp) / sizeof(ramp[0]); ++n)
+        {
+            s             = (vc_state_t){.armed             = 1,
+                                         .phase             = VC_BACKUP,
+                                         .maximum_power     = 40,
+                                         .backup_moving     = 1,
+                                         .backup_started_ms = 1000};
+            i             = good();
+            i.now_ms      = 1000 + ramp[n].t;
+            i.distance_um = -50000;
+            vc_step(&s, &i);
+            assert(s.phase == VC_BACKUP && s.command == 2 &&
+                   s.power == ramp[n].power);
+        }
+    }
+    /* Still coasting after the reverse: the turn-out waits until odometry has
+     * been still for AVOID_BACKUP_STILL_MS, and coasting counts as reversed. */
+    s             = (vc_state_t){.armed             = 1,
+                                 .phase             = VC_BACKUP,
+                                 .maximum_power     = 30,
+                                 .backup_moving     = 1,
+                                 .backup_started_ms = 0};
+    i             = good();
+    i.now_ms      = AVOID_BACKUP_MS;
+    i.distance_um = -150000;
+    vc_step(&s, &i);
+    assert(s.backup_braking && !s.command);
+    i.now_ms      = AVOID_BACKUP_MS + 250;
+    i.distance_um = -150000 - AVOID_BACKUP_STILL_UM - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command);
+    i.now_ms = AVOID_BACKUP_MS + AVOID_BACKUP_BRAKE_MS;
+    i.distance_um -= AVOID_BACKUP_STILL_UM; /* within STILL_UM: still */
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command); /* only 50 ms still */
+    i.now_ms = AVOID_BACKUP_MS + 250 + AVOID_BACKUP_STILL_MS - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && !s.command);
+    i.now_ms = AVOID_BACKUP_MS + 250 + AVOID_BACKUP_STILL_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT && !s.command);
+    /* Tilt drops out while reversing (a jolt): VC_BACKUP carries on,
+     * and the stand-still still ends normally; TURN_OUT then requires tilt
+     * again. */
+    s               = (vc_state_t){.armed             = 1,
+                                   .phase             = VC_BACKUP,
+                                   .maximum_power     = 30,
+                                   .backup_moving     = 1,
+                                   .backup_started_ms = 0};
+    i               = good();
+    i.terrain_valid = 0;
+    i.now_ms        = AVOID_BACKUP_MS / 2;
+    i.distance_um   = -60000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 && s.armed);
+    i.now_ms = AVOID_BACKUP_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.backup_braking && s.armed);
+    i.now_ms = AVOID_BACKUP_MS + AVOID_BACKUP_BRAKE_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT && s.armed);
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR &&
+           s.fault_cause == VC_CAUSE_TILT);
+    s             = (vc_state_t){.armed             = 1,
+                                 .phase             = VC_BACKUP,
+                                 .maximum_power     = 30,
+                                 .backup_moving     = 1,
+                                 .backup_started_ms = 0,
+                                 .turn_deg          = 40,
+                                 .bypass_steering   = 376};
+    i             = good();
+    i.now_ms      = AVOID_BACKUP_MS;
+    i.distance_um = -60000;
+    vc_step(&s, &i);
+    i.now_ms = AVOID_BACKUP_MS + AVOID_BACKUP_BRAKE_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT);
+    i.now_ms += 10;
+    i.front_clear = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT && s.command == 1); /* tilt back: turns out */
+    /* ...but never stands longer than AVOID_BACKUP_BRAKE_MAX_MS, even if
+     * odometry keeps creeping. */
+    s             = (vc_state_t){.armed             = 1,
+                                 .phase             = VC_BACKUP,
+                                 .maximum_power     = 30,
+                                 .backup_moving     = 1,
+                                 .backup_started_ms = 0};
+    i             = good();
+    i.now_ms      = AVOID_BACKUP_MS;
+    i.distance_um = -150000;
+    vc_step(&s, &i);
+    assert(s.backup_braking);
+    for (uint32_t ms = 20; ms < AVOID_BACKUP_BRAKE_MAX_MS; ms += 20)
+    {
+        i.now_ms = AVOID_BACKUP_MS + ms;
+        i.distance_um -= AVOID_BACKUP_STILL_UM + 1;
+        vc_step(&s, &i);
+        assert(s.phase == VC_BACKUP && !s.command);
+    }
+    i.now_ms = AVOID_BACKUP_MS + AVOID_BACKUP_BRAKE_MAX_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT && !s.command);
+    /* ...but never waits longer than AVOID_BACKUP_SETTLE_MS. */
+    s = (vc_state_t){.armed = 1, .phase = VC_BACKUP, .maximum_power = 30};
+    i = good();
+    i.sensor_acquiring = 1;
+    i.backup_ready     = 0;
+    i.now_ms           = AVOID_BACKUP_SETTLE_MS;
+    vc_step(&s, &i);
+    assert(!s.command && !s.armed && s.fault == VC_SENSOR &&
+           s.fault_cause == VC_CAUSE_SONAR);
+    /* Odometry moving forward while commanding reverse is a motor fault. */
+    s = (vc_state_t){.armed = 1, .phase = VC_BACKUP, .maximum_power = 30};
+    i = good();
+    i.now_ms      = 20;
+    i.distance_um = (int32_t) AVOID_BACKUP_WRONG_WAY_MM * 1000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2);
+    i.distance_um += 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_MOTOR && !s.command);
+    /* Still beside it in VC_PASS: one more AVOID_PASS_STEP_MM, then look again.
+     */
+    s = (vc_state_t){
+        .armed = 1, .phase = VC_PASS, .maximum_power = 30, .look_side = 1};
+    i               = good();
+    i.front_clear   = 0;
+    i.side_observed = i.side_ready = 1;
+    i.distance_um                  = 40000;
+    for (unsigned n = 1; n <= 3; ++n)
+    {
+        i.now_ms = i.side_sample_ms = n * 100U;
+        vc_step(&s, &i);
+    }
+    assert(!s.look_side && !s.clear_run && s.phase == VC_PASS &&
+           s.origin_um == 40000);
+    i.front_clear   = 1;
+    i.side_observed = 0;
+    i.now_ms        = 400;
+    i.distance_um += AVOID_PASS_STEP_MM * 1000 - 1;
+    vc_step(&s, &i);
+    assert(s.command == 1 && !s.look_side);
+    i.now_ms = 410;
+    i.distance_um += 1;
+    vc_step(&s, &i);
+    assert(!s.command && s.look_side && s.phase == VC_PASS);
+}
+static void
+occupied (void)
+{
+    vc_state_t s = {
+        .armed = 1, .phase = VC_PASS, .maximum_power = 30, .look_side = 1};
+    vc_input_t i    = good();
+    i.front_clear   = 0;
+    i.side_observed = i.side_ready = 1;
+    for (unsigned n = 1; n <= 3; ++n)
+    {
+        i.now_ms = i.side_sample_ms = n * 100U;
+        vc_step(&s, &i);
+        assert(!s.command);
+        if (n < 3)
+        {
+            assert(s.look_side);
+        }
+    }
+    assert(!s.look_side && s.phase == VC_PASS);
+    i.now_ms        = 400;
+    i.front_clear   = 1;
+    i.side_observed = 0;
+    vc_step(&s, &i);
+    assert(s.command == 1 && s.power == AVOID_BACKUP_START_POWER);
+    i.now_ms = 400 + AVOID_BACKUP_RAMP_MS;
+    vc_step(&s, &i);
+    assert(s.command == 1 && s.power == 25 &&
+           !s.soft_start); /* pass resumes, ramped */
+    s = (vc_state_t){
+        .armed = 1, .phase = VC_PASS, .maximum_power = 30, .look_side = 1};
+    i             = good();
+    i.front_clear = 0;
+    i.now_ms      = 4000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR && !s.command);
+    assert(!vehicle_sensor_pan_requires_stop(1, 1, 0, 0, 0));
+    assert(vehicle_sensor_pan_requires_stop(1, 1, 0, 0, 90));
+    assert(vehicle_sensor_pan_requires_stop(0, 1, 0, 0, 0));
+    assert(vehicle_sensor_pan_requires_stop(1, 0, 0, 0, 0));
 }
 /* Avoidance arcs ramp up whenever they start from standstill, and the
  * reverse's guards keep running through its stand-still. */
-static void soft(void){
- vc_state_t s={.armed=1,.phase=VC_TURN_OUT,.maximum_power=30,.turn_deg=40,.bypass_steering=376,.entered_ms=1000};vc_input_t i=good();
- i.now_ms=1010;vc_step(&s,&i);assert(s.command==1 && s.power==AVOID_BACKUP_START_POWER && s.soft_start);
- i.now_ms=1010+AVOID_BACKUP_RAMP_MS/2;vc_step(&s,&i);
- assert(s.power==AVOID_BACKUP_START_POWER+(AVOID_POWER-AVOID_BACKUP_START_POWER)/2);
- i.now_ms=1010+AVOID_BACKUP_RAMP_MS;vc_step(&s,&i);assert(s.power==AVOID_POWER && !s.soft_start);
- i.now_ms+=10;vc_step(&s,&i);assert(s.power==AVOID_POWER);
- /* A front-clear hold stops it; the restart ramps again. */
- i.front_clear=0;i.now_ms+=10;vc_step(&s,&i);assert(!s.command);
- i.front_clear=1;i.now_ms+=10;vc_step(&s,&i);assert(s.command==1 && s.power==AVOID_BACKUP_START_POWER);
- /* Continuous phase changes while driving keep the ramp going, not restart it. */
- i.now_ms+=AVOID_BACKUP_RAMP_MS;vc_step(&s,&i);assert(s.power==AVOID_POWER);
- i.now_ms+=10;i.yaw_mdeg=40000;vc_step(&s,&i);assert(s.phase==VC_DIAGONAL && s.command==1 && s.power==AVOID_POWER);
- /* Stand-still guards: over-distance and wrong-way still fault while braking. */
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.backup_moving=1};i=good();
- i.now_ms=AVOID_BACKUP_MS;i.distance_um=-150000;vc_step(&s,&i);assert(s.backup_braking);
- i.now_ms+=10;i.distance_um=-(int32_t)AVOID_BACKUP_MAX_MM*2000-1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && !s.command);
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.backup_moving=1};i=good();
- i.now_ms=AVOID_BACKUP_MS;i.distance_um=-150000;vc_step(&s,&i);assert(s.backup_braking);
- i.now_ms+=10;i.distance_um=(int32_t)AVOID_BACKUP_WRONG_WAY_MM*1000+1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_MOTOR && !s.command);
- /* The stand-still flag ends with it: a second obstacle reverses again. */
- s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- i.now_ms=10;i.scan_ready=1;i.turn_deg=40;i.approach_mm=i.return_mm=180;vc_step(&s,&i);
- i.now_ms=20;vc_step(&s,&i);i.now_ms=20+AVOID_BACKUP_MS;i.distance_um=-100000;vc_step(&s,&i);assert(s.backup_braking);
- i.now_ms+=AVOID_BACKUP_BRAKE_MS;vc_step(&s,&i);assert(s.phase==VC_TURN_OUT && !s.backup_braking);
- s.phase=VC_TRACK;i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
- i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_BACKUP);
- i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.command==2 && !s.backup_braking);
+static void
+soft (void)
+{
+    vc_state_t s = {.armed           = 1,
+                    .phase           = VC_TURN_OUT,
+                    .maximum_power   = 30,
+                    .turn_deg        = 40,
+                    .bypass_steering = 376,
+                    .entered_ms      = 1000};
+    vc_input_t i = good();
+    i.now_ms     = 1010;
+    vc_step(&s, &i);
+    assert(s.command == 1 && s.power == AVOID_BACKUP_START_POWER &&
+           s.soft_start);
+    i.now_ms = 1010 + AVOID_BACKUP_RAMP_MS / 2;
+    vc_step(&s, &i);
+    assert(s.power == AVOID_BACKUP_START_POWER +
+                          (AVOID_POWER - AVOID_BACKUP_START_POWER) / 2);
+    i.now_ms = 1010 + AVOID_BACKUP_RAMP_MS;
+    vc_step(&s, &i);
+    assert(s.power == AVOID_POWER && !s.soft_start);
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(s.power == AVOID_POWER);
+    /* A front-clear hold stops it; the restart ramps again. */
+    i.front_clear = 0;
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(!s.command);
+    i.front_clear = 1;
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(s.command == 1 && s.power == AVOID_BACKUP_START_POWER);
+    /* Continuous phase changes while driving keep the ramp going, not restart
+     * it. */
+    i.now_ms += AVOID_BACKUP_RAMP_MS;
+    vc_step(&s, &i);
+    assert(s.power == AVOID_POWER);
+    i.now_ms += 10;
+    i.yaw_mdeg = 40000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_DIAGONAL && s.command == 1 && s.power == AVOID_POWER);
+    /* Stand-still guards: over-distance and wrong-way still fault while
+     * braking. */
+    s             = (vc_state_t){.armed         = 1,
+                                 .phase         = VC_BACKUP,
+                                 .maximum_power = 30,
+                                 .backup_moving = 1};
+    i             = good();
+    i.now_ms      = AVOID_BACKUP_MS;
+    i.distance_um = -150000;
+    vc_step(&s, &i);
+    assert(s.backup_braking);
+    i.now_ms += 10;
+    i.distance_um = -(int32_t) AVOID_BACKUP_MAX_MM * 2000 - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR && !s.command);
+    s             = (vc_state_t){.armed         = 1,
+                                 .phase         = VC_BACKUP,
+                                 .maximum_power = 30,
+                                 .backup_moving = 1};
+    i             = good();
+    i.now_ms      = AVOID_BACKUP_MS;
+    i.distance_um = -150000;
+    vc_step(&s, &i);
+    assert(s.backup_braking);
+    i.now_ms += 10;
+    i.distance_um = (int32_t) AVOID_BACKUP_WRONG_WAY_MM * 1000 + 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_MOTOR && !s.command);
+    /* The stand-still flag ends with it: a second obstacle reverses again. */
+    s = (vc_state_t){0};
+    i = good();
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    i.now_ms      = 10;
+    i.scan_ready  = 1;
+    i.turn_deg    = 40;
+    i.approach_mm = i.return_mm = 180;
+    vc_step(&s, &i);
+    i.now_ms = 20;
+    vc_step(&s, &i);
+    i.now_ms      = 20 + AVOID_BACKUP_MS;
+    i.distance_um = -100000;
+    vc_step(&s, &i);
+    assert(s.backup_braking);
+    i.now_ms += AVOID_BACKUP_BRAKE_MS;
+    vc_step(&s, &i);
+    assert(s.phase == VC_TURN_OUT && !s.backup_braking);
+    s.phase = VC_TRACK;
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE);
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP);
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.command == 2 && !s.backup_braking);
 }
 /* VC_SENSOR keeps why it faulted: S5 scan rejections are sonar (1), other
  * manoeuvre sanity checks carry 0; vc_start clears it. */
-static void fault_causes(void){
- vc_state_t s={0};vc_input_t i=good();assert(vc_start(&s,0,30) && !s.fault_cause);i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
- /* No way round: AVOID_RESCAN_RETRIES rescans from the same spot first (each
-  * waits for a new S5 scan_id, ignoring the stale verdict), then the sonar fault. */
- i.scan_id=7;i.now_ms=10;
- for(unsigned n=1;n<=AVOID_RESCAN_RETRIES;++n){
-  i.scan_blocked=1;vc_step(&s,&i);
-  assert(s.phase==VC_ACQUIRE && s.rescans==n && s.rescan_wait && s.rescan_request && s.rescan_id==i.scan_id && !s.command);
-  i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescan_wait && !s.command); /* stale BLOCKED */
-  ++i.scan_id;i.now_ms+=10; /* S5 started a new scan: its verdict counts */
- }
- i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault_cause==VC_CAUSE_SONAR && !s.rescans);
- s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- /* A finished scan with no valid width is also "no way round": rescans, then the fault. */
- i.now_ms=10;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;i.width_valid=0;
- for(unsigned n=1;n<=AVOID_RESCAN_RETRIES;++n){vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==n);++i.scan_id;i.now_ms+=10;}
- vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- i.now_ms=10;i.scan_ready=1;i.turn_deg=90;i.approach_mm=180;vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- s=(vc_state_t){.armed=1,.phase=VC_DIAGONAL,.maximum_power=30,.approach_mm=100,.fault_cause=VC_CAUSE_TILT};i=good();i.distance_um=1000001;
- vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_OTHER);
- s=(vc_state_t){.armed=1,.phase=VC_BACKUP,.maximum_power=30,.fault_cause=VC_CAUSE_SONAR};i=good();i.now_ms=50;i.distance_um=-(int32_t)AVOID_BACKUP_MAX_MM*2000-1;
- vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_OTHER);
- s=(vc_state_t){.armed=1,.phase=VC_PASS,.maximum_power=30,.look_side=1,.fault_cause=VC_CAUSE_ODOM};i=good();i.front_clear=0;i.now_ms=4000;
- vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.now_ms=10;i.odom_valid=0;vc_step(&s,&i);assert(s.armed && !s.command);
- i.now_ms=10+VC_ODOM_GAP_MS;vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_ODOM);
- vc_stop(&s,VC_OK);assert(!s.fault_cause);s.fault_cause=VC_CAUSE_SONAR;assert(vc_start(&s,20,30) && !s.fault_cause);
+static void
+fault_causes (void)
+{
+    vc_state_t s = {0};
+    vc_input_t i = good();
+    assert(vc_start(&s, 0, 30) && !s.fault_cause);
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE);
+    /* No way round: AVOID_RESCAN_RETRIES rescans from the same spot first (each
+     * waits for a new S5 scan_id, ignoring the stale verdict), then the sonar
+     * fault. */
+    i.scan_id = 7;
+    i.now_ms  = 10;
+    for (unsigned n = 1; n <= AVOID_RESCAN_RETRIES; ++n)
+    {
+        i.scan_blocked = 1;
+        vc_step(&s, &i);
+        assert(s.phase == VC_ACQUIRE && s.rescans == n && s.rescan_wait &&
+               s.rescan_request && s.rescan_id == i.scan_id && !s.command);
+        i.now_ms += 10;
+        vc_step(&s, &i);
+        assert(s.phase == VC_ACQUIRE && s.rescan_wait &&
+               !s.command); /* stale BLOCKED */
+        ++i.scan_id;
+        i.now_ms += 10; /* S5 started a new scan: its verdict counts */
+    }
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR &&
+           s.fault_cause == VC_CAUSE_SONAR);
+    i.now_ms += 10;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault_cause == VC_CAUSE_SONAR &&
+           !s.rescans);
+    s = (vc_state_t){0};
+    i = good();
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    /* A finished scan with no valid width is also "no way round": rescans, then
+     * the fault. */
+    i.now_ms      = 10;
+    i.scan_ready  = 1;
+    i.turn_deg    = 40;
+    i.approach_mm = 180;
+    i.width_valid = 0;
+    for (unsigned n = 1; n <= AVOID_RESCAN_RETRIES; ++n)
+    {
+        vc_step(&s, &i);
+        assert(s.phase == VC_ACQUIRE && s.rescans == n);
+        ++i.scan_id;
+        i.now_ms += 10;
+    }
+    vc_step(&s, &i);
+    assert(s.fault == VC_SENSOR && s.fault_cause == VC_CAUSE_SONAR);
+    s = (vc_state_t){0};
+    i = good();
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    i.now_ms      = 10;
+    i.scan_ready  = 1;
+    i.turn_deg    = 90;
+    i.approach_mm = 180;
+    vc_step(&s, &i);
+    assert(s.fault == VC_SENSOR && s.fault_cause == VC_CAUSE_SONAR);
+    s             = (vc_state_t){.armed         = 1,
+                                 .phase         = VC_DIAGONAL,
+                                 .maximum_power = 30,
+                                 .approach_mm   = 100,
+                                 .fault_cause   = VC_CAUSE_TILT};
+    i             = good();
+    i.distance_um = 1000001;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR &&
+           s.fault_cause == VC_CAUSE_OTHER);
+    s             = (vc_state_t){.armed         = 1,
+                                 .phase         = VC_BACKUP,
+                                 .maximum_power = 30,
+                                 .fault_cause   = VC_CAUSE_SONAR};
+    i             = good();
+    i.now_ms      = 50;
+    i.distance_um = -(int32_t) AVOID_BACKUP_MAX_MM * 2000 - 1;
+    vc_step(&s, &i);
+    assert(s.fault == VC_SENSOR && s.fault_cause == VC_CAUSE_OTHER);
+    s             = (vc_state_t){.armed         = 1,
+                                 .phase         = VC_PASS,
+                                 .maximum_power = 30,
+                                 .look_side     = 1,
+                                 .fault_cause   = VC_CAUSE_ODOM};
+    i             = good();
+    i.front_clear = 0;
+    i.now_ms      = 4000;
+    vc_step(&s, &i);
+    assert(s.fault == VC_SENSOR && s.fault_cause == VC_CAUSE_SONAR);
+    s = (vc_state_t){0};
+    i = good();
+    assert(vc_start(&s, 0, 30));
+    i.now_ms     = 10;
+    i.odom_valid = 0;
+    vc_step(&s, &i);
+    assert(s.armed && !s.command);
+    i.now_ms = 10 + VC_ODOM_GAP_MS;
+    vc_step(&s, &i);
+    assert(s.fault == VC_SENSOR && s.fault_cause == VC_CAUSE_ODOM);
+    vc_stop(&s, VC_OK);
+    assert(!s.fault_cause);
+    s.fault_cause = VC_CAUSE_SONAR;
+    assert(vc_start(&s, 20, 30) && !s.fault_cause);
 }
-/* Reported width: each edge less the sonar beam's half-angle (S5_BEAM_HALF_DEG),
- * floored at 0; the plan's measured width and bounds are left untouched. */
-static void reported(void){
- UW l,r;
- /* 24 Nov robot scan: a 15 cm box at 180 mm found at +41/-45 deg (33.6 cm uncorrected). */
- s5_status_t scan=measured();scan.obstacle_distance_mm=180;scan.left_bound_deg=41;scan.right_bound_deg=-45;
- scan.left_bound_distance_mm=230;scan.right_bound_distance_mm=214;
- s5_width_from_bounds(&scan);assert(scan.object_width_valid && scan.object_width_max_mm>=330U);
- UW plan_max=scan.object_width_max_mm,plan_left=scan.object_left_mm,plan_right=scan.object_right_mm;
- s5_width_reported(&scan,&l,&r);
- long want_l=lround(180.0*tan((41-S5_BEAM_HALF_DEG)*M_PI/180.0)),want_r=lround(180.0*tan((45-S5_BEAM_HALF_DEG)*M_PI/180.0));
- assert(labs((long)l-want_l)<=1 && labs((long)r-want_r)<=1);
-#if S5_BEAM_HALF_DEG==20
- assert(l+r>=145U && l+r<=160U); /* ~15 cm, the box's real width */
+/* Reported width: each edge less the sonar beam's half-angle
+ * (S5_BEAM_HALF_DEG), floored at 0; the plan's measured width and bounds are
+ * left untouched. */
+static void
+reported (void)
+{
+    UW l, r;
+    /* 24 Nov robot scan: a 15 cm box at 180 mm found at +41/-45 deg (33.6 cm
+     * uncorrected). */
+    s5_status_t scan             = measured();
+    scan.obstacle_distance_mm    = 180;
+    scan.left_bound_deg          = 41;
+    scan.right_bound_deg         = -45;
+    scan.left_bound_distance_mm  = 230;
+    scan.right_bound_distance_mm = 214;
+    s5_width_from_bounds(&scan);
+    assert(scan.object_width_valid && scan.object_width_max_mm >= 330U);
+    UW plan_max = scan.object_width_max_mm, plan_left = scan.object_left_mm,
+       plan_right = scan.object_right_mm;
+    s5_width_reported(&scan, &l, &r);
+    long want_l = lround(180.0 * tan((41 - S5_BEAM_HALF_DEG) * M_PI / 180.0)),
+         want_r = lround(180.0 * tan((45 - S5_BEAM_HALF_DEG) * M_PI / 180.0));
+    assert(labs((long) l - want_l) <= 1 && labs((long) r - want_r) <= 1);
+#if S5_BEAM_HALF_DEG == 20
+    assert(l + r >= 145U && l + r <= 160U); /* ~15 cm, the box's real width */
 #endif
- assert(scan.object_width_max_mm==plan_max && scan.object_left_mm==plan_left && scan.object_right_mm==plan_right);
- /* Edges inside the beam half-angle (a face lost early): 0 on that side, never negative. */
- scan=measured();scan.left_bound_deg=S5_BEAM_HALF_DEG>2?S5_BEAM_HALF_DEG-2:0;scan.right_bound_deg=-30;s5_width_from_bounds(&scan);
- s5_width_reported(&scan,&l,&r);assert(scan.object_width_valid && l==0U && labs((long)r-lround(150.0*tan((30-S5_BEAM_HALF_DEG)*M_PI/180.0)))<=1);
- /* No valid width: nothing to report. */
- scan=measured();s5_width_reported(&scan,&l,&r);assert(!scan.object_width_valid && l==0U && r==0U);
- s5_width_reported(NULL,&l,&r);assert(l==0U && r==0U);
- puts("Reported width: edges less the sonar beam half-angle (24 Nov 15 cm box: 33.6 cm -> ~15 cm), floored at 0, plan width unchanged PASS");
+    assert(scan.object_width_max_mm == plan_max &&
+           scan.object_left_mm == plan_left &&
+           scan.object_right_mm == plan_right);
+    /* Edges inside the beam half-angle (a face lost early): 0 on that side,
+     * never negative. */
+    scan                 = measured();
+    scan.left_bound_deg  = S5_BEAM_HALF_DEG > 2 ? S5_BEAM_HALF_DEG - 2 : 0;
+    scan.right_bound_deg = -30;
+    s5_width_from_bounds(&scan);
+    s5_width_reported(&scan, &l, &r);
+    assert(scan.object_width_valid && l == 0U &&
+           labs((long) r - lround(150.0 * tan((30 - S5_BEAM_HALF_DEG) * M_PI /
+                                              180.0))) <= 1);
+    /* No valid width: nothing to report. */
+    scan = measured();
+    s5_width_reported(&scan, &l, &r);
+    assert(!scan.object_width_valid && l == 0U && r == 0U);
+    s5_width_reported(NULL, &l, &r);
+    assert(l == 0U && r == 0U);
+    puts("Reported width: edges less the sonar beam half-angle (24 Nov 15 cm "
+         "box: 33.6 cm -> ~15 cm), floored at 0, plan width unchanged PASS");
 }
 /* In-place rescan when the scan finds no way round (S5 BLOCKED). */
-static void rescan(void){
- vc_state_t s={0};vc_input_t i=good();
- /* No new scan within AVOID_RESCAN_WAIT_MS: the sonar fault. */
- assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.scan_id=3;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.rescans);
- i.now_ms=100;i.scan_blocked=1;vc_step(&s,&i);
+static void
+rescan (void)
+{
+    vc_state_t s = {0};
+    vc_input_t i = good();
+    /* No new scan within AVOID_RESCAN_WAIT_MS: the sonar fault. */
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    i.scan_id     = 3;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && !s.rescans);
+    i.now_ms       = 100;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
 #if AVOID_RESCAN_RETRIES
- assert(s.phase==VC_ACQUIRE && s.rescan_wait);
- i.now_ms=100+AVOID_RESCAN_WAIT_MS-1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescan_wait);
- i.now_ms=100+AVOID_RESCAN_WAIT_MS;vc_step(&s,&i);
+    assert(s.phase == VC_ACQUIRE && s.rescan_wait);
+    i.now_ms = 100 + AVOID_RESCAN_WAIT_MS - 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && s.rescan_wait);
+    i.now_ms = 100 + AVOID_RESCAN_WAIT_MS;
+    vc_step(&s, &i);
 #endif
- assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- /* The bypass off (or no arc steering): fault at once, no rescan. */
- s=(vc_state_t){0};i=good();i.bypass_enabled=0;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- i.now_ms=10;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault_cause==VC_CAUSE_SONAR && !s.rescan_request);
- s=(vc_state_t){0};i=good();i.bypass_steering=0;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- i.now_ms=10;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault_cause==VC_CAUSE_SONAR);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR &&
+           s.fault_cause == VC_CAUSE_SONAR);
+    /* The bypass off (or no arc steering): fault at once, no rescan. */
+    s                = (vc_state_t){0};
+    i                = good();
+    i.bypass_enabled = 0;
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    i.now_ms       = 10;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault_cause == VC_CAUSE_SONAR &&
+           !s.rescan_request);
+    s                 = (vc_state_t){0};
+    i                 = good();
+    i.bypass_steering = 0;
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    i.now_ms       = 10;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault_cause == VC_CAUSE_SONAR);
 #if AVOID_RESCAN_RETRIES
- /* The rescan finds a way round: its plan is taken (the bypass starts). */
- s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.scan_id=5;vc_step(&s,&i);
- i.now_ms=10;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==1);
- i.now_ms=20;i.scan_blocked=0;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;vc_step(&s,&i);
- assert(s.phase==VC_ACQUIRE && s.rescan_wait); /* a stale READY of the blocked scan does not count */
- i.now_ms=30;i.scan_id=6;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.turn_deg==40 && !s.rescan_wait && !s.rescan_request);
- /* Robot timing (25 Nov review): a full scan takes ~12-13 s. Scan 1 BLOCKED at
-  * 12.7 s, retry 1 BLOCKED at 26 s, retry 2 READY at 38 s: each rescan has its
-  * own 30 s, so the bypass starts (no VC_TIMEOUT at 30 s). */
- s=(vc_state_t){0};i=good();i.scan_id=20;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.now_ms=0;vc_step(&s,&i);
- i.now_ms=12700;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==1);
- i.now_ms=13200;i.scan_blocked=0;i.scan_id=21;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.rescan_wait);
- i.now_ms=26000;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==2);
- i.now_ms=26500;i.scan_blocked=0;i.scan_id=22;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
- i.now_ms=31000;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE); /* past 30 s from the first entry */
- i.now_ms=38000;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;vc_step(&s,&i);assert(s.phase==VC_BACKUP);
- /* The same with retry 2 BLOCKED too: the sonar fault, not the run timeout. */
- s=(vc_state_t){0};i=good();i.scan_id=30;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.now_ms=0;vc_step(&s,&i);
- i.now_ms=12700;i.scan_blocked=1;vc_step(&s,&i);
- i.now_ms=13200;i.scan_blocked=0;i.scan_id=31;vc_step(&s,&i);
- i.now_ms=26000;i.scan_blocked=1;vc_step(&s,&i);
- i.now_ms=26500;i.scan_blocked=0;i.scan_id=32;vc_step(&s,&i);
- i.now_ms=38000;i.scan_blocked=1;vc_step(&s,&i);
- assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- /* Each new obstacle (TRACK -> ACQUIRE) gets the full count again. */
- s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));s.rescans=2;i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- assert(s.phase==VC_ACQUIRE && !s.rescans);
+    /* The rescan finds a way round: its plan is taken (the bypass starts). */
+    s = (vc_state_t){0};
+    i = good();
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    i.scan_id     = 5;
+    vc_step(&s, &i);
+    i.now_ms       = 10;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && s.rescans == 1);
+    i.now_ms       = 20;
+    i.scan_blocked = 0;
+    i.scan_ready   = 1;
+    i.turn_deg     = 40;
+    i.approach_mm  = 180;
+    vc_step(&s, &i);
+    assert(
+        s.phase == VC_ACQUIRE &&
+        s.rescan_wait); /* a stale READY of the blocked scan does not count */
+    i.now_ms  = 30;
+    i.scan_id = 6;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP && s.turn_deg == 40 && !s.rescan_wait &&
+           !s.rescan_request);
+    /* Robot timing (25 Nov review): a full scan takes ~12-13 s. Scan 1 BLOCKED
+     * at 12.7 s, retry 1 BLOCKED at 26 s, retry 2 READY at 38 s: each rescan
+     * has its own 30 s, so the bypass starts (no VC_TIMEOUT at 30 s). */
+    s         = (vc_state_t){0};
+    i         = good();
+    i.scan_id = 20;
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    i.now_ms      = 0;
+    vc_step(&s, &i);
+    i.now_ms       = 12700;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && s.rescans == 1);
+    i.now_ms       = 13200;
+    i.scan_blocked = 0;
+    i.scan_id      = 21;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && !s.rescan_wait);
+    i.now_ms       = 26000;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && s.rescans == 2);
+    i.now_ms       = 26500;
+    i.scan_blocked = 0;
+    i.scan_id      = 22;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE);
+    i.now_ms = 31000;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE); /* past 30 s from the first entry */
+    i.now_ms      = 38000;
+    i.scan_ready  = 1;
+    i.turn_deg    = 40;
+    i.approach_mm = 180;
+    vc_step(&s, &i);
+    assert(s.phase == VC_BACKUP);
+    /* The same with retry 2 BLOCKED too: the sonar fault, not the run timeout.
+     */
+    s         = (vc_state_t){0};
+    i         = good();
+    i.scan_id = 30;
+    assert(vc_start(&s, 0, 30));
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    i.now_ms      = 0;
+    vc_step(&s, &i);
+    i.now_ms       = 12700;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    i.now_ms       = 13200;
+    i.scan_blocked = 0;
+    i.scan_id      = 31;
+    vc_step(&s, &i);
+    i.now_ms       = 26000;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    i.now_ms       = 26500;
+    i.scan_blocked = 0;
+    i.scan_id      = 32;
+    vc_step(&s, &i);
+    i.now_ms       = 38000;
+    i.scan_blocked = 1;
+    vc_step(&s, &i);
+    assert(s.phase == VC_FAULT && s.fault == VC_SENSOR &&
+           s.fault_cause == VC_CAUSE_SONAR);
+    /* Each new obstacle (TRACK -> ACQUIRE) gets the full count again. */
+    s = (vc_state_t){0};
+    i = good();
+    assert(vc_start(&s, 0, 30));
+    s.rescans     = 2;
+    i.obstacle    = 1;
+    i.front_clear = 0;
+    vc_step(&s, &i);
+    assert(s.phase == VC_ACQUIRE && !s.rescans);
 #endif
- puts("No way round: up to AVOID_RESCAN_RETRIES rescans from the same spot (stale verdicts ignored, AVOID_RESCAN_WAIT_MS for a new scan), only with the bypass on, then the sonar fault PASS");
+    puts("No way round: up to AVOID_RESCAN_RETRIES rescans from the same spot "
+         "(stale verdicts ignored, AVOID_RESCAN_WAIT_MS for a new scan), only "
+         "with the bypass on, then the sonar fault PASS");
 }
-int main(int argc,char **argv){uint8_t bytes[2];width_packet(bytes);if(argc>1 && !strcmp(argv[1],"--packet")){printf("%02x%02x\n",(unsigned)bytes[0],(unsigned)bytes[1]);return 0;}reported();rescan();geometry();route(1);route(-1);backup();occupied();soft();fault_causes();puts("PASS: estimated width -> EDR16; width-based legs; bounded reverse before turn-out; side look at the diagonal end, pass in steps, clear run, mirrored return, restore and spot search; 3 fresh consistent side readings; cached/invalid/occupied checks, sonar gap and pan stops.");return 0;}
+int
+main (int argc, char ** argv)
+{
+    uint8_t bytes[2];
+    width_packet(bytes);
+    if (argc > 1 && !strcmp(argv[1], "--packet"))
+    {
+        printf("%02x%02x\n", (unsigned) bytes[0], (unsigned) bytes[1]);
+        return 0;
+    }
+    reported();
+    rescan();
+    geometry();
+    route(1);
+    route(-1);
+    backup();
+    occupied();
+    soft();
+    fault_causes();
+    puts("PASS: estimated width -> EDR16; width-based legs; bounded reverse "
+         "before turn-out; side look at the diagonal end, pass in steps, clear "
+         "run, mirrored return, restore and spot search; 3 fresh consistent "
+         "side readings; cached/invalid/occupied checks, sonar gap and pan "
+         "stops.");
+    return 0;
+}
+
+/*** end of file ***/

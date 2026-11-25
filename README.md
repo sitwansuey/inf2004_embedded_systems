@@ -10,7 +10,7 @@ start and stop a mission and remap barcode letters.
 - [TEAM.md](TEAM.md): owners, pins, peripherals, task priorities, interfaces
   IF-01 to IF-22 and the kernel object budget.
 - [testing/](testing/README.md): every test case, result and saved log.
-- [videos/](videos/README.md): unlisted YouTube videos of hardware tests and demos.
+- [Videos of tests and demos](testing/README.md#videos-of-tests-and-demos): unlisted YouTube videos of hardware tests and demos.
 - [Calibration](calibration/README.md): current settings and measurement records.
 - [Wire format](docs/DATA_REPRESENTATION.md): EDR16 telemetry and robot events.
 - Subsystem guides: [S1 telemetry](app_program/subsystem1/README.md),

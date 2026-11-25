@@ -45,9 +45,7 @@ by the integration protocol and stream tests:
 python -B testing/integration/run.py
 ```
 
-Record the tested commit, command, result and saved output using
-[testing/README.md](../README.md). The [TEST_LOG.md](TEST_LOG.md) here contains
-historical formats as well as EDR16 records; read the migration notes before
-reusing an old result. Current subsystem and integration results are also
+The [EDR16 test log](TEST_LOG.md) records the tested commits, results and
+migration history. Current subsystem and integration results are also
 in their own `TEST_LOG.md` files and tracked `logs/` folders. Host checks do
 not establish physical sensor accuracy or live MQTT performance.

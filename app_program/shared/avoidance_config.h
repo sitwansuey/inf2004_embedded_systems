@@ -44,12 +44,13 @@
  * the line search that hands back to line tracking stays off for this much
  * driving, counted from the turn's first drive tick (holds for a sonar or
  * odometry gap or the forward check do not count), and on into VC_RETURN if
- * the turn ends sooner. 25 Nov (8g): a sensor on black as the turn began counted as
- * the line at once; the robot restored its heading and tracked from there,
- * lost the line and faulted (VC_LINE, not found). For AVOID_TURN_IN_FAR_MS
- * after the wait the far sensor alone also counts as the line: the lead
- * sensor may have crossed it during the wait (the 8g runs found the line
- * about 1 s into the turn). 0: search from the start of the turn (8g). */
+ * the turn ends sooner. 25 Nov (8g): a sensor on black as the turn began
+ * counted as the line at once; the robot restored its heading and tracked from
+ * there, lost the line and faulted (VC_LINE, not found). For
+ * AVOID_TURN_IN_FAR_MS after the wait the far sensor alone also counts as the
+ * line: the lead sensor may have crossed it during the wait (the 8g runs found
+ * the line about 1 s into the turn). 0: search from the start of the turn (8g).
+ */
 #ifndef AVOID_TURN_IN_LINE_DELAY_MS
 #define AVOID_TURN_IN_LINE_DELAY_MS 1000U
 #endif
@@ -90,7 +91,8 @@
 /* Stay stopped until a new APPROACH sample at 0 deg follows the pan.
  * Fault with sonar cause if it has not arrived within this bound. The pan
  * back from an 80 deg plan alone settles 800 ms (10 ms/deg), after S5 ends
- * a wait of up to ~160 ms, so 1.5 s leaves margin over the ~1.05 s worst case. */
+ * a wait of up to ~160 ms, so 1.5 s leaves margin over the ~1.05 s worst case.
+ */
 #ifndef AVOID_BACKUP_SETTLE_MS
 #define AVOID_BACKUP_SETTLE_MS 1500U
 #endif
@@ -104,7 +106,8 @@
 #ifndef AVOID_REPLAN_WAIT_MS
 #define AVOID_REPLAN_WAIT_MS 1000U
 #endif
-/* Odometry moving forward by more than this while reversing is a motor fault. */
+/* Odometry moving forward by more than this while reversing is a motor fault.
+ */
 #define AVOID_BACKUP_WRONG_WAY_MM 20U
 /* The reverse ramps START_POWER -> POWER over RAMP_MS and back down over its
  * last RAMP_MS: a step into or out of 25% rocks the robot, and the gravity-only
@@ -119,3 +122,5 @@
 #define AVOID_BACKUP_STILL_UM 1000
 #define AVOID_BACKUP_BRAKE_MAX_MS 1000U
 #endif
+
+/*** end of file ***/

@@ -1,42 +1,55 @@
 /*
- *	subsystem1.c
- *	Buddy 1 -- telemetry inbox and retained example LED heartbeat.
+ *    subsystem1.c
+ *    Buddy 1 -- telemetry inbox and retained example LED heartbeat.
  *
- *	APIs shown: tk_cre_cyc, tk_sta_cyc
+ *    APIs shown: tk_cre_cyc, tk_sta_cyc
  */
 
 #include "subsystem1.h"
 
 
-EXPORT ID	tid_led;	/* IF-05, see subsystem1.h */
-EXPORT ID	cyc_led;
+EXPORT ID tid_led; /* IF-05, see subsystem1.h */
+EXPORT ID cyc_led;
 
-EXPORT ER subsystem1_init(void)
+EXPORT ER
+subsystem1_init (void)
 {
-	T_CCYC	ccyc = {0};
-	ER er=s1_binary_init();
-	if(er<0)return er;
+    T_CCYC ccyc = {0};
+    ER     er   = s1_binary_init();
+    if (er < 0)
+    {
+        return er;
+    }
 
-	/* Cyclic handler: once started, the kernel calls led_cyclic_handler
-	   every S1_TICK_MS.  Without TA_STA it is created stopped; it is
-	   started in subsystem1_start(), once the task it wakes exists. */
-	ccyc.cycatr = TA_HLNG;
-	ccyc.cychdr = (FP)led_cyclic_handler;
-	ccyc.cyctim = S1_TICK_MS;	/* period, ms */
-	ccyc.cycphs = S1_TICK_MS;	/* delay before the first call, ms */
-	cyc_led = tk_cre_cyc(&ccyc);
-	return (cyc_led < E_OK) ? cyc_led : E_OK;
+    /* Cyclic handler: once started, the kernel calls led_cyclic_handler
+       every S1_TICK_MS.  Without TA_STA it is created stopped; it is
+       started in subsystem1_start(), once the task it wakes exists. */
+    ccyc.cycatr = TA_HLNG;
+    ccyc.cychdr = (FP) led_cyclic_handler;
+    ccyc.cyctim = S1_TICK_MS; /* period, ms */
+    ccyc.cycphs = S1_TICK_MS; /* delay before the first call, ms */
+    cyc_led     = tk_cre_cyc(&ccyc);
+    return (cyc_led < E_OK) ? cyc_led : E_OK;
 }
 
-EXPORT ER subsystem1_start(void)
+EXPORT ER
+subsystem1_start (void)
 {
-	tid_led = app_start_task((FP)led_task, S1_PRI_LED, 0, "led_task");
-	if (tid_led < E_OK) {
-		return tid_led;
-	}
-	/* Its own frame is about 1270 bytes and its deepest call (S5 status)
-	   about 440 more, plus nested interrupts: 2048 was too small. */
-	ID telemetry=app_start_task_stack((FP)telemetry_task,S1_PRI_TELEMETRY,TP_PRC2,"telemetry",S1_TELEMETRY_STACK);
-	if(telemetry<0)return telemetry;
-	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
+    tid_led = app_start_task((FP) led_task, S1_PRI_LED, 0, "led_task");
+    if (tid_led < E_OK)
+    {
+        return tid_led;
+    }
+    /* Its own frame is about 1270 bytes and its deepest call (S5 status)
+       about 440 more, plus nested interrupts: 2048 was too small. */
+    ID telemetry =
+        app_start_task_stack((FP) telemetry_task, S1_PRI_TELEMETRY, TP_PRC2,
+                             "telemetry", S1_TELEMETRY_STACK);
+    if (telemetry < 0)
+    {
+        return telemetry;
+    }
+    return tk_sta_cyc(cyc_led); /* start the cyclic handler now */
 }
+
+/*** end of file ***/

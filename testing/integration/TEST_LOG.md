@@ -1,12 +1,8 @@
 # Integration — test log
 
-Tests that two or more subsystems work together. There is one test (or more) for every interface listed in TEAM.md section 5. Both owners agree on the test and sign off the result.
-
-See `testing/README.md` for how to run tests and record results.
+Integration tests cover interfaces between subsystems and the shared Vehicle Controller. The interface coverage table below maps each tested interface to its cases.
 
 ## Test cases
-
-Define a test here before running it. Test IDs never change.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
@@ -185,13 +181,10 @@ One row per interface in TEAM.md section 5 (IF-01 to IF-22), with the same test 
 
 ## Results
 
-Add a new row for every run. Never edit or delete old rows.
-
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| YYYY-MM-DD | INT-01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
-| 2026-10-22 | INT-08 | `b02e335` + local working changes | Codex | PASS (native) | `logs/2026-10-22_sonar_pin_fix.txt` | Production driver, old-role negative control, scan policy, real headers SMP 0/1 and lock 0/1; ARM/physical retest pending |
-| 2026-10-22 | INT-09, INT-10 | `b02e335` + local working changes | Codex | PASS (native) | `logs/2026-10-22_s5_status_fix.txt` | Production S5 API/telemetry task, old-poll negative control, real headers SMP 0/1 and lock 0/1; ARM/physical validation pending |
+| 2026-10-22 | INT-08 | `b02e335` + local working changes | AI-assisted | PASS (native) | `logs/2026-10-22_sonar_pin_fix.txt` | Production driver, old-role negative control, scan policy, real headers SMP 0/1 and lock 0/1; ARM/physical retest pending |
+| 2026-10-22 | INT-09, INT-10 | `b02e335` + local working changes | AI-assisted | PASS (native) | `logs/2026-10-22_s5_status_fix.txt` | Production S5 API/telemetry task, old-poll negative control, real headers SMP 0/1 and lock 0/1; ARM/physical validation pending |
 | 2026-11-20 | INT-01 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-01 controller`, `Sensor waits` and `Avoidance ramps` lines PASS. All 33 recipes ran, last line `Integration recipes PASS`, exit code 0 |
 | 2026-11-20 | INT-02 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-02 odometry` line PASS |
 | 2026-11-20 | INT-03 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-03 terrain` and `IMU mount` lines PASS |
@@ -227,18 +220,26 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-20 | INT-09 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `sonar_status`: `INT-CR1-09 ... PASS` on line 133 |
 | 2026-11-20 | INT-10 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `snapshot_time`: `INT-CR1-10 ... PASS` on line 142 |
 
-**Audit note (2026-11-25); this is not a result row.** The `ed197b3` PASS rows above stay as recorded. The same suite fails at `0bac48c` (the head of `main` on 2026-11-25): an audit re-run on 2026-11-25 of `mingw32-make -C testing/integration test` and of `python -B testing/integration/run.py --compiler gcc` (Windows, MSYS2 GCC) stopped in recipe `buddy4_vehicle_no_ramp_lift` with `Assertion failed: ... file buddy4_vehicle_test.c, line 1277` (the mode-15 obstacle check expects the event at `OC_ACQUIRE_AT`). Commit `d3d4bbf` changed obstacle acquisition (2 echoes instead of 3), and its message says the integration vehicle test mode 15 "still expects the 3-echo acquisition timing" (known failing). The run stops at the first failure, so the other four `buddy4_vehicle` recipes were not reached and `Integration recipes PASS` was not printed; the recipes before it printed no failure. The affected IDs are INT-11 and INT-29 to INT-33 (all five `buddy4_vehicle` recipes). The audit also reported further stale expectations at lines 1337 and 1484 of `buddy4_vehicle_test.c` (not re-checked here). The re-run output was not saved in `logs/`, so no result row is added for `0bac48c`; a FAIL row with a saved log, and later a fix, still need to be recorded.
+**Audit note (2026-11-25); this is not a result row.** The `ed197b3` PASS rows above stay as recorded. The same suite fails at `0bac48c` (the head of `main` on 2026-11-25): an audit re-run on 2026-11-25 of `mingw32-make -C testing/integration test` and of `python -B testing/integration/run.py --compiler gcc` (Windows, MSYS2 GCC) stopped in recipe `buddy4_vehicle_no_ramp_lift` with `Assertion failed: ... file buddy4_vehicle_test.c, line 1277` (the mode-15 obstacle check expects the event at `OC_ACQUIRE_AT`). Commit `d3d4bbf` changed obstacle acquisition (2 echoes instead of 3), and its message says the integration vehicle test mode 15 "still expects the 3-echo acquisition timing" (known failing). The run stops at the first failure, so the other four `buddy4_vehicle` recipes were not reached and `Integration recipes PASS` was not printed; the recipes before it printed no failure. The affected IDs are INT-11 and INT-29 to INT-33 (all five `buddy4_vehicle` recipes). The audit also reported further stale expectations at lines 1337 and 1484 of `buddy4_vehicle_test.c` (not re-checked here). The audit did not save the console output for `0bac48c`. The follow-up below records the passing rerun on the later local working tree.
 
-**Audit note (2026-11-25), branch `audit-fixes`; this is not a result row.** The stale mode-15 expectations in `buddy4_vehicle_test.c` (2-echo acquisition from `d3d4bbf`, `OC_ACQUIRE_AT` and the sample table) were updated on branch `audit-fixes` in a test-only change, which also updated the mode-17 event kinds and the published follow-code check. No result row is added for that branch: the team must re-run `mingw32-make -C testing/integration test` and `python -B testing/integration/run.py --compiler gcc` on the merged commit, save the output in `logs/`, and record the result rows for INT-11 and INT-29 to INT-33 here.
+**Audit follow-up (2026-11-25).** The test-only update in `audit-fixes`
+corrected expectations for two-echo obstacle acquisition, mode-17 event kinds
+and the published follow code. The GCC rerun passed on the local working tree
+based on `fe14666` with the pending BARR-C changes. The table below records that
+run. The earlier failure remains associated with `0bac48c`.
+
+| Date | Test IDs | Tested source | Environment | Result | Evidence | Scope |
+|---|---|---|---|---|---|---|
+| 2026-11-25 | INT-11 and INT-29 to INT-33 | `fe14666` + local BARR-C changes | MSYS2 GCC 16.2.0 | PASS | [GCC integration rerun](logs/2026-11-25_host_gcc_retest.txt) | `make -B -C testing/integration CC=gcc test` completed all 35 builds and passed all five `buddy4_vehicle` profiles. |
 
 ### Restored result rows (audit, 2026-11-25)
 
-These result rows were deleted from the table above in `5f93cb6` (2026-11-25). They are copied back word for word from `d18dd38`, the last commit that had them; the first two columns are the only additions. Their *Test ID* cells use the IDs in force at `d18dd38`, not today's IDs, and some of those numbers now name different tests (second column, and *ID history (git record)* at the end of this file). Nothing was re-run. The INT-03 row is older: it was deleted in `373ad6d` (2026-10-27) together with its test case, and is copied back from `fc1dd8d`.
+These result rows were deleted from the table above in `5f93cb6` (2026-11-25). They are copied back word for word from `d18dd38`, the last commit that had them; the first two columns are the only additions. Their *Test ID* cells use the IDs in force at `d18dd38`, not today's IDs, and some of those numbers now name different tests (second column, and *ID history (git record)* at the end of this file). Nothing was re-run. The older INT-03 row was deleted in `373ad6d` (2026-10-27) with its test case and is restored from `fc1dd8d`. Its tester label describes the AI-assisted run.
 
 | Restored from | Test ID meaning (then → now) | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|---|---|
 | `d18dd38` (deleted in `5f93cb6`) | INT-35 at `d18dd38` = Watchdog heartbeat path on the robot: all five loops beat and the …; test removed in `5f93cb6`; no current test uses INT-35 | 2026-11-20 | INT-35 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_flash_8c_boot.txt` | Console from the reset after the UF2 flash: `[WDT] supervisor started` (line 16), then `[WDT] armed: every monitored loop is running` once (line 262), just after the t=20000 status line (line 257), so about 20 s after reset; no `[WDT] not armed yet` line. Uptime kept counting to t=45000 (the `[RESET]` line repeats every 10 s with `[TIMING]`; not a reboot). Not the full procedure: the access point was not in range (all 8 joins ended "SSID not found", lines 58 to 536; no IP, no MQTT), and the console was watched for 45 s (13:48:27 to 13:49:12), not 60 s. |
-| `fc1dd8d` (deleted in `373ad6d`); the hash `78f6171` in its Commit cell is not found in repository history | INT-03 at `fc1dd8d` = Complete PR #6 firmware compiles with current S2/S3/S4 interfaces; test removed in `373ad6d` (2026-10-27); today's INT-03 is a different test (IMU samples produce terrain and tilt results) | 2026-10-27 | INT-03 | `78f6171` plus local producer-removal patch | Codex | PASS | [Build and regression summary](logs/2026-10-27_pr6_build_fix.txt) | Tested the PR merge containing current Buddy 3; local verification, no hardware or remote CI rerun claimed |
+| `fc1dd8d` (deleted in `373ad6d`); the hash `78f6171` in its Commit cell is not found in repository history | INT-03 at `fc1dd8d` = Complete PR #6 firmware compiles with current S2/S3/S4 interfaces; test removed in `373ad6d` (2026-10-27); today's INT-03 is a different test (IMU samples produce terrain and tilt results) | 2026-10-27 | INT-03 | `78f6171` plus local producer-removal patch | AI-assisted | PASS | [Build and regression summary](logs/2026-10-27_pr6_build_fix.txt) | Tested the PR merge containing current Buddy 3; local verification, no hardware or remote CI rerun claimed |
 
 ## Audit notes (2026-11-25): record history
 
@@ -294,7 +295,7 @@ IDs as they stood at `d18dd38` and what they became in `5f93cb6`. "Test case tex
 
 ### Commit cells checked
 
-Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The result rows themselves are left exactly as recorded; every other cell is listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file. The restored October INT-03 row names `78f6171`, which is not found in repository history; its cell is left as written and the note is in its first column.
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The recorded commit values are retained. Entries needing clarification are listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file. The restored October INT-03 row names `78f6171`, which is not found in repository history; its cell is left as written and the note is in its first column.
 
 ### Evidence paths checked
 

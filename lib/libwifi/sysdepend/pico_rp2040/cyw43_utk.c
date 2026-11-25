@@ -45,40 +45,59 @@
 #define BOARD_WIFI_POWER_SAVE 0
 #endif
 
-static void wifi_power_save_off(void)
+static void
+wifi_power_save_off (void)
 {
 #if !BOARD_WIFI_POWER_SAVE
     /* cyw43_wifi_pm() returns 0 even when the chip ignored the ioctls, so
      * read the setting back. A failed read also returns zeros, so "off" is
      * only reported when the mode is 0 and pm2_sleep_ret (set to 10 ms with
      * the mode) reads back non-zero. */
-    uint32_t pm = 0;
-    int err = cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
-    if(err != 0) {
-        tm_printf((UB*)"wifi: power save off FAILED, err=%d\n", err);
+    uint32_t pm  = 0;
+    int      err = cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
+    if (err != 0)
+    {
+        tm_printf((UB *) "wifi: power save off FAILED, err=%d\n", err);
         return;
     }
     err = cyw43_wifi_get_pm(&cyw43_state, &pm);
-    if(err != 0)
-        tm_printf((UB*)"wifi: power save off requested, read back FAILED, err=%d\n", err);
-    else if((pm & 0xfu) != CYW43_NO_POWERSAVE_MODE)
-        tm_printf((UB*)"wifi: power save off FAILED, chip reports pm=0x%x\n", (unsigned)pm);
-    else if(((pm >> 4) & 0xffu) == 0u)
-        tm_printf((UB*)"wifi: power save off requested, not confirmed (read back pm=0x%x)\n", (unsigned)pm);
+    if (err != 0)
+    {
+        tm_printf(
+            (UB *) "wifi: power save off requested, read back FAILED, err=%d\n",
+            err);
+    }
+    else if ((pm & 0xfu) != CYW43_NO_POWERSAVE_MODE)
+    {
+        tm_printf((UB *) "wifi: power save off FAILED, chip reports pm=0x%x\n",
+                  (unsigned) pm);
+    }
+    else if (((pm >> 4) & 0xffu) == 0u)
+    {
+        tm_printf((UB *) "wifi: power save off requested, not confirmed (read "
+                         "back pm=0x%x)\n",
+                  (unsigned) pm);
+    }
     else
-        tm_printf((UB*)"wifi: power save off (CYW43_NONE_PM, read back pm=0x%x)\n", (unsigned)pm);
+    {
+        tm_printf(
+            (UB *) "wifi: power save off (CYW43_NONE_PM, read back pm=0x%x)\n",
+            (unsigned) pm);
+    }
 #endif
 }
 
 #if BOARD_TIMING_STATS
-#define NET_TIMING(step) task_timing_##step(&app_task_timing[TASK_TIMING_NET],(uint32_t)time_us_64())
+#define NET_TIMING(step)                                                       \
+    task_timing_##step(&app_task_timing[TASK_TIMING_NET],                      \
+                       (uint32_t) time_us_64())
 #else
-#define NET_TIMING(step) ((void)0)
+#define NET_TIMING(step) ((void) 0)
 #endif
 
 /* tk_dly_tsk(2) rounds up to the 10 ms tick plus the guard tick: the loop
  * really polls every ~20 ms. */
-#define CYW43_POLL_MS        2
+#define CYW43_POLL_MS 2
 
 /* An association can fail transiently -- a busy channel, a weak beacon, an AP
  * that drops the handshake under load. Without a retry the radio would sit in
@@ -90,16 +109,16 @@ static void wifi_power_save_off(void)
  * both TKIP and AES; the driver treats it the same as WPA2_AES_PSK for a
  * pure-AES AP, so it is a strictly wider match than AES-only. */
 #ifndef WIFI_AUTH_MODE
-#define WIFI_AUTH_MODE       CYW43_AUTH_WPA2_MIXED_PSK
+#define WIFI_AUTH_MODE CYW43_AUTH_WPA2_MIXED_PSK
 #endif
 
 extern volatile uint32_t cyw43_utk_poll_requested;
-extern int32_t tk_dly_tsk(uint32_t delay);
-extern uint64_t time_us_64(void);
+extern int32_t           tk_dly_tsk (uint32_t delay);
+extern uint64_t          time_us_64 (void);
 
 #if CNF_SMP
-extern int32_t tk_get_prc(void);
-extern void mp_memory_barrir(void);
+extern int32_t tk_get_prc (void);
+extern void    mp_memory_barrir (void);
 #else
 /* Neither primitive is built in a single-core kernel -- both live behind
  * TK_SUPPORT_SMP. There is only ever processor 1, and no second core for the
@@ -107,27 +126,40 @@ extern void mp_memory_barrir(void);
  * this task hands to DMA, so it stays as a real one rather than a no-op.
  * CNF_SMP is used here for the same header-avoidance reason as in
  * cyw43_utk_compat.c. */
-#define tk_get_prc()        1
-#define mp_memory_barrir()  __asm__ volatile("dmb" ::: "memory")
+#define tk_get_prc() 1
+#define mp_memory_barrir() __asm__ volatile("dmb" ::: "memory")
 #endif
 
 static T_CYW43_UTK_STATUS radio_status = {
-    .init_result = -5,
+    .init_result    = -5,
     .strongest_rssi = -32768,
 };
 
 #if TM_NET_LWIP
-static const char *link_status_str(int32_t status)
+static const char *
+link_status_str (int32_t status)
 {
-    switch(status) {
-    case CYW43_LINK_DOWN:   return "down";
-    case CYW43_LINK_JOIN:   return "joined AP, waiting for IP";
-    case CYW43_LINK_NOIP:   return "joined AP, no IP yet";
-    case CYW43_LINK_UP:     return "up";
-    case CYW43_LINK_FAIL:   return "FAILED (association failure)";
-    case CYW43_LINK_NONET:  return "FAILED: SSID not found (out of range, wrong name, or 5GHz-only network -- this chip is 2.4GHz only)";
-    case CYW43_LINK_BADAUTH: return "FAILED: authentication rejected (wrong password, or AP requires an auth mode this chip doesn't support, e.g. WPA3-only)";
-    default:                return "unknown";
+    switch (status)
+    {
+        case CYW43_LINK_DOWN:
+            return "down";
+        case CYW43_LINK_JOIN:
+            return "joined AP, waiting for IP";
+        case CYW43_LINK_NOIP:
+            return "joined AP, no IP yet";
+        case CYW43_LINK_UP:
+            return "up";
+        case CYW43_LINK_FAIL:
+            return "FAILED (association failure)";
+        case CYW43_LINK_NONET:
+            return "FAILED: SSID not found (out of range, wrong name, or "
+                   "5GHz-only network -- this chip is 2.4GHz only)";
+        case CYW43_LINK_BADAUTH:
+            return "FAILED: authentication rejected (wrong password, or AP "
+                   "requires an auth mode this chip doesn't support, e.g. "
+                   "WPA3-only)";
+        default:
+            return "unknown";
     }
 }
 #endif
@@ -146,65 +178,81 @@ static const char *link_status_str(int32_t status)
  * the AP just rejected us" from "the chip cannot even see that SSID" (wrong
  * name, out of range, or -- the common one for phone hotspots -- a 5GHz-only
  * network, which this 2.4GHz-only chip is physically unable to detect). */
-static int scan_print_result(void *env, const cyw43_ev_scan_result_t *result)
+static int
+scan_print_result (void * env, const cyw43_ev_scan_result_t * result)
 {
     UB  ssid[33];
     int i;
 
-    (void)env;
-    if(result == NULL) return 0;
+    (void) env;
+    if (result == NULL)
+    {
+        return 0;
+    }
 
-    for(i = 0; i < result->ssid_len && i < 32; i++) {
-        UB c = result->ssid[i];
-        ssid[i] = (c >= 0x20 && c < 0x7f)? c: '?';
+    for (i = 0; i < result->ssid_len && i < 32; i++)
+    {
+        UB c    = result->ssid[i];
+        ssid[i] = (c >= 0x20 && c < 0x7f) ? c : '?';
     }
     ssid[i] = '\0';
 
     radio_status.scan_count++;
-    if(result->rssi > radio_status.strongest_rssi) {
+    if (result->rssi > radio_status.strongest_rssi)
+    {
         radio_status.strongest_rssi = result->rssi;
     }
 
-    tm_printf((UB*)"wifi:   \"%s\"  rssi=%d  ch=%d  auth=%d\n",
-              ssid, (int)result->rssi, (int)result->channel,
-              (int)result->auth_mode);
+    tm_printf((UB *) "wifi:   \"%s\"  rssi=%d  ch=%d  auth=%d\n", ssid,
+              (int) result->rssi, (int) result->channel,
+              (int) result->auth_mode);
     return 0;
 }
 
 /* Drives the poll loop by hand until the scan finishes -- the main poll loop
  * further down has not been entered yet at this point, and scan results only
  * arrive as async events processed by cyw43_poll(). */
-static void run_diagnostic_scan(void)
+static void
+run_diagnostic_scan (void)
 {
     cyw43_wifi_scan_options_t opts = {0};
     int32_t                   err;
     int                       i;
 
-    tm_printf((UB*)"wifi: scanning for visible 2.4GHz networks ...\n");
+    tm_printf((UB *) "wifi: scanning for visible 2.4GHz networks ...\n");
 
     err = cyw43_wifi_scan(&cyw43_state, &opts, NULL, scan_print_result);
-    if(err != 0) {
-        tm_printf((UB*)"wifi: scan request failed, err=%d\n", (int)err);
+    if (err != 0)
+    {
+        tm_printf((UB *) "wifi: scan request failed, err=%d\n", (int) err);
         return;
     }
     cyw43_thread_exit();
 
     /* ~10s ceiling; a scan normally settles in 2-4s. */
-    for(i = 0; i < 1000; i++) {
+    for (i = 0; i < 1000; i++)
+    {
         bool active;
 
         cyw43_thread_enter();
-        if(cyw43_poll != NULL) cyw43_poll();
+        if (cyw43_poll != NULL)
+        {
+            cyw43_poll();
+        }
         active = cyw43_wifi_scan_active(&cyw43_state);
         cyw43_thread_exit();
 
-        if(!active && i > 30) break;
-        (void)tk_dly_tsk(10);
+        if (!active && i > 30)
+        {
+            break;
+        }
+        (void) tk_dly_tsk(10);
     }
 
     cyw43_thread_enter();
-    tm_printf((UB*)"wifi: scan done -- %d network(s) seen, strongest rssi=%d\n",
-              (int)radio_status.scan_count, (int)radio_status.strongest_rssi);
+    tm_printf(
+        (UB *) "wifi: scan done -- %d network(s) seen, strongest rssi=%d\n",
+        (int) radio_status.scan_count, (int) radio_status.strongest_rssi);
 }
 #endif
 
@@ -216,81 +264,96 @@ static void run_diagnostic_scan(void)
  * SSID. Where two of them are in range (a mesh or a repeater), that choice can
  * change between the association and the handshake and the join fails. Pass a
  * six-byte BSSID here instead of NULL to pin it to one radio. */
-static int32_t wifi_try_join(void)
+static int32_t
+wifi_try_join (void)
 {
     int32_t err;
 
-    tm_printf((UB*)"wifi: joining \"%s\" ...\n", WIFI_SSID);
+    tm_printf((UB *) "wifi: joining \"%s\" ...\n", WIFI_SSID);
 
-    err = cyw43_wifi_join(&cyw43_state,
-                          strlen(WIFI_SSID), (const uint8_t*)WIFI_SSID,
-                          strlen(WIFI_PASSWORD), (const uint8_t*)WIFI_PASSWORD,
-                          WIFI_AUTH_MODE, NULL, CYW43_CHANNEL_NONE);
-    if(err != 0) {
-        tm_printf((UB*)"wifi: cyw43_wifi_join() request rejected, err=%d\n",
-                  (int)err);
+    err = cyw43_wifi_join(&cyw43_state, strlen(WIFI_SSID),
+                          (const uint8_t *) WIFI_SSID, strlen(WIFI_PASSWORD),
+                          (const uint8_t *) WIFI_PASSWORD, WIFI_AUTH_MODE, NULL,
+                          CYW43_CHANNEL_NONE);
+    if (err != 0)
+    {
+        tm_printf((UB *) "wifi: cyw43_wifi_join() request rejected, err=%d\n",
+                  (int) err);
     }
     return err;
 }
 #endif
 
 #if !TM_NET_LWIP
-static int scan_result(void *env, const cyw43_ev_scan_result_t *result)
+static int
+scan_result (void * env, const cyw43_ev_scan_result_t * result)
 {
-    T_CYW43_UTK_STATUS *status = env;
+    T_CYW43_UTK_STATUS * status = env;
 
-    if(result == NULL) return 0;
+    if (result == NULL)
+    {
+        return 0;
+    }
     status->scan_count++;
-    if(result->rssi > status->strongest_rssi) {
+    if (result->rssi > status->strongest_rssi)
+    {
         status->strongest_rssi = result->rssi;
     }
     return 0;
 }
 #endif
 
-void cyw43_utk_task(int32_t stacd, void *exinf)
+void
+cyw43_utk_task (int32_t stacd, void * exinf)
 {
 #if !TM_NET_LWIP
     cyw43_wifi_scan_options_t options = {0};
-    bool was_scanning;
+    bool                      was_scanning;
 #endif
     int32_t result;
-    int bus_up = 0;
+    int     bus_up = 0;
 
-    (void)stacd;
-    (void)exinf;
-    radio_status.owner_prc = (uint32_t)tk_get_prc();
+    (void) stacd;
+    (void) exinf;
+    radio_status.owner_prc = (uint32_t) tk_get_prc();
 
     /* After repeated early crashes usermain holds the board so its
      * "[RESET]" line can be read (app_watchdog.c): no radio start-up, which
      * may be what crashed. It reads the crash record itself, so the order
      * against usermain does not matter. */
-    while(health_boot_hold_pending()) (void)tk_dly_tsk(1000);
+    while (health_boot_hold_pending())
+    {
+        (void) tk_dly_tsk(1000);
+    }
 
-    tm_printf((UB*)"wifi: cyw43_utk_task starting (proc %d)\n",
-              (int)radio_status.owner_prc);
+    tm_printf((UB *) "wifi: cyw43_utk_task starting (proc %d)\n",
+              (int) radio_status.owner_prc);
 
 #if TM_NET_LWIP
     lwip_init();
 #endif
 
-    tm_printf((UB*)"wifi: cyw43_init() ...\n");
+    tm_printf((UB *) "wifi: cyw43_init() ...\n");
     cyw43_init(&cyw43_state);
-    tm_printf((UB*)"wifi: cyw43_init() returned, bringing interface up ...\n");
+    tm_printf(
+        (UB *) "wifi: cyw43_init() returned, bringing interface up ...\n");
     cyw43_thread_enter();
     cyw43_wifi_set_up(&cyw43_state, CYW43_ITF_STA, true,
                       CYW43_COUNTRY_WORLDWIDE);
-    if((cyw43_state.itf_state & (1u << CYW43_ITF_STA)) == 0) {
+    if ((cyw43_state.itf_state & (1u << CYW43_ITF_STA)) == 0)
+    {
         /* cyw43_wifi_set_up() has a void API and otherwise hides its bus-init
          * error.  Report the underlying I/O class instead of letting scan()
          * replace it with the secondary "interface not up" (-4) result. */
-        tm_printf((UB*)"wifi: FAILED -- interface never came up (SPI bus / "
-                  "firmware load to the CYW43439 did not succeed)\n");
+        tm_printf((UB *) "wifi: FAILED -- interface never came up (SPI bus / "
+                         "firmware load to the CYW43439 did not succeed)\n");
         result = -CYW43_EIO;
-    } else {
+    }
+    else
+    {
         bus_up = 1;
-        (void)cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA,
-                                 radio_status.mac);
+        (void) cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA,
+                                  radio_status.mac);
         /* cyw43_wifi_set_up() just applied the driver's power-save default. */
         wifi_power_save_off();
 #if TM_NET_LWIP
@@ -308,14 +371,14 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
          * failed association gets retried. */
         result = wifi_try_join();
 #else
-        result = cyw43_wifi_scan(&cyw43_state, &options, &radio_status,
-                                 scan_result);
+        result =
+            cyw43_wifi_scan(&cyw43_state, &options, &radio_status, scan_result);
 #endif
     }
     cyw43_thread_exit();
 
     radio_status.init_result = result;
-    radio_status.ready = (result == 0);
+    radio_status.ready       = (result == 0);
 #if TM_NET_LWIP
     radio_status.link_status = CYW43_LINK_DOWN;
 #else
@@ -332,64 +395,85 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
      * rest of the kernel qualification. A rejected first join request is not
      * a dead bus: the 5 s retry below re-issues it, for ever. */
 #if TM_NET_LWIP
-    if(!bus_up) {
+    if (!bus_up)
+    {
 #else
-    (void)bus_up;
-    if(result != 0) {
+    (void) bus_up;
+    if (result != 0)
+    {
 #endif
         /* Still alive for the watchdog: beat well inside its 1 s window. */
-        for(;;) {
+        for (;;)
+        {
             HEALTH_BEAT(HEALTH_HB_NET);
-            (void)tk_dly_tsk(100);
+            (void) tk_dly_tsk(100);
         }
     }
 
 #if TM_NET_LWIP
     int32_t  prev_link_status = radio_status.link_status;
-    int      join_rejected = (result != 0);
-    uint64_t rejoin_at = join_rejected? time_us_64() + WIFI_REJOIN_DELAY_US: 0;
+    int      join_rejected    = (result != 0);
+    uint64_t rejoin_at =
+        join_rejected ? time_us_64() + WIFI_REJOIN_DELAY_US : 0;
     T_WIFI_REJOIN lost = {0};
     wifi_rejoin_joined(&lost, time_us_64()); /* the boot join starts the wait */
 #endif
 
-    for(;;) {
+    for (;;)
+    {
         NET_TIMING(release);
         HEALTH_BEAT(HEALTH_HB_NET);
 #if TM_NET_LWIP
         cyw43_thread_enter();
-        if(cyw43_poll != NULL) cyw43_poll();
-        radio_status.poll_count++;
-        radio_status.link_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
-        if(radio_status.link_status == CYW43_LINK_UP) {
-            radio_status.ip_addr = ip4_addr_get_u32(netif_ip4_addr(&cyw43_state.netif[CYW43_ITF_STA]));
+        if (cyw43_poll != NULL)
+        {
+            cyw43_poll();
         }
-        if(radio_status.link_status != prev_link_status) {
+        radio_status.poll_count++;
+        radio_status.link_status =
+            cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (radio_status.link_status == CYW43_LINK_UP)
+        {
+            radio_status.ip_addr = ip4_addr_get_u32(
+                netif_ip4_addr(&cyw43_state.netif[CYW43_ITF_STA]));
+        }
+        if (radio_status.link_status != prev_link_status)
+        {
             prev_link_status = radio_status.link_status;
-            if(radio_status.link_status == CYW43_LINK_UP) {
+            if (radio_status.link_status == CYW43_LINK_UP)
+            {
                 uint32_t ip = radio_status.ip_addr;
-                tm_printf((UB*)"wifi: link up, ip=%d.%d.%d.%d\n",
-                          (int)(ip & 0xff), (int)((ip >> 8) & 0xff),
-                          (int)((ip >> 16) & 0xff), (int)((ip >> 24) & 0xff));
+                tm_printf((UB *) "wifi: link up, ip=%d.%d.%d.%d\n",
+                          (int) (ip & 0xff), (int) ((ip >> 8) & 0xff),
+                          (int) ((ip >> 16) & 0xff), (int) ((ip >> 24) & 0xff));
                 /* A (re)join may bring the firmware's PM default back. */
                 wifi_power_save_off();
-            } else {
-                tm_printf((UB*)"wifi: link status -> %s (%d)\n",
+            }
+            else
+            {
+                tm_printf((UB *) "wifi: link status -> %s (%d)\n",
                           link_status_str(radio_status.link_status),
-                          (int)radio_status.link_status);
+                          (int) radio_status.link_status);
             }
 
             /* Negative == the association attempt is over and lost. Arm a
              * retry; a positive-but-not-UP status (JOIN/NOIP) is still making
              * progress, so leave it alone and let DHCP finish. A join request
              * the driver rejected is retried the same way. */
-            if(radio_status.link_status == CYW43_LINK_UP) join_rejected = 0;
-            rejoin_at = (radio_status.link_status < 0 || join_rejected)?
-                        time_us_64() + WIFI_REJOIN_DELAY_US: 0;
+            if (radio_status.link_status == CYW43_LINK_UP)
+            {
+                join_rejected = 0;
+            }
+            rejoin_at = (radio_status.link_status < 0 || join_rejected)
+                            ? time_us_64() + WIFI_REJOIN_DELAY_US
+                            : 0;
         }
 
-        if(rejoin_at != 0 && time_us_64() >= rejoin_at) {
+        if (rejoin_at != 0 && time_us_64() >= rejoin_at)
+        {
             rejoin_at = 0;
-            if(radio_status.link_status < 0 || join_rejected) {
+            if (radio_status.link_status < 0 || join_rejected)
+            {
                 join_rejected = (wifi_try_join() != 0);
                 wifi_rejoin_joined(&lost, time_us_64());
                 /* Force the next iteration to treat whatever comes back as a
@@ -403,30 +487,40 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
         /* A lost association reads DOWN/JOIN, which the retry above never
          * sees (cyw43_utk.h). Leave now and join on a later poll; the MQTT
          * session is dropped too, so its 3 s retry reconnects afterwards. */
-        switch(wifi_rejoin_step(&lost, radio_status.link_status == CYW43_LINK_UP,
-                                radio_status.link_status < 0, time_us_64())) {
-        case WIFI_REJOIN_LEAVE:
-            tm_printf((UB*)"wifi: no link for %d s, leaving to re-join\n",
-                      (int)((lost.was_up? WIFI_LOST_REJOIN_US: WIFI_FIRST_JOIN_US) / 1000000u));
-            (void)cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+        switch (wifi_rejoin_step(&lost,
+                                 radio_status.link_status == CYW43_LINK_UP,
+                                 radio_status.link_status < 0, time_us_64()))
+        {
+            case WIFI_REJOIN_LEAVE:
+                tm_printf((UB *) "wifi: no link for %d s, leaving to re-join\n",
+                          (int) ((lost.was_up ? WIFI_LOST_REJOIN_US
+                                              : WIFI_FIRST_JOIN_US) /
+                                 1000000u));
+                (void) cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
 #if TM_MQTT
-            mqtt_utk_link_lost();
+                mqtt_utk_link_lost();
 #endif
-            break;
-        case WIFI_REJOIN_JOIN:
-            join_rejected = (wifi_try_join() != 0); /* rejected: 5 s retry */
-            prev_link_status = 0x7fffffff; /* report the outcome, as above */
-            break;
-        default:
-            break;
+                break;
+            case WIFI_REJOIN_JOIN:
+                join_rejected =
+                    (wifi_try_join() != 0); /* rejected: 5 s retry */
+                prev_link_status =
+                    0x7fffffff; /* report the outcome, as above */
+                break;
+            default:
+                break;
         }
 #else
         was_scanning = radio_status.scan_active != 0;
         cyw43_thread_enter();
-        if(cyw43_poll != NULL) cyw43_poll();
+        if (cyw43_poll != NULL)
+        {
+            cyw43_poll();
+        }
         radio_status.poll_count++;
         radio_status.scan_active = cyw43_wifi_scan_active(&cyw43_state);
-        if(was_scanning && !radio_status.scan_active) {
+        if (was_scanning && !radio_status.scan_active)
+        {
             mp_memory_barrir();
             radio_status.scan_complete = 1;
         }
@@ -440,21 +534,28 @@ void cyw43_utk_task(int32_t stacd, void *exinf)
          * guard), so calling it on every poll iteration once the link is up
          * is fine -- it only actually does anything on the first call, or
          * again after connection_cb() schedules a retry. */
-        if(radio_status.link_status == CYW43_LINK_UP) {
+        if (radio_status.link_status == CYW43_LINK_UP)
+        {
             mqtt_utk_start();
             mqtt_utk_poll_telemetry();
         }
 #endif
 #endif
         NET_TIMING(done);
-        (void)tk_dly_tsk(CYW43_POLL_MS);
+        (void) tk_dly_tsk(CYW43_POLL_MS);
     }
 }
 
-void cyw43_utk_get_status(T_CYW43_UTK_STATUS *status)
+void
+cyw43_utk_get_status (T_CYW43_UTK_STATUS * status)
 {
-    if(status == NULL) return;
+    if (status == NULL)
+    {
+        return;
+    }
     mp_memory_barrir();
     *status = radio_status;
     mp_memory_barrir();
 }
+
+/*** end of file ***/

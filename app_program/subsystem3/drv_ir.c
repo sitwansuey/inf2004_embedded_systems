@@ -2,15 +2,16 @@
 #include "drv_ir_adc.h"
 
 
-bool s3_ir_config_valid(const s3_ir_config_t *p_config)
+bool
+s3_ir_config_valid (const s3_ir_config_t * p_config)
 {
     uint8_t i;
     uint8_t j;
 
     /* Cast before range checking so a negative/invalid enum is rejected
      * even when the target compiler chooses an unsigned enum type. */
-    if ((p_config == NULL) ||
-        ((unsigned int)p_config->mode > (unsigned int)S3_IR_ADC_LINE_DIGITAL_BARCODE))
+    if ((p_config == NULL) || ((unsigned int) p_config->mode >
+                               (unsigned int) S3_IR_ADC_LINE_DIGITAL_BARCODE))
     {
         return false;
     }
@@ -44,10 +45,12 @@ bool s3_ir_config_valid(const s3_ir_config_t *p_config)
         }
     }
     return p_config->mode != S3_IR_ADC_LINE_DIGITAL_BARCODE ||
-           (p_config->pin[0] == 26U && p_config->pin[1] == 27U && p_config->pin[2] == 28U);
+           (p_config->pin[0] == 26U && p_config->pin[1] == 27U &&
+            p_config->pin[2] == 28U);
 }
 
-ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config)
+ER
+s3_ir_open (s3_ir_t * p_ir, const s3_ir_config_t * p_config)
 {
     uint8_t i;
 
@@ -59,7 +62,7 @@ ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config)
     {
         return E_OBJ;
     }
-    *p_ir = (s3_ir_t){0};
+    *p_ir        = (s3_ir_t){0};
     p_ir->config = *p_config;
     if (p_config->mode == S3_IR_DISABLED)
     {
@@ -81,7 +84,10 @@ ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config)
         if (p_config->mode == S3_IR_ADC_LINE_DIGITAL_BARCODE)
         {
             ER er = gpio_set_pin(p_config->pin[2], GPIO_MODE_IN);
-            if (er < E_OK) return er;
+            if (er < E_OK)
+            {
+                return er;
+            }
         }
         ER er = s3_adc_start();
         if (er < E_OK)
@@ -94,57 +100,70 @@ ER s3_ir_open(s3_ir_t *p_ir, const s3_ir_config_t *p_config)
 }
 
 
-bool s3_ir_waiting(const s3_ir_t *p_ir)
+bool
+s3_ir_waiting (const s3_ir_t * p_ir)
 {
-    return (p_ir != NULL) && p_ir->opened &&
-           (p_ir->config.mode >= S3_IR_ADC) && p_ir->adc_pending &&
-           !p_ir->adc_failed;
+    return (p_ir != NULL) && p_ir->opened && (p_ir->config.mode >= S3_IR_ADC) &&
+           p_ir->adc_pending && !p_ir->adc_failed;
 }
 
-static ER adc_failure(s3_ir_t *p_ir, ER error)
+static ER
+adc_failure (s3_ir_t * p_ir, ER error)
 {
-    p_ir->adc_failed = true;
+    p_ir->adc_failed  = true;
     p_ir->adc_pending = false;
-    p_ir->adc_error = error;
+    p_ir->adc_error   = error;
     return error;
 }
 
-static ER submit_scan(s3_ir_t *p_ir, uint32_t now_ms)
+static ER
+submit_scan (s3_ir_t * p_ir, uint32_t now_ms)
 {
     s3_adc_request_t request = {0};
-    uint8_t i;
-    ER er;
+    uint8_t          i;
+    ER               er;
     ++p_ir->adc_sequence;
-    if (p_ir->adc_sequence == 0U) ++p_ir->adc_sequence;
-    request.sequence = p_ir->adc_sequence;
+    if (p_ir->adc_sequence == 0U)
+    {
+        ++p_ir->adc_sequence;
+    }
+    request.sequence  = p_ir->adc_sequence;
     request.issued_ms = now_ms;
     for (i = 0U; i < S3_SENSOR_COUNT; ++i)
-        request.channel[i] = (uint8_t)(p_ir->config.pin[i] - 26U);
+    {
+        request.channel[i] = (uint8_t) (p_ir->config.pin[i] - 26U);
+    }
     if (p_ir->config.mode == S3_IR_ADC_LINE_DIGITAL_BARCODE)
+    {
         request.channel[2] = S3_ADC_CHANNEL_UNUSED;
+    }
     er = s3_adc_submit(&request);
-    if (er != E_OK) return adc_failure(p_ir, er);
+    if (er != E_OK)
+    {
+        return adc_failure(p_ir, er);
+    }
     p_ir->adc_started_ms = now_ms;
-    p_ir->adc_pending = true;
+    p_ir->adc_pending    = true;
     return E_OK;
 }
 
 /* Drop the answered scan (late, or not converted) and ask for a fresh one.
  * Still waiting: E_TMOUT with s3_ir_waiting() true, never a latched fault. */
-static ER resubmit(s3_ir_t *p_ir, uint32_t now_ms)
+static ER
+resubmit (s3_ir_t * p_ir, uint32_t now_ms)
 {
     ER er;
     p_ir->adc_pending = false;
-    er = submit_scan(p_ir, now_ms);
+    er                = submit_scan(p_ir, now_ms);
     return (er != E_OK) ? er : E_TMOUT;
 }
 
-static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
-                   bool wait)
+static ER
+adc_poll (s3_ir_t * p_ir, uint32_t now_ms, s3_sample_t * p_sample, bool wait)
 {
     s3_adc_reply_t reply = {0};
-    uint8_t i;
-    ER er;
+    uint8_t        i;
+    ER             er;
 
     if (p_ir->adc_failed)
     {
@@ -153,8 +172,14 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
     if (!p_ir->adc_pending)
     {
         er = submit_scan(p_ir, now_ms);
-        if (er != E_OK) return er;
-        if (!wait) return E_TMOUT;
+        if (er != E_OK)
+        {
+            return er;
+        }
+        if (!wait)
+        {
+            return E_TMOUT;
+        }
     }
     {
         /* One scan stays outstanding until the worker answers it, so a
@@ -167,9 +192,12 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
         if (wait)
         {
             SYSTIM completed;
-            ER clock_error = tk_get_otm(&completed);
-            if (clock_error != E_OK) return adc_failure(p_ir, clock_error);
-            now_ms = (uint32_t)completed.lo;
+            ER     clock_error = tk_get_otm(&completed);
+            if (clock_error != E_OK)
+            {
+                return adc_failure(p_ir, clock_error);
+            }
+            now_ms = (uint32_t) completed.lo;
         }
         if (er == E_TMOUT)
         {
@@ -181,22 +209,29 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
         }
         if (reply.sequence != p_ir->adc_sequence)
         {
-            return E_TMOUT; /* Not this scan's reply: discard it, keep waiting. */
+            return E_TMOUT; /* Not this scan's reply: discard it, keep waiting.
+                             */
         }
         if (reply.error != E_OK)
         {
             if ((reply.error == E_TMOUT) && reply.retry)
             {
-                return resubmit(p_ir, now_ms); /* worker held off, no conversion */
+                return resubmit(p_ir,
+                                now_ms); /* worker held off, no conversion */
             }
             return adc_failure(p_ir, (reply.error < E_OK) ? reply.error : E_IO);
         }
-        const uint8_t analog_mask = p_ir->config.mode == S3_IR_ADC_LINE_DIGITAL_BARCODE ? 3U : S3_SENSOR_MASK;
+        const uint8_t analog_mask =
+            p_ir->config.mode == S3_IR_ADC_LINE_DIGITAL_BARCODE
+                ? 3U
+                : S3_SENSOR_MASK;
         /* The worker must start within S3_ADC_DEADLINE_MS of the request and
          * cannot report a time after now: anything else is a broken reply. */
         if ((reply.sample.valid_mask != analog_mask) ||
-            ((reply.sample.time_ms - p_ir->adc_started_ms) >= S3_ADC_DEADLINE_MS) ||
-            ((reply.sample.time_ms - p_ir->adc_started_ms) > (now_ms - p_ir->adc_started_ms)))
+            ((reply.sample.time_ms - p_ir->adc_started_ms) >=
+             S3_ADC_DEADLINE_MS) ||
+            ((reply.sample.time_ms - p_ir->adc_started_ms) >
+             (now_ms - p_ir->adc_started_ms)))
         {
             return adc_failure(p_ir, E_IO);
         }
@@ -209,27 +244,32 @@ static ER adc_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample,
         }
         if ((now_ms - reply.sample.time_ms) >= S3_ADC_REPLY_DEADLINE_MS)
         {
-            return resubmit(p_ir, now_ms); /* converted in time, collected late */
+            return resubmit(p_ir,
+                            now_ms); /* converted in time, collected late */
         }
         p_ir->adc_pending = false;
     }
     if (!wait)
     {
         er = submit_scan(p_ir, now_ms);
-        if (er != E_OK) return er;
+        if (er != E_OK)
+        {
+            return er;
+        }
     }
     *p_sample = reply.sample;
     return E_OK;
 }
 
-static ER read_ir(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample, bool wait)
+static ER
+read_ir (s3_ir_t * p_ir, uint32_t now_ms, s3_sample_t * p_sample, bool wait)
 {
     uint8_t i;
     if (p_sample == NULL)
     {
         return E_PAR;
     }
-    *p_sample = (s3_sample_t){0};
+    *p_sample         = (s3_sample_t){0};
     p_sample->time_ms = now_ms;
     if ((p_ir == NULL) || !p_ir->opened)
     {
@@ -238,7 +278,10 @@ static ER read_ir(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample, bool wa
     if (p_ir->config.mode >= S3_IR_ADC)
     {
         ER er = adc_poll(p_ir, now_ms, p_sample, wait);
-        if (er != E_OK || p_ir->config.mode != S3_IR_ADC_LINE_DIGITAL_BARCODE) return er;
+        if (er != E_OK || p_ir->config.mode != S3_IR_ADC_LINE_DIGITAL_BARCODE)
+        {
+            return er;
+        }
         UINT level = gpio_get_val(p_ir->config.pin[2]);
         if (level > 1U)
         {
@@ -247,7 +290,7 @@ static ER read_ir(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample, bool wa
         }
         /* Preserve the oldest ADC timestamp; digital input is sampled later.
          * Publish all three valid bits only after the DO read succeeds. */
-        p_sample->raw[2] = (uint16_t)level;
+        p_sample->raw[2] = (uint16_t) level;
         p_sample->valid_mask |= 4U;
         return E_OK;
     }
@@ -258,18 +301,22 @@ static ER read_ir(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample, bool wa
         {
             return E_IO;
         }
-        p_sample->raw[i] = (uint16_t)value;
+        p_sample->raw[i] = (uint16_t) value;
     }
     p_sample->valid_mask = S3_SENSOR_MASK;
     return E_OK;
 }
 
-ER s3_ir_poll(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
+ER
+s3_ir_poll (s3_ir_t * p_ir, uint32_t now_ms, s3_sample_t * p_sample)
 {
     return read_ir(p_ir, now_ms, p_sample, false);
 }
 
-ER s3_ir_acquire(s3_ir_t *p_ir, uint32_t now_ms, s3_sample_t *p_sample)
+ER
+s3_ir_acquire (s3_ir_t * p_ir, uint32_t now_ms, s3_sample_t * p_sample)
 {
     return read_ir(p_ir, now_ms, p_sample, true);
 }
+
+/*** end of file ***/

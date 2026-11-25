@@ -1,36 +1,47 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "drv_lsm303dlhc.h"
 
+#if defined(NDEBUG)
+#error Host tests require assertions
+#endif
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define CHECK(condition) do { if (!(condition)) { \
-    fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition); \
-    exit(EXIT_FAILURE); } } while (0)
+#define CHECK(condition)                                                       \
+    do                                                                         \
+    {                                                                          \
+        if (!(condition))                                                      \
+        {                                                                      \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);    \
+            assert(0 && "host test requirement failed");                       \
+        }                                                                      \
+    } while (0)
 
 typedef struct
 {
-    uint8_t accel[256];
-    uint8_t mag[256];
-    uint8_t fail_address;
-    uint8_t fail_register;
-    bool fail_reads;
-    bool fail_writes;
-    bool corrupt_readback;
+    uint8_t      accel[256];
+    uint8_t      mag[256];
+    uint8_t      fail_address;
+    uint8_t      fail_register;
+    bool         fail_reads;
+    bool         fail_writes;
+    bool         corrupt_readback;
     unsigned int reads;
     unsigned int writes;
     unsigned int accel_bursts;
     unsigned int mag_bursts;
-    uint64_t time_us;
+    uint64_t     time_us;
 } mock_bus_t;
 
-static bool mock_read(void *p_context, uint8_t address, uint8_t subaddress,
-                      uint8_t *p_data, uint32_t length)
+static bool
+mock_read (void * p_context, uint8_t address, uint8_t subaddress,
+           uint8_t * p_data, uint32_t length)
 {
-    mock_bus_t *p_mock = p_context;
-    uint8_t *p_registers;
-    size_t reg = subaddress;
+    mock_bus_t * p_mock = p_context;
+    uint8_t *    p_registers;
+    size_t       reg = subaddress;
 
     p_mock->reads++;
     if (p_mock->fail_reads && (address == p_mock->fail_address) &&
@@ -76,11 +87,11 @@ static bool mock_read(void *p_context, uint8_t address, uint8_t subaddress,
     return true;
 }
 
-static bool mock_write(void *p_context, uint8_t address, uint8_t reg,
-                       uint8_t value)
+static bool
+mock_write (void * p_context, uint8_t address, uint8_t reg, uint8_t value)
 {
-    mock_bus_t *p_mock = p_context;
-    uint8_t *p_registers;
+    mock_bus_t * p_mock = p_context;
+    uint8_t *    p_registers;
 
     p_mock->writes++;
     if (p_mock->fail_writes && (address == p_mock->fail_address) &&
@@ -103,66 +114,68 @@ static bool mock_write(void *p_context, uint8_t address, uint8_t reg,
     return true;
 }
 
-static uint64_t mock_now(void *p_context)
+static uint64_t
+mock_now (void * p_context)
 {
-    mock_bus_t *p_mock = p_context;
+    mock_bus_t * p_mock = p_context;
 
     p_mock->time_us += 1000;
     return p_mock->time_us;
 }
 
-static lsm303_bus_t reset_mock(mock_bus_t *p_mock)
+static lsm303_bus_t
+reset_mock (mock_bus_t * p_mock)
 {
-    *p_mock = (mock_bus_t){ 0 };
+    *p_mock           = (mock_bus_t){0};
     p_mock->mag[0x0a] = 0x48;
     p_mock->mag[0x0b] = 0x34;
     p_mock->mag[0x0c] = 0x33;
-    return (lsm303_bus_t)
-    {
-        .p_context = p_mock,
-        .read = mock_read,
-        .write = mock_write,
-        .now_us = mock_now
-    };
+    return (lsm303_bus_t){.p_context = p_mock,
+                          .read      = mock_read,
+                          .write     = mock_write,
+                          .now_us    = mock_now};
 }
 
-static void set_accel(mock_bus_t *p_mock, int16_t x, int16_t y, int16_t z)
+static void
+set_accel (mock_bus_t * p_mock, int16_t x, int16_t y, int16_t z)
 {
-    int16_t raw[3] = { x, y, z };
-    size_t axis;
+    int16_t raw[3] = {x, y, z};
+    size_t  axis;
 
     for (axis = 0; axis < 3; axis++)
     {
-        uint16_t word = (uint16_t)(((uint16_t)raw[axis] & 0x0fff) << 4);
+        uint16_t word = (uint16_t) (((uint16_t) raw[axis] & 0x0fff) << 4);
 
-        p_mock->accel[0x28 + axis * 2] = (uint8_t)word;
-        p_mock->accel[0x29 + axis * 2] = (uint8_t)(word >> 8);
+        p_mock->accel[0x28 + axis * 2] = (uint8_t) word;
+        p_mock->accel[0x29 + axis * 2] = (uint8_t) (word >> 8);
     }
     p_mock->accel[0x27] = 0x08;
 }
 
-static void set_mag(mock_bus_t *p_mock, int16_t x, int16_t y, int16_t z)
+static void
+set_mag (mock_bus_t * p_mock, int16_t x, int16_t y, int16_t z)
 {
     /* Test input is XYZ; device registers are XZY. */
-    int16_t native[3] = { x, z, y };
-    size_t axis;
+    int16_t native[3] = {x, z, y};
+    size_t  axis;
 
     for (axis = 0; axis < 3; axis++)
     {
-        uint16_t word = (uint16_t)native[axis];
+        uint16_t word = (uint16_t) native[axis];
 
-        p_mock->mag[0x03 + axis * 2] = (uint8_t)(word >> 8);
-        p_mock->mag[0x04 + axis * 2] = (uint8_t)word;
+        p_mock->mag[0x03 + axis * 2] = (uint8_t) (word >> 8);
+        p_mock->mag[0x04 + axis * 2] = (uint8_t) word;
     }
     p_mock->mag[0x09] = 0x01;
 }
 
-static void test_configuration(void)
+static void
+test_configuration (void)
 {
-    mock_bus_t mock;
-    lsm303_bus_t bus = reset_mock(&mock);
-    lsm303_device_t device = { 0 };
-    lsm303_frame_t frame;
+    mock_bus_t      mock;
+    lsm303_bus_t    bus    = reset_mock(&mock);
+    lsm303_device_t device = {0};
+    lsm303_frame_t  frame;
 
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
     CHECK(device.initialized && device.mag_ready);
@@ -177,7 +190,7 @@ static void test_configuration(void)
 
     /* The magnetometer is telemetry only: a wrong or missing one leaves the
      * accelerometer up, is not polled, and can be set up later. */
-    bus = reset_mock(&mock);
+    bus            = reset_mock(&mock);
     mock.mag[0x0a] = 0;
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
     CHECK(device.initialized && !device.mag_ready);
@@ -186,39 +199,41 @@ static void test_configuration(void)
     set_mag(&mock, 110, 220, 98);
     CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_OK);
     CHECK(frame.accel.fresh && frame.accel.valid && frame.accel.raw[2] == 1000);
-    CHECK(!frame.mag.fresh && frame.mag.status == LSM303_NO_DATA && mock.mag_bursts == 0);
+    CHECK(!frame.mag.fresh && frame.mag.status == LSM303_NO_DATA &&
+          mock.mag_bursts == 0);
     CHECK(lsm303dlhc_init_mag(&device) == LSM303_WRONG_ID && !device.mag_ready);
     mock.mag[0x0a] = 0x48;
     CHECK(lsm303dlhc_init_mag(&device) == LSM303_OK && device.mag_ready);
     CHECK(mock.mag[0] == 0x14 && mock.mag[1] == 0x20 && mock.mag[2] == 0);
     CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_OK && frame.mag.fresh);
-    bus = reset_mock(&mock);
-    mock.fail_reads = true;
-    mock.fail_address = LSM303_MAG_ADDRESS;
+    bus                = reset_mock(&mock);
+    mock.fail_reads    = true;
+    mock.fail_address  = LSM303_MAG_ADDRESS;
     mock.fail_register = 0x0a;
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
     CHECK(device.initialized && !device.mag_ready);
     CHECK(lsm303dlhc_init_mag(NULL) == LSM303_BAD_ARGUMENT);
     device.initialized = false;
     CHECK(lsm303dlhc_init_mag(&device) == LSM303_NOT_INITIALIZED);
-    bus = reset_mock(&mock);
+    bus                   = reset_mock(&mock);
     mock.corrupt_readback = true;
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_CONFIG_ERROR);
     CHECK(!device.initialized && !device.mag_ready);
-    bus = reset_mock(&mock);
-    mock.fail_writes = true;
-    mock.fail_address = LSM303_ACCEL_ADDRESS;
+    bus                = reset_mock(&mock);
+    mock.fail_writes   = true;
+    mock.fail_address  = LSM303_ACCEL_ADDRESS;
     mock.fail_register = 0x23;
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_IO_ERROR);
     CHECK(!device.initialized);
 }
 
-static void test_decode_and_freshness(void)
+static void
+test_decode_and_freshness (void)
 {
-    mock_bus_t mock;
-    lsm303_bus_t bus = reset_mock(&mock);
-    lsm303_device_t device = { 0 };
-    lsm303_frame_t frame;
+    mock_bus_t      mock;
+    lsm303_bus_t    bus    = reset_mock(&mock);
+    lsm303_device_t device = {0};
+    lsm303_frame_t  frame;
 
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
     set_accel(&mock, 1000, -1000, -1);
@@ -258,12 +273,13 @@ static void test_decode_and_freshness(void)
     CHECK(frame.mag.raw[0] == -1 && frame.mag.milli_units[2] == -1000);
 }
 
-static void test_clipping(void)
+static void
+test_clipping (void)
 {
-    mock_bus_t mock;
-    lsm303_bus_t bus = reset_mock(&mock);
-    lsm303_device_t device = { 0 };
-    lsm303_frame_t frame;
+    mock_bus_t      mock;
+    lsm303_bus_t    bus    = reset_mock(&mock);
+    lsm303_device_t device = {0};
+    lsm303_frame_t  frame;
 
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
     set_accel(&mock, -2048, 2047, 0);
@@ -279,27 +295,29 @@ static void test_clipping(void)
     CHECK(!frame.mag.valid);
 }
 
-static void test_independent_failures(void)
+static void
+test_independent_failures (void)
 {
-    mock_bus_t mock;
-    lsm303_bus_t bus = reset_mock(&mock);
-    lsm303_device_t device = { 0 };
-    lsm303_frame_t frame;
+    mock_bus_t      mock;
+    lsm303_bus_t    bus    = reset_mock(&mock);
+    lsm303_device_t device = {0};
+    lsm303_frame_t  frame;
 
     CHECK(lsm303dlhc_init(&device, &bus) == LSM303_OK);
     set_accel(&mock, 0, 0, 1000);
     set_mag(&mock, 110, 220, 98);
-    mock.fail_reads = true;
-    mock.fail_address = LSM303_MAG_ADDRESS;
+    mock.fail_reads    = true;
+    mock.fail_address  = LSM303_MAG_ADDRESS;
     mock.fail_register = 0x03;
     CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_IO_ERROR);
     CHECK(frame.accel.fresh && frame.accel.valid);
     CHECK(frame.accel.milli_units[2] == 1000);
     CHECK(!frame.mag.fresh && !frame.mag.valid);
-    CHECK(frame.mag.status == LSM303_DATA_IO_ERROR && frame.mag.read_time_us == 0);
+    CHECK(frame.mag.status == LSM303_DATA_IO_ERROR &&
+          frame.mag.read_time_us == 0);
 
     set_accel(&mock, 1, 2, 3);
-    mock.fail_address = LSM303_ACCEL_ADDRESS;
+    mock.fail_address  = LSM303_ACCEL_ADDRESS;
     mock.fail_register = 0xa8;
     CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_IO_ERROR);
     CHECK(!frame.accel.fresh && !frame.accel.valid);
@@ -311,19 +329,20 @@ static void test_independent_failures(void)
     CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_IO_ERROR);
     CHECK(frame.accel.status == LSM303_DATA_IO_ERROR);
     CHECK(frame.mag.fresh && frame.mag.valid);
-    mock.fail_address = LSM303_MAG_ADDRESS;
+    mock.fail_address  = LSM303_MAG_ADDRESS;
     mock.fail_register = 0x09;
     set_accel(&mock, 0, 0, 1000);
     CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_IO_ERROR);
     CHECK(frame.accel.fresh && frame.mag.status == LSM303_DATA_IO_ERROR);
 }
 
-static void test_lock_recovery_and_arguments(void)
+static void
+test_lock_recovery_and_arguments (void)
 {
-    mock_bus_t mock;
-    lsm303_bus_t bus = reset_mock(&mock);
-    lsm303_device_t device = { 0 };
-    lsm303_frame_t frame;
+    mock_bus_t      mock;
+    lsm303_bus_t    bus    = reset_mock(&mock);
+    lsm303_device_t device = {0};
+    lsm303_frame_t  frame;
 
     CHECK(lsm303dlhc_poll(&device, &frame) == LSM303_NOT_INITIALIZED);
     CHECK(lsm303dlhc_init(NULL, &bus) == LSM303_BAD_ARGUMENT);
@@ -344,20 +363,27 @@ static void test_lock_recovery_and_arguments(void)
     CHECK(!device.initialized);
 }
 
-int main(void)
+int
+main (void)
 {
     test_configuration();
-    puts("[TEST] S4-U01 PASS  sensor identity/configuration and initialization faults");
+    puts("[TEST] S4-U01 PASS  sensor identity/configuration and initialization "
+         "faults");
     test_decode_and_freshness();
-    puts("[TEST] S4-U02 PASS  signed decoding, XYZ ordering, units and freshness");
+    puts("[TEST] S4-U02 PASS  signed decoding, XYZ ordering, units and "
+         "freshness");
     test_clipping();
     puts("[TEST] S4-U03 PASS  clipped/out-of-range samples are invalid");
     test_independent_failures();
     puts("[TEST] S4-U04 PASS  partial reads and independent channel failures");
     test_lock_recovery_and_arguments();
-    puts("[TEST] S4-U05 PASS  magnetic lock recovery and invalid API arguments");
+    puts(
+        "[TEST] S4-U05 PASS  magnetic lock recovery and invalid API arguments");
     puts("PASS: configuration/identity, signed decoding/axis order/units,");
-    puts("      freshness/timestamps/overrun, clipping, independent I/O failures,");
+    puts("      freshness/timestamps/overrun, clipping, independent I/O "
+         "failures,");
     puts("      partial-read rejection, lock recovery and invalid arguments.");
     return EXIT_SUCCESS;
 }
+
+/*** end of file ***/

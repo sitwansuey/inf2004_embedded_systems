@@ -21,18 +21,20 @@
 typedef struct
 {
     lsm303_device_t device;
-    lsm303_bus_t bus;
+    lsm303_bus_t    bus;
     void (*recover)(void); /* frees a stuck bus before each init; may be NULL */
     uint64_t retry_ms;     /* next init attempt while the device is down */
     uint64_t mag_retry_ms; /* next magnetometer set-up while only it is down */
-    uint8_t failed_polls;
-    uint8_t idle_polls;
+    uint8_t  failed_polls;
+    uint8_t  idle_polls;
 } s4_sensor_cycle_t;
 
-void s4_cycle_reset(s4_sensor_cycle_t *p_cycle, const lsm303_bus_t *p_bus,
-                    void (*recover)(void));
+void s4_cycle_reset (s4_sensor_cycle_t * p_cycle, const lsm303_bus_t * p_bus,
+                     void (*recover)(void));
 /* Init when due, else poll; updates the task's working copy p_state. */
-void s4_cycle_run(s4_sensor_cycle_t *p_cycle, s4_sensor_cache_t *p_state,
-                  uint64_t now_ms);
+void s4_cycle_run (s4_sensor_cycle_t * p_cycle, s4_sensor_cache_t * p_state,
+                   uint64_t now_ms);
 
 #endif
+
+/*** end of file ***/

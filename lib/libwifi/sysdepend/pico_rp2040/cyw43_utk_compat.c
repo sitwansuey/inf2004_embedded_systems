@@ -15,7 +15,7 @@
 #include "cyw43.h"
 #include <tm/robot_health.h>
 
-extern int32_t tk_dly_tsk(uint32_t delay);
+extern int32_t tk_dly_tsk (uint32_t delay);
 
 volatile uint32_t cyw43_utk_poll_requested;
 
@@ -32,17 +32,18 @@ volatile uint32_t cyw43_utk_poll_requested;
  */
 #if CNF_SMP
 typedef volatile uint32_t T_SPLOCK;
-extern int32_t ISpinLock(T_SPLOCK *lock, uint32_t *intsts);
-extern int32_t ISpinUnlock(T_SPLOCK *lock, uint32_t intsts);
+extern int32_t            ISpinLock (T_SPLOCK * lock, uint32_t * intsts);
+extern int32_t            ISpinUnlock (T_SPLOCK * lock, uint32_t intsts);
 
 static T_SPLOCK claim_lock;
 #endif
 
-uint32_t hw_claim_lock(void)
+uint32_t
+hw_claim_lock (void)
 {
     uint32_t saved;
 #if CNF_SMP
-    (void)ISpinLock(&claim_lock, &saved);
+    (void) ISpinLock(&claim_lock, &saved);
 #else
     __asm__ volatile("mrs %0, primask" : "=r"(saved));
     __asm__ volatile("cpsid i" ::: "memory");
@@ -50,73 +51,87 @@ uint32_t hw_claim_lock(void)
     return saved;
 }
 
-void hw_claim_unlock(uint32_t saved)
+void
+hw_claim_unlock (uint32_t saved)
 {
 #if CNF_SMP
-    (void)ISpinUnlock(&claim_lock, saved);
+    (void) ISpinUnlock(&claim_lock, saved);
 #else
     __asm__ volatile("" ::: "memory");
-    __asm__ volatile("msr primask, %0" :: "r"(saved) : "memory");
+    __asm__ volatile("msr primask, %0" ::"r"(saved) : "memory");
 #endif
 }
 
-bool hw_is_claimed(const uint8_t *bits, uint bit_index)
+bool
+hw_is_claimed (const uint8_t * bits, uint bit_index)
 {
     return (bits[bit_index >> 3u] & (1u << (bit_index & 7u))) != 0;
 }
 
-void hw_claim_or_assert(uint8_t *bits, uint bit_index, const char *message)
+void
+hw_claim_or_assert (uint8_t * bits, uint bit_index, const char * message)
 {
     uint32_t saved = hw_claim_lock();
-    if(hw_is_claimed(bits, bit_index)) {
+    if (hw_is_claimed(bits, bit_index))
+    {
         hw_claim_unlock(saved);
         panic(message, bit_index);
     }
-    bits[bit_index >> 3u] |= (uint8_t)(1u << (bit_index & 7u));
+    bits[bit_index >> 3u] |= (uint8_t) (1u << (bit_index & 7u));
     hw_claim_unlock(saved);
 }
 
-int hw_claim_unused_from_range(uint8_t *bits, bool required, uint bit_lsb,
-                               uint bit_msb, const char *message)
+int
+hw_claim_unused_from_range (uint8_t * bits, bool required, uint bit_lsb,
+                            uint bit_msb, const char * message)
 {
     uint32_t saved = hw_claim_lock();
-    int found = -1;
-    uint bit;
+    int      found = -1;
+    uint     bit;
 
-    for(bit = bit_lsb; bit <= bit_msb; bit++) {
-        if(!hw_is_claimed(bits, bit)) {
-            bits[bit >> 3u] |= (uint8_t)(1u << (bit & 7u));
-            found = (int)bit;
+    for (bit = bit_lsb; bit <= bit_msb; bit++)
+    {
+        if (!hw_is_claimed(bits, bit))
+        {
+            bits[bit >> 3u] |= (uint8_t) (1u << (bit & 7u));
+            found = (int) bit;
             break;
         }
     }
     hw_claim_unlock(saved);
-    if(found < 0 && required) panic(message);
+    if (found < 0 && required)
+    {
+        panic(message);
+    }
     return found;
 }
 
-void hw_claim_clear(uint8_t *bits, uint bit_index)
+void
+hw_claim_clear (uint8_t * bits, uint bit_index)
 {
     uint32_t saved = hw_claim_lock();
-    bits[bit_index >> 3u] &= (uint8_t)~(1u << (bit_index & 7u));
+    bits[bit_index >> 3u] &= (uint8_t) ~(1u << (bit_index & 7u));
     hw_claim_unlock(saved);
 }
 
-uint32_t clock_get_hz(clock_handle_t clock)
+uint32_t
+clock_get_hz (clock_handle_t clock)
 {
-    (void)clock;
+    (void) clock;
     return 125000000u;
 }
 
-uint64_t time_us_64(void)
+uint64_t
+time_us_64 (void)
 {
     uint32_t hi0, lo, hi1;
-    do {
+    do
+    {
         hi0 = timer_hw->timerawh;
-        lo = timer_hw->timerawl;
+        lo  = timer_hw->timerawl;
         hi1 = timer_hw->timerawh;
-    } while(hi0 != hi1);
-    return ((uint64_t)hi0 << 32) | lo;
+    } while (hi0 != hi1);
+    return ((uint64_t) hi0 << 32) | lo;
 }
 
 /* Both waits run only on the network task (the single owner of the radio).
@@ -124,39 +139,62 @@ uint64_t time_us_64(void)
  * for up to CYW43_IOCTL_TIMEOUT_US (500 ms), and a join sends several. Each
  * wait counts as progress for the watchdog supervisor, so a slow but
  * bounded driver call is not mistaken for a frozen task. */
-void cyw43_delay_ms(uint32_t ms)
+void
+cyw43_delay_ms (uint32_t ms)
 {
     HEALTH_BEAT(HEALTH_HB_NET);
-    (void)tk_dly_tsk((ms == 0)? 1: ms);
+    (void) tk_dly_tsk((ms == 0) ? 1 : ms);
     HEALTH_BEAT(HEALTH_HB_NET);
 }
 
-void cyw43_delay_us(uint32_t us)
+void
+cyw43_delay_us (uint32_t us)
 {
     uint64_t end = time_us_64() + us;
-    while((int64_t)(end - time_us_64()) > 0) __asm__ volatile("nop");
+    while ((int64_t) (end - time_us_64()) > 0)
+    {
+        __asm__ volatile("nop");
+    }
 }
 
-void cyw43_await_background_or_timeout_us(uint32_t timeout_us)
+void
+cyw43_await_background_or_timeout_us (uint32_t timeout_us)
 {
     HEALTH_BEAT(HEALTH_HB_NET);
-    if(timeout_us >= 1000) (void)tk_dly_tsk(timeout_us / 1000);
-    else cyw43_delay_us(timeout_us);
+    if (timeout_us >= 1000)
+    {
+        (void) tk_dly_tsk(timeout_us / 1000);
+    }
+    else
+    {
+        cyw43_delay_us(timeout_us);
+    }
 }
 
-void cyw43_schedule_internal_poll_dispatch(void (*func)(void))
+void
+cyw43_schedule_internal_poll_dispatch (void (*func)(void))
 {
-    (void)func;
+    (void) func;
     cyw43_utk_poll_requested = 1;
 }
 
-void cyw43_post_poll_hook(void) { }
-void cyw43_thread_enter(void) { }
-void cyw43_thread_exit(void) { }
-
-void cyw43_hal_generate_laa_mac(int index, uint8_t mac[6])
+void
+cyw43_post_poll_hook (void)
 {
-    (void)index;
+}
+void
+cyw43_thread_enter (void)
+{
+}
+void
+cyw43_thread_exit (void)
+{
+}
+
+void
+cyw43_hal_generate_laa_mac (int index, uint8_t mac[6])
+{
+    (void) index;
     mac[0] = 0x02;
     mac[1] = 0x55;
     mac[2] = 0x54;
@@ -165,9 +203,10 @@ void cyw43_hal_generate_laa_mac(int index, uint8_t mac[6])
     mac[5] = 0x01;
 }
 
-void cyw43_hal_get_mac(int index, uint8_t mac[6])
+void
+cyw43_hal_get_mac (int index, uint8_t mac[6])
 {
-    (void)index;
+    (void) index;
     memcpy(mac, cyw43_state.mac, 6);
 }
 
@@ -175,46 +214,79 @@ void cyw43_hal_get_mac(int index, uint8_t mac[6])
 /* With NET=lwip these five are the real implementations from
  * lib/cyw43-driver/src/cyw43_lwip.c (unmodified upstream) instead --
  * defining both would be a duplicate symbol at link time. */
-void cyw43_cb_tcpip_init(cyw43_t *self, int itf) { (void)self; (void)itf; }
-void cyw43_cb_tcpip_deinit(cyw43_t *self, int itf) { (void)self; (void)itf; }
-void cyw43_cb_tcpip_set_link_up(cyw43_t *self, int itf) { (void)self; (void)itf; }
-void cyw43_cb_tcpip_set_link_down(cyw43_t *self, int itf) { (void)self; (void)itf; }
-void cyw43_cb_process_ethernet(void *arg, int itf, size_t len,
-                              const uint8_t *buf)
+void
+cyw43_cb_tcpip_init (cyw43_t * self, int itf)
 {
-    (void)arg; (void)itf; (void)len; (void)buf;
+    (void) self;
+    (void) itf;
+}
+void
+cyw43_cb_tcpip_deinit (cyw43_t * self, int itf)
+{
+    (void) self;
+    (void) itf;
+}
+void
+cyw43_cb_tcpip_set_link_up (cyw43_t * self, int itf)
+{
+    (void) self;
+    (void) itf;
+}
+void
+cyw43_cb_tcpip_set_link_down (cyw43_t * self, int itf)
+{
+    (void) self;
+    (void) itf;
+}
+void
+cyw43_cb_process_ethernet (void * arg, int itf, size_t len, const uint8_t * buf)
+{
+    (void) arg;
+    (void) itf;
+    (void) len;
+    (void) buf;
 }
 #endif
 
 /* Used when the USB console (usb_sdk_compat.c, the strong versions) is not
  * built. Same behaviour: write the crash record and reboot through the
  * watchdog instead of halting this core with no message. */
-void __attribute__((weak)) hard_assertion_failure(void)
+void __attribute__((weak))
+hard_assertion_failure (void)
 {
     health_crash(HEALTH_REASON_HARD_ASSERT,
-                 (uint32_t)(uintptr_t)__builtin_return_address(0), 0);
+                 (uint32_t) (uintptr_t) __builtin_return_address(0), 0);
 }
 
-void __attribute__((weak, noreturn)) panic(const char *format, ...)
+void __attribute__((weak, noreturn))
+panic (const char * format, ...)
 {
     health_crash(HEALTH_REASON_PANIC,
-                 (uint32_t)(uintptr_t)__builtin_return_address(0),
-                 (uint32_t)(uintptr_t)format);
+                 (uint32_t) (uintptr_t) __builtin_return_address(0),
+                 (uint32_t) (uintptr_t) format);
 }
 
 /* gpio.c contains optional SDK IRQ registration entry points.  The CYW43
  * polling port never calls them; weak stubs keep the GPIO implementation
  * independent from the SDK's vector-table machinery. */
-void __attribute__((weak)) irq_add_shared_handler(uint num,
-        irq_handler_t handler, uint8_t order_priority)
+void __attribute__((weak))
+irq_add_shared_handler (uint num, irq_handler_t handler, uint8_t order_priority)
 {
-    (void)num; (void)handler; (void)order_priority;
+    (void) num;
+    (void) handler;
+    (void) order_priority;
 }
-void __attribute__((weak)) irq_remove_handler(uint num, irq_handler_t handler)
+void __attribute__((weak))
+irq_remove_handler (uint num, irq_handler_t handler)
 {
-    (void)num; (void)handler;
+    (void) num;
+    (void) handler;
 }
-void __attribute__((weak)) irq_set_enabled(uint num, bool enabled)
+void __attribute__((weak))
+irq_set_enabled (uint num, bool enabled)
 {
-    (void)num; (void)enabled;
+    (void) num;
+    (void) enabled;
 }
+
+/*** end of file ***/

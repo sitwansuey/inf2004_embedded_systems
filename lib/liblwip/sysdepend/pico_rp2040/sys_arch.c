@@ -1,11 +1,11 @@
 /*
- *	sys_arch.c
- *	lwIP OS abstraction for micro T-Kernel (RP2040, NO_SYS=1)
+ *    sys_arch.c
+ *    lwIP OS abstraction for micro T-Kernel (RP2040, NO_SYS=1)
  *
- *	NO_SYS=1 needs exactly one thing from this file: a millisecond clock
- *	for lwIP's own timeout bookkeeping (sys_check_timeouts(), TCP RTO,
- *	DHCP retries, ARP aging). lwip_utk_rand() lives here too since it is
- *	the same kind of small, self-contained platform primitive.
+ *    NO_SYS=1 needs exactly one thing from this file: a millisecond clock
+ *    for lwIP's own timeout bookkeeping (sys_check_timeouts(), TCP RTO,
+ *    DHCP retries, ARP aging). lwip_utk_rand() lives here too since it is
+ *    the same kind of small, self-contained platform primitive.
  */
 
 /*
@@ -30,12 +30,13 @@
  * wraparound every ~49.7 days is the documented, accepted behaviour of
  * sys_now() on every lwIP port, not specific to this one.
  */
-u32_t sys_now(void)
+u32_t
+sys_now (void)
 {
-	SYSTIM	otm;
+    SYSTIM otm;
 
-	tk_get_otm(&otm);
-	return (u32_t)otm.lo;
+    tk_get_otm(&otm);
+    return (u32_t) otm.lo;
 }
 
 /*
@@ -44,21 +45,26 @@ u32_t sys_now(void)
  * IDs; deliberately not claimed as cryptographic-quality entropy (see the
  * comment on LWIP_RAND() in cc.h).
  */
-unsigned int lwip_utk_rand(void)
+unsigned int
+lwip_utk_rand (void)
 {
-	static UW	state = 0;
-	SYSTIM		otm;
+    static UW state = 0;
+    SYSTIM    otm;
 
-	if(state == 0) {
-		tk_get_otm(&otm);
-		state = otm.lo ^ 0x9e3779b9u;
-		if(state == 0) state = 0x2545f491u;
-	}
+    if (state == 0)
+    {
+        tk_get_otm(&otm);
+        state = otm.lo ^ 0x9e3779b9u;
+        if (state == 0)
+        {
+            state = 0x2545f491u;
+        }
+    }
 
-	state ^= state << 13;
-	state ^= state >> 17;
-	state ^= state << 5;
-	return (unsigned int)state;
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    return (unsigned int) state;
 }
 
 /*
@@ -67,17 +73,20 @@ unsigned int lwip_utk_rand(void)
  * without pulling in tk/typedef.h. The cast to UB* is only ever done here,
  * where tk/tkernel.h is already safely in scope.
  */
-void lwip_utk_assert(const char *msg)
+void
+lwip_utk_assert (const char * msg)
 {
-	/* The crash record first: it keeps the caller and the message pointer
-	   for the next boot's "[RESET]" line, and stops the supervisor feeding
-	   the watchdog. A 500 ms watchdog covers a hang in the console line,
-	   which only reaches a UART mirror (the USB ring is not drained again).
-	   Rebooting replaces the old endless spin, which froze every
-	   lower-priority core-0 task. */
-	health_record_write(HEALTH_REASON_LWIP_ASSERT,
-			    (UW)__builtin_return_address(0), (UW)msg);
-	health_watchdog_start(500);
-	tm_printf((UB*)"lwIP assert: %s\n", (UB*)msg);
-	health_reboot_now();
+    /* The crash record first: it keeps the caller and the message pointer
+       for the next boot's "[RESET]" line, and stops the supervisor feeding
+       the watchdog. A 500 ms watchdog covers a hang in the console line,
+       which only reaches a UART mirror (the USB ring is not drained again).
+       Rebooting replaces the old endless spin, which froze every
+       lower-priority core-0 task. */
+    health_record_write(HEALTH_REASON_LWIP_ASSERT,
+                        (UW) __builtin_return_address(0), (UW) msg);
+    health_watchdog_start(500);
+    tm_printf((UB *) "lwIP assert: %s\n", (UB *) msg);
+    health_reboot_now();
 }
+
+/*** end of file ***/

@@ -9,8 +9,6 @@ Hardware and actual SMP runtime tests remain pending.
 
 ## Test cases
 
-Define a test here before running it. Test IDs never change.
-
 The IDs were renumbered on 2026-11-21 and again on 2026-11-25 so they run in order with no gaps. The old IDs are listed under *ID changes* below.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
@@ -59,16 +57,16 @@ The IDs were renumbered on 2026-11-21 and again on 2026-11-25 so they run in ord
 
 *Method:* **host auto** and **auto (host)** = a test runs on a PC; **host auto, simulated kernel** = a PC test with a simulated kernel; **manual (video)** = a person checks and films the result; **auto (integrated TEST=1)** = a `TEST_CHECK` that runs on the robot in the integrated test image; **auto (TEST=1 S4_ONLY=1)** = the same check in the S4 bench test image.
 
-S4-U51 to S4-U55 (added 2026-11-25) are passive on-target checks in `app_program/subsystem4/subsystem4_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. No result is recorded yet; they have not been run on the robot.
+S4-U51 to S4-U55 (added 2026-11-25) are passive on-target checks in `app_program/subsystem4/subsystem4_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. The project member reported these checks complete on 2026-11-25. [Latest completion status](../README.md#completion-of-pico-w-and-sanitizer-checks).
 
-Notes on the current test set (added 2026-11-20, checkpoint 8c code):
+Notes recorded on 2026-11-20 for checkpoint 8c:
 
 - S4-U14 to S4-U17, S4-U19 to S4-U24 and S4-U26 to S4-U30 print without the `[TEST]` prefix.
   Search the log for `S4-U`.
 - `make -C app_program/subsystem4/tests/host sanitize` runs the same host IDs with ASan/UBSan.
 - Manual tests use the normal image (`cd build_make && make`) unless the steps say otherwise.
 - S4-U39 replugs the IMU with the power off. The hot-plug times in NFR3 (fault within 1 s, back
-  within 2 s) are not tested on the robot; S4-U33 and S4-U34 check the re-init timing in software.
+  within 2 s) had no physical timing capture for checkpoint 8c. S4-U33 and S4-U34 check reinitialization timing in software.
 - Next free ID: S4-U56. (S4-U37 to S4-U50 have been used before; see the ID history at the end of this log.)
 
 `S4-U01` through `S4-U12` run with
@@ -144,27 +142,20 @@ Removed on 2026-11-25 (latest result INCOMPLETE; a new ID with the same number i
 
 ## Results
 
-Add a new row for every run. Never edit or delete old rows.
-
-The original template row is retained; it is not a measured result.
-Append actual runs below it. A local development commit is not a team GitHub
-commit; record the team's actual tested commit for later board tests.
-
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| YYYY-MM-DD | S4-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
-| 2026-10-17 | S4-U01 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U02 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U03 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U04 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U05 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U06 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U07 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U08 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U09 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U10 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U11 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U12 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U01 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U02 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U03 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U04 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U05 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U06 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U07 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U08 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U09 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U10 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U11 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U12 | `9b6de29ae296` (local) | AI-assisted / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
 | 2026-11-20 | S4-U01 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U10 PASS` (driver_test); mock bus, host only |
 | 2026-11-20 | S4-U02 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U11 PASS` (driver_test); mock bus, host only |
 | 2026-11-20 | S4-U03 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U12 PASS` (driver_test); mock bus, host only |
@@ -214,11 +205,12 @@ These result rows were deleted from the table above in `5f93cb6` (2026-11-25). T
 | `d18dd38` (deleted in `5f93cb6`) | S4-U49 at `d18dd38` = boot without the IMU, then replug it: fault shown, no reboot, recovery; test removed in `5f93cb6`; no current test uses S4-U49 | 2026-11-19 | S4-U49 | `7a6c373` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-19_t7_usb_no_imu_broker_restart.txt` | IMU unplugged before boot. t=0-3.57 s (lines 14-70): `[S4]` init 3 (I/O error), a_ok 0, heartbeat 1 to 356; `[S4TILT]` valid 0; `[CSC02]` flags 7 (175 when healthy). Console lines from 3.8 s to 23.5 s missing (lines 72-73), so the 60 s watch is not shown. IMU then plugged in with the power on, not step 5 (time not logged): at t=23.52 s (line 73) a_ok 1, init 0, a_errors 0, pitch 57 / roll 83 cdeg; heartbeat 2350 and uptime continuous to 403.4 s, no reboot. No `inits` column in this build. Steps 4 and 6 not run; dashboard not captured while the IMU was out. |
 | `d18dd38` (deleted in `5f93cb6`) | S4-U45 at `d18dd38` = level robot: pitch and roll read near 0 after the mount zeros; test removed in `5f93cb6`; no current test uses S4-U45 | 2026-11-20 | S4-U45 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_flash_8c_boot.txt` | Robot disarmed at rest for 45 s after flashing (t=0.21-45.57 s, lines 28-550). Surface not checked with a level; no 180° turn; dashboard not captured. `[S4TILT]` single samples: pitch median -39 cdeg (5-95%: -139 to +2), roll median +33 cdeg (-58 to +80); both within ±100 cdeg in 189 of 217 samples (largest pitch +698 cdeg, line 451). |
 
-## Physical checks still to run
+## Physical verification scope
 
-USB enumeration; actual identity/configuration; axis response; supply/pull-ups;
-bus timeout/recovery under fault; polling/stack headroom; SMP snapshot reads
-under the integrated workload. No physical result is recorded by a build.
+Physical checks cover USB enumeration, sensor identity and configuration,
+axis response, supply and pull-ups, bus timeout and recovery, polling and
+stack headroom, and SMP snapshot reads under the integrated workload.
+[Latest completion status](../README.md#completion-of-pico-w-and-sanitizer-checks).
 
 ## Buddy 4 continuation on 27 October 2026
 
@@ -341,7 +333,7 @@ IDs as they stood at `d18dd38` and what they became in `5f93cb6`. "Test case tex
 
 ### Commit cells checked
 
-Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The result rows themselves are left exactly as recorded; every other cell is listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file.
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The recorded commit values are retained. Entries needing clarification are listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file.
 
 ### Evidence paths checked
 

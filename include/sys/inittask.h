@@ -12,8 +12,8 @@
  */
 
 /*
- *	inittask.h
- *	Initial task definition
+ *    inittask.h
+ *    Initial task definition
  */
 
 #ifndef _INITTASK_DEF_
@@ -22,28 +22,30 @@
 /*
  * Initial task parameter
  */
-#define INITTASK_EXINF		(0x0)
-#define INITTASK_ITSKPRI	(1)
+#define INITTASK_EXINF (0x0)
+#define INITTASK_ITSKPRI (1)
 /* A make TEST=1 image runs the on-target self-test in this task
  * (app_main.c usermain); with nested interrupts on the same stack that
  * needs more than the normal 1 KB. Normal images keep 1 KB. */
 #if defined(APP_TEST) && APP_TEST
-#define INITTASK_STKSZ		(4*1024)
+#define INITTASK_STKSZ (4 * 1024)
 #else
-#define INITTASK_STKSZ		(1*1024)
+#define INITTASK_STKSZ (1 * 1024)
 #endif
-#define INITTASK_DSNAME		"inittsk"
+#define INITTASK_DSNAME "inittsk"
 
 #if USE_IMALLOC
 
-#define INITTASK_TSKATR		(TA_HLNG | TA_RNG0)
-#define INITTASK_STACK		(NULL)
+#define INITTASK_TSKATR (TA_HLNG | TA_RNG0)
+#define INITTASK_STACK (NULL)
 
 #else
 
-#define INITTASK_TSKATR		(TA_HLNG | TA_RNG0 | TA_USERBUF)
-#define INITTASK_STACK		init_task_stack
+#define INITTASK_TSKATR (TA_HLNG | TA_RNG0 | TA_USERBUF)
+#define INITTASK_STACK init_task_stack
 
 #endif
 
 #endif /* _INITTASK_DEF_ */
+
+/*** end of file ***/

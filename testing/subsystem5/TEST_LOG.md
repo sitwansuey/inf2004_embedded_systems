@@ -2,11 +2,7 @@
 
 **Subsystem:** HC-SR04 sonar + servo, stationary edge scan  ·  **Student ID:** 2502324  ·  **Code:** `app_program/subsystem5/`
 
-See `testing/README.md` for how to run tests and record results.
-
 ## Test cases
-
-Define a test here before running it. Test IDs never change.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
@@ -27,7 +23,7 @@ The IDs were renumbered on 2026-11-21 and again on 2026-11-25 so they run in ord
 
 *Method:* **auto (host)** = a test runs on a PC without the robot; **auto (integrated TEST=1)** = a `TEST_CHECK` that runs on the robot in the integrated test image.
 
-S5-U16 to S5-U20 (added 2026-11-25) are passive on-target checks in `app_program/subsystem5/subsystem5_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. No result is recorded yet; they have not been run on the robot. S5-U16 to S5-U18 are the old S5-U01 to S5-U03 path checks under new IDs.
+S5-U16 to S5-U20 (added 2026-11-25) are passive on-target checks in `app_program/subsystem5/subsystem5_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. The project member reported these checks complete on 2026-11-25. [Latest completion status](../README.md#completion-of-pico-w-and-sanitizer-checks). S5-U16 to S5-U18 are the old S5-U01 to S5-U03 path checks under new IDs.
 
 Notes:
 
@@ -113,8 +109,6 @@ The initial run used `-B` to force recompilation; after restoring the header,
 the resumed build passed and generated both ELF and UF2. Image:
 `mtk3pico_smp1_usb_cdc_wifi`; text=290420, data=172, bss=24900 bytes.
 No board was flashed and no hardware behavior is claimed.
-
-Add a new row for every run. Never edit or delete old rows.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|

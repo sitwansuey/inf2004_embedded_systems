@@ -1,15 +1,5 @@
 # Team and subsystems (CSC02)
 
-This is the single place that says **who owns what** (pins, peripherals,
-priorities, kernel objects and the interfaces between subsystems), so that five
-people can work in one firmware image without clashing. Keep it up to date.
-
-A **subsystem** is one student's part of the robot, with its own folder. It may
-contain several tasks and own several peripherals (section 3).
-
-Rule: **only the owner edits a subsystem's folders.** To change another
-subsystem, ask its owner or open a pull request for them to review.
-
 ## 1. Members and subsystems
 
 | # | Subsystem (what it does) | Student ID | GitHub username | Code | Tests |
@@ -33,27 +23,17 @@ subsystem, ask its owner or open a pull request for them to review.
   build files (section 5, *Changes to shared template files*).
 
 **Who owns the VC, and why it is not in a subsystem folder.** The VC is the
-one task that commands motion in the mission build. It uses the interfaces of
-all five subsystems (section 5), so it is no single student's part of the
-robot. It has no individual owner: the five members own it together, like the
-template's `app_main.c` and `app.h`, and it sits beside them at the top of
-`app_program/` rather than in a `subsystemN/` folder, where the section 1 rule
-would make one student the only person allowed to change it. Any member may
-propose a change to shared code, by a pull request; `.github/CODEOWNERS`
-requests a review from all five members for every file outside the subsystem,
-subsystem test (`testing/subsystemN/`) and dashboard folders, which go to
-their owners. The data formats between the VC and each subsystem
-are agreed with that subsystem's owner (section 5, *Agreed by*).
-
-Shared code is changed only by agreement of the team; claiming an empty row in
-this file (a pin, a peripheral, an interface ID) is the exception. It is tested
-in `testing/integration/` and `testing/system/`.
+one task that commands motion in the mission build. All five members share
+ownership because it uses every subsystem's interfaces. The controller is
+in `app_program/` alongside `app_main.c` and `app.h`. `.github/CODEOWNERS`
+assigns shared files to the team and the subsystem, test and dashboard
+folders to their owners. Section 5 records the owners' interface agreements.
+Integration and system tests cover the shared code.
 
 ## 2. Pins
 
-One owner per pin. Claim a pin here **before** you wire or code it. Two
-subsystems on one pin build without any error but fail on the bench, and two
-outputs driving one pin can damage it. Only the *reserved* rows are fixed.
+The table records mission and diagnostic pin assignments. Reserved pins
+serve the Pico W radio.
 
 | Pin | Owner | Used for |
 |---|---|---|
@@ -87,12 +67,9 @@ outputs driving one pin can damage it. Only the *reserved* rows are fixed.
 
 ## 3. Peripherals
 
-**Each peripheral is driven by exactly one task, its *owning task*.** Every
-other task asks the owning task through a kernel object or the owner's API
-(section 5) and never touches the peripheral itself: this port runs tasks on
-both cores at once, and the drivers have no locking of their own. A driver is
-code inside the subsystem that needs the hardware (`drv_<name>.c`), not a
-subsystem of its own.
+Each application peripheral has one owning task. Other tasks access it
+through the owning task's kernel objects or API (section 5). This keeps
+peripheral access in one task while both cores run concurrently.
 
 | Peripheral | Owner subsystem | Owning task | Pins |
 |---|---|---|---|
@@ -114,7 +91,7 @@ subsystem of its own.
 | USB controller | *kernel* | `usb_service_task` (3, core 0) | USB |
 | WiFi radio, TCP/IP, MQTT (with PIO and DMA) | *kernel* | `cyw43_utk_task` (4, core 0) | GP23–25, GP29 |
 
-### WiFi and MQTT are special
+### Wi-Fi and MQTT ownership
 
 The radio and the network stack belong to the kernel's WiFi service task,
 `cyw43_utk_task` (`lib/libwifi/sysdepend/pico_rp2040/`). No subsystem task
@@ -131,9 +108,8 @@ team's agreement is in the *Agreed by* column of those rows. It is built with
 
 ## 4. Task priorities
 
-1 is the highest; 1–4 are used by the kernel. Each subsystem keeps its own
-band; change it only by team agreement. Core: `TP_PRC1` = core 0, `TP_PRC2` =
-core 1, or "any".
+Priority 1 is highest. The kernel uses priorities 1–4 and each subsystem
+has its own band. `TP_PRC1` identifies core 0 and `TP_PRC2` identifies core 1.
 
 | Subsystem | Priority band | Tasks (name – priority – core) |
 |---|---|---|

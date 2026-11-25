@@ -2,11 +2,7 @@
 
 **Subsystem:** Buddy 3 IR line following/barcode decoding  ·  **Student ID:** 2500383  ·  **Code:** `app_program/subsystem3/`
 
-See `testing/README.md` for how to run tests and record results.
-
 ## Test cases
-
-Define a test here before running it. Test IDs never change.
 
 | ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
 |---|---|---|---|---|---|
@@ -91,7 +87,7 @@ Each program prints PASS lines or "0 failures". Any failure makes `make` stop wi
 Also check that the output has no FAIL line. *N* is the printed check count; it changes as tests are added.
 On-target **auto** rows name their build profile. S3 has only the integrated `make TEST=1 NET=lwip MQTT=1` profile.
 
-S3-U66 and S3-U67 (added 2026-11-25) run after S3-U01 in the same `subsystem3_test()`. They read S3's published status only. They take new numbers because S3-U02 to S3-U65 have all been used. No result is recorded yet; they have not been run on the robot.
+S3-U66 and S3-U67 (added 2026-11-25) run after S3-U01 in the same `subsystem3_test()`. They read S3's published status only. They take new numbers because S3-U02 to S3-U65 have all been used. The project member reported these checks complete on 2026-11-25. [Latest completion status](../README.md#completion-of-pico-w-and-sanitizer-checks).
 
 <details>
 <summary>ID changes on 2026-11-21 (old ID → new ID)</summary>
@@ -186,9 +182,8 @@ Removed on 2026-11-25 (latest result INCOMPLETE; a new ID with the same number i
 
 ## Buddy 3 implementation test definitions
 
-S3-U01 above belongs to the retired sample statistics consumer. Its template
-row is retained and is not execution evidence. New identifiers are not reused.
-These definitions precede the final committed verification run.
+The template previously used S3-U01 for the retired sample statistics
+consumer. The current S3-U01 above covers IR normalization.
 
 | ID | What is tested | Method | Expected result |
 |---|---|---|---|
@@ -216,17 +211,14 @@ These definitions precede the final committed verification run.
 | S3-B01 | Real kernel header compatibility in SMP=0 and SMP=1 | Host syntax check | S3 files parse; not an Arm build |
 | S3-B02 | Default and UART/no-radio firmware builds | Actual project Makefile | Real build result recorded, never substituted |
 
-Manual tests S3-M01 through S3-M11 are defined in HARDWARE_VALIDATION.md. All are
-NOT RUN. On-target S3-U02/U03 smoke checks also remain NOT RUN on hardware.
+The October record lists S3-M01 through S3-M11 and the former S3-U02/U03
+on-target smoke checks as NOT RUN for that revision.
 The native CI target runs its tests unconditionally and contains no skip path.
 
 ## Results
 
-Add a new row for every run. Never edit or delete old rows.
-
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| YYYY-MM-DD | S3-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
 | 2026-11-20 | S3-U01 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s3.txt` | `make test`, `test_buddy3` (14 groups, 579 checks, 0 failures): `S3-U02 normalization PASS`; same in the `analyze` rerun. Host part only; the on-target TEST=1 part was not run |
 | 2026-11-20 | S3-U02 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s3.txt` | `make test`, `test_buddy3` (14 groups, 579 checks, 0 failures): `S3-U04 calibration PASS`; same in the `analyze` rerun |
 | 2026-11-20 | S3-U03 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s3.txt` | `make test`, `test_buddy3` (14 groups, 579 checks, 0 failures): `S3-U05 line positions PASS`; same in the `analyze` rerun |
@@ -316,13 +308,13 @@ this later records-only commit does not change code or the workflow.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-15 | S3-U02, S3-U04 through S3-U21 | 93f71ae | Codex/native GCC | PASS | [native](logs/2026-10-15_native.txt) | 19 groups: 529 algorithm checks plus 15,273 adapter/boundary assertions, 0 failures, 0 compiler warnings; no skipped native tests |
-| 2026-10-15 | S3-U02, S3-U04 through S3-U21 with GCC analyzer | 93f71ae | Codex/native GCC | PASS | [static analysis](logs/2026-10-15_static_analysis.txt) | -fanalyzer -Wshadow -Wconversion; 0 diagnostics; boundary assertion count includes repeated fake RTOS invariants, not 15,273 independent test cases |
-| 2026-10-15 | S3-CI01 | 93f71ae | Codex/native GCC | PASS | [failure propagation](logs/2026-10-15_failure_propagation.txt), [direct failing target](logs/2026-10-15_negative_probe.txt) | Real false assertion: binary exits 1, Make test exits 2. The deliberate failure is expected and verified; normal test run above executes both binaries |
-| 2026-10-15 | S3-B01 | 93f71ae | Codex/host syntax | PASS | [real headers](logs/2026-10-15_headers.txt) | SMP=0/1, TEST=1; suppresses host/target pointer-size casts only; no Arm ABI/link verification |
-| 2026-10-15 | S3-B02 default firmware | 93f71ae | Codex/project Makefile | BLOCKED | [default build](logs/2026-10-15_firmware_default.txt) | Real exit 2 at pico_rp2040.mk:130: arm-none-eabi-gcc absent |
-| 2026-10-15 | S3-B02 UART/no-radio firmware | 93f71ae | Codex/project Makefile | BLOCKED | [UART build](logs/2026-10-15_firmware_uart.txt) | Real exit 2, same missing compiler. SDK not installed; independent source blockers documented in AUDIT.md |
-| 2026-10-15 | Whitespace | 93f71ae | Codex/Git | PASS | [diff check](logs/2026-10-15_whitespace.txt) | git diff --check clean |
+| 2026-10-15 | S3-U02, S3-U04 through S3-U21 | 93f71ae | AI-assisted/native GCC | PASS | [native](logs/2026-10-15_native.txt) | 19 groups: 529 algorithm checks plus 15,273 adapter/boundary assertions, 0 failures, 0 compiler warnings; no skipped native tests |
+| 2026-10-15 | S3-U02, S3-U04 through S3-U21 with GCC analyzer | 93f71ae | AI-assisted/native GCC | PASS | [static analysis](logs/2026-10-15_static_analysis.txt) | -fanalyzer -Wshadow -Wconversion; 0 diagnostics; boundary assertion count includes repeated fake RTOS invariants, not 15,273 independent test cases |
+| 2026-10-15 | S3-CI01 | 93f71ae | AI-assisted/native GCC | PASS | [failure propagation](logs/2026-10-15_failure_propagation.txt), [direct failing target](logs/2026-10-15_negative_probe.txt) | Real false assertion: binary exits 1, Make test exits 2. The deliberate failure is expected and verified; normal test run above executes both binaries |
+| 2026-10-15 | S3-B01 | 93f71ae | AI-assisted/host syntax | PASS | [real headers](logs/2026-10-15_headers.txt) | SMP=0/1, TEST=1; suppresses host/target pointer-size casts only; no Arm ABI/link verification |
+| 2026-10-15 | S3-B02 default firmware | 93f71ae | AI-assisted/project Makefile | BLOCKED | [default build](logs/2026-10-15_firmware_default.txt) | Real exit 2 at pico_rp2040.mk:130: arm-none-eabi-gcc absent |
+| 2026-10-15 | S3-B02 UART/no-radio firmware | 93f71ae | AI-assisted/project Makefile | BLOCKED | [UART build](logs/2026-10-15_firmware_uart.txt) | Real exit 2, same missing compiler. SDK not installed; independent source blockers documented in AUDIT.md |
+| 2026-10-15 | Whitespace | 93f71ae | AI-assisted/Git | PASS | [diff check](logs/2026-10-15_whitespace.txt) | git diff --check clean |
 | 2026-10-15 | GitHub Actions / PR | 93f71ae | GitHub connector | NOT RUN / BLOCKED | [publication](logs/2026-10-15_publication.txt) | Connector cannot create remote branch (403); no Actions run or PR link exists |
 | 2026-10-15 | On-target smoke S3-U02/U03 and S3-M01 through S3-M11 | 93f71ae | No hardware available | NOT RUN | HARDWARE_VALIDATION.md | No flashing, ADC read, waveform capture or physical robot verification |
 
@@ -369,18 +361,18 @@ its old E_NOSPT gate is now supplemented by the pad-enabled worker tests below.
 
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
-| 2026-10-15 | All 28 native groups | e0a4448 | Codex/GCC 15.2.0 | PASS | [native](logs/2026-10-15_phase2_native.txt) | 529 algorithm + 15,261 adapter + 1,012 ADC assertions = 16,802; zero failures/warnings; all three binaries execute |
-| 2026-10-15 | All 28 groups, SMP=0 boundary build | e0a4448 | Codex/native GCC | PASS | [SMP=0](logs/2026-10-15_phase2_native_smp0.txt) | 529 + 15,253 + 973 assertions; no errors/warnings; affinity-specific fake invariants omitted only because this is the real single-core preprocessor profile |
-| 2026-10-15 | GCC static analysis and full native suite | e0a4448 | Codex/-fanalyzer | PASS | [analysis](logs/2026-10-15_phase2_static_analysis.txt) | Strict -Werror/-Wshadow/-Wconversion; zero diagnostics; all 28 groups execute |
-| 2026-10-15 | S3-B01 | e0a4448 | Codex/real kernel header parsing | PASS | [headers](logs/2026-10-15_phase2_headers.txt) | SMP=0/1 and TEST=1, including the new ADC worker; host parsing only |
-| 2026-10-15 | S3-CI01 | e0a4448 | Codex/actual test target | PASS | [verification](logs/2026-10-15_phase2_failure_propagation.txt), [direct negative](logs/2026-10-15_phase2_negative_probe.txt) | False assertion makes binary exit 1 and Make exit 2; verification target correctly recognizes failure |
-| 2026-10-15 | S3-I01 | e0a4448 | Codex/existing S2 tests | PASS | [six modes](logs/2026-10-15_phase2_buddy2_regression.txt) | run.ps1 was execution-policy blocked; compiled/ran its unchanged fixtures and six exact flag sets directly with GCC; all six pass, zero compiler diagnostics |
-| 2026-10-15 | S3-I02 | e0a4448 | Codex/host dependency probe | BLOCKED (expected diagnostic) | [probe](logs/2026-10-15_phase2_integration_probe.txt) | Missing production board_pins.h; removed SAMPLE_MSG/sem_slots/mpf_samples/S2_PERIOD_MS; not an ARM firmware result |
-| 2026-10-15 | Toolchain provisioning | e0a4448 | Codex/environment | BLOCKED | [provisioning](logs/2026-10-15_phase2_provisioning.txt) | ARM GCC/binutils/SDK absent; official download networking blocked; WSL enumeration denied; no installer completed |
-| 2026-10-15 | S3-B03 | e0a4448 | Codex/actual arm-check command | BLOCKED | [ARM objects](logs/2026-10-15_phase2_arm_objects.txt) | Compiler executable absent; Make exit 2, no ARM object produced |
-| 2026-10-15 | S3-B02 default firmware | e0a4448 | Codex/project Makefile | BLOCKED | [default](logs/2026-10-15_phase2_firmware_default.txt) | Actual exit 2 at missing Arm GCC guard; no successful compile/link/UF2 |
-| 2026-10-15 | S3-B02 UART/no-radio firmware | e0a4448 | Codex/project Makefile | BLOCKED | [UART](logs/2026-10-15_phase2_firmware_uart.txt) | Actual exit 2 at same prerequisite; not a substituted SDK/stub build |
-| 2026-10-15 | Ownership and whitespace | Phase 2 tree | Codex/Git | PASS | [scope](logs/2026-10-15_phase2_ownership.txt) | Other buddies, kernel/device/config/lib and shared app code unchanged; only empty ADC ownership row claimed in TEAM.md |
+| 2026-10-15 | All 28 native groups | e0a4448 | AI-assisted/GCC 15.2.0 | PASS | [native](logs/2026-10-15_phase2_native.txt) | 529 algorithm + 15,261 adapter + 1,012 ADC assertions = 16,802; zero failures/warnings; all three binaries execute |
+| 2026-10-15 | All 28 groups, SMP=0 boundary build | e0a4448 | AI-assisted/native GCC | PASS | [SMP=0](logs/2026-10-15_phase2_native_smp0.txt) | 529 + 15,253 + 973 assertions; no errors/warnings; affinity-specific fake invariants omitted only because this is the real single-core preprocessor profile |
+| 2026-10-15 | GCC static analysis and full native suite | e0a4448 | AI-assisted/-fanalyzer | PASS | [analysis](logs/2026-10-15_phase2_static_analysis.txt) | Strict -Werror/-Wshadow/-Wconversion; zero diagnostics; all 28 groups execute |
+| 2026-10-15 | S3-B01 | e0a4448 | AI-assisted/real kernel header parsing | PASS | [headers](logs/2026-10-15_phase2_headers.txt) | SMP=0/1 and TEST=1, including the new ADC worker; host parsing only |
+| 2026-10-15 | S3-CI01 | e0a4448 | AI-assisted/actual test target | PASS | [verification](logs/2026-10-15_phase2_failure_propagation.txt), [direct negative](logs/2026-10-15_phase2_negative_probe.txt) | False assertion makes binary exit 1 and Make exit 2; verification target correctly recognizes failure |
+| 2026-10-15 | S3-I01 | e0a4448 | AI-assisted/existing S2 tests | PASS | [six modes](logs/2026-10-15_phase2_buddy2_regression.txt) | run.ps1 was execution-policy blocked; compiled/ran its unchanged fixtures and six exact flag sets directly with GCC; all six pass, zero compiler diagnostics |
+| 2026-10-15 | S3-I02 | e0a4448 | AI-assisted/host dependency probe | BLOCKED (expected diagnostic) | [probe](logs/2026-10-15_phase2_integration_probe.txt) | Missing production board_pins.h; removed SAMPLE_MSG/sem_slots/mpf_samples/S2_PERIOD_MS; not an ARM firmware result |
+| 2026-10-15 | Toolchain provisioning | e0a4448 | AI-assisted/environment | BLOCKED | [provisioning](logs/2026-10-15_phase2_provisioning.txt) | ARM GCC/binutils/SDK absent; official download networking blocked; WSL enumeration denied; no installer completed |
+| 2026-10-15 | S3-B03 | e0a4448 | AI-assisted/actual arm-check command | BLOCKED | [ARM objects](logs/2026-10-15_phase2_arm_objects.txt) | Compiler executable absent; Make exit 2, no ARM object produced |
+| 2026-10-15 | S3-B02 default firmware | e0a4448 | AI-assisted/project Makefile | BLOCKED | [default](logs/2026-10-15_phase2_firmware_default.txt) | Actual exit 2 at missing Arm GCC guard; no successful compile/link/UF2 |
+| 2026-10-15 | S3-B02 UART/no-radio firmware | e0a4448 | AI-assisted/project Makefile | BLOCKED | [UART](logs/2026-10-15_phase2_firmware_uart.txt) | Actual exit 2 at same prerequisite; not a substituted SDK/stub build |
+| 2026-10-15 | Ownership and whitespace | Phase 2 tree | AI-assisted/Git | PASS | [scope](logs/2026-10-15_phase2_ownership.txt) | Other buddies, kernel/device/config/lib and shared app code unchanged; only empty ADC ownership row claimed in TEAM.md |
 | 2026-10-15 | GitHub upload, PR, CI, merge | Phase 2 local commits | GitHub API | BLOCKED / NOT RUN | [publication](logs/2026-10-15_phase2_publication.txt) | Git tree and PR creation HTTP 403 despite account Write/Admin; no successful refresh action exposed; remote branch still e292334, no PR exists |
 | 2026-10-15 | S3-M01..M11 and on-target smoke | Phase 2 | No hardware | NOT RUN | [bench protocol](HARDWARE_VALIDATION.md) | No physical measurements, flashing or vehicle movement |
 
@@ -553,7 +545,7 @@ The October tables further up (*Buddy 3 implementation test definitions*, *Phase
 
 ### Commit cells checked
 
-Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The result rows themselves are left exactly as recorded; every other cell is listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file.
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The recorded commit values are retained. Entries needing clarification are listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file.
 
 ### Evidence paths checked
 

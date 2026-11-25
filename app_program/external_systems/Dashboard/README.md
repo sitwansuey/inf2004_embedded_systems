@@ -221,13 +221,10 @@ python -B -m unittest discover -s app_program/external_systems/Dashboard -p "tes
 EDR16, Python and, when Node.js is available, browser routing. Check skipped
 or omitted cases before reporting a complete run.
 
-Record results under the IDs in
-[testing/subsystem1/TEST_LOG.md](../../../testing/subsystem1/TEST_LOG.md),
-which covers the four Python test files above, the data-representation and
-integration runners, and manual broker and robot checks. Interface tests
-are in [testing/integration/TEST_LOG.md](../../../testing/integration/TEST_LOG.md)
-and whole-robot dashboard checks in
-[testing/system/TEST_LOG.md](../../../testing/system/TEST_LOG.md). Save each
-run's output in that folder's `logs/` and link it from the result row. Host
-checks do not establish live broker delivery, physical accuracy or course
-performance. See the [recording rules](../../../testing/README.md).
+The S1 log covers the four Python test files, data representation and
+integration runners, and manual broker and robot checks. Interface and
+whole-robot dashboard evidence are in the integration and system logs.
+Live broker delivery, physical accuracy and course performance require
+hardware evidence. [S1 log](../../../testing/subsystem1/TEST_LOG.md) ·
+[Integration log](../../../testing/integration/TEST_LOG.md) ·
+[System log](../../../testing/system/TEST_LOG.md)
