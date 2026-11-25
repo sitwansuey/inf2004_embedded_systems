@@ -128,6 +128,8 @@ tests. Name the exact command or build and give a measurable expected result.
 
 On 2026-11-25 every test whose latest result was INCOMPLETE was removed (each affected log lists the removed IDs under **ID changes on 2026-11-25**; S2 had none), the tests filmed for the video set were narrowed to what their video shows, and the IDs were renumbered so each series runs with no gaps.
 
+ID history note (audit, 2026-11-25): in git, both renumberings arrived in one commit, `5f93cb6`, which also deleted result rows, including two FAIL rows (S1-U11 and SYS-14 in the old numbering). Those rows are restored word for word in a *Restored result rows* table under *Results* in each affected log. The S1-S5, integration and system logs now end with *Audit notes*: an *ID history (git record)* table mapping the IDs at `d18dd38` (`ed197b3` for the system log) to today's IDs, and notes on unclear commit cells and missing evidence files.
+
 ## Host tests
 
 Run from the repository root with Python 3 and native GCC on `PATH`.

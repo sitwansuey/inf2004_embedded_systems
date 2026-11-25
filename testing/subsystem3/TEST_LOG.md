@@ -290,6 +290,20 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-20 | S3-CI01 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s3.txt` | `make verify-failure`: the forced assertion (`test_buddy3.c:601`, `2 + 2 == 5`) gave 1 failure and `make[1]` Error 1, then `PASS: test target propagated a real failed assertion`, exit 0. The one failed check is the intended forced one |
 | 2026-11-25 | S3-B02 | `ac5485d` | Ron Tan | PASS | `logs/2026-11-25_firmware_default.txt`, `logs/2026-11-25_firmware_uart.txt` | Clean export of checkpoint 8g with the local Wi-Fi secrets file. `make -C build_make -j8`: exit 0, 0 errors, 0 warnings, wrote `mtk3pico_smp1_usb_cdc_wifi_enc.uf2`. `make -C build_make CONSOLE=uart WIFI=none -j8`: exit 0, 0 errors, 0 warnings, wrote `mtk3pico_smp1_uart_enc.uf2`. |
 
+### Restored result rows (audit, 2026-11-25)
+
+These result rows were deleted from the table above in `5f93cb6` (2026-11-25). They are copied back word for word from `d18dd38`, the last commit that had them; the first two columns are the only additions. Their *Test ID* cells use the IDs in force at `d18dd38`, not today's IDs, and some of those numbers now name different tests (second column, and *ID history (git record)* at the end of this file). Nothing was re-run.
+
+| Restored from | Test ID meaning (then → now) | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
+|---|---|---|---|---|---|---|---|---|
+| `d18dd38` (deleted in `5f93cb6`) | S3-M12 at `d18dd38` = IR raw levels on white and black, and the room light; test removed in `5f93cb6`; no current test uses S3-M12 | 2026-11-20 | S3-M12 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_track_run1_mqtt.txt` | Track run 1, not the defined steps: raw values from the 5 Hz telemetry while line tracking at 20% (415 samples, 119.7-571.1 s; 18 with both line IRs ≥ 3700 left out), not 5 s holds on white paper and on the line under each sensor. Floor: GP27 min 186, median 250; GP26 min 182, median 248 (95% of floor samples ≤ 710 and ≤ 764). On the line with the other sensor on the floor: GP27 up to 3437 (median 3122, 57 samples), GP26 up to 3504 (median 2867, 19 samples). GP28 read 1 in 47 of 178 samples with both line IRs below 1000 (this run crossed barcode cards). Ramp and lux not measured; the floor surface is not logged. |
+| `d18dd38` (deleted in `5f93cb6`) | S3-M13 at `d18dd38` = barcode read rate for *A*, *F* and *Z* at 30% demand; test removed in `5f93cb6`; no current test uses S3-M13 | 2026-11-20 | S3-M13 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_track_run1_mqtt.txt` | 3 card passes, not 20 per letter; demand 20% (START commands c10314…), not 30%; A, F and Z mapped to action 3 (Straight) at 75.4-82.8 s (lines 10108-11666), not action 0. Pass 1: attempt 1 failed, 17/29 bars and spaces (123.47 s, line 17364); fault 7 at 125.21 s while reversing for attempt 2. Pass 2: attempt 1 failed, 13/29 (406.82 s); attempt 2 (reverse) failed, 18/29 (411.22 s); fault 1 Tilt at 413.5 s before attempt 3. Pass 3: decoded A on attempt 1, 29/29 (568.89 s, line 76420), then "A -> Straight". Which card was under the robot is not logged. The telemetry also shows 29 other "Reading..." stretches with no attempt event. |
+| `d18dd38` (deleted in `5f93cb6`) | S3-M14 at `d18dd38` = line following on a 1 m straight at 30% demand: touch length and dead …; test removed in `5f93cb6`; no current test uses S3-M14 | 2026-11-20 | S3-M14 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_track_run1_mqtt.txt` | Line tracking on the track at 20% demand, not a 1 m straight at 30%; no video; S, W and (S - W)/2 not measured. 12 tracking stretches, longest 37.7 s (183.3-221.0 s). No fault 2 in the log (fault codes 0, 1, 7 and 8 only). Stretches ended by obstacle acquisition (5), fault 7 (125.2, 263.1 s), fault 8 (374.1, 393.8 s), fault 1 Tilt (413.5, 491.5 s) and STOP (571.1 s). The motor direction shows 34 pivots, the longest in 2 consecutive snapshots (seq 89-90 at 190.6 s; seq 38-39 at 486.0 s). The 300 ms limit needs the video: the telemetry is 5 Hz and loses snapshots. |
+| `d18dd38` (deleted in `5f93cb6`) | S3-M15 at `d18dd38` = lift detection inputs from S3: both line IRs near full scale and GP28 …; test removed in `5f93cb6`; no current test uses S3-M15 | 2026-11-20 | S3-M15 | `89f1bdc` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_track_run1_mqtt.txt` | No disarmed level lift of 50-100 mm held 5 s; lift height not logged. On the line while tracking, with the other sensor on the floor: GP27 up to 3437 (119.73 s), GP26 up to 3504 (123.62 s), below 3700. Both line IRs dark at once (GP27/GP26): 2938/3041 (172.6 s); 3594/3681 with GP28 = 1 at 411.30 s (pitch −1°, reversing for a barcode re-read), 19 below the limit; what was under the robot is not logged. All 18 tracking samples with both line IRs ≥ 3700 had GP28 = 1 (3832-4095). Fault 8 at 393.81 s (line 49555) after both read 3955-4095 with GP28 = 1 from 391.05 s (pitch down to −58°); the other fault 8 (374.09 s) followed a 10 s telemetry gap. |
+| `d18dd38` (deleted in `5f93cb6`) | S3-M12 at `d18dd38` = IR raw levels on white and black, and the room light; test removed in `5f93cb6`; no current test uses S3-M12 | 2026-11-20 | S3-M12 | `662c1ef` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_track_run3_mqtt.txt` | Track run 3, not the defined steps: raw values from the 5 Hz telemetry while line tracking at 20% (174 samples, 42.5-2749.7 s; 13 with both line IRs ≥ 3700 left out). Floor: GP27 min 183, median 233; GP26 min 187, median 221 (95% of floor samples ≤ 281 and ≤ 333). On the line with the other sensor on the floor: GP27 up to 3583 (median 2975, 9 samples), GP26 up to 3523 (median 3258, 14 samples). GP28 read 0 in 112 of 116 samples with both line IRs below 1000. Ramp and lux not measured; the floor surface is not logged. |
+| `d18dd38` (deleted in `5f93cb6`) | S3-M14 at `d18dd38` = line following on a 1 m straight at 30% demand: touch length and dead …; test removed in `5f93cb6`; no current test uses S3-M14 | 2026-11-20 | S3-M14 | `662c1ef` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_track_run3_mqtt.txt` | Line tracking on the track at 20% demand, not a 1 m straight at 30%; no video; S and W not measured. 11 tracking stretches, longest 17.8 s (2587.7-2605.4 s). No fault 2 in the log (fault codes 0, 1 and 7 only). Stretches ended by obstacle acquisition (2), fault 7 (77.5 s), fault 1 Tilt (1994.8, 2039.0, 2392.0, 2489.2 s) and STOP (4). 21 pivots seen; one PIVOT_LEFT was in 5 consecutive snapshots (seq 214-218, 800 ms from first to last, 2595.7-2598.4 s), 0.7 s after a "Hump cleared" event; whether that part of the track is straight is not logged. |
+| `d18dd38` (deleted in `5f93cb6`) | S3-M15 at `d18dd38` = lift detection inputs from S3: both line IRs near full scale and GP28 …; test removed in `5f93cb6`; no current test uses S3-M15 | 2026-11-20 | S3-M15 | `662c1ef` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-20_track_run3_mqtt.txt` | No disarmed level lift of 50-100 mm held 5 s; lift height not logged. On the line while tracking, with the other sensor on the floor: GP27 up to 3583 (2595.00 s, line 108697), GP26 up to 3523 (2593.15 s), below 3700. Both line IRs dark at once (GP27/GP26): 3406/3366 with GP28 = 0 (47.66 s). All 13 tracking samples with both line IRs ≥ 3700 had GP28 = 1 (3737-4095); these stretches ended with STOP (94.0 s) or fault 1 Tilt (1994.8, 2039.0, 2392.0 s); no fault 8 in the log. |
+
 ## Verified implementation results
 
 Compiler: GCC 15.2.0 (MSYS2 UCRT64), GNU Make 4.4.1. Final source/test commit:
@@ -306,7 +320,7 @@ this later records-only commit does not change code or the workflow.
 | 2026-10-15 | S3-B02 UART/no-radio firmware | 93f71ae | Codex/project Makefile | BLOCKED | [UART build](logs/2026-10-15_firmware_uart.txt) | Real exit 2, same missing compiler. SDK not installed; independent source blockers documented in AUDIT.md |
 | 2026-10-15 | Whitespace | 93f71ae | Codex/Git | PASS | [diff check](logs/2026-10-15_whitespace.txt) | git diff --check clean |
 | 2026-10-15 | GitHub Actions / PR | 93f71ae | GitHub connector | NOT RUN / BLOCKED | [publication](logs/2026-10-15_publication.txt) | Connector cannot create remote branch (403); no Actions run or PR link exists |
-| 2026-10-15 | On-target smoke S3-U02/U03 and S3-M01 through S3-M11 | 93f71ae | No hardware available | NOT RUN | HARDWARE_VALIDATION.md | No flashing, ADC read, waveform capture or physical robot verification |
+| 2026-10-15 | On-target smoke S3-U02/U03 and S3-M01 through S3-M11 | 93f71ae | No hardware available | NOT RUN | HARDWARE_VALIDATION.md [^s3-e1] | No flashing, ADC read, waveform capture or physical robot verification |
 
 Exact root-relative commands (local PATH was prefixed with MSYS2 ucrt64/bin and
 usr/bin; no provisioning or fake compiler wrapper was used):
@@ -362,9 +376,9 @@ its old E_NOSPT gate is now supplemented by the pad-enabled worker tests below.
 | 2026-10-15 | S3-B03 | e0a4448 | Codex/actual arm-check command | BLOCKED | [ARM objects](logs/2026-10-15_phase2_arm_objects.txt) | Compiler executable absent; Make exit 2, no ARM object produced |
 | 2026-10-15 | S3-B02 default firmware | e0a4448 | Codex/project Makefile | BLOCKED | [default](logs/2026-10-15_phase2_firmware_default.txt) | Actual exit 2 at missing Arm GCC guard; no successful compile/link/UF2 |
 | 2026-10-15 | S3-B02 UART/no-radio firmware | e0a4448 | Codex/project Makefile | BLOCKED | [UART](logs/2026-10-15_phase2_firmware_uart.txt) | Actual exit 2 at same prerequisite; not a substituted SDK/stub build |
-| 2026-10-15 | Ownership and whitespace | Phase 2 tree | Codex/Git | PASS | [scope](logs/2026-10-15_phase2_ownership.txt) | Other buddies, kernel/device/config/lib and shared app code unchanged; only empty ADC ownership row claimed in TEAM.md |
-| 2026-10-15 | GitHub upload, PR, CI, merge | Phase 2 local commits | GitHub API | BLOCKED / NOT RUN | [publication](logs/2026-10-15_phase2_publication.txt) | Git tree and PR creation HTTP 403 despite account Write/Admin; no successful refresh action exposed; remote branch still e292334, no PR exists |
-| 2026-10-15 | S3-M01..M11 and on-target smoke | Phase 2 | No hardware | NOT RUN | [bench protocol](HARDWARE_VALIDATION.md) | No physical measurements, flashing or vehicle movement |
+| 2026-10-15 | Ownership and whitespace | Phase 2 tree [^s3-c1] | Codex/Git | PASS | [scope](logs/2026-10-15_phase2_ownership.txt) | Other buddies, kernel/device/config/lib and shared app code unchanged; only empty ADC ownership row claimed in TEAM.md |
+| 2026-10-15 | GitHub upload, PR, CI, merge | Phase 2 local commits [^s3-c1] | GitHub API | BLOCKED / NOT RUN | [publication](logs/2026-10-15_phase2_publication.txt) | Git tree and PR creation HTTP 403 despite account Write/Admin; no successful refresh action exposed; remote branch still e292334, no PR exists |
+| 2026-10-15 | S3-M01..M11 and on-target smoke | Phase 2 [^s3-c1] | No hardware | NOT RUN | [bench protocol](HARDWARE_VALIDATION.md) [^s3-e1] | No physical measurements, flashing or vehicle movement |
 
 Exact root-relative commands:
 
@@ -432,3 +446,114 @@ CI after publication must independently establish the full firmware result
 using its provisioned SDK. Existing ADC hardware, board-pin, Vehicle Controller
 and affected-owner review gates remain subject to verification; no sensor/robot
 hardware test or successful firmware link is claimed by these local results.
+
+## Audit notes (2026-11-25): record history
+
+Both renumberings described under *ID changes* above (dated 2026-11-21 and 2026-11-25 there) reached git in one commit, `5f93cb6` (2026-11-25). The last commit with the earlier IDs is `d18dd38`. `testing/README.md` says test IDs never change and are never reused; the last column of the table below shows which numbers now name a different test. Nothing in this section changes a test or a result; it records what the git history shows.
+
+### ID history (git record)
+
+IDs as they stood at `d18dd38` and what they became in `5f93cb6`. "Test case text changed" compares the whole test-case row (what, requirement, method, steps, expected result) at `d18dd38` with the row that has the new ID today. "This number today" says whether today's table uses the same number for a different test.
+
+The October tables further up (*Buddy 3 implementation test definitions*, *Phase 2 definitions and final verification* and their result rows) use a third, earlier numbering that was not renumbered and is not listed here; for example, S3-U02 in the October table is "Normalization, clamping, inverse polarity and division/range guards".
+
+| ID at `d18dd38` | What was tested at `d18dd38` (verbatim) | ID after `5f93cb6` | Test case text changed | This number today |
+|---|---|---|---|---|
+| S3-U01 | statistics self-consistent (min ≤ max, 0..100) | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | different test: IR readings scale between white and black |
+| S3-U02 | IR reading scaled to 0-1000 between white and black: clamping, inverted polarity, zero-span and range guards | S3-U01 | yes | different test: calibration validates samples and preserves old endpoints |
+| S3-U03 | default S3 configuration is valid and maps no letter to a turn (A and Z = none) | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | different test: line position handles valid and invalid readings |
+| S3-U04 | calibration from labelled white/black samples: contrast, noise and sample count checks; a failed finish keeps the old endpoints | S3-U02 | yes | different test: hysteresis and line recovery handle timer wrap |
+| S3-U05 | line position: left/centre/right error, all-black junction, invalid mask or raw value | S3-U03 | yes | different test: invalid configuration values are rejected |
+| S3-U06 | black/white hysteresis (no chatter), line-loss debounce, recovery deadline, timer wrap | S3-U04 | yes | different test: barcodes decode across scale, direction and speed |
+| S3-U07 | configuration bounds: overlapping geometry, bad thresholds, enum and interval ranges are rejected | S3-U05 | yes | different test: invalid barcode frames produce no letter |
+| S3-U08 | Code 39 `*A*` and `*Z*` decode at every scale, in both directions and with a speed change | S3-U06 | yes | different test: barcode capture decodes once until rearmed |
+| S3-U09 | partial, unknown or corrupt frames, bad gaps, zero or huge widths give no letter | S3-U07 | yes | different test: failed barcode captures stay within buffer limits |
+| S3-U10 | capture at two scales and speeds with timer rollover; one decode per marker until re-armed | S3-U08 | yes | different test: navigation handoff respects controller hold and override |
+| S3-U11 | noise, timeout, partial data, 29-run capacity and an interrupted capture give a bounded error, no overrun | S3-U09 | yes | different test: invalid barcodes and sensor faults prevent steering |
+| S3-U12 | one navigation event per marker; steering held until the controller resumes; override wins | S3-U10 | yes | different test: line recovery rejects invalid clock values |
+| S3-U13 | unmapped letter or corrupt barcode gives no turn; invalid sensor data removes steering | S3-U11 | yes | different test: task lifecycle failures clean up safely |
+| S3-U14 | line-loss recovery and stop events; duplicate, backward or stale clock values are rejected | S3-U12 | yes | different test: controller binding and leases reject stale snapshots |
+| S3-U15 | S3 task lifecycle: kernel object failures clean up; acquisition stays off until configured, with no hardware access | S3-U13 | yes | different test: safety overrides prevent stale steering publication |
+| S3-U16 | one controller binding; lease renew and expiry; stale snapshots refused | S3-U14 | yes | different test: event handoff rejects stale records and prioritizes faults |
+| S3-U17 | a safety override during status publication or lock contention wins; no stale steering | S3-U15 | yes | different test: full event buffers hold steering safely |
+| S3-U18 | copied event handoff; old-generation or over-age events rejected; a fault pre-empts | S3-U16 | yes | different test: IR setup rejects invalid pins and modes |
+| S3-U19 | four-record event buffer full: transport fault, steering held | S3-U17 | yes | different test: ADC mode is refused without configured pins |
+| S3-U20 | IR pin set-up: bad mode, reserved pins (GP19, GP23, GP29) and duplicate pins rejected; GPIO errors returned | S3-U18 | yes | different test: ADC scans preserve channel order and timestamps |
+| S3-U21 | board without IR ADC pins: ADC mode refused (E_NOSPT), no pad access, no fake reading | S3-U19 | yes | different test: ADC deadlines reject missing or late replies |
+| S3-U22 | ADC worker: three-channel order, pipelining, oldest timestamp, wrap | S3-U20 | yes | different test: ADC errors return no valid readings |
+| S3-U23 | ADC deadline: no reply, a late 1000 ms read and rollover give invalid data, never a stale success | S3-U21 | yes | different test: invalid ADC data rejects the whole scan |
+| S3-U24 | ADC device unavailable or read error: the error is returned, no valid reading | S3-U22 | yes | different test: ADC lifecycle cleanup preserves device ownership |
+| S3-U25 | out-of-range, short or oversized reads and a bad mask, time or sequence reject the whole scan | S3-U23 | yes | different test: invalid ADC requests return explicit errors |
+| S3-U26 | ADC worker lifecycle: buffer and task create failures clean up; only the owner calls the ADC | S3-U24 | yes | different test: ADC faults and overrides prevent steering restart |
+| S3-U27 | ADC requests: bad channel or request, malformed or full buffers and a clock error give explicit errors | S3-U25 | yes | different test: blocked ADC reads do not block sampling |
+| S3-U28 | S3 service with the ADC: tracking, status and raw data; override or a failed ADC cannot restart steering | S3-U26 | yes | different test: acquisition errors publish one fault without raw data |
+| S3-U29 | the sampler keeps running while an ADC read is blocked; the deadline fault arrives first | S3-U27 | yes | different test: invalid navigation and control enums are rejected |
+| S3-U30 | acquisition errors (unavailable, corrupt, short) give one fault and no raw values | S3-U28 | yes | different test: invalid controller modes leave state unchanged |
+| S3-U31 | enum bounds: -1, max+1 and 99 rejected in the letter map and in core control | S3-U29 | yes | different test: raw IR mode never enables steering |
+| S3-U32 | controller mode bounds with zero and non-zero lease; a rejected call changes nothing | S3-U30 | yes | different test: ADC scan cadence handles kernel ticks and rollover |
+| S3-U33 | raw bring-up mode: raw IR levels can be read but never steer; refused while the motors are enabled | S3-U31 | yes | different test: late ADC replies are dropped and replaced |
+| S3-U34 | ADC scan cadence with the real kernel tick (a 10 ms delay runs at +20 ms), with rollover | S3-U32 | yes | different test: conversion deadlines drop only the current scan |
+| S3-U35 | a late ADC reply is dropped and a new scan is sent | S3-U33 | yes | different test: ADC sampling handles jitter and raw-data authority |
+| S3-U36 | a conversion past its deadline drops only that scan | S3-U34 | yes | different test: STOP wins while waiting for ADC replies |
+| S3-U37 | sampler and ADC worker together: current scan with jitter and rollover; raw values only with authority | S3-U35 | yes | different test: lease expiry during ADC waits removes steering |
+| S3-U38 | STOP during the ADC reply wait wins | S3-U36 | yes | different test: ADC waits return clock and transport errors |
+| S3-U39 | lease expiry during the reply wait removes steering | S3-U37 | yes | different test: missing ADC replies have a bounded wait |
+| S3-U40 | clock, delivery or transport failure during the wait returns an error | S3-U38 | yes | different test: robot IR layout keeps barcode input separate |
+| S3-U41 | a missing ADC reply is waited for a bounded time only | S3-U39 | yes | different test: measured calibration classifies recorded IR samples |
+| S3-U42 | robot IR layout: GP26 right, GP27 left, GP28 barcode only; codebook A U-turn, F left, Z right, B-D no turn; the barcode sensor cannot steer or make a junction | S3-U40 | yes | different test: paused sample gaps preserve active fault state |
+| S3-U43 | measured endpoints in `robot_ir_calibration.h` classify the recorded white and black samples; a paused core never steers | S3-U41 | yes | different test: paused calibrated scans handle jitter and rollover |
+| S3-U44 | paused timing: sample gaps while paused do not latch a fault; an active fault stays latched | S3-U42 | yes | different test: cyclic sampling avoids bursts and handler ADC calls |
+| S3-U45 | calibrated scan while paused, with jitter and rollover | S3-U43 | yes | different test: cyclic handler failures clean up safely |
+| S3-U46 | retired - do not reuse. Was: barcode capture copy/overflow/no authority (`test_barcode_capture.c`, removed in 9c6b8bc). | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | different test: publication waits respect freshness and control authority |
+| S3-U47 | retired - do not reuse. Was: barcode capture invalid/init cleanup (same removed file). | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | different test: controller barcode maps validate and apply changes |
+| S3-U48 | cyclic sampler release: no burst after a delay, no ADC call from the handler | S3-U44 | yes | different test: decoded turns survive later latches and publication delays |
+| S3-U49 | cyclic handler create or start failure cleans up | S3-U45 | yes | different test: requests use the sampler gap limit |
+| S3-U50 | status publish wait: freshness, STOP, lease and clock failure | S3-U46 | yes | different test: controller requests handle bounded lock contention |
+| S3-U51 | letter map set by the controller (MAP command): bad letter, action, caller or a busy lock refused; applied at the next marker; letter 0 action 0 restores the codebook | S3-U47 | yes | different test: partial and fault-cut barcode reads are distinguished |
+| S3-U52 | a decoded turn still reaches the controller after a later silent latch or a late publish | S3-U48 | yes | different test: ADC read overruns stay latched until reboot |
+| S3-U53 | other requests use the sampler's own gap limit; a 30 ms old status is still current | S3-U49 | yes | different test: ADC worker continues after a dropped scan |
+| S3-U54 | mode and lease requests wait briefly for a busy lock; past the bound, E_TMOUT changes nothing | S3-U50 | yes | different test: four barcode commands produce navigation events |
+| S3-U55 | a capture that ends by itself with 3-8 elements counts as partial; one cut by a sampler hiccup counts as failed | S3-U51 | yes | different test: barcode decoding tolerates valid edge displacement |
+| S3-U56 | a driver read that overran its deadline stays latched for the boot | S3-U52 | yes | different test: barcode resynchronisation handles leading noise |
+| S3-U57 | the ADC worker loop keeps running after a dropped scan | S3-U53 | yes | different test: barcode completion respects framing and timeout gates |
+| S3-U58 | `*A*` to `*D*` each give one navigation event: left, right, straight, U-turn | S3-U54 | yes | different test: digital barcode capture waits for end quiet |
+| S3-U59 | barcode edge bias: all 26 letters and framing, scale and direction, edge displacement, invalid shapes, capture budget | S3-U55 | yes | different test: barcode interruptions produce the correct read status |
+| S3-U60 | barcode resync: A-Z in both directions after leading noise; quiet, timeout, wrap, malformed and re-arm cases; a measured `*F*` with a prefix | S3-U56 | yes | different test: reference captures preserve navigation and fault handling |
+| S3-U61 | barcode completion: A-Z, both directions, four scales, timer wrap, a recorded `*A*`; strict, invalid, partial, abort and timeout gates | S3-U57 | yes | different test: ADC line sampling works with digital barcodes |
+| S3-U62 | GP28 digital capture ends only after the quiet time with no edge; bars and result reported in both directions; noise, a trailing mark or overflow do not end it early | S3-U58 | yes | not used |
+| S3-U63 | fault-cut and partial reads: a hiccup mid-marker is a failed read (re-read), 3-8 elements is partial, 2 is a crossing line; a mode change is not a failure | S3-U59 | yes | not used |
+| S3-U64 | reference capture through the main navigation path: A-D in both directions with a noise prefix and a junction; unmapped `*E*` gives no turn; retry and sensor fault | S3-U60 | yes | not used |
+| S3-U65 | mission IR mode 3 through the real adapter: ADC line on GP26/GP27 plus digital GP28 barcode; GP28 is never read as ADC | S3-U61 | yes | not used |
+| S3-B01 | S3 sources parse with the real kernel headers, SMP=0 and SMP=1, TEST=1 | S3-B01 | yes | same test |
+| S3-B02 | firmware builds with the S3 sources: default, and UART with no Wi-Fi | S3-B02 | yes | same test |
+| S3-B03 | S3 sources compile for Cortex-M0+ with `arm-none-eabi-gcc`, SMP=0 and SMP=1 (objects only, no link) | S3-B03 | yes | same test |
+| S3-B04 | every host test again under `gcc -fanalyzer -O1`, warnings as errors | S3-B04 | yes | same test |
+| S3-CI01 | a failing check makes the test target fail | S3-CI01 | yes | same test |
+| S3-I01 | retired - do not reuse. Was: S3 ran the S2 host tests as a regression; S2 now keeps its own tests. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-I02 | retired - do not reuse. Was: October host probe for missing shared headers; the probe no longer exists. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M01 | retired - do not reuse. Was: electrical identification (October bench plan `HARDWARE_VALIDATION.md`, removed in 54a371f). | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M02 | retired - do not reuse. Was: pin and peripheral ownership. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M03 | retired - do not reuse. Was: sensor geometry. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M04 | retired - do not reuse. Was: calibration and lighting (now covered by S3-M12). | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M05 | retired - do not reuse. Was: analogue worker and deadline. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M06 | retired - do not reuse. Was: captured A/Z waveforms. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M07 | retired - do not reuse. Was: sample budget and speed. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M08 | retired - do not reuse. Was: controller and motor handoff. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M09 | retired - do not reuse. Was: line loss and bounded recovery. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M10 | retired - do not reuse. Was: override and marker clearance. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M11 | retired - do not reuse. Was: marker spacing and turn timing. | removed from the table in `5f93cb6` (not listed in its 2026-11-21 table) | — | not used |
+| S3-M12 | IR raw levels on white and black, and the room light | removed from the table in `5f93cb6` (S3-M01 in its 2026-11-21 numbering; its 2026-11-25 list removes it as INCOMPLETE) | — | not used |
+| S3-M13 | barcode read rate for `*A*`, `*F*` and `*Z*` at 30% demand | removed from the table in `5f93cb6` (S3-M02 in its 2026-11-21 numbering; its 2026-11-25 list removes it as INCOMPLETE) | — | not used |
+| S3-M14 | line following on a 1 m straight at 30% demand: touch length and dead band | removed from the table in `5f93cb6` (S3-M03 in its 2026-11-21 numbering; its 2026-11-25 list removes it as INCOMPLETE) | — | not used |
+| S3-M15 | lift detection inputs from S3: both line IRs near full scale and GP28 black when lifted; the black line stays below the limit | removed from the table in `5f93cb6` (S3-M04 in its 2026-11-21 numbering; its 2026-11-25 list removes it as INCOMPLETE) | — | not used |
+
+### Commit cells checked
+
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit is not marked. Any other cell keeps its original text and carries a footnote; the footnotes are at the end of this file.
+
+### Evidence paths checked
+
+Every `logs/` path named in a *Log / evidence* cell of this file, including the restored rows, exists at `0bac48c`. YouTube links were not opened. Exception: two October rows name `HARDWARE_VALIDATION.md`, which is no longer in the repository (footnote [^s3-e1]); the sentence "Manual tests S3-M01 through S3-M11 are defined in HARDWARE_VALIDATION.md" refers to the same deleted file.
+
+[^s3-c1]: No commit hash recorded in the original entry (it says only "Phase 2 ..."). The Phase 2 rows above it name `e0a4448` (2026-10-15), but which code this row describes is not recorded.
+[^s3-e1]: `testing/subsystem3/HARDWARE_VALIDATION.md` is not in the repository at `0bac48c`: it was deleted in `54a371f` (2026-10-27). Its last version is in `efedeb1`, the parent of `54a371f` (`git show efedeb1:testing/subsystem3/HARDWARE_VALIDATION.md`).
