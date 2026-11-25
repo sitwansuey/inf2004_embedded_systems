@@ -1,0 +1,25 @@
+make: Entering directory '/workspace/scratch/bb36264a41d5/team_adaptation/inf2004_embedded_systems-main/app_program/subsystem4/tests/host'
+cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic driver_test.c ../../drv_lsm303dlhc.c  -o ".build/driver_test"
+cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic data_test.c ../../sensor_data.c  -o ".build/data_test"
+cp ../../subsystem4.c ../../subsystem4.h ../../sensor_data.h ../../drv_lsm303dlhc.h .build/shim/subsystem4/
+cp app.h .build/shim/app.h
+cc -I../.. -I.build -O1 -g -std=c11 -Wall -Wextra -Werror -Wconversion -Wshadow -pedantic api_test.c .build/shim/subsystem4/subsystem4.c ../../sensor_data.c  -o ".build/api_test"
+./.build/driver_test
+[TEST] S4-U10 PASS  sensor identity/configuration and initialization faults
+[TEST] S4-U11 PASS  signed decoding, XYZ ordering, units and freshness
+[TEST] S4-U12 PASS  clipped/out-of-range samples are invalid
+[TEST] S4-U13 PASS  partial reads and independent channel failures
+[TEST] S4-U14 PASS  magnetic lock recovery and invalid API arguments
+PASS: configuration/identity, signed decoding/axis order/units,
+      freshness/timestamps/overrun, clipping, independent I/O failures,
+      partial-read rejection, lock recovery and invalid arguments.
+./.build/data_test
+[TEST] S4-U15 PASS  absent/uninitialized state cannot publish usable data
+[TEST] S4-U16 PASS  no-data polls preserve timestamps; stale data expires
+[TEST] S4-U17 PASS  per-channel faults, recovery and reinitialization
+[TEST] S4-U18 PASS  clipping, future timestamps, 64-bit time and age saturation
+./.build/api_test
+[TEST] S4-U19 PASS  two-phase lifecycle, object cleanup and argument checks
+[TEST] S4-U20 PASS  protected snapshot, timeout propagation and kernel-clock wrap
+[TEST] S4-U21 PASS  task priorities/affinity and duplicate-start rejection
+make: Leaving directory '/workspace/scratch/bb36264a41d5/team_adaptation/inf2004_embedded_systems-main/app_program/subsystem4/tests/host'

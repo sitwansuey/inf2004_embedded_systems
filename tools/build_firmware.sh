@@ -25,7 +25,6 @@ case "$profile" in
     PassiveTest) options=(TEST=1);;
     SingleCore) options=(SMP=0);;
     Uart) options=(CONSOLE=uart WIFI=none);;
-    S2Bench) options=(S2_ONLY=1 TEST=1);;
     S4Bench) options=(S4_ONLY=1);;
     *) echo 'Unknown build profile';exit 1;;
 esac

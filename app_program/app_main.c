@@ -97,15 +97,9 @@ EXPORT INT usermain(void) {
 #if APP_S2_ONLY
     er=subsystem2_init();
     if(er>=0)er=subsystem2_start();
-#if APP_TEST
-    if(er>=0)subsystem2_test(); /* explicitly selected raised-wheel bench profile */
-#endif
 #elif APP_S4_ONLY
     er=subsystem4_init();
     if(er>=0)er=subsystem4_start();
-#if APP_TEST
-    if(er>=0)subsystem4_test();
-#endif
 #else
     er=subsystem1_init();
     if(er>=0)er=subsystem2_init();
@@ -126,7 +120,15 @@ EXPORT INT usermain(void) {
     if(er>=0)tm_printf((UB *)"Explicit S5 diagnostic owns the hardware; integrated controller not started.\n");
 #endif
 #if APP_TEST
-    if(er>=0) {subsystem5_test();tm_printf((UB *)"[TEST] passive integrated checks completed; no motor test requested\n");}
+    /* Test image (make TEST=1 NET=lwip MQTT=1): run the passive on-target
+     * check here in the initial task while the system runs. It only reads
+     * state; it sends no motion command and does not change the controller. */
+    if(er>=0) {
+        tm_printf((UB *)"[TEST] === test run start ===\n");
+        subsystem3_test();
+        tm_printf((UB *)"[TEST] passive integrated checks completed; no motor test requested\n");
+        tm_printf((UB *)"[TEST] === test run end ===\n");
+    }
 #endif
 #endif
     if(er<0)tm_printf((UB *)"[STARTUP FAIL] %d; controller not armed\n",er);

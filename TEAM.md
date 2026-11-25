@@ -1,106 +1,307 @@
-# CSC02 subsystem ownership and integrated interfaces
+# Team and subsystems (CSC02)
 
-The CR1 integration retains micro T-Kernel 3. Subsystem ownership and checked
-interfaces below describe the integrated candidate. Physical validation and
-whole-team CR1 acceptance remain separate.
+This is the single place that says **who owns what** (pins, peripherals,
+priorities, kernel objects and the interfaces between subsystems), so that five
+people can work in one firmware image without clashing. Keep it up to date.
 
-| Owner | Responsibility | Task priority and core | Hardware |
+A **subsystem** is one student's part of the robot, with its own folder. It may
+contain several tasks and own several peripherals (section 3).
+
+Rule: **only the owner edits a subsystem's folders.** To change another
+subsystem, ask its owner or open a pull request for them to review.
+
+## 1. Members and subsystems
+
+| # | Subsystem (what it does) | Student ID | GitHub username | Code | Tests |
+|---|---|---|---|---|---|
+| 1 | Telemetry: binary EDR16 snapshots and robot events to MQTT, MQTT/USB commands, the dashboard | 2500238 | ronbotan (Ron Tan) | `app_program/subsystem1/`, `app_program/external_systems/Dashboard/` | `testing/subsystem1/`, `app_program/external_systems/Dashboard/test_*.py` |
+| 2 | Motion control: motor PWM, PID wheel-speed control, wheel encoders and odometry input | 2500613 | jordecoder (Jordan Goh) | `app_program/subsystem2/` | `testing/subsystem2/`, `app_program/subsystem2/tests/host/` |
+| 3 | IR line following (two straddle sensors) and Code 39 barcode reading | 2500383 | youzerwan (Jun Kang) | `app_program/subsystem3/` | `testing/subsystem3/` |
+| 4 | GY-511 IMU: tilt, impacts and terrain (humps and their height) | 2500243 | vojm (Joshua Tan) | `app_program/subsystem4/` | `testing/subsystem4/`, `app_program/subsystem4/tests/host/` |
+| 5 | Ultrasonic ranger on a servo: obstacle detection, edge scan and width | 2502324 | ncht88 (Terrence Ng) | `app_program/subsystem5/` | `testing/subsystem5/` |
+
+**Shared integration code** belongs to the whole team:
+
+- the Vehicle Controller (VC): `app_program/vehicle.c`, `vehicle_policy.c`, the
+  `vehicle_*.h` helpers, `ir_line_trace.c/.h`, `app_state.c/.h`, `app_logging.c/.h`;
+- the watchdog supervisor: `app_watchdog.c/.h`, `shared/watchdog_policy.c`,
+  `include/tm/robot_health.h`;
+- the robot profile: `robot_config.h`, `robot_ir_config.h`,
+  `robot_ir_calibration.h`, `board_pins.h`;
+- `app_program/shared/`, `app_main.c`, `app.h` and this file.
+
+Shared code is changed only by agreement of the team; claiming an empty row in
+this file (a pin, a peripheral, an interface ID) is the exception. It is tested
+in `testing/integration/` and `testing/system/`.
+
+## 2. Pins
+
+One owner per pin. Claim a pin here **before** you wire or code it. Two
+subsystems on one pin build without any error but fail on the bench, and two
+outputs driving one pin can damage it. Only the *reserved* rows are fixed.
+
+| Pin | Owner | Used for |
+|---|---|---|
+| GP23, GP24, GP25, GP29 | *reserved* | Pico W radio (CYW43439: power, PIO-SPI data, chip select, clock) |
+| GP0 | S5 | Ultrasonic ECHO input. With `CRASH_REPORT=1` or `CONSOLE=uart` it is UART0 TX instead and S5 is not built. |
+| GP1 | S5 | Ultrasonic TRIG output (10 µs pulse). With `CRASH_REPORT=1` or `CONSOLE=uart` it is UART0 RX instead. |
+| GP2 | S4 | I2C1 SDA to the GY-511 (100 kHz, internal pull-up) |
+| GP3 | S4 | I2C1 SCL to the GY-511 |
+| GP4 | S2 | Right-wheel (motor 2) encoder channel A, input, both-edge interrupt |
+| GP5 | S2 | Right-wheel (motor 2) encoder channel B, input, both-edge interrupt |
+| GP6 | | free (PWM slice 3 A: shares slice 3 with the GP22 diagnostic buzzer) |
+| GP7 | | free (PWM slice 3 B, same note) |
+| GP8 | S2 | Left motor (motor 1) driver input A, PWM slice 4 A (20 kHz) |
+| GP9 | S2 | Left motor driver input B, PWM slice 4 B |
+| GP10 | S2 | Right motor (motor 2) driver input A, PWM slice 5 A (20 kHz) |
+| GP11 | S2 | Right motor driver input B, PWM slice 5 B |
+| GP12 | S5 | Ranger servo, PWM slice 6 A (50 Hz, 750–2250 µs pulse) |
+| GP13 | | free, but never as PWM: it is slice 6 B, the servo's slice |
+| GP14 | | free (PWM slice 7 A) |
+| GP15 | | free (PWM slice 7 B) |
+| GP16 | S2 | Left-wheel (motor 1) encoder channel A, input, both-edge interrupt |
+| GP17 | S2 | Left-wheel (motor 1) encoder channel B, input, both-edge interrupt |
+| GP18 | | free (PWM slice 1 A) |
+| GP19 | S1 | Heartbeat LED (LED + 330 Ω to GND), toggled every 250 ms |
+| GP20 | | free (PWM slice 2 A) |
+| GP21 | | free (PWM slice 2 B) |
+| GP22 | S5 | Diagnostic buzzer (PWM slice 3 A, 2 kHz), only in the S5 acquisition diagnostics (`TEST=1` with `APP_ACQUISITION_TEST`, `APP_ACQUISITION_LEFT_TEST` or `APP_S5_MASTER_TEST`); free in the mission build |
+| GP26 | S3 | Right straddle line sensor, analog input (ADC channel 0) |
+| GP27 | S3 | Left straddle line sensor, analog input (ADC channel 1) |
+| GP28 | S3 | Barcode sensor module DO pin, digital input (high = black) |
+
+## 3. Peripherals
+
+**Each peripheral is driven by exactly one task, its *owning task*.** Every
+other task asks the owning task through a kernel object or the owner's API
+(section 5) and never touches the peripheral itself: this port runs tasks on
+both cores at once, and the drivers have no locking of their own. A driver is
+code inside the subsystem that needs the hardware (`drv_<name>.c`), not a
+subsystem of its own.
+
+| Peripheral | Owner subsystem | Owning task | Pins |
 |---|---|---|---|
-| Vehicle Controller | sole motion authority; safety, leases, line/terrain/scan handoffs | 5, core 0 | no direct motor/peripheral writes |
-| Watchdog supervisor | heartbeat check, RP2040 watchdog feed, crash record | 100 ms cyclic handler/core 1 | watchdog block (SCRATCH0..3 only) |
-| Buddy 1 (2500238) | binary telemetry, copied command/telemetry buffers, dashboard | telemetry 13/core 1; LED 12/any | LED GP19 |
-| Buddy 2 (2500613) | PWM/PID output owner, watchdog, encoder IRQ and status | motor 14/core 0; GPIO IRQ 13/core 0 | motor GP8-11 (PWM 4/5); encoder GP16/17 and GP4/5 |
-| Buddy 3 (2500383) | line/barcode sampler and bounded navigation events | sampler 16/core 0; optional ADC worker 17/core 0 | user confirms GP27 left line, GP26 right line, GP28 barcode; calibrated ADC line (GP26/27) and digital GP28 barcode in use |
-| Buddy 4 (2500243) | GY-511 acquisition, protected snapshots, terrain algorithm | sensor 18/core 1; monitor 19/any; pure terrain processing called by controller | I2C1 GP2/3 |
-| Buddy 5 (2502324) | ultrasonic/servo owner, stationary edge acquisition, geometry | scan 20/core 1 | trigger GP1, echo GP0 (existing Buddy 5 wiring), servo GP12/PWM slice 6 |
-| Kernel services | USB and CYW43/lwIP/MQTT ownership | USB 3/core 0; network 4/core 0 | radio GP23/24/25/29; USB controller |
+| UART0 | *kernel* (crash report / UART console) | none in the mission build; `tm_printf` writes it only when built with `CRASH_REPORT=1` or `CONSOLE=uart` | GP0, GP1 (S5 otherwise) |
+| UART1 | | free | |
+| I2C0 | | free | |
+| I2C1 | S4 | `s4_sensor_task` (18, core 1) | GP2, GP3 |
+| SPI0 | | free | |
+| SPI1 | | free | |
+| ADC | S3 | `s3_adc_worker` (17, core 0), through the kernel ADC driver `adca` | GP26 (ch 0), GP27 (ch 1) |
+| PWM slices 4, 5 | S2 | `motor` (14, core 0) | GP8–GP11 |
+| PWM slice 6 | S5 | `obstacle scan` (20, core 1) | GP12 (GP13 must not be PWM) |
+| PWM slice 3 | S5, acquisition diagnostic builds only | S5 diagnostic task (20, core 1) | GP22 |
+| PWM slices 1, 2, 7 | | free (slice 1 only on GP18; slice 2 on GP20/GP21; slice 7 on GP14/GP15) | |
+| PWM slice 0 | | no free pin (GP0/GP1 and GP16/GP17 are taken); usable only as an internal counter | |
+| GPIO interrupt (IO_IRQ_BANK0) | S2 | set up by `motor` (14, core 0); the encoder interrupt runs on core 0 | GP4, GP5, GP16, GP17 |
+| Watchdog block | shared (watchdog supervisor) | cyclic handler `cyc_watchdog` (100 ms, core 1) feeds it and writes SCRATCH0–3 only (SCRATCH4–7 belong to the bootrom). The kernel sets its 1 MHz tick at boot; S4 (`drv_pico_i2c.c`) and S5 (`s5_hardware.c`) write the same tick value again at start-up. | — |
+| TIMER (1 MHz free-running) | *kernel* (started at boot) | shared, read only: VC and S2 (timing statistics), S4 (I2C timeouts), S5 (echo timing), the network task. S4 and S5 also release its reset again at start-up. | — |
+| USB controller | *kernel* | `usb_service_task` (3, core 0) | USB |
+| WiFi radio, TCP/IP, MQTT (with PIO and DMA) | *kernel* | `cyw43_utk_task` (4, core 0) | GP23–25, GP29 |
 
-GP13 cannot share PWM slice 6 with another owner. GP0/1 are ultrasonic pins
-only on USB builds with CRASH_REPORT=0. UART/crash builds disable Buddy 5 and
-therefore cannot arm the integrated robot. GP23/24/25/29 remain radio reserved.
-No other task calls the SDK I2C driver, ultrasonic/servo driver, PWM output or
-MQTT API. USB input is delivered by a bounded hook inside the existing USB owner.
+### WiFi and MQTT are special
 
-All objects are initialized before tasks start. Any startup failure prevents
-the controller from starting. The firmware boots DISARMED;
-`app_program/robot_config.h` holds the measured profile (IR mode 3,
-odometry/terrain calibration, PID and obstacle bypass). The motor task alone
-handles the urgent STOP epoch, discards stale queued movement, polls every
-~20 ms and checks its independent 1000 ms renewal watchdog. It never returns:
-a status copy that misses the shared lock is retried on the next poll, and a
-motor/encoder setup failure keeps PWM off with FAULT published (VC fault 7
-once armed). Physical stopping
-time still requires measurement; zero PWM is not guaranteed immediate braking.
+The radio and the network stack belong to the kernel's WiFi service task,
+`cyw43_utk_task` (`lib/libwifi/sysdepend/pico_rp2040/`). No subsystem task
+calls `cyw43_...`, lwIP or MQTT functions. Any task may read the connection
+state with `cyw43_utk_get_status()`.
 
-Timing: the kernel tick is 10 ms and every relative wait gets one extra tick,
-so the VC, motor, telemetry and network loops (which ask for 10 ms, or 2 ms
-for the network poll) really run about every 20 ms; tunables counted in VC
-ticks assume 20 ms. The S3 and S4 cyclic samplers run at exactly 10 ms.
+S1 sends and receives over MQTT by code that **runs inside the service task**
+(`lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.c`), which only polls S1's kernel
+objects and the shared `app_state` mutex with `TMO_POL` and never blocks
+(interfaces IF-15, IF-16, IF-17 and IF-19; IF-18 is the same kind of hook
+inside the USB service task). This changes the shared network library; the
+team's agreement is in the *Agreed by* column of those rows. It is built with
+`NET=lwip MQTT=1`.
 
-Watchdog (checkpoint 8c): the VC, motor, network, telemetry and S4 IMU loops
-each add one to their own heartbeat counter per loop
-(`include/tm/robot_health.h`; one writer each). `app_program/app_watchdog.c`
-checks them every 100 ms from a core-1 cyclic handler and feeds the RP2040
-watchdog (1500 ms) only while all advanced within 1000 ms. It arms 20 s after
-boot at the earliest, once every loop has run and the network task has
-finished its first join. A stale loop is written to watchdog SCRATCH0..3 and
-the board reboots. panic(), hard_assertion_failure(), lwip_utk_assert() and
-the HardFault handler write the same record and reboot at once. The next
-boot prints `[RESET] ...` on USB. A new monitored loop must beat at least
-every 1000 ms, including inside long waits. S5 and USB are not monitored.
-The record names the highest-priority stale loop on its core, using the
-priority table in `app_program/shared/watchdog_policy.c`; keep it in step
-if a task priority changes.
+## 4. Task priorities
 
-Stacks: the VC task has 4096 bytes and telemetry 3072 (`app_start_task_stack`);
-other application tasks keep `TASK_STACK_SIZE` (2048). The kernel adds 128
-bytes to each, and interrupts run on the interrupted task's stack.
+1 is the highest; 1–4 are used by the kernel. Each subsystem keeps its own
+band; change it only by team agreement. Core: `TP_PRC1` = core 0, `TP_PRC2` =
+core 1, or "any".
 
-| Interface | Contract |
-|---|---|
-| VC -> S2 | controller-bound mailbox, validated 3-bit command/7-bit power, issued time and STOP epoch; movement renewed every controller iteration |
-| S2 -> VC/S1 | bounded protected commanded-status and consistent encoder snapshots; operating-clock timestamps; measured x1 scale |
-| S2 -> S4 in VC | exact 13-byte internal encoder snapshot; checked validity, age, IMU skew, count/time wrap and interval continuity; no native struct fusion |
-| VC <-> S3 | single controller binding, modes/100 ms lease, fresh snapshot (<30 ms), bounded 14-byte events (<100 ms), explicit marker acknowledgement |
-| S4 -> VC/S1 | 71-byte protected acquisition record with monotonic impact/fault counters; per-channel usability/age decoded locally; 12-byte checked terrain result in shared app_state; acquisition remains sole I2C owner |
-| VC -> S5 | controller-bound navigation mode/direction, scan ID, old reading invalidated until servo settles |
-| S5 -> VC/S1 | copied status, matching actual/requested sample angle, freshness, static scan geometry and bounds |
-| VC -> S1 | protected compact controller/terrain snapshot; bounded robot-event records (s1_event_post, 160-byte message buffer (20 two-byte records including kernel overhead), never blocking; a full queue drops and counts); no network calls |
-| S1 -> network | two-entry copied binary inbox, newest first with old drops counted and flags preserved; robot events taken one per poll (s1_event_take) on Robopico/events/edr16/v1; link events held separately and sent first; nonblocking bounded polling on the existing network service |
-| network/USB -> VC | copied commands, urgent STOP outside queue, 100 ms queue age; timed ARM for benches or one-shot autonomous START |
+| Subsystem | Priority band | Tasks (name – priority – core) |
+|---|---|---|
+| kernel | 1–4 | initial task – 1 – any; `usb_service_task` – 3 – core 0; `cyw43_utk_task` – 4 – core 0 |
+| shared (VC) | 5 | `vehicle` – 5 – core 0 (in the mission build the only task that commands motion, so it runs above every subsystem task) |
+| 1 | 12–13 | `led_task` – 12 – any; `telemetry` – 13 – core 1 |
+| 2 | 14–15 | `motor` – 14 – core 0 |
+| 3 | 16–17 | `consumer_task` (line and barcode sampler) – 16 – core 0; `s3_adc_worker` – 17 – core 0 |
+| 4 | 18–19 | `s4_sensor_task` – 18 – core 1; `s4_monitor_task` – 19 – any |
+| 5 | 20–21 | `obstacle scan` – 20 – core 1 (the S5 diagnostic task in the S5 test builds) |
 
-The obsolete sample producer was removed in published main PR #6 and remains
-absent here. Retired sample interfaces are not used as sensor telemetry.
-Controller snapshots are published with a nonblocking priority-inheritance
-mutex. Peripheral ownership is unchanged.
+Cyclic handlers: S1 LED (250 ms, any core), S3 sampler (10 ms, core 0), S4
+sensor (10 ms, core 1), watchdog supervisor (100 ms, core 1).
 
-Kernel limits remain those in config/config.h. Application usage is 8 tasks
-(9 with the ADC worker), four application mutexes, one semaphore, one mailbox,
-one fixed pool, five message buffers (seven with ADC; CNF_MAX_MBFID is 12) and three cyclic handlers,
-plus the kernel USB/network/device service objects. No new scheduler, MPU,
-resource-sharing redesign or CR2/CR3 feature was introduced.
+## 5. Interfaces between subsystems
 
-The 55-byte mailbox snapshot is internal only. MQTT uses two-byte EDR16
-records, including ID 0 mission status; the retired envelope/aggregate is not
-accepted by the dashboard. See docs/DATA_REPRESENTATION.md.
+Every arrow between two subsystems (and the shared VC) is listed here. The
+**provider** creates the kernel object or owns the API and declares it in a
+header in its own folder (`subsystemN.h`; S1 also uses `control.h` and
+`network_bridge.h`, S2 `s2_data.h`; `s1_event_post()` is declared in
+`shared/events.h`). The **user** only sends to it, waits on it or calls it.
+Every interface except IF-05 and IF-22 has at least one integration test
+(`testing/integration/TEST_LOG.md`, which lists the same IF IDs); for IF-18 the
+tests cover the command frames but not the USB hook itself. *Agreed by* names the owners on both sides who agreed the data format; *team (VC)* is the shared VC side, agreed by all members.
 
-GP22 is retained for the explicitly selected S5 acquisition diagnostic buzzer;
-it is not used by the default or passive-test profiles.
+| ID | From → To | Mechanism | Object ID name | Data / meaning | Agreed by | Tested by |
+|---|---|---|---|---|---|---|
+| IF-01 | VC → S2 | mailbox + fixed memory pool (owned by S2) | `h_movement_mailbox`, `h_movement_pool` (8 blocks); `s2_controller_bind()`, `s2_movement_send()`, `s2_follow_send()`, `s2_reverse_follow_send()` | 16-byte `s2_movement_msg_t`: command 1–6 and power 1–100 % (a STOP or zero power goes through IF-02 and is never queued), steering −400..400 (follow sends only), issue time, STOP epoch. Only the bound VC task may send. Renewed every VC tick; after 1000 ms without one, S2 switches PWM off and publishes FAULT, which the VC turns into fault 7. | Jordan Goh (S2), team (VC) | INT-01, INT-13, INT-14, INT-15, INT-17, INT-18, INT-32 |
+| IF-02 | VC → S2 | shared 32-bit epoch, atomic (owned by S2) | `stop_epoch`; `s2_emergency_stop()` | Urgent STOP, never queued. The bound VC bumps the epoch; the motor task switches PWM off on its next poll (about 20 ms at most) or before its next PWM write, and drops movements queued under an older epoch. | Jordan Goh (S2), team (VC) | INT-01, INT-11, INT-30 (VC side; the S2 side is in the S2 host tests) |
+| IF-03 | S2 → VC, S1 | shared status under a semaphore (owned by S2) | `h_status_lock`; `s2_motion_get_status()` | `s2_motion_status_t`: commanded motion, power, state (STOPPED/MOVING/FAULT), last error and command time. | Jordan Goh (S2), Ron Tan (S1), team (VC) | INT-11, INT-32, INT-10 |
+| IF-04 | S2 → VC (→ S4 terrain) | function API, lock-free sequence counter (owned by S2) | `s2_encoder_snapshot()` | Exact 13-byte encoder snapshot: left and right forward counts, sample time, flags; the VC checks age, wrap and IMU skew. | Jordan Goh (S2), Joshua Tan (S4), team (VC) | INT-02, INT-11 |
+| IF-05 | S2 → S3 | function API, lock-free sequence counter (owned by S2) | `s2_encoder_get_status()` | Wheel travel for measuring barcode bars (half-counts, about 0.17 mm each). | Jordan Goh (S2), Jun Kang (S3) | none yet (the S3 unit tests feed positions directly) |
+| IF-06 | S2 → S5 | function API, lock-free sequence counter (owned by S2) | `s2_encoder_get_status()` | Encoder counts before and after each echo (motion during a scan sample). | Jordan Goh (S2), Terrence Ng (S5) | INT-08, INT-26 |
+| IF-07 | VC → S3 | function API with a priority-inheritance mutex (owned by S3) | `mtx_stats`; `s3_controller_bind()`, `s3_controller_control()`, `s3_controller_renew()`, `s3_controller_set_map()`, `s3_controller_barcode_end()` | Mode PAUSED / TRACK / OVERRIDE; TRACK needs a lease (the VC uses 100 ms and renews it every tick); marker clear after a decoded turn; MAP letter (1–26) → action (0–4) for future decodes; barcode end once the VC has measured 30 mm without a GP28 edge. | Jun Kang (S3), team (VC) | INT-22, INT-23, INT-29, INT-31 |
+| IF-08 | S3 → VC, S1 | shared status under a priority-inheritance mutex (owned by S3) | `mtx_stats`; `s3_status_get()` | `s3_status_t`: line result, raw IR values, barcode state and elements, decoded letter; a sample older than 30 ms is not used. | Jun Kang (S3), Ron Tan (S1), team (VC) | INT-15, INT-16, INT-17, INT-18, INT-20, INT-23, INT-24, INT-29, INT-34 |
+| IF-09 | S3 → VC | message buffer (owned by S3) | `h_events`; `s3_event_receive()` | 14-byte events (navigation, stop request, fault, recovery request): kind, turn command, letter, sequence, time; at most 4 queued; delivered only from the current generation and when younger than 100 ms. The VC acknowledges each decoded marker (IF-07 marker clear). | Jun Kang (S3), team (VC) | INT-06, INT-22, INT-23, INT-29 |
+| IF-10 | S4 → VC, S1 | shared record under a priority-inheritance mutex (owned by S4) | `status_lock`; `s4_sensor_get_record()` | 71-byte acquisition record: accelerometer and magnetometer, usable flags, impact and fault counters. The VC runs S4's terrain algorithm on it (hump, crest, height). | Joshua Tan (S4), Ron Tan (S1), team (VC) | INT-03, INT-11, INT-33, INT-10, INT-34 |
+| IF-11 | VC → S5 | function API with a priority-inheritance mutex (owned by S5) | `status_mutex`; `s5_controller_bind()`, `s5_navigation_set()` | Scan id, navigation mode (MONITOR, APPROACH, OVERCOME, REORG) and look angle −90..90°; an old reading is invalid until the servo settles. | Terrence Ng (S5), team (VC) | INT-09, INT-30 |
+| IF-12 | S5 → VC, S1 | shared packed record under a priority-inheritance mutex (owned by S5) | `status_mutex`; `s5_get_status()`; `s5_width_reported()` | 92-byte status: scan state, echo, actual and requested angles, scan id, distance, edge bounds, width and bypass plan; `s5_width_reported()` gives the beam-corrected width shown to the user. | Terrence Ng (S5), Ron Tan (S1), team (VC) | INT-04, INT-08, INT-09, INT-10, INT-12, INT-15, INT-16, INT-19, INT-26, INT-27, INT-28, INT-30 |
+| IF-13 | VC → S1 | shared snapshot under a priority-inheritance mutex (shared code) | `app_state_publish()`, `app_get_state()` | `app_state_t`: VC phase, fault and cause, motion, terrain result, line and barcode fields for telemetry. | Ron Tan (S1), team (VC) | INT-05, INT-10, INT-21, INT-32, INT-34 |
+| IF-14 | VC → S1 | message buffer, never blocks (owned by S1) | `event_buffer` (160 bytes); `s1_event_post()` | 2-byte robot events (barcode attempt, instruction, hump, obstacle); a full queue drops and counts. | Ron Tan (S1), team (VC) | INT-06, INT-07, INT-33 |
+| IF-15 | S1 → dashboard (through the MQTT broker) | message buffer, polled by the network task (owned by S1) | `telemetry_buffer` (2 snapshots); `s1_telemetry_take()` | 55-byte snapshot, published as 33 two-byte EDR16 records (`docs/DATA_REPRESENTATION.md`): every value the dashboard shows from S1-S5 and the VC (IF-03, IF-08, IF-10, IF-12, IF-13, IF-21). | Ron Tan (S1), team | INT-05, INT-06, INT-07, INT-10, INT-21 |
+| IF-16 | S1 → dashboard (through the MQTT broker) | message buffer, polled by the network task (owned by S1) | `event_buffer`; `s1_event_take()` | Robot events from IF-14, one per poll, published on the events topic after any pending command reply. Link events are not in this buffer: the MQTT port makes them on (re)connect, holds the latest one itself and sends it before the queued robot events. | Ron Tan (S1), team | INT-06, INT-07 |
+| IF-17 | dashboard (through the MQTT broker) → VC | message buffer + STOP word (owned by S1) | `command_buffer` (4 deep); `s1_command_offer()`, `s1_command_take()` | 6-byte command frames: STOP, ARM (power, lease), RESET, START, MAP (letter → action). STOP bypasses the queue; a command 100 ms old or more is refused. | Ron Tan (S1), team | INT-01, INT-06, INT-07, INT-22, INT-31 |
+| IF-18 | USB console → VC | hook inside the USB service task (owned by S1) | `app_usb_rx_byte()` → `s1_command_offer()` | Keys `s` (STOP), `a` (ARM 30 %, 500 ms lease), `r` (RESET), `g` (START 30 %) or raw 6-byte frames. | Ron Tan (S1), team (VC) | none for the hook itself (INT-31 replays the same frames into the VC; INT-06 tests `s1_command_offer()`) |
+| IF-19 | VC, network task, S1 → dashboard (through the MQTT broker) | message buffer (owned by S1) | `ack_buffer`; `s1_command_ack()` (VC), `s1_command_reply()` (network task and S1, with phase and fault from `app_get_state()`), `s1_command_ack_take()` | 6-byte command replies: sequence, opcode, result (accepted, refused, RESET needed, stale), VC phase and fault. "RESET needed" comes only from the network task: after an MQTT (re)connect or an MQTT STOP, ARM and START are refused until a RESET has been passed to the VC's command queue. A full buffer drops the oldest reply and counts it. | Ron Tan (S1), team | INT-06, INT-07, INT-31 |
+| IF-20 | VC, S2, S4, S1, network → watchdog | one heartbeat counter per loop, one writer each (shared code) | `health_heartbeat[]` (`include/tm/robot_health.h`); `cyc_watchdog` | Each monitored loop adds one per pass; a loop stale for 1000 ms writes a crash record to watchdog SCRATCH0–3 and the board reboots. The network task also flags its first join (`health_net_ready`). | all five members (team) | INT-25 |
+| IF-21 | S2 → S1 | function API, lock-free sequence counter (owned by S2) | `s2_encoder_get_status()` | Left and right forward encoder counts for the telemetry snapshot (EDR16 IDs 1 and 2) and the encoder-available flag, shown on the dashboard. | Jordan Goh (S2), Ron Tan (S1) | INT-10 (S1 side, with S2 stubbed) |
+| IF-22 | S2, network → VC | shared counters, one writer per record, no lock (shared code) | `app_task_timing[]` (`shared/task_timing.h`) | Loop timing (runs, late releases, longest run and gap) for the motor and network loops; the VC prints it as the USB `[TIMING]` line every 10 s. Only with `BOARD_TIMING_STATS 1`. | Jordan Goh (S2), team (VC) | none (USB diagnostic only) |
 
-The VC tolerates three consecutive motor-status copy misses; a published
-FAULT still stops at once. An odometry gap holds stopped for at most 200 ms.
-S3 lock timeouts retry within the existing 100 ms lease. Navigation survives
-a later sampler latch. A marker held with no pending turn is re-armed after
-100 ms. Fault-cut reads of at least three elements count as failed attempts
-(`BOARD_BARCODE_FAULT_FAILS 1`); short partials get USB logs only.
+### Data to the dashboard (through S1)
 
-S4 bridges up to 60 ms of unusable terrain input and keeps completed hump
-height separately. Its counters feed VC shock and IMU-fault counts. The
-armed lift detector never waives tilt. S5 retains its plan after READY, allows
-one free initial braking restart, and checks the side corridor before READY.
-The VC also ray-checks a shallower reverse replan and waits for forward data
-after pans. Peripheral ownership and all STOP/lease checks stay in force.
+Every value on the dashboard reaches it through S1 (Buddy 1): each owner's data
+goes to S1 over the interface named here, and S1 publishes it over MQTT (IF-15,
+IF-16).
 
-With `BOARD_TIMING_STATS 1`, a USB `[TIMING]` line every 10 s gives maximum
-run time, release gap and late/run counts for VC, motor and network. A gap
-over 25 ms counts as late. The motor measurement excludes direction dead time.
+| From | Data shown on the dashboard | Interface | Agreed by |
+|---|---|---|---|
+| S2 (Jordan Goh) | left and right wheel encoder counts; motor state, command and power | IF-21, IF-03 | Jordan Goh (S2), Ron Tan (S1) |
+| S3 (Jun Kang) | raw line and barcode IR values; barcode bars read, result and decoded letter | IF-08 | Jun Kang (S3), Ron Tan (S1) |
+| S4 (Joshua Tan) | acceleration and magnetic field, impact and IMU fault; pitch, roll, terrain state and hump height (worked out by the VC with S4's terrain code) | IF-10, IF-13 | Joshua Tan (S4), Ron Tan (S1) |
+| S5 (Terrence Ng) | obstacle distance, servo angle, scan state, obstacle width and bypass side | IF-12 | Terrence Ng (S5), Ron Tan (S1) |
+| VC (team) | mission phase, fault and cause; robot events (barcode, hump, obstacle) | IF-13, IF-14 | team (VC), Ron Tan (S1) |
+| S1 (Ron Tan) | all of the above as EDR16 records on MQTT; command replies | IF-15, IF-16, IF-19 | Ron Tan (S1), team |
+
+Interface numbers from before this table (the template's IF-03 S3 → S4 summary
+and IF-05 LED task control) are retired. `subsystem1.h`,
+`subsystem4/sensor_data.h` and `testing/subsystem4/TEST_LOG.md` (S4-U11, now
+IF-10) still use them and need updating by their owners.
+
+## 6. Kernel object budget
+
+Limits are set in `config/config.h`. Counts are for the mission build
+(`NET=lwip MQTT=1`, IR mode 3). The kernel itself also uses 2 semaphores and 4
+event flags: the ADC driver `adca` (1 semaphore, 1 event flag), the UART0
+serial driver `sera` (1 semaphore, 2 event flags; registered in every build,
+unused in the mission build) and the device manager's lock (1 event flag).
+S3's ADC worker opens `adca` at run time, which adds 1 semaphore.
+
+| Object | Limit | S1 | S2 | S3 | S4 | S5 | Shared (VC) | Kernel |
+|---|---|---|---|---|---|---|---|---|
+| Task | 32 | 2 | 1 | 2 | 2 | 1 | 1 | 3 |
+| Semaphore | 16 | | 1 | | | | | 3 |
+| Event flag | 16 | | | | | | | 4 |
+| Mailbox | 12 | | 1 | | | | | |
+| Mutex | 12 | | | 1 | 1 | 1 | 1 | |
+| Message buffer | 12 | 4 | | 3 | | | | |
+| Fixed memory pool | 12 | | 1 | | | | | |
+| Variable memory pool | 12 | | | | | | | |
+| Cyclic handler | 12 | 1 | | 1 | 1 | | 1 | |
+| Alarm handler | 12 | | | | | | | |
+
+S1's message buffers are `telemetry_buffer`, `command_buffer`, `ack_buffer` and
+`event_buffer`; S3's are `h_events` and the ADC worker's request and reply
+buffers. The tightest limit is message buffers, 7 of 12.
+
+## 7. Integration notes
+
+**Start-up.** Every interface object (S1's four message buffers and LED
+cyclic, S2's mailbox, pool and semaphore, S3's mutex and event buffer, and the
+S4, S5 and `app_state` mutexes) is created in the `subsystemN_init()` calls
+before any application task starts. Created later: the S3 and S4 sampler
+cyclic handlers (in their `_start`), the S3 ADC worker task and its two
+message buffers (by the S3 task on its first pass), and the watchdog cyclic
+handler (after the VC starts). A failed init or start call keeps the VC from
+starting, and the watchdog is then not started either. The robot boots
+DISARMED; `app_program/robot_config.h` holds the measured profile (IR mode 3,
+odometry and terrain calibration, PID, obstacle bypass).
+
+**Stopping.** The motor task alone handles the urgent STOP epoch, discards
+stale queued movement, polls about every 20 ms and stops on its own 1000 ms
+renewal watchdog. It never returns. A status copy that misses the lock is
+retried on the next poll. A motor or encoder set-up failure keeps PWM off and
+publishes FAULT (VC fault 7 once armed); the task keeps its heartbeat and
+drops commands, so the watchdog does not reboot-loop. Zero PWM is not
+guaranteed to brake at once; the physical stopping time still has to be
+measured.
+
+**Timing.** The kernel tick is 10 ms and every relative wait gets one extra
+tick, so the VC, motor, telemetry and network loops (which ask for 10 ms, or
+2 ms for the network poll) really run about every 20 ms; values counted in VC
+ticks assume 20 ms. The S3 and S4 cyclic samplers run at exactly 10 ms. With
+`BOARD_TIMING_STATS 1`, a USB `[TIMING]` line every 10 s gives the longest
+run, the longest gap and the late count for the VC, motor and network loops (a
+gap over 25 ms counts as late; the motor figure excludes direction dead time).
+
+**Watchdog.** The VC, motor, network, telemetry and S4 sensor loops each add
+one to their own heartbeat counter per pass (`include/tm/robot_health.h`).
+`app_program/app_watchdog.c` checks them every 100 ms from a core-1 cyclic
+handler and feeds the RP2040 watchdog (1500 ms) only while all of them moved
+within 1000 ms. It arms 20 s after boot at the earliest, once every loop has
+run and the network task has finished its first join. A stale loop is written
+to watchdog SCRATCH0–3 and the board reboots at once (the 1500 ms timeout is
+the backup). The record names one loop: on each core the highest-priority
+stale loop, and of those the one stale longest; it also lists every loop
+silent for over 500 ms. The priority and core table is in
+`app_program/shared/watchdog_policy.c`; keep it in step if a task's priority
+or core changes. The handler is released by the core-0 kernel tick, so a
+core-0 interrupt-level hang or a stopped core 1 stops the supervisor itself;
+the timeout then reboots the board and the next boot reports that the
+supervisor stopped feeding. `panic()`, `hard_assertion_failure()`,
+`lwip_utk_assert()` and the HardFault handler write the same record and reboot
+at once. The next boot prints `[RESET] ...` on USB every 10 s for the first
+60 s. After 3 crashes in a row, each within 20 s of boot, the board holds at
+boot instead of starting (no tasks, no WiFi, motors off) and repeats the line
+every 2 s; power-cycle to try again. A new monitored loop must beat at least
+every 1000 ms, also inside long waits. Not monitored: S5, the USB task, the S3
+sampler and ADC worker, the S4 monitor and the LED.
+
+**Stacks.** The VC task has 4096 bytes and telemetry 3072; the other
+application tasks have 2048 (`TASK_STACK_SIZE`). The initial task (`usermain`
+and the `[RESET]`/`[WDT]` report loop) has 1 KB, or 4 KB in `TEST=1` images.
+The kernel adds 128 bytes to each, and interrupts run on the interrupted
+task's stack.
+
+**Build profiles.** `make` with no options builds `NET=none MQTT=0` (no
+dashboard link); the mission build is `NET=lwip MQTT=1`. The UART and
+crash-report builds (`CONSOLE=uart`, `CRASH_REPORT=1`) need GP0/GP1 for UART0,
+so S5 is not built and the integrated robot cannot drive in them: an ARM or START stops with fault 1 (sonar) within 1 s.
+`S2_ONLY=1` and `S4_ONLY=1` are bench builds that compile and start only that
+subsystem (no VC, S1, S3, S5 or watchdog). `TEST=1` adds `subsystem3_test()`,
+run by the initial task while the robot runs. The S5 test builds (`TEST=1`
+with `APP_S5_MASTER_TEST`, `APP_ACQUISITION_TEST`, `APP_ACQUISITION_LEFT_TEST`
+or `APP_S5_SERVO_TEST`) replace the S5 scan task with a diagnostic task (20,
+core 1) and do not start the VC; that task binds to S2 and drives the motors
+itself (the acquisition tests drive forward at 30 % to 15 cm), and all but the
+servo test use GP22. A git-ignored `app_program/robot_config.local.h`
+overrides any `robot_config.h` value, for example `BOARD_MOTORS_DISABLED 1`
+for bench work.
+
+**Robustness.** The VC tolerates three missed motor-status copies in a row; a
+published FAULT still stops at once. An odometry gap holds the robot stopped
+for at most 200 ms. S3 lock timeouts are retried within the 100 ms lease, and
+a decoded marker held with no pending turn is re-armed after 100 ms. A decoded
+turn is still delivered after a later sampler latch; other S3 events older
+than 100 ms are dropped. A barcode capture of 3 or more elements cut short by
+an S3 sampler fault counts as a failed read and starts the re-read
+(`BOARD_BARCODE_FAULT_FAILS 1`); shorter partial captures are dropped. S4
+bridges up to 60 ms of unusable terrain input and keeps a completed hump
+height separately; its counters feed the VC's shock and IMU-fault counts. A
+lift never waives the armed tilt check: both line sensors at 3700 or more with
+GP28 black for 2 s stops the run with fault 8 (lifted). S5 keeps its plan after
+READY, allows one free restart after its initial braking and checks the side
+corridor before READY. The VC ray-checks a shallower heading after reversing
+and waits for a forward reading after every pan. The MQTT wire format
+(two-byte EDR16 records, status ID 0) is in `docs/DATA_REPRESENTATION.md`.

@@ -34,8 +34,11 @@ TOPICS = [(PACKED_TOPIC, 0), (ACK_TOPIC, 0), (EVENT_TOPIC, 0)]
 ROBOT_SILENT_S = 3.0  # no robot data this long while it was sending: log it offline
 EVENT_LIMIT = 200     # event log rows kept (newest last)
 COMMAND_TOPIC = "csc02/command"
-# Scan results retained between reports and cleared by quality bit 0.
+# The last obstacle scan's results: kept until the next scan reports new
+# ones (not cleared by quality bit 0, a broker reconnect or a robot silence).
 WIDTH_TOPICS = ("/width_cm", "/width_left_cm", "/width_right_cm")
+BYPASS_SIDE_TOPIC = "Robopico/Actuators/servo_motor/bypass_side"
+SCAN_RESULT_TOPICS = WIDTH_TOPICS + ("/bypass_side",)
 # Opcode 4 action byte (s3_navigation_t order) and the firmware codebook.
 MAP_TURNS = {"ignore": 0, "left": 1, "right": 2, "forward": 3, "uturn": 4}
 MAP_LABELS = ("Ignore", "Left", "Right", "Forward", "U-turn")
@@ -175,9 +178,12 @@ class BrokerBridge:
         print(status, flush=True)
 
     def reset_observations(self):
-        # Send null updates so an already-open browser clears its cards too.
+        # Send null updates so an already-open browser clears its cards too
+        # (the last scan's results stay).
         with self.lock:
-            for reading in self.readings.values():
+            for topic, reading in self.readings.items():
+                if topic.endswith(SCAN_RESULT_TOPICS):
+                    continue
                 self.sequence += 1
                 reading.update(payload=None, sequence=self.sequence)
             self.flag_hold.clear()
@@ -269,7 +275,7 @@ class BrokerBridge:
             if (word & 0xF00F) == 0x9000:
                 quality=word>>4 & 63  # bits 6..7 = fault cause
                 for topic, reading in self.readings.items():
-                    required=1 if topic.endswith(WIDTH_TOPICS) else 16 if topic.endswith("/speed_mps") else 32 if topic.endswith("/servo_angle_deg") else 0
+                    required=16 if topic.endswith("/speed_mps") else 32 if topic.endswith("/servo_angle_deg") else 0
                     if required and not quality&required:
                         self.sequence+=1;reading.update(payload=None,sequence=self.sequence)
             # An availability record clears the readings it marks unavailable.
@@ -285,6 +291,10 @@ class BrokerBridge:
             for topic, payload in messages:
                 if topic == DROPPED_TOPIC:
                     payload = self.count_drops(payload, self.last_received_at)
+                # "None" (no plan now) keeps the last scan's side shown.
+                kept_side = self.readings.get(topic, {}).get("payload")
+                if topic == BYPASS_SIDE_TOPIC and payload == "None" and kept_side in ("Left", "Right"):
+                    continue
                 self.store(topic, payload, self.last_received_at)
                 self.track_barcode(topic, payload)
 

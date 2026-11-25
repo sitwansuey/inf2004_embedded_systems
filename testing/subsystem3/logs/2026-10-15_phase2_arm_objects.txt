@@ -1,0 +1,13 @@
+Commit: e0a44481e0d9034adcd53233cbfda0be215f7cae
+Shell: MSYS2 Bash, PATH=/ucrt64/bin:/usr/bin:$PATH
+Command: make -C testing/subsystem3 arm-check
+Exit: 2
+
+STDOUT
+make: Entering directory '/c/Users/godga/IdeaProjects/ES/inf2004_embedded_systems/testing/subsystem3'
+arm-none-eabi-gcc --version
+make: Leaving directory '/c/Users/godga/IdeaProjects/ES/inf2004_embedded_systems/testing/subsystem3'
+
+STDERR
+make: arm-none-eabi-gcc: No such file or directory
+make: *** [Makefile:78: arm-check] Error 127

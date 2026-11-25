@@ -1,6 +1,10 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <string.h>
 #include "../../app_program/subsystem5/s5_width.h"
 #include "../../app_program/subsystem5/s5_policy.h"
@@ -69,10 +73,11 @@ static void route(int sign){
  t+=AVOID_CLEAR_RUN_MS;
  i.now_ms=t+270;vc_step(&s,&i);assert(s.phase==VC_TURN_IN && s.command==1 && s.steering==sign*376 && !s.direct_return);
  i.now_ms=t+280;i.yaw_mdeg=-sign*45000;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1 && !s.steering);
- /* No line: on past the expected distance (180 mm at 40 deg is 116 mm off
-  * the line: 164 mm at the 45 deg return heading) by AVOID_RETURN_EXTRA_MM,
-  * then restore the heading. */
- i.now_ms=t+290;i.distance_um+=(164+AVOID_RETURN_EXTRA_MM)*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
+ /* No line: straight on well past the expected distance (180 mm at 40 deg
+  * is 116 mm off the line: 164 mm at the 45 deg return heading, plus
+  * AVOID_RETURN_EXTRA_MM) up to AVOID_RETURN_MAX_MM, then restore the heading. */
+ _Static_assert(164+AVOID_RETURN_EXTRA_MM<AVOID_RETURN_MAX_MM,"return limit is the maximum");
+ i.now_ms=t+290;i.distance_um+=AVOID_RETURN_MAX_MM*1000-1;vc_step(&s,&i);assert(s.phase==VC_RETURN && s.command==1);
  i.now_ms=t+300;i.distance_um+=1;vc_step(&s,&i);assert(s.phase==VC_RESTORE && s.command==1 && s.steering==-sign*376 && s.restore_mdeg==sign*45000);
  i.now_ms=t+310;i.yaw_mdeg=0;vc_step(&s,&i);assert(s.phase==VC_REACQUIRE && !s.command && s.spot_scan && s.search_right_first==(sign>0));
 }
@@ -199,10 +204,22 @@ static void soft(void){
  * manoeuvre sanity checks carry 0; vc_start clears it. */
 static void fault_causes(void){
  vc_state_t s={0};vc_input_t i=good();assert(vc_start(&s,0,30) && !s.fault_cause);i.obstacle=1;i.front_clear=0;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
- i.now_ms=10;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
- i.now_ms=20;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault_cause==VC_CAUSE_SONAR);
+ /* No way round: AVOID_RESCAN_RETRIES rescans from the same spot first (each
+  * waits for a new S5 scan_id, ignoring the stale verdict), then the sonar fault. */
+ i.scan_id=7;i.now_ms=10;
+ for(unsigned n=1;n<=AVOID_RESCAN_RETRIES;++n){
+  i.scan_blocked=1;vc_step(&s,&i);
+  assert(s.phase==VC_ACQUIRE && s.rescans==n && s.rescan_wait && s.rescan_request && s.rescan_id==i.scan_id && !s.command);
+  i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescan_wait && !s.command); /* stale BLOCKED */
+  ++i.scan_id;i.now_ms+=10; /* S5 started a new scan: its verdict counts */
+ }
+ i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+ i.now_ms+=10;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault_cause==VC_CAUSE_SONAR && !s.rescans);
  s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
- i.now_ms=10;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;i.width_valid=0;vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+ /* A finished scan with no valid width is also "no way round": rescans, then the fault. */
+ i.now_ms=10;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;i.width_valid=0;
+ for(unsigned n=1;n<=AVOID_RESCAN_RETRIES;++n){vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==n);++i.scan_id;i.now_ms+=10;}
+ vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
  s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
  i.now_ms=10;i.scan_ready=1;i.turn_deg=90;i.approach_mm=180;vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
  s=(vc_state_t){.armed=1,.phase=VC_DIAGONAL,.maximum_power=30,.approach_mm=100,.fault_cause=VC_CAUSE_TILT};i=good();i.distance_um=1000001;
@@ -215,4 +232,76 @@ static void fault_causes(void){
  i.now_ms=10+VC_ODOM_GAP_MS;vc_step(&s,&i);assert(s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_ODOM);
  vc_stop(&s,VC_OK);assert(!s.fault_cause);s.fault_cause=VC_CAUSE_SONAR;assert(vc_start(&s,20,30) && !s.fault_cause);
 }
-int main(int argc,char **argv){uint8_t bytes[2];width_packet(bytes);if(argc>1 && !strcmp(argv[1],"--packet")){printf("%02x%02x\n",(unsigned)bytes[0],(unsigned)bytes[1]);return 0;}geometry();route(1);route(-1);backup();occupied();soft();fault_causes();puts("PASS: estimated width -> EDR16; width-based legs; bounded reverse before turn-out; side look at the diagonal end, pass in steps, clear run, mirrored return, restore and spot search; 3 fresh consistent side readings; cached/invalid/occupied checks, sonar gap and pan stops.");return 0;}
+/* Reported width: each edge less the sonar beam's half-angle (S5_BEAM_HALF_DEG),
+ * floored at 0; the plan's measured width and bounds are left untouched. */
+static void reported(void){
+ UW l,r;
+ /* 24 Nov robot scan: a 15 cm box at 180 mm found at +41/-45 deg (33.6 cm uncorrected). */
+ s5_status_t scan=measured();scan.obstacle_distance_mm=180;scan.left_bound_deg=41;scan.right_bound_deg=-45;
+ scan.left_bound_distance_mm=230;scan.right_bound_distance_mm=214;
+ s5_width_from_bounds(&scan);assert(scan.object_width_valid && scan.object_width_max_mm>=330U);
+ UW plan_max=scan.object_width_max_mm,plan_left=scan.object_left_mm,plan_right=scan.object_right_mm;
+ s5_width_reported(&scan,&l,&r);
+ long want_l=lround(180.0*tan((41-S5_BEAM_HALF_DEG)*M_PI/180.0)),want_r=lround(180.0*tan((45-S5_BEAM_HALF_DEG)*M_PI/180.0));
+ assert(labs((long)l-want_l)<=1 && labs((long)r-want_r)<=1);
+#if S5_BEAM_HALF_DEG==20
+ assert(l+r>=145U && l+r<=160U); /* ~15 cm, the box's real width */
+#endif
+ assert(scan.object_width_max_mm==plan_max && scan.object_left_mm==plan_left && scan.object_right_mm==plan_right);
+ /* Edges inside the beam half-angle (a face lost early): 0 on that side, never negative. */
+ scan=measured();scan.left_bound_deg=S5_BEAM_HALF_DEG>2?S5_BEAM_HALF_DEG-2:0;scan.right_bound_deg=-30;s5_width_from_bounds(&scan);
+ s5_width_reported(&scan,&l,&r);assert(scan.object_width_valid && l==0U && labs((long)r-lround(150.0*tan((30-S5_BEAM_HALF_DEG)*M_PI/180.0)))<=1);
+ /* No valid width: nothing to report. */
+ scan=measured();s5_width_reported(&scan,&l,&r);assert(!scan.object_width_valid && l==0U && r==0U);
+ s5_width_reported(NULL,&l,&r);assert(l==0U && r==0U);
+ puts("Reported width: edges less the sonar beam half-angle (24 Nov 15 cm box: 33.6 cm -> ~15 cm), floored at 0, plan width unchanged PASS");
+}
+/* In-place rescan when the scan finds no way round (S5 BLOCKED). */
+static void rescan(void){
+ vc_state_t s={0};vc_input_t i=good();
+ /* No new scan within AVOID_RESCAN_WAIT_MS: the sonar fault. */
+ assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.scan_id=3;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.rescans);
+ i.now_ms=100;i.scan_blocked=1;vc_step(&s,&i);
+#if AVOID_RESCAN_RETRIES
+ assert(s.phase==VC_ACQUIRE && s.rescan_wait);
+ i.now_ms=100+AVOID_RESCAN_WAIT_MS-1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescan_wait);
+ i.now_ms=100+AVOID_RESCAN_WAIT_MS;vc_step(&s,&i);
+#endif
+ assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+ /* The bypass off (or no arc steering): fault at once, no rescan. */
+ s=(vc_state_t){0};i=good();i.bypass_enabled=0;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
+ i.now_ms=10;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault_cause==VC_CAUSE_SONAR && !s.rescan_request);
+ s=(vc_state_t){0};i=good();i.bypass_steering=0;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
+ i.now_ms=10;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_FAULT && s.fault_cause==VC_CAUSE_SONAR);
+#if AVOID_RESCAN_RETRIES
+ /* The rescan finds a way round: its plan is taken (the bypass starts). */
+ s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.scan_id=5;vc_step(&s,&i);
+ i.now_ms=10;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==1);
+ i.now_ms=20;i.scan_blocked=0;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;vc_step(&s,&i);
+ assert(s.phase==VC_ACQUIRE && s.rescan_wait); /* a stale READY of the blocked scan does not count */
+ i.now_ms=30;i.scan_id=6;vc_step(&s,&i);assert(s.phase==VC_BACKUP && s.turn_deg==40 && !s.rescan_wait && !s.rescan_request);
+ /* Robot timing (25 Nov review): a full scan takes ~12-13 s. Scan 1 BLOCKED at
+  * 12.7 s, retry 1 BLOCKED at 26 s, retry 2 READY at 38 s: each rescan has its
+  * own 30 s, so the bypass starts (no VC_TIMEOUT at 30 s). */
+ s=(vc_state_t){0};i=good();i.scan_id=20;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.now_ms=0;vc_step(&s,&i);
+ i.now_ms=12700;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==1);
+ i.now_ms=13200;i.scan_blocked=0;i.scan_id=21;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && !s.rescan_wait);
+ i.now_ms=26000;i.scan_blocked=1;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE && s.rescans==2);
+ i.now_ms=26500;i.scan_blocked=0;i.scan_id=22;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE);
+ i.now_ms=31000;vc_step(&s,&i);assert(s.phase==VC_ACQUIRE); /* past 30 s from the first entry */
+ i.now_ms=38000;i.scan_ready=1;i.turn_deg=40;i.approach_mm=180;vc_step(&s,&i);assert(s.phase==VC_BACKUP);
+ /* The same with retry 2 BLOCKED too: the sonar fault, not the run timeout. */
+ s=(vc_state_t){0};i=good();i.scan_id=30;assert(vc_start(&s,0,30));i.obstacle=1;i.front_clear=0;i.now_ms=0;vc_step(&s,&i);
+ i.now_ms=12700;i.scan_blocked=1;vc_step(&s,&i);
+ i.now_ms=13200;i.scan_blocked=0;i.scan_id=31;vc_step(&s,&i);
+ i.now_ms=26000;i.scan_blocked=1;vc_step(&s,&i);
+ i.now_ms=26500;i.scan_blocked=0;i.scan_id=32;vc_step(&s,&i);
+ i.now_ms=38000;i.scan_blocked=1;vc_step(&s,&i);
+ assert(s.phase==VC_FAULT && s.fault==VC_SENSOR && s.fault_cause==VC_CAUSE_SONAR);
+ /* Each new obstacle (TRACK -> ACQUIRE) gets the full count again. */
+ s=(vc_state_t){0};i=good();assert(vc_start(&s,0,30));s.rescans=2;i.obstacle=1;i.front_clear=0;vc_step(&s,&i);
+ assert(s.phase==VC_ACQUIRE && !s.rescans);
+#endif
+ puts("No way round: up to AVOID_RESCAN_RETRIES rescans from the same spot (stale verdicts ignored, AVOID_RESCAN_WAIT_MS for a new scan), only with the bypass on, then the sonar fault PASS");
+}
+int main(int argc,char **argv){uint8_t bytes[2];width_packet(bytes);if(argc>1 && !strcmp(argv[1],"--packet")){printf("%02x%02x\n",(unsigned)bytes[0],(unsigned)bytes[1]);return 0;}reported();rescan();geometry();route(1);route(-1);backup();occupied();soft();fault_causes();puts("PASS: estimated width -> EDR16; width-based legs; bounded reverse before turn-out; side look at the diagonal end, pass in steps, clear run, mirrored return, restore and spot search; 3 fresh consistent side readings; cached/invalid/occupied checks, sonar gap and pan stops.");return 0;}

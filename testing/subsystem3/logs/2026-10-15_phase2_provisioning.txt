@@ -1,0 +1,33 @@
+Toolchain/configuration inspection, 2026-10-15. No install completed.
+
+Command: where.exe arm-none-eabi-gcc
+Exit: 1
+INFO: Could not find files for the given pattern(s).
+
+Command: where.exe arm-none-eabi-as
+Exit: 1
+INFO: Could not find files for the given pattern(s).
+
+Command: where.exe arm-none-eabi-ld
+Exit: 1
+INFO: Could not find files for the given pattern(s).
+
+Command: where.exe arm-none-eabi-objcopy
+Exit: 1
+INFO: Could not find files for the given pattern(s).
+
+Command: where.exe cmake
+Exit: 1
+INFO: Could not find files for the given pattern(s).
+
+Command: curl.exe --head --connect-timeout 10 https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+Exit: 7
+curl: (7) Failed to connect to developer.arm.com:443 after 23 ms: Could not connect to server
+
+Command: wsl.exe --list --quiet
+Exit: 4294967295
+Access is denied.
+Error code: Wsl/EnumerateDistros/Service/E_ACCESSDENIED
+
+Pico SDK not found in the workspace or conventional local Pico SDK directories. No ARM binaries in PATH or checked local compiler installations/cache.
+GitHub Actions installs actual ARM GCC/newlib and SDK; remote run is awaiting publication/PR.

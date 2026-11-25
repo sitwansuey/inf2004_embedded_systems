@@ -1,0 +1,69 @@
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=c11 -O1 -Wall -Wextra -Werror -Wshadow -Wconversion -pedantic -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -DTK_SUPPORT_SMP=0 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_barcode_capture.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\drv_ir.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_line.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_barcode.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_core.c -o C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\capture0.exe
+EXIT: 0
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\capture0.exe
+S3-U46 capture copy/overflow/no authority PASS
+S3-U47 capture invalid/init cleanup PASS
+Buddy 3 barcode capture: 2 groups, 391 checks, 0 failures
+EXIT: 0
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=gnu11 -ffreestanding -Wall -Wextra -Werror -Wno-int-to-pointer-cast -fsyntax-only -D_PICO_RP2040_ -DCNF_SMP=0 -DS2_ENCODER_ENABLED=1 -DBOARD_UART0_FREE=1 -DTM_CONSOLE_UART=0 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\include -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\config -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\kernel\knlinc C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\app_main.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem1\task_telemetry.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\subsystem3.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\drv_ir.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\drv_ir_adc.c
+EXIT: 0
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=c11 -O1 -Wall -Wextra -Werror -Wshadow -Wconversion -pedantic -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -DTK_SUPPORT_SMP=1 -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_barcode_capture.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\drv_ir.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_line.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_barcode.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_core.c -o C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\capture1.exe
+EXIT: 0
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\capture1.exe
+S3-U46 capture copy/overflow/no authority PASS
+S3-U47 capture invalid/init cleanup PASS
+Buddy 3 barcode capture: 2 groups, 395 checks, 0 failures
+EXIT: 0
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=gnu11 -ffreestanding -Wall -Wextra -Werror -Wno-int-to-pointer-cast -fsyntax-only -D_PICO_RP2040_ -DCNF_SMP=1 -DS2_ENCODER_ENABLED=1 -DBOARD_UART0_FREE=1 -DTM_CONSOLE_UART=0 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\include -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\config -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\kernel\knlinc C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\app_main.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem1\task_telemetry.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\subsystem3.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\drv_ir.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\drv_ir_adc.c
+EXIT: 0
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=c11 -O1 -Wall -Wextra -Werror -Wshadow -Wconversion -pedantic -I C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -fanalyzer -DS3_TEST_ADC_ENABLED=1 -include host_support.h test_barcode_capture.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\drv_ir.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_line.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_barcode.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_core.c -o C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\analyzed.exe
+EXIT: 0
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=c11 -DBOARD_IR_BARCODE_CAPTURE=1 -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -DBOARD_MOTORS_DISABLED=0 -x c -fsyntax-only C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\robot_config.h
+C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\robot_config.h:39:2: error: #error Calibrated IR bench requires locked motors, ADC and no raw profile
+   39 | #error Calibrated IR bench requires locked motors, ADC and no raw profile
+      |  ^~~~~
+C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\robot_config.h:53:2: error: #error Barcode capture requires the measured, motor-locked IR bench
+   53 | #error Barcode capture requires the measured, motor-locked IR bench
+      |  ^~~~~
+EXIT: 1
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=c11 -DBOARD_IR_BARCODE_CAPTURE=1 -x c -fsyntax-only C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\robot_config.h
+C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\robot_config.h:53:2: error: #error Barcode capture requires the measured, motor-locked IR bench
+   53 | #error Barcode capture requires the measured, motor-locked IR bench
+      |  ^~~~~
+EXIT: 1
+COMMAND: git -C C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems diff --check
+EXIT: 0
+
+HOST REPLAY FIXTURES (NOT ROBOT RESULTS)
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=c11 -O1 -Wall -Wextra -Werror -Wshadow -Wconversion -pedantic -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\testing\subsystem3\replay_barcode_capture.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_line.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_barcode.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_core.c -o C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe
+EXIT: 0
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\aFalse.csv A
+DECODE symbol=A reverse=0 t=5120 segment=1
+SUMMARY rows=288 segments=1 discontinuities=0 tracking=288 decoded=1 expected=1 wrong=0 max_gap_ms=30 timeout_ms=10000
+EXIT: 0
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\gap.csv A
+SUMMARY rows=288 segments=2 discontinuities=1 tracking=288 decoded=0 expected=0 wrong=0 max_gap_ms=30 timeout_ms=10000
+EXIT: 2
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\invalid.csv A
+SUMMARY rows=288 segments=2 discontinuities=1 tracking=287 decoded=0 expected=0 wrong=0 max_gap_ms=30 timeout_ms=10000
+EXIT: 2
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\drop.csv A
+SUMMARY rows=288 segments=2 discontinuities=1 tracking=288 decoded=0 expected=0 wrong=0 max_gap_ms=30 timeout_ms=10000
+EXIT: 2
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\aTrue.csv A
+DECODE symbol=A reverse=1 t=5120 segment=1
+SUMMARY rows=288 segments=1 discontinuities=0 tracking=288 decoded=1 expected=1 wrong=0 max_gap_ms=30 timeout_ms=10000
+EXIT: 0
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\zFalse.csv Z
+DECODE symbol=Z reverse=0 t=5120 segment=1
+SUMMARY rows=288 segments=1 discontinuities=0 tracking=288 decoded=1 expected=1 wrong=0 max_gap_ms=30 timeout_ms=10000
+EXIT: 0
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\zTrue.csv Z
+DECODE symbol=Z reverse=1 t=5120 segment=1
+SUMMARY rows=288 segments=1 discontinuities=0 tracking=288 decoded=1 expected=1 wrong=0 max_gap_ms=30 timeout_ms=10000
+EXIT: 0
+COMMAND: C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay.exe C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\malformed.csv A
+Invalid CSV row 2
+EXIT: 1
+COMMAND: C:\msys64\ucrt64\bin\gcc.exe -std=c11 -O1 -Wall -Wextra -Werror -Wshadow -Wconversion -pedantic -DBOARD_IR_CALIBRATED_BENCH=1 -DBOARD_IR_MODE=2 -fanalyzer C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\testing\subsystem3\replay_barcode_capture.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_line.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_barcode.c C:\Users\godga\IdeaProjects\ES\inf2004_embedded_systems\app_program\subsystem3\buddy3_core.c -o C:\Users\godga\Documents\Codex\2026-10-21\referenced-chatgpt-conversation-this-is-an-2\work\barcode-capture-tests\replay_analyzed.exe
+EXIT: 0

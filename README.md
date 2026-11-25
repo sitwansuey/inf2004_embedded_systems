@@ -1,27 +1,42 @@
 # INF2004 CSC02 robot firmware
 
-Pico W / RP2040 firmware using micro T-Kernel 3 SMP. See TEAM.md for hardware
-ownership and task/interface responsibilities. The current implementation
-includes the five subsystems, controller, binary telemetry and dashboard.
+This project is firmware for a Raspberry Pi Pico W line-following robot on
+micro T-Kernel 3.0, running on both RP2040 cores. It reads Code 39 barcodes,
+bypasses obstacles with a servo-mounted ultrasonic ranger, and detects humps
+with a GY-511 accelerometer and magnetometer. It sends binary telemetry and
+robot events through an MQTT broker to a web dashboard, which can reset,
+start and stop a mission and remap barcode letters.
 
-Firmware boots DISARMED and drives only after RESET then START. The
-`app_program/robot_config.h` defaults are this robot's measured mission profile:
-motors enabled, wheel trims 86% (left) and 93% (right), calibrated wheel-speed
-PID, IR mode 3, terrain calibration and obstacle bypass. Physical accuracy,
-full-course behavior, target timing and runtime memory still require
-validation. GY-511 has an accelerometer and magnetometer, no gyroscope. The
-line follower is the mask-pivot follower; edge tracing is a build option
-(`BOARD_LINE_MASK_PIVOT 0`, `BOARD_LINE_EDGE_TRACE 1`). With the mask-pivot
-follower, `BOARD_LINE_LOST_MM` (600 mm, 0 = off) of tracking with neither
-straddle IR on black starts the bounded on-the-spot line search. The
-barcode codebook defaults to A U-turn, F left and Z right (the dashboard can
-remap letters); START runs one autonomous mission.
+- [TEAM.md](TEAM.md): owners, pins, peripherals, task priorities, interfaces
+  IF-01 to IF-22 and the kernel object budget.
+- [testing/](testing/README.md): every test case, result and saved log.
+- [videos/](videos/README.md): unlisted YouTube videos of hardware tests and demos.
+- [Calibration](calibration/README.md): current settings and measurement records.
+- [Wire format](docs/DATA_REPRESENTATION.md): EDR16 telemetry and robot events.
 
-## Build
+## 1. Set up the build tools
 
-Install the Pico SDK (including TinyUSB/CYW43 and lwIP for MQTT), Arm GNU
-compiler, GNU Make and a host compiler/Python for software tests. From the
-repository root on Windows with MSYS2, build the MQTT mission image:
+Install the Pico C SDK, the Arm GNU Toolchain (`arm-none-eabi-gcc`), GNU Make
+and a host C++ compiler for `elf2uf2`. The SDK needs its `lib/tinyusb`,
+`lib/cyw43-driver` and `lib/lwip` submodules for the MQTT mission build.
+The SDK and compiler are separate installations.
+
+On Windows, the build helper supports WSL Ubuntu or native MSYS2. A native
+build needs MSYS2's `bash` and `make` in `C:\msys64\usr\bin` (pass `-MsysBin`
+if yours is elsewhere) and a host `c++` for `elf2uf2`; the helper puts
+`C:\msys64\ucrt64\bin` on `PATH` for that compiler.
+
+Before building on your own machine, copy `config/wifi_secrets.example.h` to
+`config/wifi_secrets.h`. Set `WIFI_SSID`, `WIFI_PASSWORD`, `MQTT_BROKER_IP`,
+`MQTT_BROKER_PORT` and a suitable `MQTT_CLIENT_ID`. The broker address must be
+an IPv4 address reachable from the robot. Optional `MQTT_USERNAME` and
+`MQTT_PASSWORD` enable broker login. The secrets file is git-ignored; never
+commit it or put credentials in test logs.
+
+## 2. Build, flash and read the console
+
+Run from the repository root. This native Windows example uses the `Mqtt`
+profile; change both installation paths to match your computer:
 
 ```powershell
 .\tools\build_windows.ps1 -Backend Native `
@@ -29,81 +44,144 @@ repository root on Windows with MSYS2, build the MQTT mission image:
   -PicoSdkPath "$env:USERPROFILE\.pico-sdk\sdk\2.3.0" -Profile Mqtt
 ```
 
-Adjust paths to your installation. The helper builds only; it does not flash.
-It runs plain `make -C build_make` (here with `NET=lwip MQTT=1`), which also
-works directly with `PICO_SDK_PATH` exported and the Arm compiler on PATH; the
-mission image is `build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc.uf2`.
-`Mqtt` requires ignored `config/wifi_secrets.h` copied from its example. The
-other profiles are `Default` (no MQTT), `PassiveTest`, `SingleCore`, `Uart`,
-`S2Bench` and `S4Bench`; `S4Bench` starts IMU application tasks for sensor-only
-validation. Optional per-checkout overrides go in the ignored
-`app_program/robot_config.local.h` (see `robot_config.local.example.h`). UART
-builds conflict with sonar pins and disable Buddy 5.
+If PowerShell refuses to run scripts, start the same command with `powershell -ExecutionPolicy Bypass -File
+.\tools\build_windows.ps1` followed by the same arguments.
 
-## Software checks
+For WSL, install `make`, `g++` and the Arm compiler inside Ubuntu, for
+example `sudo apt install -y make g++ gcc-arm-none-eabi`. The helper runs a
+non-interactive `bash` that does not read `~/.bashrc`, so the compiler must be
+on Ubuntu's default `PATH`; the helper sets `PICO_SDK_PATH` itself. Keep the
+SDK on a Windows drive and pass its absolute Windows path:
 
-Run these in a shell with GCC, GNU Make, Python and Arm GNU on PATH:
+```powershell
+.\tools\build_windows.ps1 -Backend WSL -Distribution Ubuntu `
+  -PicoSdkPath C:\pico\pico-sdk -Profile Mqtt
+```
+
+The helper runs `make -C build_make -j8 NET=lwip MQTT=1` and does not flash.
+You can also run that command in a shell with `PICO_SDK_PATH` set and the
+compiler on `PATH`. The mission image is
+`build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc.uf2`. The firmware turns
+Wi-Fi power save off.
+
+1. Hold **BOOTSEL** while plugging the Pico W into USB, then release it.
+2. Copy the `.uf2` onto the **RPI-RP2** drive. The Pico reboots.
+3. Open its USB serial port at **115200 baud**. On Windows, select the new
+   COM port in PuTTY or a serial monitor. On Linux, for example, use
+   `screen /dev/ttyACM0 115200`.
+
+The mission firmware boots `DISARMED`. With the robot ready for motion, send
+`r` then `g` to reset and start a mission. These USB keys send command frames:
+
+| Key | Command |
+|---|---|
+| `s` | STOP |
+| `a` | ARM at 30% demand with a 500 ms lease; renew to keep running |
+| `r` | RESET while stopped |
+| `g` | Autonomous START at 30% demand |
+
+After a STOP ends an `a` run, ARM is refused until RESET, or until no ARM
+has arrived for 1 s. The dashboard's START uses 20% demand. After the robot
+connects to the broker, and after a dashboard STOP, it refuses dashboard ARM
+and START until it has passed a RESET to the controller's command queue. Demand is a speed
+request in PID builds; it is not the measured wheel speed or a fixed PWM duty
+cycle.
+
+## 3. Build options and crash reports
+
+Plain `make -C build_make -j8` uses `SMP=1 CONSOLE=usb_cdc WIFI=cyw43`
+with `NET=none MQTT=0 TEST=0 CRASH_REPORT=0` and encoders enabled. Give options
+on every build; the profile stamp rebuilds objects when these options change.
+
+| Helper profile | Make options added |
+|---|---|
+| `Default` | None |
+| `Mqtt` | `NET=lwip MQTT=1` |
+| `PassiveTest` | `TEST=1` (no MQTT) |
+| `SingleCore` | `SMP=0` |
+| `Uart` | `CONSOLE=uart WIFI=none` |
+| `S4Bench` | `S4_ONLY=1` |
+
+`S2_ONLY=1` and `S4_ONLY=1` are bench builds that start only that
+subsystem: no vehicle controller, no other subsystem and no watchdog.
+`TEST=1` in the integrated build runs the passive `subsystem3_test()` check; it does not run a full set
+of subsystem hardware tests. See [testing/](testing/README.md) for the host
+suites and hardware test procedure.
+
+For a crash report, build with:
+
+```sh
+make -C build_make -j8 NET=lwip MQTT=1 CRASH_REPORT=1
+```
+
+UART0 uses **GP0 TX / GP1 RX at 115200 baud**. Disconnect the sonar hardware
+from those pins, connect a USB-serial adapter's RX to GP0 and GND to GND, and
+read that port. This build copies every console line to UART0 and sends it
+at once, so the last messages and the kernel's crash report still appear after a crash, when
+the USB console has gone quiet. The image is
+`build_make/mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_crash_enc.uf2`.
+S5 is not built in this configuration, so the integrated robot cannot
+drive: an ARM or START stops with fault 1 (sonar) within 1 s. `CONSOLE=uart` also reserves those
+pins. See [TEAM.md](TEAM.md) before changing wiring.
+
+`app_program/robot_config.h` holds the robot's mission defaults.
+`app_program/robot_ir_calibration.h` holds the ADC endpoints. Optional
+per-checkout overrides use the git-ignored `app_program/robot_config.local.h`;
+see `app_program/robot_config.local.example.h`. For bench work,
+`#define BOARD_MOTORS_DISABLED 1` there keeps the motors off and rejects
+ARM and START.
+
+The default line follower pivots toward a straddle sensor on black and drives
+forward when both are white or both are black. After 600 mm with neither
+sensor on black, it starts a bounded spot search (`BOARD_LINE_LOST_MM`).
+Edge tracing is a build option (`BOARD_LINE_MASK_PIVOT 0`,
+`BOARD_LINE_EDGE_TRACE 1`). The default barcode actions are A U-turn, F Left
+and Z Right; the dashboard can remap them. See the calibration guide before changing these settings.
+
+In the mission build, the runtime watchdog monitors the controller, motor, network, telemetry and
+S4 sensor loops. After a watchdog or recorded crash reboot, the console's
+`[RESET]` line reports the cause. [TEAM.md](TEAM.md) describes startup, timing,
+watchdog limits and the repeated-crash boot hold.
+
+## 4. Run the dashboard
+
+Start an MQTT broker separately. Use its reachable address below and the
+same broker in the robot's secrets file:
+
+```powershell
+python -m pip install -r app_program/external_systems/Dashboard/requirements.txt
+python app_program/external_systems/Dashboard/dashboard.py --broker YOUR_BROKER --mqtt-port 1883
+```
+
+Open <http://127.0.0.1:8001>. Use **Reset robot**, then **Start test**.
+**STOP** ends motion. The receiver subscribes to telemetry, robot events and
+command replies. See the [dashboard guide](app_program/external_systems/Dashboard/README.md)
+for credentials, display behaviour and barcode mappings.
+
+## 5. Run the host tests
+
+Run from the repository root with Python 3, native GCC and GNU Make on
+`PATH` (use `python3` where `python` is not found). The S3 `arm-check` target
+also needs the Arm compiler; browser display checks need Node.js. GCC analysis
+targets use `-fanalyzer`.
 
 ```sh
 python -B testing/data_representation/run.py
-make -C app_program/subsystem4/tests/host analyze sizes
-make -C testing/integration test
+python -B app_program/subsystem2/tests/host/run.py
 make -C testing/subsystem3 test analyze check-headers arm-check verify-failure
+make -C app_program/subsystem4/tests/host analyze sizes
+python -B testing/integration/run.py
+python -B -m unittest discover -s app_program/external_systems/Dashboard -p "test_*.py"
 ```
 
-Linux CI also runs ASan/UBSan; some native Windows GCC distributions lack those
-runtimes. Test fixtures, schemas and CI definitions are tracked implementation
-inputs. Generated reports, captures and supplementary documents stay local.
+The first command already runs the S2 host suite and
+the dashboard Python tests; the second and last commands run them on their own.
+`make -C testing/integration test` is the Make entry point for integration
+checks. [testing/README.md](testing/README.md) explains dependencies, skipped
+checks and how to save results. Test records and logs are tracked. Host tests
+check software with simulated hardware; physical results belong in the
+subsystem and system test records.
 
-## Interfaces
-
-B2's checked 13-byte internal encoder snapshot feeds B4 terrain processing. B4 exposes
-protected 71-byte acquisition copies and a checked 12-byte terrain result;
-C interfaces and exact field definitions are in subsystem4 headers/code. The
-controller alone authorizes motion; B2 owns PWM/encoder IRQ, B3 owns IR, B4
-owns I2C and B5 owns sonar/servo. B1 queues a private 55-byte snapshot, then the
-network owner marshals each reading into its own two-byte EDR16 MQTT message.
-The private snapshot is never published. Shared speed uses `app_speed_mm_s()`. Preserve
-explicit lengths, validity/fault flags, operating time, STOP and lease behavior.
-
-Dashboard: run `python app_program/external_systems/Dashboard/dashboard.py --broker YOUR_BROKER`
-after installing that folder's requirements. It subscribes to
-`Robopico/sensors/edr16/v1` (telemetry), `Robopico/events/edr16/v1` (the robot
-event log) and `csc02/command/ack`; each reading keeps its latest value and is
-marked stale after 5 s. ID 0 carries mission status, while sensor IDs 1-15 retain
-their meanings. See
-[the complete wire contract](docs/DATA_REPRESENTATION.md).
-
-The professor's final ramp is approximately the smaller practice ramp's height.
-The higher ramp may be disregarded. Measure geometry and calibrate the estimator;
-do not pre-enter the expected answer. Supplementary guides/evidence are local
-only for now. Required CR1 representation tables, RAM/message comparisons and
-correctness/performance evidence must be added to GitHub before final submission.
-
-Checkpoint 8c keeps the tuned follower, ramp powers and avoidance ramps. Plain
-descents get the 20% slope cap. A flat hump top keeps the crest cap until
-descent and level; its level event uses S4's completed-height latch. S4 counts
-brief impacts and IMU faults between controller reads. Impact reporting stays
-on and `BOARD_SHOCK_STOP` stays 0 (decision 1).
-
-After a side look the robot waits stopped for a new clear forward sample.
-BACKUP waits at most 1.5 s for an APPROACH/0 sample before its full 1 s reverse.
-
-Track changes (2026-11-20): after a clear side look the robot drives straight
-for 0.5 s, then returns to the line at 45 deg or more (`AVOID_CLEAR_RUN_MS`,
-`AVOID_RETURN_MIN_DEG`). The crest cap is 15% (`BOARD_RAMP_DOWN_POWER`).
-A shallower heading after reversing gets a stopped ray check; a blocked or
-timed-out check keeps S5's verified heading. Calibrate `BOARD_SERVO_US_PER_90`
-(default 750 us) as well as the centre.
-
-Checkpoint 8c also adds a hardware watchdog after two core-0 freezes on the
-robot. Once boot has finished, the board reboots (PWM off, DISARMED) if the
-VC, motor, network, telemetry or IMU loop stops for over 1 s, or at once
-after a panic, SDK/lwIP assert or HardFault. The next boot prints a
-`[RESET] ...` line on USB naming the cause. The VC stack is 4096 bytes and
-telemetry 3072 (2048 was too small for both). Wi-Fi power save is off.
-A repeated ARM at the same demand now renews a leased ARM run, so
-`tools/robot_console.py --arm` works as documented. A STOP still ends such
-a run for good: ARM is refused until RESET or 1 s with no ARM. Three early
-crashes in a row make the next boot hold with nothing started and print
-the cause every 2 s. The freeze trigger itself is not yet found.
+*micro T-Kernel 3.0 © Ken Sakamura / TRON Forum, distributed under the
+T-License 2.2. This dual-core RP2040 port is derived from the official
+μT-Kernel 3.0 BSP (`tron-forum/mtk3_bsp`, branch `pico_rp2040`).*

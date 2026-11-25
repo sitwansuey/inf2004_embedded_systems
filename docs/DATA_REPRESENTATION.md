@@ -1,10 +1,9 @@
-# Repository external data representation: EDR16 v1
+# External data representation: EDR16 v1
 
-EDR16 is the common binary telemetry standard for all buddies. Each record is
-one uint16_t: bits 0–3 identify the reading and bits 4–15 hold its unsigned data.
-Transmit exactly two bytes, least-significant byte first. No source/length
-header is prepended. Use explicit byte lengths, never strlen or native structs.
-The MQTT topic `Robopico/sensors/edr16/v1` identifies this protocol/version.
+Each telemetry record is one 16-bit word: bits 0–3 identify the reading;
+bits 4–15 contain unsigned data. Send exactly two bytes, low byte first,
+on `Robopico/sensors/edr16/v1`. Use explicit byte lengths, not `strlen()`
+or native structure copies.
 
 ```c
 word = (data << 4) | id;
@@ -12,229 +11,259 @@ id = word & 0x000f;
 data = word >> 4;
 ```
 
-The canonical C definition is `app_program/shared/edr.h`; the canonical Python
-codec is `tools/edr_decode.py`, which the dashboard adapter imports. Do not add
-another independent packing scheme in a buddy's folder.
+The C codec is `app_program/shared/edr.h` and `edr.c`. The Python codec is
+`tools/edr_decode.py`, imported by the dashboard adapter. `edr_encode()`
+checks capacity and values; `edr_decode()` requires exactly two bytes.
+Errors leave C output buffers unchanged. No envelope, timestamp or checksum
+is added. Robot events use the same shape on a separate topic and must use
+the event decoder below. Both codecs reject reserved ID 0 values, unused
+flag bits and out-of-range values. The topic suffix `/v1` is the only
+version marker, so update the firmware and dashboard/Python together.
 
-| ID | Binary | Owner / reading | Meaning of the 12-bit data |
-|---|---|---|---|
-| 1 | 0001 | B2 left encoder / motor 1 | cumulative forward count modulo 4096 |
-| 2 | 0010 | B2 right encoder / motor 2 | cumulative forward count modulo 4096 |
-| 3 | 0011 | B5 servo | whole degrees, 0–180 |
-| 4 | 0100 | B5 ultrasonic | whole centimetres, 0–4095 |
-| 5 | 0101 | B3 left IR | raw reading, 0–4095; digital mode 0/1 |
-| 6 | 0110 | B3 right IR | raw reading, 0–4095; digital mode 0/1 |
-| 7 | 0111 | B3 barcode IR | GP28 digital level 0/1 (1 = black) in IR mode 3; raw ADC reading in mode 2; not decoded text |
-| 8 | 1000 | B4 magnetometer X | milligauss + 2048 |
-| 9 | 1001 | B4 magnetometer Y | milligauss + 2048 |
-| 10 | 1010 | B4 magnetometer Z | milligauss + 2048 |
-| 11 | 1011 | B2 motor status | command[2:0], power[9:3], state[11:10] |
-| 12 | 1100 | B2 motor fault flags (+ S4 IMU bit) | fault bit mask, 0–127; bits 7–11 zero |
-| 13 | 1101 | B4 accelerometer X | milligravity (mg) + 2048 |
-| 14 | 1110 | B4 accelerometer Y | milligravity (mg) + 2048 |
-| 15 | 1111 | B4 accelerometer Z | milligravity (mg) + 2048 |
+## Sensor records
 
-ID zero identifies mission-status observations. Its 12-bit data contains a
-4-bit subtype in bits 11-8 and an 8-bit value in bits 7-0. This extension uses
-no sensor ID twice. Each record remains independently decodable; no selector
-state, envelope, multi-record MQTT payload or atomic snapshot is assumed.
-Older receivers that reject ID zero must be updated with this repository.
-Out-of-range inputs are rejected without changing output buffers. Offset-binary
-magnetic/acceleration helpers accept -2048…2047. Magnetic display is (data-2048)/10
-uT; acceleration display is (data-2048)*9.80665/1000 m/s². The latter covers the
-current +/-2 g acquisition range to the stated integer bounds. The internal
-snapshot bounds signed observations to this range before the EDR adapter. No float printf is required on the Pico.
+| ID | Reading | Meaning of the 12-bit data |
+|---|---|---|
+| 1 | S2 left encoder / motor 1 | Cumulative forward count modulo 4096 |
+| 2 | S2 right encoder / motor 2 | Cumulative forward count modulo 4096 |
+| 3 | S5 servo | Commanded angle 0–180°; S5's signed angle plus 90 |
+| 4 | S5 ultrasonic | Whole centimetres, 0–4095 in the codec |
+| 5 | S3 left IR | Raw ADC 0–4095; 0/1 with `BOARD_IR_MODE` 1 (digital) |
+| 6 | S3 right IR | Raw ADC 0–4095; 0/1 with `BOARD_IR_MODE` 1 (digital) |
+| 7 | S3 barcode IR | GP28 digital 0/1, 1 = black, with `BOARD_IR_MODE` 3 (the mission setting); raw ADC with mode 2 |
+| 8 | S4 magnetic X | Milligauss + 2048 |
+| 9 | S4 magnetic Y | Milligauss + 2048 |
+| 10 | S4 magnetic Z | Milligauss + 2048 |
+| 11 | S2 motor status | Command in bits 0–2, power in bits 3–9, state in bits 10–11 |
+| 12 | Motor and IMU fault flags | Bits 0–6 below; bits 7–11 zero |
+| 13 | S4 acceleration X | Milligravity (mg) + 2048 |
+| 14 | S4 acceleration Y | Milligravity (mg) + 2048 |
+| 15 | S4 acceleration Z | Milligravity (mg) + 2048 |
+
+Magnetic and acceleration values use signed integers −2048 to 2047 before
+the offset. The dashboard converts magnetic data with `(data - 2048) / 10`
+µT and acceleration with `(data - 2048) * 9.80665 / 1000` m/s². S1 bounds these
+inputs before packing. Its sonar source requires a fresh, valid distance
+above zero and at most 5000 mm; it rounds `(distance_mm + 5) / 10` to cm.
+The servo value is a command, not measured position feedback.
+
+Motor commands 0–6 are STOP, FORWARD, REVERSE, LEFT, RIGHT, PIVOT_RIGHT and
+PIVOT_LEFT. Power is 0–100%; states 0–2 are STOPPED, MOVING and FAULT.
+Other command, power or state values are rejected. The motor word is
+software-packed command state, not a hardware encoder packet.
+
+| ID 12 bit | Definition |
+|---|---|
+| `0x01` | Stall |
+| `0x02` | Encoder |
+| `0x04` | IMU |
+| `0x08` | No echo |
+| `0x10` | Wi-Fi |
+| `0x20` | Motor timeout |
+| `0x40` | Other motor error |
+
+The current firmware sets only three of these bits. Motor timeout or other
+motor error comes from S2's last error (`s2_motor_error_code()`). S1 adds IMU
+when a controller S4 result, or a change in the VC's IMU-fault count, showed an
+IMU fault since the last queued snapshot that carried ID 12. Stall, encoder,
+no echo and Wi-Fi are defined but never set. A clipped accelerometer sample
+is also an impact; an unclipped impact alone is not an IMU fault. ID 12 is
+sent only with motor availability, so the IMU bit stays set until a queued
+snapshot has motor availability.
+
+Examples, with bytes in transmission order:
+
+| Reading | Word | Bytes |
+|---|---|---|
+| Left count 100 | `0x0641` | `41 06` |
+| Left count 0 | `0x0001` | `01 00` |
+| Forward, 30%, moving | `0x4f1b` | `1b 4f` |
+| Timeout flag | `0x020c` | `0c 02` |
+| Magnetic X zero | `0x8008` | `08 80` |
 
 ## Mission-status ID 0
 
-`data = (subtype << 8) | value`, then `word = data << 4` (ID zero).
-Angles/speed/line error truncate toward zero; height/width round to nearest
-5 mm. Quantisation is telemetry-only: control uses full internal precision.
+For ID 0, data bits 11–8 contain a subtype and bits 7–0 contain its value:
+`data = (subtype << 8) | value`. Each record is independently decodable.
+Quantisation affects telemetry only; control uses full internal precision.
 
-| Subtype | Meaning of value |
+| Subtype | Value layout and units |
 |---|---|
-| 0 | phase in low nibble (0-13; 13 = reverse before turn-out), controller fault in high nibble (0-8; 8 = lifted) |
-| 1 | last decoded barcode in bits 4:0 (0 none, 1-26 = A-Z, mapped to a route or not); navigation in bits 7:5 (0 none, 1 left, 2 right, 3 straight, 4 U-turn) |
-| 2 | line state bits 2:0, the line follower's request this tick: 0 straight (or not following), 1 steer right, 2 steer left, 3 pivot right, 4 pivot left (the default mask-pivot follower sends 3/4 only while that IR is on black and 0 when both are white); straddle IR black mask bits 5:3 (1 right, 2 left, 3 both) |
-| 3 | pitch in whole degrees + 128 |
-| 4 | roll in two-degree units + 128 |
-| 5 | bits 2-0 terrain: 0 flat, 1 ascent, 2 crest, 3 descent, 4 shock, 5 invalid; bits 7-3 barcode elements (bars + spaces) read in the current/last barcode, shown as x/29 (0-31, saturating) |
-| 6 | current completed hump height, in 5 mm units |
-| 7 | highest completed hump this run, in 5 mm units |
-| 8 | paged obstacle width: 0-100 total width in 5 mm units; 128-191 centre->left edge half-width, (value&63)*8 mm; 192-255 centre->right edge half-width, same units (saturates at 63 = 504 mm); 101-127 rejected. All three pages are sent only with quality bit 0 (width valid) |
-| 9 | bits 5-0 quality: width valid, shock, armed, bypass validated, odometry valid, servo status valid (bit 5); bits 7-6 fault cause, sent with fault 1 (sensor): 0 none/other, 1 sonar (stale/fault/blocked scan, width or plan rejected), 2 tilt (terrain invalid), 3 odometry; and with fault 2 (line): 0 other, 1 line data stale (a line-data gap of 250 ms or more, or no TRACK handoff), 2 S3 fault event (or a silent S3 STALE/SENSOR latch still returning 1 s after it was first seen, although the controller re-sends TRACK every 100 ms), 3 line not found (REACQUIRE spot search, including after `BOARD_LINE_LOST_MM` of tracking with neither straddle IR on black); 0 with any other fault. All 256 values valid; consumers mask quality with 63 |
-| 10 | availability bits: motor, encoder, IR, acceleration, sonar, tilt, height, magnetic field |
-| 11 | observation sequence modulo 256 |
-| 12 | internal drop count modulo 256 (wraps like subtype 11; receivers take differences between records) |
-| 13 | signed vehicle speed in 20 mm/s units + 128 |
-| 14 | signed line error in 10-unit increments + 128 |
-| 15 | bits 3-0 scan state, matching the subsystem5 enum; bits 5-4 barcode decode result: 0 none yet, 1 reading, 2 successful, 3 unsuccessful; bits 7-6 bypass side: 0 none, 1 left, 2 right (3 rejected) |
+| 0 | Low nibble: phase 0–13, with 13 reverse before turn-out. High nibble: controller fault 0–8, with 8 lifted |
+| 1 | Bits 0–4: last decoded letter, 0 none or 1–26 A–Z. Bits 5–7: action 0 none, 1 left, 2 right, 3 straight, 4 U-turn |
+| 2 | Bits 0–2: line request, 0 straight/not following, 1 steer right, 2 steer left, 3 pivot right, 4 pivot left; the default mask-pivot follower (`BOARD_LINE_MASK_PIVOT` 1) sends 3/4 only while exactly one line sensor is on black, else 0. Bits 3–5: black mask; mission uses 1 right, 2 left, 3 both. Bits 6–7 zero |
+| 3 | Pitch, whole degrees + 128; values 38–218 |
+| 4 | Roll, two-degree units + 128; values 38–218 |
+| 5 | Bits 0–2: terrain 0 flat, 1 ascent, 2 crest, 3 descent, 4 shock, 5 invalid. Bits 3–7: barcode elements read, 0–31; a full `*X*` has 29 |
+| 6 | Completed hump height from S4's terrain result (the VC runs S4's terrain code), 5 mm units, 0–200; sent only with height availability |
+| 7 | Highest completed hump this run, from the same result, 5 mm units, 0–200 |
+| 8 | Width pages: 0–100 total in 5 mm units; 128–191 left half in 8 mm units; 192–255 right half in 8 mm units. For a half, use `value & 63`; 101–127 rejected. All three pages are sent only while quality bit 0 (width valid) is set |
+| 9 | Bits 0–5: width valid, impact, armed, bypass validated (build setting), odometry valid, servo status valid. Bits 6–7: fault cause below |
+| 10 | Availability bits 0–7: motor, encoder, IR, acceleration, sonar, tilt, height, magnetic field |
+| 11 | Observation sequence modulo 256 |
+| 12 | Internal drop count modulo 256 |
+| 13 | Signed speed in 20 mm/s units + 128; values 28–228 |
+| 14 | Signed line error in 10-unit steps + 128; values 28–228 |
+| 15 | Bits 0–3: S5 scan state 0–14. Bits 4–5: barcode result 0 none, 1 reading, 2 successful, 3 unsuccessful. Bits 6–7: bypass side 0 none, 1 left, 2 right; 3 rejected |
 
-Half-widths are measured from the sonar's forward axis: with forward range d0
-and mean edge slant range dE, half = isqrt(dE²-d0²), falling back to
-d0·tan(edge angle) when dE <= d0; the total (page 0-100) is left + right.
-Telemetry rounds each half to (mm+4)/8. The bypass side is the planned side
-(S5 picks the feasible side with the smaller half-width) and is 0 until a
-verified plan exists. After READY, widths and side persist through navigation.
-S5 publishes the widths for at least 300 ms before
-choosing a side; the telemetry task sends an extra snapshot as soon as a new
-valid width or a changed side appears, so the halves reach MQTT first.
+Phase and fault numbers follow `app_program/vehicle_policy.h`; scan states
+follow `app_program/subsystem5/subsystem5.h`. With fault 1 (sensor), cause
+0–3 means other, sonar, tilt or odometry. With fault 2 (line), cause 1 is
+line data stale (no line data for `VC_LINE_GAP_MS`, 250 ms, or no TRACK
+handoff), 2 is an S3 fault event (including an S3 latch still present after
+`VC_S3_LATCH_MS`, 1 s) and 3 is line not found (the spot search failed; it
+also starts after `BOARD_LINE_LOST_MM` of tracking with neither line sensor
+on black); 0 is other. Other faults send cause zero.
+Consumers must mask quality with 63 before reading its flags.
 
-Controller phases and faults match `vehicle_policy.h`. Sensor values are sent
-only when their source is usable; mission availability/quality records clear
-invalid dashboard values. The dashboard keeps each reading's latest value and
-marks it stale once it is more than 5 s old, independently of traffic from
-other sensors. Arrival time is not source time.
+Signed angle, speed and line-error conversions truncate toward zero.
+Height and total width use `(mm + 2) / 5`. Half-widths use `(mm + 4) / 8`,
+saturating at 63 (504 mm). The total width field is bounded at 500 mm.
+Independent rounding means the displayed halves need not add to the total.
 
-The telemetry task samples at 5 Hz. The network task sends at most four
-records per poll, retries the same record on backpressure, and discards an
-unfinished observation once its internal timestamp reaches 500 ms, counting
-the drop. The two-slot queue keeps the newest observation and counts older
-ones it discards. Dropped observations pass impact and IMU-fault bits to
-the next one. Impact extras are limited to one per 200 ms; fault, width
-and side changes are not limited. A failed queue send retries the change. Up to 33
-messages (15 sensor IDs, 16 status subtypes, 2 width pages) describe one observation; MQTT QoS 0 does not guarantee all arrive.
-The sequence field is diagnostic, not an atomic-frame assembly protocol.
+The reported widths come from `s5_width_reported()` in `app_program/subsystem5/s5_width.c`:
+`half = depth * tan(max(0, edge_angle - S5_BEAM_HALF_DEG))`, rounded to mm.
+`S5_BEAM_HALF_DEG` defaults to 20°. Planning retains the measured edge bounds
+and conservative widths; it does not use the reduced display width. S5
+holds a valid width for at least `S5_WIDTH_PUBLISH_MS` (300 ms) before choosing
+a side. S1 requests an extra snapshot for new widths or a changed side.
 
-The 55-byte `telemetry_codec` record is a private RTOS mailbox format; its
-schema is in `tools/telemetry_schema.json`. It never crosses MQTT. Similarly,
-`encoder_snapshot.h` retains 32-bit counts, monotonic time and validity for
-odometry/terrain. These internal codecs prevent loss of control precision;
-they are not alternate external telemetry formats.
+The bypass side in subtype 15 is S5's planned side: the open side with the smaller
+measured half-width (equal halves: the side whose nearest side echo is farther, then the smaller heading, then left). It is 0 until S5
+plans a side. The side is sent while S5 still probes that side's corridor; if a probe rejects it, S5 plans the other side or reports BLOCKED (side 0). S5 compares its measured halves, not the beam-corrected
+ones shown on the dashboard, so the chosen side need not be the side with
+the smaller displayed half.
 
-## Buddy 2 motor and encoder distinction
+A reading is sent only when its source is usable: IDs 1–2 need encoder
+availability, ID 3 quality bit 5 (servo status valid), ID 4 sonar, IDs 5–7
+and subtypes 2 and 14 IR, IDs 8–10 magnetic field, IDs 11–12 motor, IDs 13–15
+acceleration, subtypes 3–4 tilt, subtype 6 height, subtype 8 quality bit 0
+and subtype 13 quality bit 4 (odometry valid). The other subtypes are always
+sent. Availability and quality clear unusable live dashboard values. The receiver keeps the last scan's widths
+and chosen side across quality-bit clearing, robot silence and broker
+reconnects, until new results replace them. Other live observations clear on
+broker disconnect/reconnect. Retained records are ignored. Each displayed
+reading becomes stale after 5 s without an update. Arrival time is not
+source time.
 
-The physical encoder supplies GPIO transitions. Buddy 2's code counts those
-transitions into full-width counters. Its older uint16_t motor variable is
-software-packed COMMAND/POWER/STATE, not a hardware encoder packet.
+## Queues and local records
 
-The existing motor variable is now the 12-bit DATA field of ID 11. Command
-codes 0–6 mean stop, forward, reverse, left, right, pivot-right, pivot-left.
-Power is 0–100; states 0–2 mean stopped, moving, fault. Other combinations are
-rejected. In the complete record, command occupies bits 4–6, power 7–13, state
-14–15, and the bottom four bits are 1011.
+S1 normally samples every 200 ms and sends extra snapshots on selected
+changes. Impact-triggered extras are limited to one per 200 ms; controller
+fault, width and side changes are not rate-limited this way. The two-slot
+queue drops older snapshots and selects the newest current one. Drops
+increment a shared counter. Discarded snapshots carry impact and IMU-fault
+bits into the next snapshot.
 
-ID 12 retains the shared fault bit assignments: stall 0x01, encoder 0x02,
-IMU 0x04, no-echo 0x08, Wi-Fi 0x10, timeout 0x20, motor 0x40. The current B2
-adapter populates timeout or motor error only; it does not invent sensor faults.
-The telemetry adapter also sets IMU 0x04 when any vehicle-controller S4 result
-since the last snapshot had `EDR_FAULT_IMU` (I/O error, accelerometer sample
-older than 100 ms, clipped or overrun sample, IMU/encoder skew). A sample
-clipped at +/-2 g is also a shock (impact, quality bit 1); an unclipped shock
-is not an IMU fault. S4's monotonic sample counters also cover faults and
-impacts between controller reads. The VC consumes all counter increments
-and counts local copy/skew faults. The IMU latch clears only after a
-successful queued snapshot carrying ID 12; a missing motor status keeps it.
+The network task (`cyw43_utk_task`) alone calls lwIP/MQTT. Each poll attempts
+a pending reply, one event and up to four telemetry records. It retries a telemetry record
+when the network cannot accept it. An unfinished snapshot aged 500 ms or
+more is abandoned and counted; unsent impact/IMU bits carry forward. The
+next snapshot starts at the unsent field so later fields do not starve.
+A complete observation can produce up to 33 records: 15 sensor IDs,
+16 status subtypes and two extra width pages. QoS 0 does not guarantee that
+every record arrives. The sequence is diagnostic, not an atomic frame ID.
 
-Examples (wire bytes shown in transmission order):
+| Internal record | Size | Definition / use |
+|---|---|---|
+| S1 telemetry snapshot | 433 bits in 55 bytes, seven zero padding bits | `app_program/subsystem1/telemetry_codec.h`, `tools/telemetry_schema.json`; private message-buffer payload |
+| S2 encoder snapshot | 13 bytes | `app_program/shared/encoder_snapshot.h`; full 32-bit counts, time and flags for odometry |
+| S3 navigation event | 14 bytes | `app_program/subsystem3/event_codec.h`; kind/command, letter, sequence, time and generation |
+| S4 acquisition cache | 564 bits in 71 bytes | `app_program/subsystem4/sensor_data.h`; copied sensor data and counters |
+| S4 terrain result | 93 bits in 12 bytes | `app_program/subsystem4/result_data.h`; checked result used by the controller and telemetry |
+| S5 status | 92 bytes | `app_program/subsystem5/s5_data.h`; packed shared status, decoded for callers |
 
-- Left count 100: word 0x0641, bytes `41 06`.
-- Left count 0: word 0x0001, bytes `01 00` (zero bytes are valid).
-- Forward, 30 percent, moving: data 0x04f1, record 0x4f1b, bytes `1b 4f`.
-- Timeout flag: word 0x020c, bytes `0c 02`.
-- Magnetic X zero: word 0x8008, bytes `08 80`.
-
-## APIs and handoff
-
-`subsystem1/task_telemetry.c` reads bounded snapshots from all five owners and
-produces the private mailbox record with `telemetry_encode`. `s1_binary_send`
-copies that record into a two-entry RTOS queue. The network owner alone calls
-MQTT, using `telemetry_edr_record` to convert it into independent two-byte
-observations. Producers never call lwIP or publish text/JSON sensor topics.
-
-B2 retains `s2_motion_encode` and `s2_encoder_encode` as EDR16 adapter APIs;
-each returns two independent two-byte readings. `s2_encoder_snapshot` is the
-separate full-precision 13-byte internal handoff used by terrain/odometry.
-The former multi-topic text queue and `s1_telemetry_record` API are retired.
+These internal records are not MQTT payloads. `s2_motion_encode()` and
+`s2_encoder_encode()` each return four bytes containing two separate EDR16
+records (IDs 11/12 and 1/2 respectively). Publish each two-byte slice
+separately. Ownership, synchronization and interfaces are in
+[TEAM.md](../TEAM.md), including its
+[data routes to the dashboard through S1](../TEAM.md#data-to-the-dashboard-through-s1).
+The S3 navigation event ends with three little-endian 32-bit values:
+sequence, time and generation.
 
 ## Robot events
 
-Discrete events for the dashboard's event log use their own topic,
-`Robopico/events/edr16/v1`, one two-byte record per MQTT message in the same
-EDR16 shape (low nibble = event ID, high 12 bits = value). They are not
-telemetry: the vehicle controller (and the MQTT owner, for link events) calls
-`s1_event_post`, subsystem 1 uses a 160-byte event buffer
-(20 two-byte records with kernel overhead, `subsystem1/telemetry.c`)
-and the network owner publishes one per poll after command replies
-(`mqtt_utk.c`). lwIP keeps a dead connection until its keep-alive watchdog
-closes it (~90 s), so once the broker has acknowledged nothing for 3 s the
-events stay in the queue rather than going to lwIP, which would drop them
-unsent; a full queue drops new events. After 10 s without a Wi-Fi link
-(`cyw43_utk.c`) the network owner leaves and re-joins the access point and
-closes the MQTT session at once, so the 3 s retry reconnects when the link
-returns. The network owner holds its link event separately and publishes
-it first, before the queued outage events. A stalled first join uses a
-20 s leave/rejoin bound; a later outage uses 10 s. Event IDs are not sensor IDs: decode
-event records with `decode_event`, never `edr_decode`/`decode_packet` (which
-would, for example, reject a hump value above 180 as a servo angle). Layout (`app_program/shared/events.h`,
-`tools/edr_decode.py decode_event`):
+Publish one two-byte record per message on `Robopico/events/edr16/v1`.
+The low nibble is an event ID and the upper 12 bits are its value.
+`app_program/shared/events.h` packs events;
+`decode_event()` in `tools/edr_decode.py` validates and decodes them.
+`decode_packet()` is for telemetry and must not decode events.
 
-| ID | Event | 12-bit value |
+| ID | Event | Value layout |
 |---|---|---|
-| 1 | Barcode attempt (one per finished read) | bits 0-1 attempt (1 initial scan, 2 reverse scan, 3 final attempt); bits 2-6 bars+spaces read (0..31, a full `*X*` is 29); bits 7-11 letter (0 failed, 1..26 = A..Z) |
-| 2 | Instruction decoded | bits 0-4 letter 1..26; bits 5-7 turn (0 none/not mapped, 1 left, 2 right, 3 straight, 4 U-turn) |
-| 3 | Hump | bits 0-2 kind (1 detected: tilt in 0.1 deg; 2 crest, slowing down: this hump's height so far in 2 mm; 3 level again: the completed height latched by S4 for this traversal in 2 mm, or 0 if no valid hump completed); bits 3-11 value |
-| 4 | Obstacle | bits 0-1 kind (1 detected: distance cm of the confirming forward echo; 2 scanned: width cm; 3 bypass started: turn-out heading deg; 0 avoidance over: seconds since detection); bits 2-3 side (1 left, 2 right) or, for kind 0, how (0 ended by a fault or STOP, 1 line found on the return, 2 on-the-spot search, 3 obstacle went away); bits 4-11 value |
-| 5 | Link | bits 0-1 kind (1 reconnected to the broker after N s without it, counted from the first publish it never acknowledged; 2 first connection, N s after boot); bits 2-11 seconds |
+| 1 | Barcode attempt | Bits 0–1 attempt: 1 initial, 2 reverse, 3 final. Bits 2–6 elements 0–31. Bits 7–11 letter: 0 failed, 1–26 A–Z |
+| 2 | Instruction | Bits 0–4 letter 1–26. Bits 5–7 action 0 none/unmapped, 1 left, 2 right, 3 straight, 4 U-turn. Bits 8–11 zero |
+| 3 | Hump | Bits 0–2 kind 1–5; bits 3–11 value 0–511, as below |
+| 4 | Obstacle | Bits 0–1 kind, bits 2–3 side/completion reason, bits 4–11 value 0–255, as below |
+| 5 | Broker link | Bits 0–1 kind: 1 reconnected, 2 first connection. Bits 2–11 seconds, saturated at 1023 |
 
-An instruction (ID 2) is posted after the barcode attempt (ID 1) that decoded
-it. The dashboard receiver adds its own rows: robot offline (no data for 3 s)
-and back online, its broker link, each new controller fault code from
-status subtype 0, and rising impact/IMU-fault flags. Each flag stays visible
-for 2 s. A flat-top hump keeps one detected/crest/level cycle; a plain
-descent is DESCENT with no hump height.
+Hump kinds are 1 detected (tilt in 0.1°), 2 crest (S4 height so far),
+3 level (S4 completed height), 4 crest (controller height so far) and
+5 level (controller's highest point).
+All heights use 2 mm units. Kinds 4/5 use the controller's estimate from
+wheel distance and smoothed pitch in `app_program/vehicle_hump.h`, including
+its smoothing lag correction. When that estimate is unavailable, the controller sends
+kind 2/3 using S4; zero means no valid height. These event estimates do not
+replace S4's telemetry height fields. The dashboard labels kinds 4/5 as
+estimated from wheel distance and tilt.
 
-## Migration and limits
+Obstacle kinds are 1 detected (range cm), 2 scanned (reported width cm),
+3 bypass started (heading degrees), and 0 avoidance ended (elapsed seconds).
+For kinds 2/3, side 1 is left and 2 is right. Kind 2 with side 0 instead means
+no way round was found and S5 is scanning again; the value is the retry number, 1 up to `AVOID_RESCAN_RETRIES` (2 in
+`app_program/shared/avoidance_config.h`; the format allows 1–3). For kind 0,
+bits 2–3 mean 0 fault/STOP,
+1 line found on return, 2 spot search, 3 obstacle went away.
 
-Update firmware and Python/dashboard together. The old source/kind/length
-frames and 50-byte MQTT aggregate are rejected. Sensor IDs 1-15 are unchanged;
-ID 0 adds the independently decodable mission status fields above.
+An instruction follows the barcode attempt that decoded it. Broker reconnect
+seconds are counted from the first publish the broker did not acknowledge
+(or from the disconnect if none was waiting); first-connection seconds are
+uptime. The controller posts robot events through `s1_event_post()`. S1's
+`event_buffer` is 160 bytes; each two-byte event takes 8 bytes in the kernel
+buffer (a 4-byte length header and the data rounded up to 4), so it holds 20.
+When it is full, a new event is dropped and counted in the drop counter
+(status subtype 12). Once the broker has acknowledged nothing for 3 s, the
+network task stops passing events to lwIP and leaves them in S1's buffer:
+lwIP keeps a dead connection until its keep-alive closes it (about 90 s)
+and would drop them unsent. After 10 s without a Wi-Fi link (20 s for the
+first join after boot) the network task leaves and re-joins the access point
+and closes the MQTT session, so the 3 s MQTT retry reconnects when the link
+returns. The network task creates link events itself, keeps only the latest
+unsent one and publishes it before the queued robot events.
 
-Full 32-bit encoder counts, local timestamps, validity, leases and freshness
-remain in local control APIs. B3's internal navigation event now uses 14 bytes:
-kind/command, symbol code (0 none, 1-26 = A-Z), then sequence, operating time
-and generation as three little-endian uint32 values. The former two-bit symbol
-field could not carry the A-Z codebook. Native structures are never copied
-onto MQTT or the event queue.
+The receiver keeps 200 event rows and adds its own rows: robot offline after
+3 s without robot data and back online, its own broker link, each new
+controller fault from status subtype 0, and rising impact/IMU-fault flags.
+Those flags stay shown for 2 s. Event text is created by the dashboard; it
+is not sent by the robot. Demo and imported dashboard data stay separate
+from live MQTT data.
 
-EDR16 encoder counts wrap 4095 to 0; reverse count -1 becomes 4095. Inferring a
-signed delta is ambiguous beyond 2047 counts between received observations,
-and reboot is indistinguishable from wrap. Telemetry is not a control input.
-No per-reading source timestamp or checksum is transmitted. QoS 0 can drop
-records; related readings are not atomic. The publisher bounds internal age
-and the receiver marks each field stale after 5 s. Keep all control/safety
-decisions onboard.
-Free-text events are not transmitted, and no compass or magnetometer heading
-is: the only heading sent is the relative turn-out angle in the EV_OBSTACLE
-bypass event. Demo/import data remain explicitly separate from live MQTT.
+## Limits and verification
 
-## Verification
+Encoder telemetry wraps from 4095 to 0; reverse count −1 becomes 4095.
+A signed delta is ambiguous beyond 2047 counts between observations, and
+reboot cannot be distinguished from wrap. Sequence/drop counters also alias
+if more than 255 increments pass between received records. Related records
+are not atomic and carry no source timestamps. Keep control decisions onboard.
+The only heading in this protocol is the relative bypass heading event;
+there is no compass heading field.
 
-`check_data.cmd` / `check_data.sh` run the Python codec/dashboard tests, exhaustive
-C codec, current B1 queue and B2 mock-hardware profiles using native GCC/Clang.
-`python -B testing/integration/run.py --compiler clang` also verifies the real
-snapshot-to-EDR adapter through Python and browser field routing, mission
-policy, barcode decoding, queues, sonar and MQTT port. These are software
-checks; they do not establish physical performance or a live broker link.
-
-Mission status values are validated by both shared codecs; reserved enum values,
-unused flag bits and values outside the documented source ranges are rejected.
-Servo ID 3 is emitted only with quality bit 5 set (successful, non-fault B5
-status copy). This is the commanded angle, not measured position feedback.
-Motor ID 12 is emitted only with motor availability and preserves timeout (32)
-versus other motor errors (64), using the same mapping as B2's direct adapter,
-plus the IMU bit (4) described above.
-The dashboard ignores retained records and clears observations on disconnect
-and reconnect. The private snapshot now uses 433 bits (barcode widened to 5 bits for A-Z, plus 5-bit barcode bar count and 2-bit decode result, two 10-bit half-widths, a 2-bit bypass side, a 2-bit sensor-fault cause, a 4-bit controller fault 0..8 and a 1-bit IMU fault; phase maximum 13) in 55 bytes, the last 7 bits zero padding; its
-schema includes a two-bit motor error class. Rebuild firmware components together.
-
-Checkpoint 8c changes no MQTT bit layout or command length. S4's protected
-internal cache is now 71 bytes (564 bits), with 32-bit impact/fault counters.
-The checked terrain result stays 12 bytes. Latched faults/impacts clear
-incompatible tilt/height validity bits before encoding; validation remains
-strict. The app-state fault count is local and is not a new wire field.
-
-ACKs use the existing six bytes. STOP-superseded commands get result 1;
-each coalesced STOP gets result 0. Network replies include the last VC
-phase/fault. A full ACK buffer drops and counts the oldest reply. USB
-sequence bit 7 separates it from dashboard sequences 0-127.
+Run `python -B testing/data_representation/run.py`, or the root launchers
+`.\check_data.cmd --no-pause` (Windows) / `sh check_data.sh`, which also write
+`edr-check-report.json` (git-ignored) in the repository root. A native GCC or
+Clang is needed. Stages 1–2 cover the Python codec and dashboard tests, the S5
+status codec, the C codec and S1's queue test. Stage 3 runs S2's nine host
+profiles. `python -B testing/integration/run.py` checks the 55-byte snapshot
+codec and a snapshot through the 33 records to the dashboard. Record results
+under the test IDs in
+[S1](../testing/subsystem1/TEST_LOG.md) (S1-U04, S1-U05), [S2](../testing/subsystem2/TEST_LOG.md) (S2-U01..S2-U09),
+[S5](../testing/subsystem5/TEST_LOG.md) (S5-U01) and
+[integration](../testing/integration/TEST_LOG.md) (INT-05, INT-06). Results
+go in each folder's `TEST_LOG.md`, with full output in its `logs/` folder;
+[data representation](../testing/data_representation/TEST_LOG.md) keeps the earlier migration record. See
+[the verification guide](../testing/data_representation/README.md) and
+[testing/README.md](../testing/README.md). A result applies only to the
+commit it records; these host tests do not show hardware performance or a
+live broker link. Command frames are documented in
+[MQTT_TOPICS.md](../app_program/external_systems/Dashboard/MQTT_TOPICS.md#command-topic).

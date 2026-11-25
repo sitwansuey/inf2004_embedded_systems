@@ -54,8 +54,17 @@ class EventTextTests(unittest.TestCase):
         self.assertEqual(describe_event(record(3, 3 | 20 << 3))[2], "Hump cleared: level again, highest 4.0 cm")
         # 0: subsystem 4 lost this hump's height.
         self.assertEqual(describe_event(record(3, 2))[2], "Hump crest: going down slowly, height not measured")
-        with self.assertRaises(ValueError):
-            describe_event(record(3, 4))
+        self.assertEqual(describe_event(record(3, 3))[2], "Hump cleared: level again, highest not measured")
+        # 4/5: the controller's estimate, shown as such (0 is a measured 0.0 cm).
+        self.assertEqual(describe_event(record(3, 4 | 12 << 3))[2],
+                         "Hump crest: going down slowly, height 2.4 cm (estimated from wheel distance and tilt)")
+        self.assertEqual(describe_event(record(3, 5 | 23 << 3)),
+                         ("Terrain", "INFO",
+                          "Hump cleared: level again, highest 4.6 cm (estimated from wheel distance and tilt)"))
+        self.assertIn("highest 0.0 cm (estimated", describe_event(record(3, 5))[2])
+        for bad in (record(3, 0), record(3, 6), record(3, 7 | 9 << 3)):
+            with self.assertRaises(ValueError):
+                describe_event(bad)
 
     def test_obstacle(self):
         self.assertEqual(describe_event(record(4, 1 | 18 << 4)), ("Obstacle", "WARN", "Obstacle detected 18 cm ahead"))
@@ -70,7 +79,11 @@ class EventTextTests(unittest.TestCase):
         # how 0: the avoidance ended in a fault or a STOP.
         self.assertEqual(describe_event(record(4, 0 | 7 << 4)),
                          ("Obstacle", "WARN", "Obstacle avoidance stopped after 7 s (fault or STOP)"))
-        for bad in (record(4, 1 | 1 << 2), record(4, 2), record(4, 3), record(4, 3 | 3 << 2)):
+        # Side 0 on a scan: no way round, scanning again (retry 1..3).
+        self.assertEqual(describe_event(record(4, 2 | 1 << 4)),
+                         ("Obstacle", "WARN", "No way round found: scanning again (retry 1)"))
+        self.assertIn("retry 2", describe_event(record(4, 2 | 2 << 4))[2])
+        for bad in (record(4, 1 | 1 << 2), record(4, 2), record(4, 2 | 4 << 4), record(4, 3), record(4, 3 | 3 << 2)):
             with self.assertRaises(ValueError):
                 describe_event(bad)
 
@@ -98,6 +111,7 @@ class EventTextTests(unittest.TestCase):
                   's1_event_post(EV_BARCODE,ev_barcode(3,40,0));'
                   's1_event_post(EV_INSTRUCTION,ev_instruction(26,2));'
                   's1_event_post(EV_HUMP,ev_hump(EV_HUMP_CREST,700));'
+                  's1_event_post(EV_HUMP,ev_hump(EV_HUMP_LEVEL_EST,23));'
                   's1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_SCANNED,2,26));'
                   's1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_BACK,1,300));'
                   's1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_BACK,0,4));'
@@ -114,10 +128,11 @@ class EventTextTests(unittest.TestCase):
         self.assertEqual(events[1]["elements"], 31)  # saturates
         self.assertEqual((events[2]["letter"], events[2]["turn"]), (26, 2))
         self.assertEqual((events[3]["kind"], events[3]["value"]), (2, 511))  # saturates
-        self.assertEqual((events[4]["kind"], events[4]["side"], events[4]["value"]), (2, 2, 26))
-        self.assertEqual((events[5]["kind"], events[5]["side"], events[5]["value"]), (0, 1, 255))
-        self.assertEqual((events[6]["kind"], events[6]["side"], events[6]["value"]), (0, 0, 4))
-        self.assertEqual((events[7]["kind"], events[7]["seconds"]), (1, 1023))
+        self.assertEqual((events[4]["kind"], events[4]["value"]), (5, 23))  # EV_HUMP_LEVEL_EST
+        self.assertEqual((events[5]["kind"], events[5]["side"], events[5]["value"]), (2, 2, 26))
+        self.assertEqual((events[6]["kind"], events[6]["side"], events[6]["value"]), (0, 1, 255))
+        self.assertEqual((events[7]["kind"], events[7]["side"], events[7]["value"]), (0, 0, 4))
+        self.assertEqual((events[8]["kind"], events[8]["seconds"]), (1, 1023))
 
 
 class EventLogTests(unittest.TestCase):

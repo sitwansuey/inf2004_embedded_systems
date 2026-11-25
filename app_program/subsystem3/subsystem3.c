@@ -531,6 +531,107 @@ static void log_barcode_counts(void)
     }
 }
 
+/* Barcode diagnostics (BOARD_BARCODE_LOG, default 1): one USB line per
+ * finished capture with the result and every run width the decoder saw
+ * (black first; wheel-travel units of half encoder counts, ~0.17 mm, or ms
+ * when no wheel position was available), the first full window if the
+ * capture slid past leading pulses, and how the read was sampled: samples,
+ * the longest gap between samples, samples with no wheel travel, the largest
+ * travel in one sample and the barcode sensor's raw range. S3 task only. */
+#ifndef BOARD_BARCODE_LOG
+#define BOARD_BARCODE_LOG 1
+#endif
+#if BOARD_BARCODE_LOG
+typedef struct {
+    bool running, have_pos;
+    uint32_t samples, still, last_ms, max_gap_ms, last_pos, max_step;
+    uint16_t raw_min, raw_max;
+} bar_log_t;
+static bar_log_t bar_log;
+static char bar_line[640];
+static size_t bar_put(size_t n, const char *text)
+{
+    while (*text && n + 1U < sizeof(bar_line)) bar_line[n++] = *text++;
+    bar_line[n] = '\0';
+    return n;
+}
+static size_t bar_put_u(size_t n, uint32_t v)
+{
+    char digits[11];
+    int i = 0;
+    do { digits[i++] = (char)('0' + (v % 10U)); v /= 10U; } while (v && i < 10);
+    while (i > 0 && n + 1U < sizeof(bar_line)) bar_line[n++] = digits[--i];
+    bar_line[n] = '\0';
+    return n;
+}
+static size_t bar_put_runs(size_t n, const char *label, const uint32_t *runs, uint32_t count)
+{
+    n = bar_put(n, label);
+    for (uint32_t i = 0U; i < count && i < S3_BARCODE_RUN_COUNT; ++i) {
+        if (i) n = bar_put(n, ",");
+        n = bar_put_u(n, runs[i]);
+    }
+    return n;
+}
+static void bar_log_step(const s3_sample_t *p_sample, unsigned result, const s3_symbol_t *p_symbol)
+{
+    static const char *const names[] = {"none","ok","incomplete","noise","overflow","timeout","bad_pattern","unknown"};
+    bool running = core.barcode.state == S3_CAPTURE_RUNNING;
+    if (running && !bar_log.running) {
+        bar_log = (bar_log_t){0};
+        bar_log.running = true;
+        bar_log.raw_min = UINT16_MAX;
+    }
+    if (!bar_log.running) return;
+    if (bar_log.samples && p_sample->time_ms - bar_log.last_ms > bar_log.max_gap_ms)
+        bar_log.max_gap_ms = p_sample->time_ms - bar_log.last_ms;
+    bar_log.last_ms = p_sample->time_ms;
+    ++bar_log.samples;
+    if (p_sample->position_valid) {
+        if (bar_log.have_pos) {
+            uint32_t step = p_sample->position - bar_log.last_pos;
+            if (!step) ++bar_log.still;
+            if (step > bar_log.max_step) bar_log.max_step = step;
+        }
+        bar_log.last_pos = p_sample->position;
+        bar_log.have_pos = true;
+    }
+    unsigned sensor = core.config.barcode_sensor;
+    if (sensor < S3_SENSOR_COUNT) {
+        uint16_t raw = p_sample->raw[sensor];
+        if (raw < bar_log.raw_min) bar_log.raw_min = raw;
+        if (raw > bar_log.raw_max) bar_log.raw_max = raw;
+    }
+    if (running && result == S3_BARCODE_NONE) return;
+    /* Finished (a result) or aborted (no longer running, no result). */
+    const s3_barcode_t *b = &core.barcode;
+    size_t n = bar_put(0, "[S3BAR] ");
+    n = bar_put(n, result < 8U ? names[result] : "?");
+    if (result == S3_BARCODE_NONE) n = bar_put(n, "(aborted)");
+    if (result == S3_BARCODE_OK && p_symbol->symbol) {
+        char letter[3] = {' ', p_symbol->symbol, 0};
+        n = bar_put(n, letter);
+        if (p_symbol->reverse) n = bar_put(n, " reversed");
+    }
+    n = bar_put(n, " pending="); n = bar_put_u(n, b->pending);
+    n = bar_put(n, " elements="); n = bar_put_u(n, b->elements);
+    n = bar_put(n, " bars="); n = bar_put_u(n, b->bars);
+    n = bar_put(n, " slid="); n = bar_put_u(n, b->resync_pairs);
+    n = bar_put(n, b->by_position ? " units=pos" : " units=ms");
+    n = bar_put(n, " samples="); n = bar_put_u(n, bar_log.samples);
+    n = bar_put(n, " gap_max_ms="); n = bar_put_u(n, bar_log.max_gap_ms);
+    n = bar_put(n, " still="); n = bar_put_u(n, bar_log.still);
+    n = bar_put(n, " step_max="); n = bar_put_u(n, bar_log.max_step);
+    n = bar_put(n, " raw="); n = bar_put_u(n, bar_log.raw_min);
+    n = bar_put(n, ".."); n = bar_put_u(n, bar_log.raw_max);
+    n = bar_put_runs(n, " runs=", b->runs, b->count);
+    if (b->have_first && b->resync_pairs) n = bar_put_runs(n, " first=", b->first_runs, S3_BARCODE_RUN_COUNT);
+    (void)bar_put(n, "\n");
+    (void)S3_LOG((const UB *)"%s", bar_line);
+    bar_log.running = false;
+}
+#endif
+
 EXPORT ER s3_service_once(void)
 {
     SYSTIM now;
@@ -663,6 +764,9 @@ EXPORT ER s3_service_once(void)
     else if ((acquisition != E_TMOUT) || !s3_ir_waiting(&ir))
     {
         s3_core_step(&core, &sample, &output);
+#if BOARD_BARCODE_LOG
+        bar_log_step(&sample, output.barcode_status, &output.decoded);
+#endif
     }
     else
     {

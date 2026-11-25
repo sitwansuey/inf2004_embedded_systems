@@ -83,7 +83,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(bridge.readings[vc+'safety_state']['payload'],'Stopped')
         self.assertFalse(bridge.readings['Robopico/sensors/accelerometer/impact']['payload'])
         self.assertIsNone(bridge.readings[READINGS[3]]['payload'])
-        self.assertIsNone(bridge.readings[width]['payload'])
+        self.assertEqual(bridge.readings[width]['payload'],17.5)  # the last scan's width stays
         self.assertEqual(decode_messages(encode_packet(0,(9<<8)|1|(2<<6)))[-1],(vc+'fault_cause','Tilt'))
 
     def test_all_ids_and_units(self):
@@ -134,7 +134,8 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(bridge.readings['Robopico/sensors/barcode_ir/decode_result']['payload'],label)
             self.assertEqual(bridge.readings['Robopico/Actuators/servo_motor/scan_state']['payload'],4)
         side='Robopico/Actuators/servo_motor/bypass_side'
-        for bits,label in ((1,'Left'),(2,'Right'),(0,'None')):
+        # 0 (no plan now) keeps the last scan's side.
+        for bits,label in ((1,'Left'),(2,'Right'),(0,'Right')):
             feed(bridge,PACKED_TOPIC,encode_packet(0,(15<<8)|9|(2<<4)|(bits<<6)))
             self.assertEqual(bridge.readings[side]['payload'],label)
             self.assertEqual(bridge.readings['Robopico/Actuators/servo_motor/scan_state']['payload'],9)

@@ -1,0 +1,2243 @@
+=== usb_session start 18:09:44.799
+
+@0.074 [S4] 30870,0,1,1,-39,-256,919,223,-460,-171,10,10,1575,1072,0,0,3086
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=97
+[CSC02] t=31000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 31080,0,1,1,-39,-254,914,225,-457,-169,20,20,1585,1080,0,0,3107
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=14 roll_cdeg=96
+[S4] 31290,0,1,1,-66,-241,899,227,-457,-171,20,30,1596,1088,0,0,3128
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-41 roll_cdeg=-80
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 31500,0,1,1,-37,-252,918,227,-457,-171,10,40,1607,1095,0,0,3149
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-4 roll_cdeg=109
+[S4] 31710,0,1,1,-58,-248,899,228,-454,-169,20,10,1617,1104,0,0,3170
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1 roll_cdeg=-29
+[S4] 31920,0,1,1,-36,-251,917,228,-458,-171,20,20,1628,1111,0,0,3191
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-8 roll_cdeg=115
+[CSC02] t=32000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 32130,0,1,1,-38,-256,917,226,-458,-171,10,30,1639,1119,0,0,3212
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=103
+[S4] 32340,0,1,1,-41,-253,918,224,-457,-169,10,40,1650,1125,0,0,3233
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1 roll_cdeg=84
+[S4] 32550,0,1,1,-35,-255,916,227,-454,-169,20,10,1660,1132,0,0,3254
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=121
+[S4] 32760,0,1,1,-41,-252,923,224,-454,-170,20,20,1671,1139,0,0,3275
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-12 roll_cdeg=86
+[S4] 32970,0,1,1,-40,-257,914,227,-453,-169,10,30,1682,1146,0,0,3296
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=31 roll_cdeg=89
+[CSC02] t=33000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 33180,0,1,1,-37,-263,904,222,-456,-173,20,40,1692,1152,0,0,3317
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=83 roll_cdeg=106
+[S4] 33390,0,1,1,-39,-256,912,227,-453,-173,20,10,1703,1160,0,0,3338
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=29 roll_cdeg=95
+[S4] 33600,0,1,1,-36,-255,920,226,-453,-173,10,20,1714,1166,0,0,3359
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=10 roll_cdeg=116
+[S4] 33810,0,1,1,-37,-253,916,229,-459,-172,10,30,1725,1172,0,0,3380
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=109
+[CSC02] t=34000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+[S4] 34020,0,1,1,-39,-256,919,227,-452,-171,20,30,1735,1179,0,0,3401
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=97
+[S4] 34230,0,1,1,-45,-242,915,224,-454,-172,10,10,1746,1187,0,0,3422
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-58 roll_cdeg=58
+[S4] 34440,0,1,1,-39,-258,916,226,-458,-170,10,20,1757,1194,0,0,3443
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=34 roll_cdeg=96
+[S4] 34650,0,1,1,-39,-249,908,224,-457,-170,20,30,1767,1201,0,0,3464
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=94
+[S4] 34860,0,1,1,-40,-256,916,225,-456,-175,20,30,1778,1208,0,0,3485
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=22 roll_cdeg=90
+[CSC02] t=35000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 35070,0,1,1,-35,-257,913,228,-456,-171,10,10,1789,1217,0,0,3506
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=33 roll_cdeg=120
+[S4] 35280,0,1,1,-36,-255,918,228,-457,-171,10,20,1800,1224,0,0,3527
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=13 roll_cdeg=115
+[S4] 35490,0,1,1,-38,-252,916,226,-450,-172,20,20,1810,1232,0,0,3548
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=102
+[S4] 35700,0,1,1,-37,-276,895,226,-457,-171,20,30,1821,1239,0,0,3569
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=174 roll_cdeg=103
+[S4] 35910,0,1,1,-40,-257,915,227,-456,-173,10,10,1832,1247,0,0,3590
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=29 roll_cdeg=90
+[CSC02] t=36000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 36120,0,1,1,-37,-250,920,229,-457,-172,20,20,1842,1254,0,0,3611
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-19 roll_cdeg=110
+[S4] 36330,0,1,1,-34,-258,911,225,-456,-174,20,20,1853,1261,0,0,3632
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=42 roll_cdeg=126
+[S4] 36540,0,1,1,-38,-255,912,223,-457,-171,10,30,1864,1267,0,0,3653
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=23 roll_cdeg=101
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 36750,0,1,1,-40,-254,924,227,-458,-174,10,10,1875,1276,0,0,3675
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=9[CSC02] t=429000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 429030,0,1,1,-30,-256,918,220,-451,-169,10,30,21887,14892,0,0,42902
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=153
+
+@0.271 [S4] 429240,0,1,1,-61,-271,879,223,-451,-168,20,10,21897,14899,0,0,42923
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=172 roll_cdeg=-57
+
+@0.519 [S4] 429450,0,1,1,-33,-258,917,222,-451,-168,20,20,21908,14906,0,0,42944
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=32 roll_cdeg=134
+
+@0.704 [S4] 429660,0,1,1,-52,-254,913,224,-452,-167,10,30,21919,14913,0,0,42965
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=14 roll_cdeg=14
+
+@0.891 [S4] 429870,0,1,1,-36,-256,915,223,-451,-167,10,30,21930,14920,0,0,42986
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=24 roll_cdeg=115
+
+@1.029 [CSC02] t=430000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@1.093 [S4] 430080,0,1,1,-32,-254,920,221,-450,-167,20,10,21940,14927,0,0,43007
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=141
+
+@1.359 [S4] 430290,0,1,1,-33,-257,931,222,-451,-166,20,20,21951,14933,0,0,43028
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=4 roll_cdeg=137
+
+@1.548 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 430500,0,1,1,-38,-258,916,220,-449,-166,10,30,21962,14939,0,0,43049
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=34 roll_cdeg=102
+
+@1.735 [S4] 430710,0,1,1,-46,-254,899,220,-450,-166,20,30,21972,14947,0,0,43070
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=38 roll_cdeg=47
+
+@1.988 [S4] 430920,0,1,1,-31,-253,915,218,-447,-164,20,10,21983,14954,0,0,43091
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=7 roll_cdeg=146
+
+@2.051 [CSC02] t=431000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@2.176 [S4] 431130,0,1,1,-33,-259,911,222,-451,-170,10,20,21994,14962,0,0,43112
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=48 roll_cdeg=133
+
+@2.378 [S4] 431340,0,1,1,-37,-252,917,223,-452,-167,10,20,22005,14970,0,0,43133
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=109
+
+@2.568 [S4] 431550,0,1,1,-34,-255,916,220,-452,-170,20,30,22015,14977,0,0,43154
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=127
+
+@2.816 [S4] 431760,0,1,1,-46,-259,913,220,-453,-167,20,10,22026,14986,0,0,43175
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=44 roll_cdeg=52
+
+@3.001 [S4] 431970,0,1,1,-38,-252,913,219,-448,-165,10,10,22037,14994,0,0,43196
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=4 roll_cdeg=102
+
+@3.063 [CSC02] t=432000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@3.188 [S4] 432180,0,1,1,-51,-232,907,219,-450,-166,20,20,22047,15001,0,0,43217
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-105 roll_cdeg=18
+
+@3.439 [S4] 432390,0,1,1,-38,-251,915,221,-450,-166,20,30,22058,15007,0,0,43238
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-5 roll_cdeg=102
+
+@3.629 [S4] 432600,0,1,1,-38,-265,903,222,-448,-165,10,10,22069,15016,0,0,43259
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=96 roll_cdeg=99
+
+@3.880 [S4] 432810,0,1,1,-35,-252,912,220,-447,-167,10,10,22080,15023,0,0,43280
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=6 roll_cdeg=120
+
+@4.065 [CSC02] t=433000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 433020,0,1,1,-33,-254,920,225,-452,-172,20,20,22090,15029,0,0,43301
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=4 roll_cdeg=135
+
+@4.250 [S4] 433230,0,1,1,-42,-259,913,223,-450,-170,20,30,22101,15035,0,0,43322
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=44 roll_cdeg=77
+
+@4.451 [S4] 433440,0,1,1,-33,-250,913,225,-452,-167,10,10,22112,15043,0,0,43343
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-8 roll_cdeg=133
+
+@4.717 [S4] 433650,0,1,1,-53,-234,979,222,-450,-168,20,10,22122,15050,0,0,43364
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-196 roll_cdeg=30
+
+@4.873 [S4] 433860,0,1,1,-36,-251,922,220,-452,-165,20,20,22133,15056,0,0,43385
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-16 roll_cdeg=116
+
+@5.014 [CSC02] t=434000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@5.092 [S4] 434070,0,1,1,-32,-255,912,220,-449,-166,10,30,22144,15062,0,0,43406
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=23 roll_cdeg=139
+
+@5.294 [S4] 434280,0,1,1,-39,-247,914,224,-449,-169,10,10,22155,15070,0,0,43427
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-27 roll_cdeg=96
+
+@5.530 [S4] 434490,0,1,1,-33,-252,917,223,-450,-168,20,10,22165,15078,0,0,43448
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=134
+
+@5.732 [S4] 434700,0,1,1,-26,-269,905,220,-451,-168,20,20,22176,15085,0,0,43469
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=117 roll_cdeg=175
+
+@5.933 [S4] 434910,0,1,1,-33,-255,914,219,-449,-166,10,30,22187,15093,0,0,43490
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=20 roll_cdeg=133
+
+@6.011 [CSC02] t=435000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@6.135 [S4] 435120,0,1,1,-28,-249,928,220,-449,-168,20,10,22197,15101,0,0,43511
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-37 roll_cdeg=167
+
+@6.382 [S4] 435330,0,1,1,-34,-256,917,224,-450,-169,20,10,22208,15109,0,0,43532
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=128
+
+@6.568 [S4] 435540,0,1,1,-42,-262,915,222,-450,-162,10,20,22219,15117,0,0,43553
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=58 roll_cdeg=77
+
+@6.754 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+
+@6.816 [S4] 435750,0,1,1,-36,-254,913,223,-450,-169,10,0,22230,15124,0,0,43575
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=16 roll_cdeg=114
+
+@7.004 [S4] 435960,0,1,1,-40,-254,919,221,-451,-169,20,40,22240,15130,0,0,43595
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=6 roll_cdeg=91
+
+@7.066 [CSC02] t=436000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@7.190 [S4] 436170,0,1,1,-46,-252,912,222,-449,-168,20,10,22251,15137,0,0,43616
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=51
+
+@7.440 [S4] 436380,0,1,1,-41,-252,919,220,-450,-168,10,20,22262,15144,0,0,43637
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=85
+
+@7.642 [S4] 436590,0,1,1,-29,-274,923,220,-450,-167,20,30,22272,15150,0,0,43658
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=115 roll_cdeg=160
+
+@7.829 [S4] 436800,0,1,1,-33,-251,914,220,-449,-168,20,40,22283,15156,0,0,43679
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=133
+
+@8.018 [CSC02] t=437000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@8.078 [S4] 437010,0,1,1,-39,-248,918,220,-450,-168,10,10,22294,15163,0,0,43701
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-28 roll_cdeg=97
+
+@8.266 [S4] 437220,0,1,1,-34,-250,913,224,-451,-168,10,20,22305,15170,0,0,43721
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-8 roll_cdeg=127
+
+@8.453 [S4] 437430,0,1,1,-34,-256,910,222,-453,-166,20,30,22315,15176,0,0,43742
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=32 roll_cdeg=126
+
+@8.670 [S4] 437640,0,1,1,-34,-261,913,225,-455,-173,20,40,22326,15184,0,0,43763
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=56 roll_cdeg=127
+
+@8.871 [S4] 437850,0,1,1,-39,-251,907,222,-450,-170,10,10,22337,15191,0,0,43784
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=8 roll_cdeg=94
+
+@9.057 [CSC02] t=438000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@9.120 [S4] 438060,0,1,1,-28,-258,924,221,-448,-171,20,20,22347,15199,0,0,43805
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=166
+
+@9.306 [S4] 438270,0,1,1,-37,-255,917,220,-450,-166,20,30,22358,15207,0,0,43826
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=109
+
+@9.493 [S4] 438480,0,1,1,-41,-256,911,221,-449,-166,10,30,22369,15215,0,0,43847
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=30 roll_cdeg=82
+
+@9.744 [S4] 438690,0,1,1,-34,-248,919,221,-453,-168,10,10,22380,15224,0,0,43868
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-29 roll_cdeg=128
+
+@9.932 [S4] 438900,0,1,1,-36,-251,914,218,-449,-168,20,20,22390,15231,0,0,43889
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-4 roll_cdeg=114
+
+@10.057 [CSC02] t=439000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@10.182 [S4] 439110,0,1,1,-30,-247,936,226,-452,-169,20,20,22401,15238,0,0,43910
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-60 roll_cdeg=156
+
+@10.368 [S4] 439320,0,1,1,-35,-251,912,220,-451,-169,10,30,22412,15245,0,0,43931
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=0 roll_cdeg=120
+
+@10.555 [S4] 439530,0,1,1,-30,-259,914,220,-449,-169,20,10,22422,15252,0,0,43952
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=43 roll_cdeg=152
+
+@10.804 [S4] 439740,0,1,1,-33,-255,915,222,-449,-166,20,20,22433,15260,0,0,43973
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=18 roll_cdeg=133
+
+@10.992 [S4] 439950,0,1,1,-36,-252,918,224,-450,-168,10,30,22444,15266,0,0,43994
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-4 roll_cdeg=115
+
+@11.054 [CSC02] t=440000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@11.179 [S4] 440160,0,1,1,-38,-250,915,220,-450,-170,10,30,22455,15273,0,0,44015
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-11 roll_cdeg=102
+
+@11.428 [S4] 440370,0,1,1,-36,-252,921,220,-452,-171,20,10,22465,15280,0,0,44036
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-9 roll_cdeg=116
+
+@11.615 [S4] 440580,0,1,1,-37,-268,912,222,-448,-168,20,20,22476,15287,0,0,44057
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=98 roll_cdeg=108
+
+@11.864 [S4] 440790,0,1,1,-41,-250,917,221,-450,-168,10,30,22487,15293,0,0,44078
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-14 roll_cdeg=84
+
+@12.051 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[CSC02] t=441000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 441000,0,1,1,-46,-256,920,220,-449,-171,20,30,22497,15301,0,0,44099
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=54
+
+@12.239 [S4] 441210,0,1,1,-31,-251,916,220,-451,-170,20,10,22508,15308,0,0,44120
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=146
+
+@12.487 [S4] 441420,0,1,1,-41,-257,919,222,-449,-172,10,20,22519,15316,0,0,44141
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=23 roll_cdeg=85
+
+@12.675 [S4] 441630,0,1,1,-37,-256,913,221,-451,-170,10,30,22530,15323,0,0,44162
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=27 roll_cdeg=108
+
+@12.862 [S4] 441840,0,1,1,-32,-257,913,225,-449,-171,20,30,22540,15331,0,0,44183
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=33 roll_cdeg=139
+
+@13.049 [CSC02] t=442000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@13.110 [S4] 442050,0,1,1,-25,-254,927,222,-452,-171,20,10,22551,15341,0,0,44204
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=186
+
+@13.299 [S4] 442260,0,1,1,-35,-256,914,220,-450,-170,10,20,22562,15348,0,0,44225
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=26 roll_cdeg=121
+
+@13.548 [S4] 442470,0,1,1,-18,-264,920,224,-453,-168,20,20,22572,15356,0,0,44246
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=63 roll_cdeg=228
+
+@13.737 [S4] 442680,0,1,1,-39,-252,916,220,-449,-171,20,30,22583,15363,0,0,44267
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=96
+
+@13.923 [S4] 442890,0,1,1,-33,-256,915,222,-453,-170,10,10,22594,15372,0,0,44288
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=24 roll_cdeg=133
+
+@14.048 [CSC02] t=443000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@14.110 [S4] 443100,0,1,1,-32,-256,915,222,-450,-170,10,10,22605,15379,0,0,44309
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=24 roll_cdeg=140
+
+@14.360 [S4] 443310,0,1,1,-36,-253,921,222,-450,-171,20,20,22615,15386,0,0,44330
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=116
+
+@14.548 [S4] 443520,0,1,1,-40,-251,948,221,-449,-170,20,30,22626,15392,0,0,44351
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-56 roll_cdeg=98
+
+@14.798 [S4] 443730,0,1,1,-37,-253,917,224,-450,-172,10,10,22637,15400,0,0,44372
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=3 roll_cdeg=109
+
+@14.988 [S4] 443940,0,1,1,-38,-257,918,223,-450,-170,20,20,22647,15406,0,0,44393
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=25 roll_cdeg=103
+
+@15.055 [CSC02] t=444000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@15.172 [S4] 444150,0,1,1,-37,-257,912,221,-451,-169,20,20,22658,15413,0,0,44414
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=35 roll_cdeg=108
+
+@15.421 [S4] 444360,0,1,1,-40,-250,915,222,-449,-171,10,30,22669,15419,0,0,44435
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-11 roll_cdeg=90
+
+@15.624 [S4] 444570,0,1,1,-34,-255,923,221,-445,-170,10,10,22680,15428,0,0,44456
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=129
+
+@15.842 [S4] 444780,0,1,1,-35,-254,914,220,-450,-172,20,10,22690,15435,0,0,44477
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=14 roll_cdeg=121
+
+@16.042 [S4] 444990,0,1,1,-55,-276,903,220,-450,-170,10,20,22701,15442,0,0,44498
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=159 roll_cdeg=-9
+[CSC02] t=445000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@16.231 [S4] 445200,0,1,1,-42,-253,915,223,-447,-171,10,30,22712,15449,0,0,44519
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=6 roll_cdeg=77
+
+@16.451 [S4] 445410,0,1,1,-24,-253,917,223,-450,-171,20,10,22722,15457,0,0,44540
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=4 roll_cdeg=190
+
+@16.653 [S4] 445620,0,1,1,-32,-257,915,223,-448,-171,20,20,22733,15464,0,0,44561
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=30 roll_cdeg=140
+
+@16.854 [S4] 445830,0,1,1,-38,-257,913,223,-451,-171,10,20,22744,15472,0,0,44582
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=33 roll_cdeg=102
+
+@17.042 [CSC02] t=446000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@17.103 [S4] 446040,0,1,1,-38,-263,913,222,-451,-170,10,30,22755,15479,0,0,44603
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=68 roll_cdeg=102
+
+@17.290 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 446250,0,1,1,-33,-258,917,221,-450,-171,0,0,22766,15488,0,0,44625
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=32 roll_cdeg=134
+
+@17.492 [S4] 446460,0,1,1,-29,-277,876,222,-451,-171,10,10,22776,15494,0,0,44645
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=216 roll_cdeg=150
+
+@17.741 [S4] 446670,0,1,1,-37,-253,917,226,-452,-170,10,20,22787,15502,0,0,44666
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=3 roll_cdeg=109
+
+@17.926 [S4] 446880,0,1,1,-34,-256,929,222,-449,-169,20,30,22797,15508,0,0,44687
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=130
+
+@18.051 [CSC02] t=447000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@18.114 [S4] 447090,0,1,1,-41,-253,910,224,-450,-168,20,10,22808,15516,0,0,44708
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=14 roll_cdeg=82
+
+@18.364 [S4] 447300,0,1,1,-38,-252,904,220,-450,-168,10,10,22819,15523,0,0,44729
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=18 roll_cdeg=99
+
+@18.550 [S4] 447510,0,1,1,-33,-256,916,220,-450,-170,10,20,22830,15529,0,0,44751
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=22 roll_cdeg=134
+
+@18.739 [S4] 447720,0,1,1,-33,-252,918,224,-453,-168,20,30,22840,15535,0,0,44771
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-4 roll_cdeg=134
+
+@18.988 [S4] 447930,0,1,1,-68,-223,945,220,-451,-170,10,10,22851,15543,0,0,44792
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-214 roll_cdeg=-72
+
+@19.050 [CSC02] t=448000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@19.174 [S4] 448140,0,1,1,-39,-253,919,220,-451,-167,10,10,22862,15550,0,0,44813
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=0 roll_cdeg=97
+
+@19.426 [S4] 448350,0,1,1,-35,-254,913,223,-453,-166,20,20,22872,15558,0,0,44834
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=16 roll_cdeg=120
+
+@19.612 [S4] 448560,0,1,1,-39,-246,918,221,-452,-169,20,30,22883,15564,0,0,44855
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-39 roll_cdeg=97
+
+@19.799 [S4] 448770,0,1,1,-33,-254,911,221,-458,-167,10,40,22894,15572,0,0,44876
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=133
+
+@19.986 [S4] 448980,0,1,1,-40,-256,918,221,-450,-168,10,10,22905,15581,0,0,44897
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=91
+
+@20.049 [CSC02] t=449000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@20.238 [S4] 449190,0,1,1,-34,-253,913,221,-452,-163,20,20,22915,15588,0,0,44918
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=10 roll_cdeg=127
+
+@20.426 [S4] 449400,0,1,1,-43,-272,903,220,-453,-166,10,30,22926,15595,0,0,44939
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=137 roll_cdeg=67
+
+@20.674 [S4] 449610,0,1,1,-39,-256,917,220,-450,-167,10,10,22937,15604,0,0,44960
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=20 roll_cdeg=96
+
+@20.860 [S4] 449820,0,1,1,-34,-255,919,221,-453,-168,20,10,22947,15612,0,0,44981
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=12 roll_cdeg=128
+
+@21.045 [CSC02] t=450000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@21.108 [S4] 450030,0,1,1,-41,-252,915,222,-452,-167,20,20,22958,15618,0,0,45002
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=0 roll_cdeg=83
+
+@21.248 [S4] 450240,0,1,1,-32,-250,912,219,-450,-170,10,30,22969,15626,0,0,45023
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=139
+
+@21.513 [S4] 450450,0,1,1,-56,-235,907,220,-452,-171,10,30,22980,15633,0,0,45044
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-88 roll_cdeg=-13
+
+@21.715 [S4] 450660,0,1,1,-33,-252,917,220,-450,-170,20,10,22990,15641,0,0,45065
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=134
+
+@21.921 [S4] 450870,0,1,1,-20,-249,921,221,-449,-165,10,20,23001,15647,0,0,45086
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-25 roll_cdeg=216
+
+@22.077 [CSC02] t=451000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@22.153 [S4] 451080,0,1,1,-37,-249,915,223,-450,-170,10,30,23012,15654,0,0,45107
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-17 roll_cdeg=108
+
+@22.357 [S4] 451290,0,1,1,-36,-251,911,220,-449,-168,20,30,23022,15661,0,0,45128
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1 roll_cdeg=114
+
+@22.558 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 451500,0,1,1,-40,-255,916,221,-454,-169,20,10,23033,15669,0,0,45149
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=16 roll_cdeg=90
+
+@22.759 [S4] 451710,0,1,1,-32,-256,914,222,-450,-171,10,20,23044,15676,0,0,45170
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=26 roll_cdeg=139
+
+@22.948 [S4] 451920,0,1,1,-30,-267,940,225,-453,-172,20,20,23054,15684,0,0,45191
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=47 roll_cdeg=157
+
+@23.012 [CSC02] t=452000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@23.154 [S4] 452130,0,1,1,-34,-252,916,222,-450,-169,20,30,23065,15692,0,0,45212
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=127
+
+@23.357 [S4] 452340,0,1,1,-36,-263,920,221,-449,-167,10,10,23076,15700,0,0,45233
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=56 roll_cdeg=116
+
+@23.619 [S4] 452550,0,1,1,-37,-253,915,222,-450,-169,10,10,23087,15708,0,0,45254
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=6 roll_cdeg=108
+
+@23.803 [S4] 452760,0,1,1,-36,-256,915,224,-450,-170,20,20,23097,15717,0,0,45275
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=24 roll_cdeg=115
+
+@23.990 [S4] 452970,0,1,1,-36,-257,906,223,-450,-168,20,30,23108,15724,0,0,45296
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=44 roll_cdeg=112
+
+@24.052 [CSC02] t=453000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@24.238 [S4] 453180,0,1,1,-38,-257,915,222,-451,-168,10,10,23119,15732,0,0,45317
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=30 roll_cdeg=102
+
+@24.425 [S4] 453390,0,1,1,-45,-264,928,224,-451,-171,10,20,23130,15739,0,0,45338
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=48 roll_cdeg=62
+
+@24.615 [S4] 453600,0,1,1,-40,-253,916,222,-452,-167,20,20,23140,15748,0,0,45359
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=90
+
+@24.866 [S4] 453810,0,1,1,-44,-263,908,221,-449,-168,10,30,23151,15754,0,0,45380
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=76 roll_cdeg=63
+
+@25.053 [CSC02] t=454000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 454020,0,1,1,-36,-253,915,221,-450,-169,10,10,23162,15762,0,0,45401
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=6 roll_cdeg=115
+
+@25.301 [S4] 454230,0,1,1,-35,-257,912,221,-448,-170,20,20,23172,15768,0,0,45422
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=35 roll_cdeg=120
+
+@25.487 [S4] 454440,0,1,1,-37,-254,926,221,-450,-170,20,20,23183,15775,0,0,45443
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-5 roll_cdeg=111
+
+@25.674 [S4] 454650,0,1,1,-39,-252,916,223,-449,-169,10,30,23194,15781,0,0,45464
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=96
+
+@25.925 [S4] 454860,0,1,1,-39,-248,922,223,-449,-168,20,10,23204,15790,0,0,45485
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-34 roll_cdeg=98
+
+@26.051 [CSC02] t=455000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@26.112 [S4] 455070,0,1,1,-36,-255,917,221,-451,-171,20,10,23215,15797,0,0,45506
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=115
+
+@26.299 [S4] 455280,0,1,1,-48,-247,912,222,-450,-171,10,20,23226,15805,0,0,45527
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-25 roll_cdeg=39
+
+@26.548 [S4] 455490,0,1,1,-33,-252,918,219,-450,-172,10,30,23237,15811,0,0,45548
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-4 roll_cdeg=134
+
+@26.735 [S4] 455700,0,1,1,-31,-254,914,222,-450,-169,20,10,23247,15820,0,0,45569
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=14 roll_cdeg=146
+
+@26.985 [S4] 455910,0,1,1,-30,-254,929,222,-453,-172,20,10,23258,15828,0,0,45590
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-10 roll_cdeg=155
+
+@27.047 [CSC02] t=456000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@27.173 [S4] 456120,0,1,1,-33,-250,916,222,-451,-170,10,20,23269,15835,0,0,45611
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-12 roll_cdeg=134
+
+@27.359 [S4] 456330,0,1,1,-69,-232,950,223,-453,-167,20,30,23279,15843,0,0,45632
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-169 roll_cdeg=-75
+
+@27.561 [S4] 456540,0,1,1,-39,-254,920,224,-451,-169,20,10,23290,15851,0,0,45653
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=4 roll_cdeg=97
+
+@27.749 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+
+@27.811 [S4] 456750,0,1,1,-41,-253,925,222,-450,-172,10,10,23301,15859,0,0,45675
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-10 roll_cdeg=86
+
+@27.999 [S4] 456960,0,1,1,-32,-250,912,222,-451,-170,10,20,23312,15866,0,0,45695
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=139
+
+@28.077 [CSC02] t=457000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@28.232 [S4] 457170,0,1,1,-35,-255,912,220,-450,-168,20,30,23322,15872,0,0,45716
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=23 roll_cdeg=120
+
+@28.435 [S4] 457380,0,1,1,-39,-245,930,222,-453,-168,20,10,23333,15880,0,0,45737
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-63 roll_cdeg=100
+
+@28.637 [S4] 457590,0,1,1,-39,-255,913,223,-450,-168,10,10,23344,15887,0,0,45758
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=95
+
+@28.825 [S4] 457800,0,1,1,-40,-259,926,219,-450,-172,20,20,23354,15894,0,0,45779
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=23 roll_cdeg=93
+
+@29.027 [CSC02] t=458000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 458010,0,1,1,-33,-255,916,222,-450,-170,0,0,23366,15901,0,0,45801
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=134
+
+@29.275 [S4] 458220,0,1,1,-38,-317,909,221,-452,-169,10,10,23376,15908,0,0,45821
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=383 roll_cdeg=101
+
+@29.461 [S4] 458430,0,1,1,-37,-254,921,221,-447,-170,10,10,23387,15915,0,0,45842
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=3 roll_cdeg=110
+
+@29.650 [S4] 458640,0,1,1,-31,-253,911,221,-453,-169,20,20,23397,15923,0,0,45863
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=13 roll_cdeg=145
+
+@29.898 [S4] 458850,0,1,1,-41,-260,907,223,-449,-170,20,30,23408,15930,0,0,45884
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=60 roll_cdeg=81
+
+@30.024 [CSC02] t=459000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@30.086 [S4] 459060,0,1,1,-32,-255,916,225,-453,-167,10,30,23419,15938,0,0,45905
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=140
+
+@30.336 [S4] 459270,0,1,1,-64,-227,969,220,-450,-170,20,10,23429,15947,0,0,45926
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-222 roll_cdeg=-38
+
+@30.522 [S4] 459480,0,1,1,-36,-254,905,220,-450,-169,20,20,23440,15954,0,0,45947
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=29 roll_cdeg=112
+
+@30.709 [S4] 459690,0,1,1,-29,-256,917,223,-450,-170,10,30,23451,15962,0,0,45968
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=159
+
+@30.958 [S4] 459900,0,1,1,-39,-256,918,223,-448,-170,10,30,23462,15969,0,0,45989
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=97
+
+@31.021 [CSC02] t=460000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@31.144 [S4] 460110,0,1,1,-37,-255,915,220,-450,-170,20,10,23472,15977,0,0,46010
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=18 roll_cdeg=108
+
+@31.330 [S4] 460320,0,1,1,-54,-244,922,223,-450,-169,20,20,23483,15983,0,0,46031
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-58 roll_cdeg=5
+
+@31.581 [S4] 460530,0,1,1,-32,-258,915,222,-450,-168,10,30,23494,15990,0,0,46052
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=36 roll_cdeg=140
+
+@31.767 [S4] 460740,0,1,1,-39,-253,921,225,-450,-167,20,40,23504,15996,0,0,46073
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=98
+
+@32.016 [S4] 460950,0,1,1,-33,-251,915,220,-450,-168,20,10,23515,16004,0,0,46094
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-5 roll_cdeg=133
+[CSC02] t=461000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@32.204 [S4] 461160,0,1,1,-46,-252,909,222,-452,-168,10,20,23526,16011,0,0,46115
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=10 roll_cdeg=50
+
+@32.391 [S4] 461370,0,1,1,-36,-249,917,223,-447,-169,10,30,23537,16018,0,0,46136
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-20 roll_cdeg=115
+
+@32.641 [S4] 461580,0,1,1,-37,-253,918,222,-450,-168,20,30,23547,16025,0,0,46157
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=109
+
+@32.828 [S4] 461790,0,1,1,-28,-269,916,221,-448,-170,20,10,23558,16033,0,0,46178
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=98 roll_cdeg=165
+
+@33.029 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[CSC02] t=462000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 462000,0,1,1,-33,-257,917,224,-448,-170,10,20,23569,16040,0,0,46199
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=27 roll_cdeg=134
+
+@33.247 [S4] 462210,0,1,1,-29,-273,911,222,-449,-169,10,20,23580,16047,0,0,46220
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=129 roll_cdeg=158
+
+@33.466 [S4] 462420,0,1,1,-35,-253,918,223,-450,-169,20,30,23590,16055,0,0,46241
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=122
+
+@33.669 [S4] 462630,0,1,1,-39,-252,916,223,-448,-169,10,10,23601,16063,0,0,46262
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=96
+
+@33.872 [S4] 462840,0,1,1,-33,-255,908,222,-449,-168,10,20,23612,16070,0,0,46283
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=30 roll_cdeg=132
+
+@34.012 [CSC02] t=463000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@34.090 [S4] 463050,0,1,1,-34,-253,912,221,-450,-167,20,20,23622,16078,0,0,46304
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=11 roll_cdeg=126
+
+@34.278 [S4] 463260,0,1,1,-36,-253,918,223,-449,-170,20,30,23633,16084,0,0,46325
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=115
+
+@34.543 [S4] 463470,0,1,1,-37,-252,914,221,-451,-171,10,10,23644,16093,0,0,46346
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=108
+
+@34.746 [S4] 463680,0,1,1,-43,-261,916,222,-450,-171,20,20,23654,16099,0,0,46367
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=51 roll_cdeg=71
+
+@34.948 [S4] 463890,0,1,1,-37,-258,910,220,-450,-170,20,20,23665,16106,0,0,46388
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=44 roll_cdeg=107
+
+@35.010 [CSC02] t=464000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@35.152 [S4] 464100,0,1,1,-36,-254,926,220,-450,-171,10,30,23676,16112,0,0,46409
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-5 roll_cdeg=117
+
+@35.357 [S4] 464310,0,1,1,-39,-255,917,225,-451,-170,10,10,23687,16120,0,0,46430
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=96
+
+@35.591 [S4] 464520,0,1,1,-35,-256,916,221,-445,-171,20,10,23697,16127,0,0,46451
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=22 roll_cdeg=121
+
+@35.811 [S4] 464730,0,1,1,-17,-278,897,221,-450,-170,20,20,23708,16133,0,0,46472
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=184 roll_cdeg=231
+
+@35.999 [S4] 464940,0,1,1,-38,-251,920,223,-451,-169,10,30,23719,16139,0,0,46493
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-13 roll_cdeg=103
+
+@36.061 [CSC02] t=465000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@36.203 [S4] 465150,0,1,1,-37,-258,909,225,-452,-167,20,10,23729,16147,0,0,46514
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=45 roll_cdeg=107
+
+@36.407 [S4] 465360,0,1,1,-35,-254,919,220,-449,-168,20,10,23740,16154,0,0,46535
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=6 roll_cdeg=122
+
+@36.637 [S4] 465570,0,1,1,-38,-256,918,224,-450,-167,10,20,23751,16161,0,0,46556
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=103
+
+@36.839 [S4] 465780,0,1,1,-37,-249,911,221,-450,-168,10,30,23762,16169,0,0,46577
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-10 roll_cdeg=107
+
+@37.028 [S4] 465990,0,1,1,-36,-258,916,220,-450,-167,20,10,23772,16177,0,0,46598
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=34 roll_cdeg=115
+[CSC02] t=466000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@37.230 [S4] 466200,0,1,1,-27,-252,910,223,-451,-168,20,10,23783,16186,0,0,46619
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=9 roll_cdeg=170
+
+@37.481 [S4] 466410,0,1,1,-33,-253,914,222,-449,-165,10,20,23794,16193,0,0,46640
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=8 roll_cdeg=133
+
+@37.682 [S4] 466620,0,1,1,-37,-251,923,222,-449,-168,20,30,23804,16200,0,0,46661
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-18 roll_cdeg=110
+
+@37.869 [S4] 466830,0,1,1,-34,-256,924,221,-451,-168,20,10,23815,16208,0,0,46682
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=10 roll_cdeg=129
+
+@38.056 [CSC02] t=467000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 467040,0,1,1,-21,-255,924,221,-450,-166,10,10,23826,16215,0,0,46703
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=4 roll_cdeg=210
+
+@38.304 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 467250,0,1,1,-34,-258,918,222,-450,-168,10,20,23837,16222,0,0,46725
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=31 roll_cdeg=128
+
+@38.493 [S4] 467460,0,1,1,-37,-250,918,221,-451,-170,20,30,23847,16228,0,0,46745
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-16 roll_cdeg=109
+
+@38.741 [S4] 467670,0,1,1,-10,-249,966,223,-450,-168,10,10,23858,16236,0,0,46766
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-93 roll_cdeg=281
+
+@38.930 [S4] 467880,0,1,1,-35,-251,913,220,-451,-166,10,10,23869,16243,0,0,46787
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=120
+
+@39.069 [CSC02] t=468000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@39.132 [S4] 468090,0,1,1,-36,-248,909,220,-452,-167,20,20,23879,16251,0,0,46808
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-13 roll_cdeg=113
+
+@39.320 [S4] 468300,0,1,1,-33,-250,912,221,-451,-168,20,30,23890,16257,0,0,46829
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=133
+
+@39.571 [S4] 468510,0,1,1,-32,-249,916,224,-452,-167,10,0,23901,16264,0,0,46851
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-18 roll_cdeg=140
+
+@39.756 [S4] 468720,0,1,1,-31,-258,914,223,-453,-167,10,10,23912,16273,0,0,46871
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=37 roll_cdeg=146
+
+@40.007 [S4] 468930,0,1,1,-33,-252,916,220,-452,-168,20,20,23922,16280,0,0,46892
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=134
+[CSC02] t=469000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@40.192 [S4] 469140,0,1,1,-77,-228,908,220,-452,-168,10,30,23933,16287,0,0,46913
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-133 roll_cdeg=-145
+
+@40.380 [S4] 469350,0,1,1,-34,-257,917,222,-449,-167,10,30,23944,16296,0,0,46934
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=27 roll_cdeg=128
+
+@40.567 [S4] 469560,0,1,1,-36,-253,918,222,-454,-167,20,10,23954,16304,0,0,46955
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=115
+
+@40.833 [S4] 469770,0,1,1,-35,-251,915,223,-453,-166,20,20,23965,16310,0,0,46976
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-5 roll_cdeg=121
+
+@41.021 [S4] 469980,0,1,1,-37,-255,917,224,-452,-169,10,30,23976,16318,0,0,46997
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=109
+[CSC02] t=470000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@41.207 [S4] 470190,0,1,1,-33,-250,916,222,-451,-167,10,30,23987,16325,0,0,47018
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-12 roll_cdeg=134
+
+@41.456 [S4] 470400,0,1,1,-39,-258,922,223,-454,-165,20,10,23997,16332,0,0,47039
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=24 roll_cdeg=98
+
+@41.645 [S4] 470610,0,1,1,-37,-247,911,220,-453,-168,10,20,24008,16338,0,0,47060
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-22 roll_cdeg=107
+
+@41.832 [S4] 470820,0,1,1,-38,-251,921,225,-451,-165,10,30,24019,16345,0,0,47081
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-15 roll_cdeg=104
+
+@42.018 [CSC02] t=471000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@42.080 [S4] 471030,0,1,1,-1,-306,893,221,-450,-170,20,30,24029,16352,0,0,47102
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=353 roll_cdeg=334
+
+@42.268 [S4] 471240,0,1,1,-38,-250,913,222,-450,-168,20,10,24040,16360,0,0,47123
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-8 roll_cdeg=102
+
+@42.518 [S4] 471450,0,1,1,-36,-257,912,223,-449,-165,10,20,24051,16367,0,0,47144
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=35 roll_cdeg=114
+
+@42.704 [S4] 471660,0,1,1,-41,-250,915,222,-450,-169,10,30,24062,16374,0,0,47165
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-11 roll_cdeg=83
+
+@42.892 [S4] 471870,0,1,1,-33,-252,916,222,-449,-166,20,30,24072,16382,0,0,47186
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=134
+
+@43.015 [CSC02] t=472000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@43.140 [S4] 472080,0,1,1,-9,-263,957,222,-450,-166,10,10,24083,16389,0,0,47207
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1 roll_cdeg=286
+
+@43.372 [S4] 472290,0,1,1,-37,-250,910,218,-451,-168,10,20,24094,16396,0,0,47228
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=107
+
+@43.512 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 472500,0,1,1,-40,-252,917,223,-448,-169,20,20,24104,16405,0,0,47249
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=90
+
+@43.774 [S4] 472710,0,1,1,-42,-254,913,223,-451,-166,20,30,24115,16411,0,0,47270
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=77
+
+@43.962 [S4] 472920,0,1,1,-36,-252,917,223,-451,-168,10,10,24126,16420,0,0,47291
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=115
+
+@44.025 [CSC02] t=473000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@44.150 [S4] 473130,0,1,1,-34,-259,929,223,-450,-167,10,10,24137,16427,0,0,47312
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=130
+
+@44.398 [S4] 473340,0,1,1,-34,-252,917,223,-450,-167,20,20,24147,16434,0,0,47333
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=128
+
+@44.585 [S4] 473550,0,1,1,-23,-256,932,221,-450,-169,10,30,24158,16440,0,0,47354
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=199
+
+@44.773 [S4] 473760,0,1,1,-34,-249,915,226,-453,-168,10,10,24169,16448,0,0,47375
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-17 roll_cdeg=127
+
+@45.022 [S4] 473970,0,1,1,-36,-249,921,221,-452,-166,20,20,24179,16454,0,0,47396
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-26 roll_cdeg=116
+[CSC02] t=474000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@45.208 [S4] 474180,0,1,1,-39,-256,913,220,-452,-169,20,20,24190,16461,0,0,47417
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=27 roll_cdeg=95
+
+@45.455 [S4] 474390,0,1,1,-41,-253,914,220,-455,-166,10,30,24201,16467,0,0,47438
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=8 roll_cdeg=83
+
+@45.642 [S4] 474600,0,1,1,0,-275,907,220,-454,-166,20,10,24211,16476,0,0,47459
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=149 roll_cdeg=340
+
+@45.829 [S4] 474810,0,1,1,-34,-253,918,227,-454,-169,20,10,24222,16483,0,0,47480
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=128
+
+@46.015 [CSC02] t=475000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@46.077 [S4] 475020,0,1,1,-47,-251,948,222,-453,-166,10,20,24233,16490,0,0,47501
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-57 roll_cdeg=56
+
+@46.278 [S4] 475230,0,1,1,-35,-254,915,222,-454,-168,10,30,24244,16498,0,0,47522
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=12 roll_cdeg=121
+
+@46.481 [S4] 475440,0,1,1,-35,-253,914,222,-450,-165,20,10,24254,16506,0,0,47543
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=8 roll_cdeg=121
+
+@46.687 [S4] 475650,0,1,1,-29,-262,921,223,-452,-167,20,10,24265,16515,0,0,47564
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=49 roll_cdeg=160
+
+@46.874 [S4] 475860,0,1,1,-31,-255,917,222,-451,-168,10,20,24276,16521,0,0,47585
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=146
+
+@47.076 [CSC02] t=476000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@47.153 [S4] 476070,0,1,1,-39,-259,902,220,-450,-166,20,30,24286,16528,0,0,47606
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=63 roll_cdeg=92
+
+@47.295 [S4] 476280,0,1,1,-31,-257,920,223,-454,-166,20,10,24297,16537,0,0,47627
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=22 roll_cdeg=147
+
+@47.557 [S4] 476490,0,1,1,-36,-252,920,222,-450,-169,10,10,24308,16544,0,0,47648
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-7 roll_cdeg=116
+
+@47.743 [S4] 476700,0,1,1,-37,-254,913,222,-452,-167,10,20,24319,16551,0,0,47669
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=108
+
+@47.930 [S4] 476910,0,1,1,-36,-254,918,221,-453,-163,20,30,24329,16557,0,0,47690
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=7 roll_cdeg=115
+
+@48.055 [CSC02] t=477000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@48.179 [S4] 477120,0,1,1,-38,-251,936,224,-450,-166,20,40,24340,16564,0,0,47711
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-38 roll_cdeg=108
+
+@48.364 [S4] 477330,0,1,1,-36,-251,919,223,-454,-170,10,10,24351,16571,0,0,47732
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-11 roll_cdeg=116
+
+@48.552 [S4] 477540,0,1,1,-27,-236,925,220,-450,-168,20,20,24361,16578,0,0,47753
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-107 roll_cdeg=173
+
+@48.805 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 477750,0,1,1,-32,-251,919,222,-449,-168,0,0,24373,16586,0,0,47775
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-11 roll_cdeg=141
+
+@48.992 [S4] 477960,0,1,1,-38,-256,919,224,-452,-166,10,40,24383,16592,0,0,47795
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=103
+
+@49.054 [CSC02] t=478000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@49.243 [S4] 478170,0,1,1,-37,-252,912,220,-453,-169,10,10,24394,16599,0,0,47816
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=108
+
+@49.429 [S4] 478380,0,1,1,-39,-248,921,222,-449,-168,20,20,24404,16607,0,0,47837
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-32 roll_cdeg=98
+
+@49.615 [S4] 478590,0,1,1,-1,-306,919,222,-450,-167,10,30,24415,16614,0,0,47858
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=304 roll_cdeg=334
+
+@49.865 [S4] 478800,0,1,1,-34,-255,918,221,-450,-167,10,40,24426,16622,0,0,47879
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=13 roll_cdeg=128
+
+@50.051 [CSC02] t=479000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 479010,0,1,1,-34,-259,911,220,-452,-168,10,10,24437,16631,0,0,47901
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=48 roll_cdeg=126
+
+@50.239 [S4] 479220,0,1,1,-34,-259,920,222,-453,-167,20,20,24447,16637,0,0,47921
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=33 roll_cdeg=128
+
+@50.487 [S4] 479430,0,1,1,-38,-248,918,221,-452,-167,10,30,24458,16645,0,0,47942
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-27 roll_cdeg=103
+
+@50.673 [S4] 479640,0,1,1,-31,-254,913,221,-450,-167,10,40,24469,16651,0,0,47963
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=16 roll_cdeg=146
+
+@50.923 [S4] 479850,0,1,1,-37,-253,920,224,-450,-170,20,10,24479,16660,0,0,47984
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=110
+
+@51.048 [CSC02] t=480000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@51.111 [S4] 480060,0,1,1,-46,-248,963,221,-450,-167,20,20,24490,16667,0,0,48005
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-95 roll_cdeg=67
+
+@51.298 [S4] 480270,0,1,1,-34,-253,916,222,-450,-167,10,30,24501,16674,0,0,48026
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=5 roll_cdeg=127
+
+@51.486 [S4] 480480,0,1,1,-34,-261,910,224,-453,-168,20,30,24511,16681,0,0,48047
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=61 roll_cdeg=126
+
+@51.733 [S4] 480690,0,1,1,-39,-254,916,221,-454,-163,20,10,24522,16689,0,0,48068
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=10 roll_cdeg=96
+
+@51.935 [S4] 480900,0,1,1,-35,-255,913,220,-450,-165,10,20,24533,16696,0,0,48089
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=120
+
+@52.014 [CSC02] t=481000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@52.153 [S4] 481110,0,1,1,-35,-248,918,224,-450,-166,10,20,24544,16703,0,0,48110
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-27 roll_cdeg=122
+
+@52.357 [S4] 481320,0,1,1,-34,-256,915,223,-450,-166,20,30,24554,16711,0,0,48131
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=24 roll_cdeg=127
+
+@52.592 [S4] 481530,0,1,1,-35,-288,933,221,-450,-167,10,10,24565,16719,0,0,48152
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=176 roll_cdeg=125
+
+@52.796 [S4] 481740,0,1,1,-32,-251,917,226,-450,-168,10,10,24576,16727,0,0,48173
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-8 roll_cdeg=140
+
+@52.985 [S4] 481950,0,1,1,-47,-256,910,223,-450,-165,20,20,24586,16734,0,0,48194
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=31 roll_cdeg=44
+
+@53.046 [CSC02] t=482000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@53.171 [S4] 482160,0,1,1,-36,-250,917,221,-450,-169,20,30,24597,16742,0,0,48215
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-14 roll_cdeg=115
+
+@53.421 [S4] 482370,0,1,1,-35,-250,919,223,-450,-165,10,10,24608,16751,0,0,48236
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-17 roll_cdeg=122
+
+@53.609 [S4] 482580,0,1,1,-35,-251,921,220,-450,-168,10,20,24619,16757,0,0,48257
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-15 roll_cdeg=122
+
+@53.860 [S4] 482790,0,1,1,-37,-254,914,221,-450,-170,20,20,24629,16765,0,0,48278
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=14 roll_cdeg=108
+
+@54.046 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[CSC02] t=483000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 483000,0,1,1,-103,-244,919,224,-450,-169,10,30,24640,16771,0,0,48299
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-60 roll_cdeg=-299
+
+@54.235 [S4] 483210,0,1,1,-42,-243,929,222,-450,-166,10,10,24651,16779,0,0,48320
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-74 roll_cdeg=81
+
+@54.484 [S4] 483420,0,1,1,-544,-567,1479,223,-448,-164,20,20,24661,16785,0,0,48341
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-74 roll_cdeg=81
+
+@54.700 [S4] 483630,0,1,1,-43,-257,914,223,-451,-165,20,20,24672,16793,0,0,48362
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=31 roll_cdeg=71
+
+@54.905 [S4] 483840,0,1,1,-216,-169,931,223,-455,-167,10,30,24683,16799,0,0,48383
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-535 roll_cdeg=-966
+
+@55.030 [CSC02] t=484000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@55.093 [S4] 484050,0,1,1,-46,-259,921,227,-457,-169,10,10,24694,16808,0,0,48404
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=31 roll_cdeg=54
+
+@55.282 [S4] 484260,0,1,1,-44,-265,909,224,-450,-164,20,10,24704,16815,0,0,48425
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=85 roll_cdeg=63
+
+@55.533 [S4] 484470,0,1,1,-75,-246,913,225,-457,-167,10,20,24715,16822,0,0,48446
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-35 roll_cdeg=-130
+
+@55.719 [S4] 484680,0,1,1,-48,-263,912,223,-451,-166,10,30,24726,16829,0,0,48467
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=69 roll_cdeg=39
+
+@55.908 [S4] 484890,0,1,1,-42,-262,907,228,-451,-163,20,10,24736,16837,0,0,48488
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=72 roll_cdeg=75
+
+@56.032 [CSC02] t=485000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@56.158 [S4] 485100,0,1,1,-42,-258,911,227,-453,-167,20,10,24747,16846,0,0,48509
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=42 roll_cdeg=76
+
+@56.344 [S4] 485310,0,1,1,-45,-258,915,224,-456,-167,10,20,24758,16853,0,0,48530
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=35 roll_cdeg=58
+
+@56.532 [S4] 485520,0,1,1,-46,-269,917,225,-455,-167,10,30,24769,16860,0,0,48551
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=95 roll_cdeg=53
+
+@56.795 [S4] 485730,0,1,1,-47,-260,919,229,-451,-167,20,10,24779,16868,0,0,48572
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=40 roll_cdeg=47
+
+@56.952 [S4] 485940,0,1,1,-27,-257,900,227,-452,-169,10,10,24790,16875,0,0,48593
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=55 roll_cdeg=168
+
+@57.014 [CSC02] t=486000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@57.219 [S4] 486150,0,1,1,-46,-258,918,223,-452,-165,10,20,24801,16883,0,0,48614
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=30 roll_cdeg=53
+
+@57.370 [S4] 486360,0,1,1,-42,-254,912,223,-451,-166,20,30,24811,16889,0,0,48635
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=76
+
+@57.631 [S4] 486570,0,1,1,-45,-262,911,225,-453,-166,20,40,24822,16895,0,0,48656
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=65 roll_cdeg=57
+
+@57.815 [S4] 486780,0,1,1,-37,-258,913,226,-453,-166,10,10,24833,16902,0,0,48677
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=39 roll_cdeg=108
+
+@58.065 [S4] 486990,0,1,1,-53,-258,915,224,-454,-169,10,20,24844,16910,0,0,48698
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=34 roll_cdeg=8
+[CSC02] t=487000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@58.279 [S4] 487200,0,1,1,-44,-257,918,229,-452,-165,20,30,24854,16916,0,0,48719
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=24 roll_cdeg=66
+
+@58.478 [S4] 487410,0,1,1,-52,-249,903,226,-454,-167,10,10,24865,16924,0,0,48740
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1 roll_cdeg=10
+
+@58.662 [S4] 487620,0,1,1,-43,-259,910,228,-453,-166,10,10,24876,16931,0,0,48761
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=49 roll_cdeg=69
+
+@58.847 [S4] 487830,0,1,1,-45,-253,927,225,-453,-169,20,20,24886,16938,0,0,48782
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-13 roll_cdeg=62
+
+@59.034 [CSC02] t=488000 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@59.095 [S4] 488040,0,1,1,-43,-255,912,226,-453,-169,20,30,24897,16944,0,0,48803
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=22 roll_cdeg=70
+
+@59.310 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 488250,0,1,1,-54,-262,918,228,-454,-166,10,0,24908,16953,0,0,48825
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=52 roll_cdeg=3
+
+@59.513 [S4] 488460,0,1,1,-31,-269,910,224,-455,-167,10,10,24919,16960,0,0,48845
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=108 roll_cdeg=145
+
+@59.731 [S4] 488670,0,1,1,-47,-261,913,229,-456,-167,20,20,24929,16966,0,0,48866
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=55 roll_cdeg=45
+
+@59.887 [CSC02] t=488880 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 488880,0,1,1,-55,-254,923,228,-451,-170,10,30,24940,16973,0,0,48887
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=-1
+
+@60.138 [S4] 489090,0,1,1,-45,-261,917,225,-452,-170,10,30,24951,16981,0,0,48908
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=49 roll_cdeg=59
+
+@60.341 [S4] 489300,0,1,1,-46,-258,916,227,-456,-168,20,10,24961,16988,0,0,48929
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=33 roll_cdeg=53
+
+@60.530 [S4] 489510,0,1,1,-47,-259,917,224,-455,-164,0,20,24973,16994,0,0,48951
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=37 roll_cdeg=47
+
+@60.733 [S4] 489720,0,1,1,-49,-260,914,226,-451,-168,10,30,24983,17001,0,0,48971
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=48 roll_cdeg=33
+
+@60.952 [CSC02] t=489880 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 489930,0,1,1,-39,-251,940,226,-452,-165,10,30,24994,17007,0,0,48992
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-44 roll_cdeg=102
+
+@61.171 [S4] 490140,0,1,1,-130,-21,621,228,-454,-167,20,10,25004,17014,0,0,49013
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-44 roll_cdeg=102
+
+@61.387 [S4] 490350,0,1,1,-56,-264,905,227,-452,-170,10,20,25015,17021,0,0,49034
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=85 roll_cdeg=-14
+
+@61.588 [S4] 490560,0,1,1,-44,-260,910,223,-455,-169,10,30,25026,17028,0,0,49055
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=55 roll_cdeg=63
+
+@61.789 [S4] 490770,0,1,1,-42,-256,912,227,-452,-168,20,30,25036,17036,0,0,49076
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=28 roll_cdeg=76
+
+@61.913 [CSC02] t=490880 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@62.036 [S4] 490980,0,1,1,-44,-259,918,229,-454,-168,20,10,25047,17043,0,0,49097
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=36 roll_cdeg=66
+
+@62.223 [S4] 491190,0,1,1,-39,-257,907,224,-455,-167,10,20,25058,17051,0,0,49118
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=43 roll_cdeg=94
+
+@62.407 [S4] 491400,0,1,1,-24,-283,935,227,-452,-169,20,20,25068,17059,0,0,49139
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=145 roll_cdeg=193
+
+@62.658 [S4] 491610,0,1,1,-47,-260,913,228,-453,-169,20,30,25079,17066,0,0,49160
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=50 roll_cdeg=45
+
+@62.857 [S4] 491820,0,1,1,-35,-270,923,229,-454,-171,10,10,25090,17075,0,0,49181
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=91 roll_cdeg=123
+
+@62.935 [CSC02] t=491880 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@63.074 [S4] 492030,0,1,1,-45,-260,914,226,-453,-170,10,10,25101,17082,0,0,49202
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=48 roll_cdeg=58
+
+@63.274 [S4] 492240,0,1,1,7,-285,891,228,-458,-169,20,20,25111,17089,0,0,49223
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=236 roll_cdeg=385
+
+@63.475 [S4] 492450,0,1,1,-45,-283,912,230,-455,-170,20,30,25122,17095,0,0,49244
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=184 roll_cdeg=58
+
+@63.725 [S4] 492660,0,1,1,-43,-259,913,230,-457,-170,10,10,25133,17103,0,0,49265
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=44 roll_cdeg=70
+
+@63.787 [CSC02] t=492740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@63.911 [S4] 492870,0,1,1,-33,-241,943,227,-456,-168,10,10,25144,17110,0,0,49286
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-105 roll_cdeg=140
+
+@64.097 [S4] 493080,0,1,1,-46,-257,919,228,-457,-168,20,20,25154,17116,0,0,49307
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=23 roll_cdeg=53
+
+@64.344 [S4] 493290,0,1,1,-48,-250,916,230,-457,-169,10,30,25165,17122,0,0,49328
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-13 roll_cdeg=40
+
+@64.577 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 493500,0,1,1,-40,-254,915,229,-454,-168,10,40,25176,17129,0,0,49349
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=12 roll_cdeg=90
+
+@64.777 [S4] 493710,0,1,1,-40,-258,909,228,-457,-171,20,10,25186,17137,0,0,49370
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=45 roll_cdeg=88
+[CSC02] t=493740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@64.965 [S4] 493920,0,1,1,-46,-257,915,227,-455,-168,20,20,25197,17144,0,0,49391
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=29 roll_cdeg=52
+
+@65.167 [S4] 494130,0,1,1,-45,-255,913,228,-457,-168,10,30,25208,17151,0,0,49412
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=58
+
+@65.367 [S4] 494340,0,1,1,-19,-268,891,230,-459,-167,20,10,25218,17159,0,0,49433
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=136 roll_cdeg=218
+
+@65.616 [S4] 494550,0,1,1,-44,-258,914,228,-453,-169,20,10,25229,17168,0,0,49454
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=37 roll_cdeg=64
+
+@65.802 [CSC02] t=494740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+[S4] 494760,0,1,1,-22,-251,911,228,-456,-168,20,20,25240,17175,0,0,49475
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=2 roll_cdeg=202
+
+@65.988 [S4] 494970,0,1,1,-39,-260,912,228,-454,-168,10,30,25251,17183,0,0,49496
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=52 roll_cdeg=95
+
+@66.237 [S4] 495180,0,1,1,-37,-253,907,229,-456,-169,20,10,25261,17191,0,0,49517
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=106
+
+@66.423 [S4] 495390,0,1,1,-49,-259,919,229,-459,-169,20,10,25272,17198,0,0,49538
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=34 roll_cdeg=35
+
+@66.640 [S4] 495600,0,1,1,-42,-254,913,230,-455,-169,10,20,25283,17205,0,0,49559
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=77
+
+@66.776 [CSC02] t=495740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@66.853 [S4] 495810,0,1,1,-47,-256,899,230,-456,-167,10,30,25294,17212,0,0,49580
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=49 roll_cdeg=41
+
+@67.054 [S4] 496020,0,1,1,-43,-255,913,233,-453,-169,20,40,25304,17220,0,0,49601
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=21 roll_cdeg=70
+
+@67.303 [S4] 496230,0,1,1,-27,-269,916,228,-458,-166,10,10,25315,17227,0,0,49622
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=98 roll_cdeg=171
+
+@67.488 [S4] 496440,0,1,1,-43,-257,911,229,-457,-168,10,20,25326,17234,0,0,49643
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=36 roll_cdeg=70
+
+@67.673 [S4] 496650,0,1,1,-42,-253,911,230,-454,-169,20,30,25336,17240,0,0,49664
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=13 roll_cdeg=76
+
+@67.797 [CSC02] t=496740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@67.937 [S4] 496860,0,1,1,-43,-256,918,230,-455,-166,20,40,25347,17247,0,0,49685
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=19 roll_cdeg=72
+
+@68.137 [S4] 497070,0,1,1,-38,-258,909,227,-454,-168,10,10,25358,17255,0,0,49706
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=45 roll_cdeg=101
+
+@68.338 [S4] 497280,0,1,1,-54,-180,938,226,-455,-166,20,20,25368,17262,0,0,49727
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-453 roll_cdeg=11
+
+@68.538 [S4] 497490,0,1,1,-43,-253,917,230,-455,-169,20,30,25379,17269,0,0,49748
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=3 roll_cdeg=72
+
+@68.724 [S4] 497700,0,1,1,-38,-249,925,230,-459,-170,10,40,25390,17276,0,0,49769
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-33 roll_cdeg=105
+
+@68.786 [CSC02] t=497740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@68.971 [S4] 497910,0,1,1,-39,-255,912,229,-454,-166,10,10,25401,17284,0,0,49790
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=23 roll_cdeg=95
+
+@69.157 [S4] 498120,0,1,1,-36,-256,912,230,-454,-167,20,20,25411,17292,0,0,49811
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=29 roll_cdeg=114
+
+@69.371 [S4] 498330,0,1,1,-42,-260,909,232,-450,-170,20,30,25422,17299,0,0,49832
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=57 roll_cdeg=75
+
+@69.571 [S4] 498540,0,1,1,-43,-253,913,231,-455,-169,10,30,25433,17307,0,0,49853
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=9 roll_cdeg=70
+
+@69.756 [CSC02] t=498740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+
+@69.818 [S4] 498750,0,1,1,-54,-254,924,228,-454,-165,10,10,25444,17315,0,0,49875
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3 roll_cdeg=6
+
+@70.003 [S4] 498960,0,1,1,-42,-257,915,228,-455,-167,20,20,25454,17322,0,0,49895
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=29 roll_cdeg=77
+
+@70.190 [S4] 499170,0,1,1,-47,-263,901,232,-456,-170,10,30,25465,17328,0,0,49916
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=87 roll_cdeg=41
+
+@70.438 [S4] 499380,0,1,1,-43,-252,915,226,-456,-170,10,40,25476,17335,0,0,49937
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=0 roll_cdeg=71
+
+@70.626 [S4] 499590,0,1,1,-37,-258,908,231,-458,-169,20,10,25486,17342,0,0,49958
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=47 roll_cdeg=107
+
+@70.751 [CSC02] t=499740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@70.813 [S4] 499800,0,1,1,-44,-254,912,229,-453,-167,20,20,25497,17349,0,0,49979
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=17 roll_cdeg=64
+
+@71.029 [S4] 500010,0,1,1,-36,-254,914,228,-453,-171,10,30,25508,17355,0,0,50001
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=14 roll_cdeg=114
+
+@71.247 [S4] 500220,0,1,1,-52,-249,904,228,-450,-170,10,30,25519,17363,0,0,50021
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=0 roll_cdeg=11
+
+@71.506 [S4] 500430,0,1,1,-39,-254,916,229,-452,-169,20,10,25529,17370,0,0,50042
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=10 roll_cdeg=96
+
+@71.690 [S4] 500640,0,1,1,-27,-249,926,227,-453,-171,10,20,25540,17378,0,0,50063
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-34 roll_cdeg=173
+
+@71.752 [CSC02] t=500740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@71.878 [S4] 500850,0,1,1,-97,-274,869,228,-456,-169,10,20,25551,17385,0,0,50084
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=202 roll_cdeg=-297
+
+@72.066 [S4] 501060,0,1,1,-24,-270,908,226,-455,-168,20,30,25561,17392,0,0,50105
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=117 roll_cdeg=189
+
+@72.312 [S4] 501270,0,1,1,-39,-249,918,226,-453,-169,20,10,25572,17401,0,0,50126
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-22 roll_cdeg=97
+
+@72.544 [S4] 501480,0,1,1,-34,-259,890,230,-451,-168,10,10,25583,17409,0,0,50147
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=83 roll_cdeg=121
+
+@72.743 [S4] 501690,0,1,1,-39,-257,922,226,-453,-169,10,20,25594,17416,0,0,50168
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=18 roll_cdeg=98
+
+@72.805 [CSC02] t=501740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@72.928 [S4] 501900,0,1,1,-44,-266,905,227,-453,-166,20,30,25604,17423,0,0,50189
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=98 roll_cdeg=62
+
+@73.175 [S4] 502110,0,1,1,-53,-224,888,229,-457,-173,10,10,25615,17431,0,0,50210
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-125 roll_cdeg=-2
+
+@73.377 [S4] 502320,0,1,1,-68,-259,905,229,-455,-166,10,10,25626,17439,0,0,50231
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=55 roll_cdeg=-90
+
+@73.577 [S4] 502530,0,1,1,-83,-254,899,228,-458,-168,20,20,25636,17445,0,0,50252
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=33 roll_cdeg=-187
+
+@73.792 [CSC02] t=502740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 502740,0,1,1,-111,-263,899,220,-453,-170,20,30,25647,17452,0,0,50273
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=81 roll_cdeg=-364
+
+@73.993 [S4] 502950,0,1,1,-126,-283,896,204,-449,-184,10,10,25658,17459,0,0,50294
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=199 roll_cdeg=-460
+
+@74.133 [S5SCAN] scan=1 state=0->1 angle=0 target=20 valid=1 mm=173 echo=0 retries=0
+
+@74.209 [S4] 503160,0,1,1,-271,-242,855,200,-446,-190,10,20,25669,17466,0,0,50315
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-28 roll_cdeg=-1419
+
+@74.334 [S5SCAN] scan=1 state=1->2 angle=20 target=10 valid=1 mm=562 echo=0 retries=0
+
+@74.396 [S4] 503370,0,1,1,-282,-282,850,188,-453,-208,20,20,25679,17472,0,0,50336
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=210 roll_cdeg=-1495
+
+@74.521 [S5SCAN] scan=1 state=2->2 angle=10 target=5 valid=1 mm=572 echo=0 retries=0
+
+@74.645 [S4] 503580,0,1,1,-327,-267,873,182,-440,-197,10,30,25690,17480,0,0,50357
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=60 roll_cdeg=-1713
+
+@74.706 [S5SCAN] scan=1 state=2->2 angle=5 target=2 valid=1 mm=572 echo=0 retries=0
+
+@74.766 [CSC02] t=503740 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@74.829 [S4] 503790,0,1,1,-328,-258,856,176,-438,-200,10,10,25701,17487,0,0,50378
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=34 roll_cdeg=-1757
+[S5SCAN] scan=1 state=2->2 angle=2 target=1 valid=1 mm=593 echo=0 retries=0
+
+@74.983 [S5SCAN] scan=1 state=2->3 angle=1 target=-1 valid=1 mm=622 echo=0 retries=0
+
+@75.060 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 504000,0,1,1,-334,-252,858,163,-435,-204,20,10,25711,17495,0,0,50399
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-7 roll_cdeg=-1787
+
+@75.138 [S5SCAN] scan=1 state=3->5 angle=-1 target=-1 valid=1 mm=647 echo=0 retries=0
+
+@75.278 [S4] 504210,0,1,1,-422,-252,815,159,-435,-210,20,20,25722,17503,0,0,50420
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-3 roll_cdeg=-2397
+
+@75.481 [S4] 504420,0,1,1,-414,-240,834,154,-430,-214,10,30,25733,17510,0,0,50441
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-93 roll_cdeg=-2300
+[S5SCAN] scan=1 state=5->5 angle=-1 target=19 valid=1 mm=544 echo=0 retries=0
+
+@75.683 [S4] 504630,0,1,1,-441,-245,822,155,-430,-214,10,10,25744,17519,0,0,50462
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-66 roll_cdeg=-2481
+[S5SCAN] scan=1 state=5->5 angle=19 target=-19 valid=1 mm=145 echo=0 retries=0
+[CSC02] t=504660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=143 bytes=55
+
+@75.883 [S4] 504840,0,1,1,-432,-243,826,158,-431,-215,20,10,25754,17527,0,0,50483
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-77 roll_cdeg=-2421
+
+@76.068 [S4] 505050,0,1,1,-432,-221,822,150,-429,-216,10,20,25765,17534,0,0,50504
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-199 roll_cdeg=-2432
+[S5SCAN] scan=1 state=5->5 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@76.253 [S5SCAN] scan=1 state=5->6 angle=-19 target=-19 valid=1 mm=964 echo=0 retries=0
+
+@76.316 [S4] 505260,0,1,1,-454,-234,814,150,-430,-220,10,30,25776,17541,0,0,50525
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-129 roll_cdeg=-2575
+
+@76.501 [S4] 505470,0,1,1,-458,-233,818,150,-429,-220,20,40,25786,17547,0,0,50546
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-142 roll_cdeg=-2584
+
+@76.703 [CSC02] t=505660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=55
+[S4] 505680,0,1,1,-448,-232,817,150,-430,-219,20,10,25797,17555,0,0,50567
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-140 roll_cdeg=-2534
+
+@76.935 [S4] 505890,0,1,1,-457,-230,814,150,-428,-219,10,20,25808,17561,0,0,50588
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-154 roll_cdeg=-2591
+
+@77.135 [S4] 506100,0,1,1,-477,-231,816,149,-430,-220,10,30,25819,17568,0,0,50609
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-165 roll_cdeg=-2691
+
+@77.337 [S4] 506310,0,1,1,-462,-221,813,148,-430,-225,20,40,25829,17574,0,0,50630
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-208 roll_cdeg=-2621
+
+@77.584 [S4] 506520,0,1,1,-480,-250,780,149,-429,-220,10,10,25840,17582,0,0,50651
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-11 roll_cdeg=-2821
+
+@77.708 [CSC02] t=506660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=55
+
+@77.770 [S4] 506730,0,1,1,-450,-227,823,148,-427,-217,10,20,25851,17588,0,0,50672
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-178 roll_cdeg=-2527
+
+@77.831 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@77.954 [S4] 506940,0,1,1,-480,-222,799,150,-430,-221,20,30,25861,17596,0,0,50693
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-198 roll_cdeg=-2760
+
+@78.016 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@78.171 [S4] 507150,0,1,1,-442,-228,820,152,-430,-216,20,30,25872,17604,0,0,50714
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-163 roll_cdeg=-2493
+
+@78.403 [S4] 507360,0,1,1,-434,-230,818,155,-431,-211,10,10,25883,17612,0,0,50735
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-143 roll_cdeg=-2455
+
+@78.474 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@78.622 [S4] 507570,0,1,1,-414,-231,825,161,-434,-210,10,10,25894,17620,0,0,50756
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-133 roll_cdeg=-2325
+
+@78.700 [CSC02] t=507660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=55
+
+@78.840 [S4] 507780,0,1,1,-366,-233,848,161,-432,-206,20,20,25904,17628,0,0,50777
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-122 roll_cdeg=-1995
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@79.042 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+[S4] 507990,0,1,1,-362,-250,869,166,-437,-203,10,30,25915,17634,0,0,50798
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-51 roll_cdeg=-1922
+
+@79.181 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@79.259 [S4] 508200,0,1,1,-356,-230,845,164,-438,-189,10,10,25926,17642,0,0,50819
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-130 roll_cdeg=-1945
+
+@79.382 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@79.444 [S4] 508410,0,1,1,-280,-238,865,180,-441,-189,20,20,25936,17649,0,0,50840
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-71 roll_cdeg=-1454
+
+@79.568 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@79.629 [S4] 508620,0,1,1,-240,-237,894,180,-442,-186,20,20,25947,17656,0,0,50861
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-102 roll_cdeg=-1163
+
+@79.691 [CSC02] t=508660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=143 bytes=55
+
+@79.751 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@79.890 [S4] 508830,0,1,1,-244,-232,887,186,-445,-181,10,30,25958,17662,0,0,50882
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-123 roll_cdeg=-1198
+
+@79.967 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@80.122 [S4] 509040,0,1,1,-177,-237,893,192,-448,-172,10,10,25969,17670,0,0,50903
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-79 roll_cdeg=-781
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@80.261 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+
+@80.337 [S4] 509250,0,1,1,17,-159,922,200,-449,-160,0,20,25980,17677,0,0,50925
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-560 roll_cdeg=446
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@80.479 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 509460,0,1,1,-50,-262,913,203,-450,-162,20,20,25990,17684,0,0,50945
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=61 roll_cdeg=27
+
+@80.680 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[CSC02] t=509660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@80.742 [S4] 509670,0,1,1,-48,-262,895,203,-449,-165,10,30,26001,17690,0,0,50966
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=91 roll_cdeg=33
+
+@80.866 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@80.927 [S4] 509880,0,1,1,-39,-265,896,203,-450,-164,20,10,26011,17699,0,0,50987
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=108 roll_cdeg=91
+
+@80.990 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@81.112 [S4] 510090,0,1,1,-45,-259,897,205,-450,-166,20,10,26022,17707,0,0,51008
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=71 roll_cdeg=53
+
+@81.173 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@81.311 [S4] 510300,0,1,1,-42,-259,899,204,-452,-166,10,20,26033,17713,0,0,51029
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=67 roll_cdeg=73
+
+@81.388 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@81.527 [S4] 510510,0,1,1,-44,-261,894,202,-450,-163,10,30,26044,17721,0,0,51051
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=88 roll_cdeg=58
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@81.667 [CSC02] t=510660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@81.745 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 510720,0,1,1,-40,-260,892,206,-451,-165,20,10,26054,17730,0,0,51071
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=85 roll_cdeg=83
+
+@81.946 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 510930,0,1,1,-52,-273,908,206,-452,-165,20,10,26065,17737,0,0,51092
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=133 roll_cdeg=12
+
+@82.193 [S4] 511140,0,1,1,-44,-263,905,205,-452,-166,10,20,26076,17744,0,0,51113
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=81 roll_cdeg=62
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@82.378 [S4] 511350,0,1,1,2,-294,872,202,-450,-164,20,30,26086,17751,0,0,51134
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=325 roll_cdeg=353
+
+@82.440 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@82.626 [S4] 511560,0,1,1,-38,-267,901,203,-452,-167,20,40,26097,17758,0,0,51155
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=111 roll_cdeg=98
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@82.688 [CSC02] t=511660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@82.841 [S4] 511770,0,1,1,-42,-262,892,201,-453,-161,10,10,26108,17765,0,0,51176
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=97 roll_cdeg=70
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@82.980 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@83.057 [S4] 511980,0,1,1,-42,-264,898,202,-449,-164,10,20,26119,17772,0,0,51197
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=99 roll_cdeg=72
+
+@83.197 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@83.273 [S4] 512190,0,1,1,-47,-263,899,203,-451,-162,20,30,26129,17778,0,0,51218
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=91 roll_cdeg=41
+
+@83.335 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@83.457 [S4] 512400,0,1,1,-37,-269,904,201,-448,-166,20,40,26140,17785,0,0,51239
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=118 roll_cdeg=106
+
+@83.520 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@83.645 [S4] 512610,0,1,1,-43,-264,898,200,-446,-165,10,10,26151,17792,0,0,51260
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=98 roll_cdeg=66
+
+@83.706 [CSC02] t=512660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@83.832 [S4] 512820,0,1,1,-18,-288,928,204,-452,-162,20,20,26161,17799,0,0,51281
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=186 roll_cdeg=229
+
+@83.893 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@84.078 [S4] 513030,0,1,1,-41,-265,897,203,-450,-165,20,30,26172,17806,0,0,51302
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=106 roll_cdeg=78
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@84.310 [S4] 513240,0,1,1,-51,-264,888,205,-450,-166,10,40,26183,17814,0,0,51323
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=115 roll_cdeg=11
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@84.510 [S4] 513450,0,1,1,-39,-266,896,203,-450,-167,10,10,26194,17822,0,0,51344
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=114 roll_cdeg=91
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@84.711 [CSC02] t=513660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 513660,0,1,1,-41,-267,896,202,-448,-165,20,20,26204,17829,0,0,51365
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=120 roll_cdeg=78
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@84.897 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 513870,0,1,1,-39,-277,892,205,-449,-166,20,30,26215,17837,0,0,51386
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=186 roll_cdeg=90
+
+@85.143 [S4] 514080,0,1,1,-42,-263,896,205,-449,-165,10,30,26226,17845,0,0,51407
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=96 roll_cdeg=72
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@85.329 [S4] 514290,0,1,1,-36,-266,895,204,-450,-164,30,10,26236,17853,0,0,51428
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=116 roll_cdeg=110
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@85.530 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 514500,0,1,1,-40,-265,893,203,-449,-162,20,20,26247,17860,0,0,51449
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=113 roll_cdeg=84
+
+@85.685 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+[CSC02] t=514660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@85.761 [S4] 514710,0,1,1,-47,-258,889,203,-450,-165,10,30,26258,17867,0,0,51470
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=78 roll_cdeg=37
+
+@85.902 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@85.978 [S4] 514920,0,1,1,-51,-338,904,202,-450,-176,10,30,26269,17874,0,0,51491
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=509 roll_cdeg=17
+
+@86.057 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@86.195 [S4] 515130,0,1,1,-47,-326,870,200,-448,-196,20,10,26279,17881,0,0,51512
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=513 roll_cdeg=31
+
+@86.258 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@86.384 [S4] 515340,0,1,1,-50,-454,836,200,-450,-218,20,20,26290,17888,0,0,51533
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1308 roll_cdeg=-2
+
+@86.445 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@86.570 [S4] 515550,0,1,1,-46,-466,825,202,-450,-231,10,20,26301,17894,0,0,51554
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1404 roll_cdeg=21
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@86.692 [CSC02] t=515660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@86.816 [S4] 515760,0,1,1,-61,-383,882,202,-451,-228,20,30,26311,17902,0,0,51575
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=804 roll_cdeg=-56
+
+@86.940 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@87.001 [S4] 515970,0,1,1,-43,-441,826,202,-451,-236,20,10,26322,17909,0,0,51596
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1269 roll_cdeg=42
+
+@87.125 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@87.201 [S4] 516180,0,1,1,-44,-459,819,198,-450,-238,10,20,26333,17917,0,0,51617
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1385 roll_cdeg=32
+
+@87.340 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@87.419 [S4] 516390,0,1,1,-47,-459,825,199,-449,-243,10,30,26344,17923,0,0,51638
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1367 roll_cdeg=14
+
+@87.496 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@87.636 [S4] 516600,0,1,1,-44,-465,819,203,-451,-243,20,30,26354,17930,0,0,51659
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1417 roll_cdeg=32
+
+@87.714 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[CSC02] t=516660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@87.856 [S4] 516810,0,1,1,-55,-477,799,201,-449,-250,20,10,26365,17941,0,0,51680
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1540 roll_cdeg=-54
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@88.056 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 517020,0,1,1,-45,-485,805,203,-446,-245,10,20,26376,17948,0,0,51701
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1565 roll_cdeg=20
+
+@88.193 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@88.254 [S4] 517230,0,1,1,-61,-494,805,200,-447,-247,20,20,26386,17956,0,0,51722
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1608 roll_cdeg=-93
+
+@88.378 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@88.501 [S4] 517440,0,1,1,-47,-498,798,201,-449,-252,20,30,26397,17964,0,0,51743
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1654 roll_cdeg=3
+
+@88.577 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@88.733 [S4] 517650,0,1,1,-49,-488,803,200,-443,-253,10,10,26408,17972,0,0,51764
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1586 roll_cdeg=-9
+[CSC02] t=517660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@88.871 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+[S4] 517860,0,1,1,-48,-492,805,203,-449,-254,10,10,26419,17979,0,0,51785
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1601 roll_cdeg=-1
+
+@89.010 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@89.087 [S4] 518070,0,1,1,-42,-486,806,201,-449,-253,20,20,26429,17986,0,0,51806
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1567 roll_cdeg=42
+
+@89.227 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@89.288 [S4] 518280,0,1,1,-40,-516,802,201,-448,-254,20,30,26440,17992,0,0,51827
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1734 roll_cdeg=54
+
+@89.411 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@89.534 [S4] 518490,0,1,1,-47,-495,799,202,-448,-253,10,10,26451,17999,0,0,51848
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1635 roll_cdeg=3
+
+@89.611 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@89.673 [CSC02] t=518660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@89.735 [S4] 518700,0,1,1,-57,-515,804,200,-450,-246,20,10,26461,18006,0,0,51869
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1720 roll_cdeg=-66
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@89.935 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 518910,0,1,1,-47,-474,829,206,-453,-233,20,20,26472,18012,0,0,51890
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1434 roll_cdeg=16
+
+@90.136 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+[S4] 519120,0,1,1,-49,-433,836,201,-450,-217,10,30,26483,18019,0,0,51911
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=1196 roll_cdeg=5
+
+@90.275 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@90.352 [S4] 519330,0,1,1,-45,-329,872,210,-454,-187,10,10,26494,18027,0,0,51932
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=527 roll_cdeg=45
+
+@90.493 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@90.569 [S4] 519540,0,1,1,-23,-109,929,201,-450,-168,20,10,26504,18035,0,0,51953
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-869 roll_cdeg=198
+
+@90.692 [CSC02] t=519660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@90.753 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+[S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+
+@90.814 [S4] 519750,0,1,1,-39,-225,916,203,-450,-165,0,20,26516,18042,0,0,51975
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-159 roll_cdeg=96
+
+@90.939 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@91.000 [S4] 519960,0,1,1,-41,-268,899,204,-450,-166,10,30,26526,18050,0,0,51995
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=120 roll_cdeg=79
+
+@91.125 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@91.203 [S4] 520170,0,1,1,-96,-245,932,204,-448,-164,20,10,26536,18057,0,0,52016
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-73 roll_cdeg=-248
+
+@91.280 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@91.435 [S4] 520380,0,1,1,-47,-268,901,204,-452,-168,20,10,26547,18064,0,0,52037
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=116 roll_cdeg=41
+
+@91.512 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@91.639 [S4] 520590,0,1,1,-43,-258,898,204,-451,-166,10,20,26558,18073,0,0,52058
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=63 roll_cdeg=66
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@91.716 [CSC02] t=520660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@91.857 [S4] 520800,0,1,1,-45,-267,902,203,-453,-166,10,30,26569,18079,0,0,52079
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=109 roll_cdeg=54
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@91.995 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@92.072 [S4] 521010,0,1,1,-44,-266,901,201,-450,-167,0,0,26580,18088,0,0,52101
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=105 roll_cdeg=60
+
+@92.213 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@92.291 [S4] 521220,0,1,1,-48,-268,903,203,-452,-166,20,10,26590,18095,0,0,52121
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=113 roll_cdeg=36
+
+@92.367 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@92.489 [S4] 521430,0,1,1,-44,-266,906,204,-450,-165,10,20,26601,18102,0,0,52142
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=96 roll_cdeg=62
+
+@92.675 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+[S4] 521640,0,1,1,-45,-268,895,203,-451,-166,20,30,26611,18108,0,0,52163
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=127 roll_cdeg=52
+[CSC02] t=521660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@92.923 [S4] 521850,0,1,1,-43,-265,906,204,-450,-165,20,40,26622,18115,0,0,52184
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=91 roll_cdeg=68
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@93.138 [S4] 522060,0,1,1,-38,-261,895,204,-450,-165,10,10,26633,18123,0,0,52205
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=86 roll_cdeg=97
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@93.277 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@93.355 [S4] 522270,0,1,1,-45,-264,905,205,-452,-168,10,20,26644,18130,0,0,52226
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=86 roll_cdeg=55
+
+@93.493 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 522480,0,1,1,-49,-266,910,201,-450,-169,20,30,26654,18137,0,0,52247
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=89 roll_cdeg=32
+
+@93.678 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[CSC02] t=522660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@93.740 [S4] 522690,0,1,1,-51,-256,922,205,-450,-166,20,40,26665,18144,0,0,52268
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=12 roll_cdeg=23
+
+@93.862 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@93.925 [S4] 522900,0,1,1,-42,-268,906,205,-451,-167,10,10,26676,18153,0,0,52289
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=108 roll_cdeg=75
+
+@93.986 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@94.173 [S4] 523110,0,1,1,-73,-257,922,200,-450,-164,20,20,26686,18160,0,0,52310
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=15 roll_cdeg=-113
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@94.372 [S4] 523320,0,1,1,-43,-263,913,201,-450,-168,20,30,26697,18168,0,0,52331
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=67 roll_cdeg=70
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@94.573 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 523530,0,1,1,-45,-263,905,207,-451,-166,10,30,26708,18176,0,0,52352
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=81 roll_cdeg=55
+
+@94.697 [CSC02] t=523660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@94.759 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 523740,0,1,1,-45,-263,912,204,-451,-164,10,10,26719,18183,0,0,52373
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=69 roll_cdeg=58
+
+@94.946 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@95.007 [S4] 523950,0,1,1,-46,-259,906,205,-450,-167,20,20,26729,18190,0,0,52394
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=55 roll_cdeg=49
+
+@95.069 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@95.193 [S4] 524160,0,1,1,-42,-267,916,203,-448,-166,20,20,26740,18198,0,0,52415
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=85 roll_cdeg=77
+
+@95.255 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@95.440 [S4] 524370,0,1,1,-40,-261,909,202,-453,-169,10,30,26751,18205,0,0,52436
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=63 roll_cdeg=88
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@95.626 [S4] 524580,0,1,1,-42,-266,903,206,-449,-166,20,10,26761,18212,0,0,52457
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=102 roll_cdeg=74
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@95.688 [CSC02] t=524660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@95.827 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+[S4] 524790,0,1,1,-43,-259,915,207,-450,-171,20,20,26772,18219,0,0,52478
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=41 roll_cdeg=71
+
+@95.966 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@96.043 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 525000,0,1,1,-48,-225,828,206,-450,-167,10,20,26783,18226,0,0,52499
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-20 roll_cdeg=8
+
+@96.245 [S4] 525210,0,1,1,-41,-272,912,208,-453,-169,10,30,26794,18232,0,0,52520
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=121 roll_cdeg=83
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@96.445 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+[S4] 525420,0,1,1,-37,-266,916,207,-450,-166,20,10,26804,18240,0,0,52541
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=80 roll_cdeg=109
+
+@96.693 [S4] 525630,0,1,1,-20,-279,915,209,-449,-167,20,20,26815,18247,0,0,52562
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=157 roll_cdeg=215
+[CSC02] t=525660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=1
+
+@96.878 [S4] 525840,0,1,1,-12,-265,914,212,-455,-153,10,20,26826,18255,0,0,52583
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=79 roll_cdeg=265
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@97.125 [S4] 526050,0,1,1,5,-240,946,220,-453,-140,20,30,26836,18262,0,0,52604
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-114 roll_cdeg=370
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=1
+
+@97.279 [S4] 526260,0,1,1,25,-89,905,221,-447,-120,20,10,26847,18271,0,0,52625
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-977 roll_cdeg=498
+
+@97.357 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=2
+
+@97.495 [S4] 526470,0,1,1,13,-145,950,224,-443,-110,10,10,26858,18279,0,0,52646
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-670 roll_cdeg=418
+[S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=3
+
+@97.696 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+[CSC02] t=526660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S4] 526680,0,1,1,66,-26,937,239,-440,-78,10,20,26869,18285,0,0,52667
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1379 roll_cdeg=743
+
+@97.882 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@97.943 [S4] 526890,0,1,1,65,11,931,243,-438,-63,20,30,26879,18293,0,0,52688
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1606 roll_cdeg=739
+
+@98.066 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@98.128 [S4] 527100,0,1,1,95,55,948,245,-430,-52,20,10,26890,18300,0,0,52709
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1868 roll_cdeg=912
+
+@98.252 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@98.377 [S4] 527310,0,1,1,78,97,940,240,-426,-39,10,10,26901,18308,0,0,52730
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2125 roll_cdeg=814
+
+@98.439 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@98.563 [S4] 527520,0,1,1,83,74,945,243,-424,-36,20,20,26911,18314,0,0,52751
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1984 roll_cdeg=842
+
+@98.640 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=2 retries=3
+
+@98.716 [CSC02] t=527660 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@98.793 [S4] 527730,0,1,1,96,275,812,232,-419,-30,20,30,26922,18322,0,0,52772
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-3397 roll_cdeg=1014
+
+@98.871 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@98.949 [S4] 527940,0,1,1,57,92,936,230,-416,-32,10,10,26933,18329,0,0,52793
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2098 roll_cdeg=688
+
+@99.153 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=1
+
+@99.230 [S4] 528150,0,1,1,52,105,932,230,-416,-30,10,10,26944,18337,0,0,52814
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2180 roll_cdeg=659
+
+@99.309 [S5SCAN] scan=1 state=6->6 angle=-19 target=-19 valid=0 mm=0 echo=3 retries=2
+
+@99.384 [S4] 528360,0,1,1,46,104,944,220,-413,-29,20,20,26954,18344,0,0,52835
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2166 roll_cdeg=619
+
+@99.460 [S5SCAN] scan=1 state=6->7 angle=-19 target=0 valid=1 mm=135 echo=0 retries=0
+
+@99.645 [S4] 528570,0,1,1,29,19,964,220,-410,-28,10,30,26965,18351,0,0,52856
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1651 roll_cdeg=512
+
+@99.706 [CSC02] t=528640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S5SCAN] scan=1 state=7->7 angle=0 target=0 valid=0 mm=0 echo=2 retries=1
+
+@99.832 [S4] 528780,0,1,1,8,73,934,226,-415,-32,10,10,26976,18359,0,0,52877
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1985 roll_cdeg=389
+
+@99.893 [S5SCAN] scan=1 state=7->7 angle=0 target=0 valid=0 mm=0 echo=2 retries=2
+
+@100.018 [S4] 528990,0,1,1,34,86,921,228,-412,-29,20,10,26986,18367,0,0,52898
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2071 roll_cdeg=551
+[S5SCAN] scan=1 state=7->0 angle=0 target=0 valid=1 mm=524 echo=0 retries=0
+
+@100.233 [S4] 529200,0,1,1,16,89,939,228,-415,-31,20,20,26997,18374,0,0,52919
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2079 roll_cdeg=438
+
+@100.435 [S4] 529410,0,1,1,63,88,928,231,-418,-31,10,30,27008,18382,0,0,52940
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2078 roll_cdeg=728
+
+@100.634 [S4] 529620,0,1,1,79,98,934,235,-422,-42,10,30,27019,18389,0,0,52961
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2135 roll_cdeg=823
+
+@100.695 [CSC02] t=529640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@100.881 [S4] 529830,0,1,1,23,-69,964,230,-435,-73,20,10,27029,18397,0,0,52982
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1129 roll_cdeg=477
+
+@101.068 [S4] 530040,0,1,1,102,-42,970,227,-441,-94,10,20,27040,18403,0,0,53003
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-1291 roll_cdeg=940
+
+@101.255 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+
+@101.316 [S4] 530250,0,1,1,-22,-152,917,217,-449,-134,10,0,27051,18412,0,0,53025
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-597 roll_cdeg=203
+
+@101.502 [S4] 530460,0,1,1,-59,-270,907,209,-450,-162,20,30,27061,18418,0,0,53045
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=116 roll_cdeg=-32
+
+@101.688 [CSC02] t=530640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+[S4] 530670,0,1,1,-45,-252,894,206,-452,-166,20,10,27072,18426,0,0,53066
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=34 roll_cdeg=52
+
+@101.905 [S4] 530880,0,1,1,-46,-263,905,208,-452,-165,10,20,27083,18432,0,0,53087
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=80 roll_cdeg=49
+
+@102.121 [S4] 531090,0,1,1,-47,-260,916,208,-448,-167,10,30,27094,18440,0,0,53108
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=45 roll_cdeg=46
+
+@102.321 [S4] 531300,0,1,1,-46,-257,911,203,-449,-166,20,30,27104,18447,0,0,53129
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=36 roll_cdeg=51
+
+@102.568 [S4] 531510,0,1,1,-3,-243,919,207,-450,-167,10,10,27115,18455,0,0,53151
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-57 roll_cdeg=321
+
+@102.690 [CSC02] t=531640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@102.752 [S4] 531720,0,1,1,-48,-259,911,210,-446,-165,10,20,27126,18463,0,0,53171
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=47 roll_cdeg=38
+
+@102.967 [S4] 531930,0,1,1,-45,-261,910,206,-452,-171,20,20,27136,18471,0,0,53192
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=61 roll_cdeg=57
+
+@103.184 [S4] 532140,0,1,1,-46,-263,910,206,-446,-168,20,30,27147,18479,0,0,53213
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=72 roll_cdeg=51
+
+@103.385 [S4] 532350,0,1,1,-40,-264,906,206,-451,-164,10,10,27158,18487,0,0,53234
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=85 roll_cdeg=87
+
+@103.585 [S4] 532560,0,1,1,-43,-269,911,208,-448,-168,10,20,27169,18494,0,0,53255
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=105 roll_cdeg=70
+
+@103.646 [CSC02] t=532640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@103.829 [S4] 532770,0,1,1,-41,-258,913,207,-448,-168,20,20,27179,18501,0,0,53276
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=38 roll_cdeg=83
+
+@104.029 [S4] 532980,0,1,1,-57,-274,907,207,-450,-169,10,30,27190,18508,0,0,53297
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=140 roll_cdeg=-20
+
+@104.229 [S4] 533190,0,1,1,-45,-265,914,207,-450,-169,10,10,27201,18517,0,0,53318
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=77 roll_cdeg=58
+
+@104.429 [S4] 533400,0,1,1,-39,-267,922,213,-451,-169,20,20,27211,18523,0,0,53339
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=76 roll_cdeg=98
+
+@104.677 [S4] 533610,0,1,1,-44,-247,923,220,-451,-165,20,20,27222,18530,0,0,53360
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-41 roll_cdeg=67
+[CSC02] t=533640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@104.860 [S4] 533820,0,1,1,-67,-241,932,220,-450,-166,10,30,27233,18536,0,0,53381
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-92 roll_cdeg=-71
+
+@105.047 [S4] 534030,0,1,1,-28,-259,922,217,-451,-166,10,10,27244,18545,0,0,53402
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=30 roll_cdeg=166
+
+@105.261 [S4] 534240,0,1,1,-57,-255,929,217,-450,-159,20,10,27254,18552,0,0,53423
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-6 roll_cdeg=-11
+
+@105.523 [S4] 534450,0,1,1,70,-236,903,255,-459,-139,10,20,27265,18559,0,0,53444
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-78 roll_cdeg=783
+
+@105.647 [CSC02] t=534640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@105.708 [S4] 534660,0,1,1,518,-286,789,346,-470,-146,10,30,27276,18566,0,0,53465
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@105.893 [S4] 534870,0,1,1,600,205,17,480,-444,-134,20,10,27286,18574,0,0,53486
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@106.094 [S4] 535080,0,1,1,909,289,-352,598,-417,-144,20,10,27297,18583,0,0,53507
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@106.326 [S4] 535290,0,1,1,723,355,-750,611,-402,-213,10,20,27308,18590,0,0,53528
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@106.528 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 535500,0,1,1,441,395,-854,596,-405,-248,10,30,27319,18597,0,0,53549
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@106.668 [CSC02] t=535640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=55
+
+@106.746 [S4] 535710,0,1,1,302,359,-921,597,-396,-271,20,10,27329,18605,0,0,53570
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@106.947 [S4] 535920,0,1,1,430,305,-979,597,-390,-283,10,10,27340,18612,0,0,53591
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@107.150 [S4] 536130,0,1,1,310,340,-968,598,-390,-288,10,20,27351,18620,0,0,53612
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@107.399 [S4] 536340,0,1,1,285,340,-1021,599,-390,-290,20,30,27361,18626,0,0,53633
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@107.586 [S4] 536550,0,1,1,224,356,-995,590,-385,-298,20,40,27372,18632,0,0,53654
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@107.649 [CSC02] t=536640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=55
+
+@107.773 [S4] 536760,0,1,1,260,383,-1049,598,-380,-313,10,10,27383,18640,0,0,53675
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@108.021 [S4] 536970,0,1,1,336,328,-983,600,-383,-280,10,20,27394,18648,0,0,53696
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@108.205 [S4] 537180,0,1,1,689,322,-903,543,-445,-228,20,30,27404,18654,0,0,53717
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@108.467 [S4] 537390,0,1,1,897,244,-281,490,-472,-230,10,40,27415,18662,0,0,53738
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=148 roll_cdeg=3669
+
+@108.666 [S4] 537600,0,1,1,908,85,201,420,-491,-137,10,10,27426,18670,0,0,53759
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-2060 roll_cdeg=8092
+[CSC02] t=537640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=159 bytes=55
+
+@108.868 [S4] 537810,0,1,1,613,-148,623,378,-499,-168,20,20,27436,18677,0,0,53780
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-577 roll_cdeg=4794
+
+@109.052 [S4] 538020,0,1,1,594,-172,718,341,-493,-151,20,30,27447,18685,0,0,53801
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-492 roll_cdeg=4300
+
+@109.300 [S4] 538230,0,1,1,176,-255,836,225,-529,-165,10,30,27458,18693,0,0,53822
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=124 roll_cdeg=1529
+
+@109.484 [S4] 538440,0,1,1,93,-198,893,191,-521,-148,10,10,27469,18701,0,0,53843
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-294 roll_cdeg=935
+
+@109.700 [CSC02] t=538640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=143 bytes=55
+[S4] 538650,0,1,1,-111,-93,1224,169,-516,-154,20,20,27479,18708,0,0,53864
+[S4TILT] calibrated=1 valid=0 pitch_cdeg=-294 roll_cdeg=935
+
+@109.902 [S4] 538860,0,1,1,-57,-255,920,169,-518,-184,20,30,27490,18715,0,0,53885
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=8 roll_cdeg=-15
+
+@110.103 [S4] 539070,0,1,1,-49,-272,902,166,-517,-183,10,30,27501,18723,0,0,53906
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=138 roll_cdeg=29
+
+@110.303 [S4] 539280,0,1,1,-49,-271,908,163,-520,-180,20,10,27511,18730,0,0,53927
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=122 roll_cdeg=31
+
+@110.551 [S4] 539490,0,1,1,-56,-266,916,166,-517,-180,20,20,27522,18737,0,0,53948
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=78 roll_cdeg=-10
+
+@110.673 [CSC02] t=539640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@110.735 [S4] 539700,0,1,1,-42,-266,914,166,-515,-180,10,30,27533,18743,0,0,53969
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=83 roll_cdeg=77
+
+@110.953 [S4] 539910,0,1,1,-96,-281,892,170,-519,-177,10,30,27544,18751,0,0,53990
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=201 roll_cdeg=-274
+
+@111.154 [S4] 540120,0,1,1,-53,-261,877,164,-514,-175,20,10,27554,18758,0,0,54011
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=116 roll_cdeg=-6
+
+@111.354 [S4] 540330,0,1,1,-46,-269,899,165,-512,-176,10,20,27565,18765,0,0,54032
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=126 roll_cdeg=47
+
+@111.554 [S4] 540540,0,1,1,-55,-287,883,162,-512,-176,10,20,27576,18772,0,0,54053
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=259 roll_cdeg=-16
+
+@111.677 [CSC02] t=540640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@111.800 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 540750,0,1,1,-49,-263,912,162,-517,-176,0,0,27587,18780,0,0,54075
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=68 roll_cdeg=32
+
+@111.988 [S4] 540960,0,1,1,-53,-252,916,166,-513,-177,20,10,27597,18788,0,0,54095
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-2 roll_cdeg=9
+
+@112.234 [S4] 541170,0,1,1,-54,-267,908,160,-515,-177,10,10,27608,18796,0,0,54116
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=98 roll_cdeg=0
+
+@112.452 [S4] 541380,0,1,1,-17,-277,883,164,-517,-175,20,20,27618,18803,0,0,54137
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=203 roll_cdeg=230
+
+@112.606 [S4] 541590,0,1,1,-60,-239,925,169,-515,-173,20,30,27629,18810,0,0,54158
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-92 roll_cdeg=-31
+
+@112.683 [CSC02] t=541640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+@112.820 [S4] 541800,0,1,1,-28,-250,916,161,-508,-174,10,10,27640,18818,0,0,54179
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-12 roll_cdeg=165
+
+@113.067 [S4] 542010,0,1,1,-35,-262,903,156,-512,-172,10,10,27651,18826,0,0,54201
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=79 roll_cdeg=118
+
+@113.251 [S4] 542220,0,1,1,-52,-214,953,159,-513,-168,20,20,27661,18832,0,0,54221
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-274 roll_cdeg=28
+
+@113.481 [S4] 542430,0,1,1,-48,-248,917,136,-500,-162,20,30,27672,18839,0,0,54242
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-27 roll_cdeg=40
+
+@113.681 [CSC02] t=542640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+[S4] 542640,0,1,1,47,-319,902,22,-397,-145,10,10,27683,18846,0,0,54263
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=407 roll_cdeg=638
+
+@113.882 [S4] 542850,0,1,1,92,-160,872,-58,-230,-47,10,10,27694,18854,0,0,54284
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-504 roll_cdeg=942
+
+@114.066 [S4] 543060,0,1,1,55,-253,885,-68,-109,-31,20,20,27704,18860,0,0,54305
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=54 roll_cdeg=696
+
+@114.331 [S4] 543270,0,1,1,-2,-237,859,-60,-54,-21,10,30,27715,18868,0,0,54326
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=4 roll_cdeg=327
+
+@114.517 [S4] 543480,0,1,1,-40,-188,956,-63,-44,-29,10,10,27726,18875,0,0,54347
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-426 roll_cdeg=100
+
+@114.705 [CSC02] t=543640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@114.767 [S4] 543690,0,1,1,-54,-289,902,-57,-46,-31,20,10,27736,18883,0,0,54368
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=236 roll_cdeg=-3
+
+@114.955 [S4] 543900,0,1,1,2,-175,904,-50,-29,-27,20,20,27747,18890,0,0,54389
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-442 roll_cdeg=353
+
+@115.143 [S4] 544110,0,1,1,-65,-252,960,-54,-30,-23,10,30,27758,18898,0,0,54410
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-70 roll_cdeg=-47
+
+@115.331 [S4] 544320,0,1,1,-43,-296,927,-57,-33,-25,20,40,27768,18906,0,0,54431
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=231 roll_cdeg=74
+
+@115.581 [S4] 544530,0,1,1,-72,-242,902,-56,-36,-26,20,10,27779,18914,0,0,54452
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-41 roll_cdeg=-116
+
+@115.705 [CSC02] t=544640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@115.768 [S4] 544740,0,1,1,-24,-270,915,-51,-26,-19,10,20,27790,18921,0,0,54473
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=106 roll_cdeg=190
+
+@116.017 [S4] 544950,0,1,1,-52,-279,894,-54,-30,-19,10,30,27801,18928,0,0,54494
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=192 roll_cdeg=7
+
+@116.171 [S4] 545160,0,1,1,-108,-338,1002,-56,-26,-17,20,40,27811,18935,0,0,54515
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=316 roll_cdeg=-275
+
+@116.387 [S4] 545370,0,1,1,-53,-266,896,-56,-23,-13,20,10,27822,18943,0,0,54536
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=113 roll_cdeg=1
+
+@116.589 [S4] 545580,0,1,1,-37,-251,886,-50,-20,-12,10,20,27833,18949,0,0,54557
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=42 roll_cdeg=101
+
+@116.667 [CSC02] t=545640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@116.806 [S4] 545790,0,1,1,-55,-276,921,-51,-17,-12,20,30,27843,18956,0,0,54578
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=127 roll_cdeg=-2
+
+@117.056 [S4] t_ms,init,a_ok,m_ok,ax_mg,ay_mg,az_mg,mx_mG,my_mG,mz_mG,a_age_ms,m_age_ms,a_seen,m_seen,a_errors,m_errors,heartbeat
+[S4] 546000,0,1,1,-64,-208,908,-53,-20,-14,20,30,27854,18963,0,0,54599
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-251 roll_cdeg=-63
+
+@117.242 [S4] 546210,0,1,1,-45,-281,932,-56,-14,-7,10,10,27865,18972,0,0,54620
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=138 roll_cdeg=64
+
+@117.428 [S4] 546420,0,1,1,16,-167,899,-49,-11,-4,10,20,27876,18978,0,0,54641
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-486 roll_cdeg=442
+
+@117.675 [S4] 546630,0,1,1,-70,-266,928,-45,-13,-3,20,20,27886,18986,0,0,54662
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=57 roll_cdeg=-91
+[CSC02] t=546640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@117.890 [S4] 546840,0,1,1,-53,-253,929,-54,-17,-1,20,40,27897,18992,0,0,54683
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-17 roll_cdeg=13
+
+@118.105 [S4] 547050,0,1,1,-43,-289,883,-54,-20,-4,10,10,27908,19001,0,0,54704
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=272 roll_cdeg=61
+
+@118.305 [S4] 547260,0,1,1,-51,-245,902,-51,-17,2,20,20,27918,19009,0,0,54725
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-21 roll_cdeg=16
+
+@118.492 [S4] 547470,0,1,1,-68,-288,901,-50,-14,6,20,30,27929,19015,0,0,54746
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=230 roll_cdeg=-92
+
+@118.679 [CSC02] t=547640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@118.741 [S4] 547680,0,1,1,-67,-262,926,-51,-19,-2,10,40,27940,19022,0,0,54767
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=38 roll_cdeg=-74
+
+@118.926 [S4] 547890,0,1,1,-56,-251,963,-47,-16,3,10,10,27951,19030,0,0,54788
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-79 roll_cdeg=7
+
+@119.111 [S4] 548100,0,1,1,-34,-258,929,-40,-11,12,20,20,27961,19037,0,0,54809
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=13 roll_cdeg=130
+
+@119.362 [S4] 548310,0,1,1,-61,-249,913,-45,-20,2,20,30,27972,19043,0,0,54830
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-16 roll_cdeg=-42
+
+@119.561 [S4] 548520,0,1,1,-67,-293,895,-40,-27,8,10,30,27983,19050,0,0,54851
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=270 roll_cdeg=-88
+
+@119.714 [CSC02] t=548640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=191 bytes=55
+
+@119.793 [S4] 548730,0,1,1,-49,-240,915,-48,-22,7,20,10,27993,19057,0,0,54872
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-70 roll_cdeg=33
+
+@119.994 [S4] 548940,0,1,1,-31,-253,924,-40,-22,3,20,20,28004,19063,0,0,54893
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-8 roll_cdeg=148
+
+@120.197 [S4] 549150,0,1,1,-65,-229,927,-37,-20,12,10,20,28015,19070,0,0,54914
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-154 roll_cdeg=-61
+
+@120.396 [S4] 549360,0,1,1,-45,-247,927,-38,-13,18,10,30,28026,19076,0,0,54935
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=-48 roll_cdeg=62
+
+@120.520 [S5SCAN] scan=1 state=0->8 angle=0 target=0 valid=0 mm=0 echo=4 retries=0
+
+@120.643 [S4] 549570,0,1,1,-68,-266,916,-35,-12,14,20,10,28036,19084,0,0,54956
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=77 roll_cdeg=-85
+
+@120.705 [CSC02] t=549640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+[S5SCAN] scan=1 state=8->0 angle=0 target=0 valid=1 mm=255 echo=0 retries=0
+
+@120.829 [S4] 549780,0,1,1,-46,-273,888,-33,-7,18,20,20,28047,19090,0,0,54977
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=169 roll_cdeg=43
+
+@121.045 [S4] 549990,0,1,1,-44,-277,864,-32,-14,14,10,20,28058,19097,0,0,54998
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=237 roll_cdeg=48
+
+@121.245 [S4] 550200,0,1,1,-77,-289,911,-30,-19,22,20,30,28068,19105,0,0,55019
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=216 roll_cdeg=-143
+
+@121.446 [S4] 550410,0,1,1,-40,-272,880,-27,-8,26,20,10,28079,19113,0,0,55040
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=178 roll_cdeg=80
+
+@121.630 [S4] 550620,0,1,1,-47,-267,901,-24,-9,27,10,10,28090,19120,0,0,55061
+[S4TILT] calibrated=1 valid=1 pitch_cdeg=111 roll_cdeg=41
+
+@121.692 [CSC02] t=550640 phase=0 fault=0 armed=0 cmd=0 power=0 flags=175 bytes=55
+
+=== usb_session end 18:12:45.449

@@ -9,11 +9,16 @@
 #include "subsystem4/encoder_input.h"
 #include "subsystem4/imu_mount.h"
 #include "vehicle_obstacle_confirm.h"
+#include "vehicle_approach.h"
 #include "vehicle_ramp.h"
+#include "vehicle_hump.h"
 #include "vehicle_edge_trace.h"
 #include <math.h>
 #include "subsystem2/s2_data.h"
 #include "subsystem5/subsystem5.h"
+#if VC_DETECT_MM <= S5_OBSTACLE_MM || VC_DETECT_SAMPLES < 1U || VC_APPROACH_STOP_MM > S5_OBSTACLE_MM
+#error Approach: detect beyond S5_OBSTACLE_MM, stop within it
+#endif
 #include "subsystem5/s5_width.h"
 #include "shared/events.h"
 #include "vehicle_reverse_track.h"
@@ -154,8 +159,13 @@ static void vehicle_task(INT code,void *context) {
     uint8_t shown_ok=0;BOOL shown_seen=FALSE; /* last decode count shown on the dashboard */
     uint32_t tilt_ok_ms=0;BOOL tilt_seen=FALSE; /* last valid gravity tilt */
     vehicle_obstacle_confirm_t obstacle_confirm={0};
+    /* Early detection within VC_DETECT_MM and the approach to the
+     * manoeuvre distance (vehicle_approach.h). */
+    vehicle_obstacle_confirm_t detect_confirm={0};vehicle_approach_t approach={0};
+    unsigned approach_seen=APPROACH_NONE;
 #if BOARD_RAMP_SPEED
     vehicle_accel_filter_t accel_filter={0};vehicle_ramp_t ramp={0};
+    vehicle_hump_t hump={0}; /* the controller's hump height (event log) */
 #endif
 #if BOARD_LIFT_FAULT_MS
     BOOL lift_timing=FALSE;uint32_t lift_since=0; /* robot lifted (no surface under the IRs) */
@@ -339,7 +349,7 @@ static void vehicle_task(INT code,void *context) {
             if(c.wire[1]==2 && !state.vehicle.armed && mo_fresh && motor.state!=S2_MOTION_MOVING) {
                 state.vehicle=(vc_state_t){0};terrain=(terrain_t){0};encoder_input=(s4_encoder_input_t){0};
 #if BOARD_RAMP_SPEED
-                ramp=(vehicle_ramp_t){0};ramp_seen=RAMP_FLAT;hump_seen=0;
+                ramp=(vehicle_ramp_t){0};ramp_seen=RAMP_FLAT;hump_seen=0;hump=(vehicle_hump_t){0};
 #endif
                 requested_sensor_mode=FALSE; /* RESET also restarts a latched S5 scan. */
                 arm_hold=FALSE; /* RESET also lets ARM in again after a STOP */
@@ -461,6 +471,8 @@ static void vehicle_task(INT code,void *context) {
         BOOL no_echo=!scan.valid && (scan.echo_result==S5_ECHO_NO_RISE || scan.echo_result==S5_ECHO_NO_FALL);
         BOOL obstacle_confirmed=vehicle_obstacle_confirm_step(&obstacle_confirm,so && (scan.valid || open),
             scan.time_ms,forward && scan.valid && scan.distance_mm<=S5_OBSTACLE_MM,S5_ACQUISITION_SAMPLES);
+        BOOL detect_confirmed=vehicle_obstacle_confirm_step(&detect_confirm,so && (scan.valid || open),
+            scan.time_ms,forward && scan.valid && scan.distance_mm<=VC_DETECT_MM,VC_DETECT_SAMPLES);
         /* Avoidance arcs retain their no-echo tolerance only after a clear
          * forward sample follows the last pan. Published target angle 0
          * alone is not a forward observation. */
@@ -487,6 +499,7 @@ static void vehicle_task(INT code,void *context) {
             scan.object_width_max_mm<=AVOID_MAX_WIDTH_MM;
         input.obstacle_width_mm=(uint16_t)(input.width_valid?scan.object_width_max_mm:0U);
         input.scan_blocked=input.sensor_fresh && scan.state==S5_BLOCKED;
+        input.scan_id=scan.scan_id;
         input.sensor_acquiring=so && s5_stage_for_state((s5_state_t)scan.state)==S5_STAGE_ACQUISITION;
         input.scan_ready=input.sensor_fresh && scan.state==S5_READY && plan_usable && scan.approach_plan_valid;
         int side_angle=state.vehicle.side?90:-90;
@@ -661,10 +674,15 @@ static void vehicle_task(INT code,void *context) {
             if(br_state==BR_BRAKE || br_state==BR_REVERSE || br_state==BR_WAIT) input.obstacle=0;
         }
 #endif
-        /* A barcode is being read (>= 3 elements): the follower is off;
-         * line_marker_steer holds the line (BOARD_BARCODE_READ_LINE_STEER). */
+        /* A barcode is being read (BOARD_BARCODE_READ_MIN_ELEMENTS or more):
+         * the follower is off and the slow speed applies from that bar on;
+         * line_marker_steer may hold the line (BOARD_BARCODE_READ_LINE_STEER). */
         BOOL marker_reading=li && line.configured &&
-            line.output.barcode_result==S3_BARCODE_RESULT_READING && line.output.barcode_elements>=3U;
+            line.output.barcode_result==S3_BARCODE_RESULT_READING
+#if BOARD_BARCODE_READ_MIN_ELEMENTS
+            && line.output.barcode_elements>=BOARD_BARCODE_READ_MIN_ELEMENTS
+#endif
+            ;
         /* Line lost while tracking (vehicle_policy.c): mask-pivot only, as
          * the edge-tracing IR rides the edge below black and that follower
          * faults a lost line itself. Off while a barcode is read or re-read
@@ -749,6 +767,18 @@ static void vehicle_task(INT code,void *context) {
         }
         unsigned phase_before=state.vehicle.phase;
         vc_step(&state.vehicle,&input);
+        /* No way round: reset S5 (MONITOR at 0 deg) for a fresh scan from the
+         * same spot; the policy waits for its new scan_id. A busy lock or a
+         * scan_id that just changed is retried next tick. */
+        if(state.vehicle.rescan_request && state.vehicle.phase==VC_ACQUIRE && so_fresh) {
+            ER er=s5_navigation_set(scan.scan_id,S5_MONITOR,0);
+            if(er>=E_OK) {
+                state.vehicle.rescan_request=0;requested_sensor_mode=TRUE;
+                tm_printf((UB *)"[VC] no way round (scan %u): scanning again, retry %u of %u\n",
+                    (unsigned)scan.scan_id,(unsigned)state.vehicle.rescans,(unsigned)AVOID_RESCAN_RETRIES);
+                s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_SCANNED,0U,state.vehicle.rescans));
+            } else if(er!=E_OBJ && er!=E_TMOUT) vc_stop(&state.vehicle,VC_TRANSPORT);
+        }
         /* Event log: obstacle detected / back on the line. */
         if(phase_before==VC_TRACK && state.vehicle.phase==VC_ACQUIRE) {
             /* Range at detection. S5 publishes its confirming echo already
@@ -777,8 +807,12 @@ static void vehicle_task(INT code,void *context) {
             UW range=left?scan.left_bound_distance_mm:scan.right_bound_distance_mm;
             bypass_edge=bound>=0 && bound<=80 && range && range<=5000U;
             avoid_scanned=TRUE;
+            /* The event shows the reported (beam-corrected) width; the plan
+             * keeps object_width_max_mm. */
+            UW shown_left,shown_right;
+            s5_width_reported(&scan,&shown_left,&shown_right);
             s1_event_post(EV_OBSTACLE,ev_obstacle(EV_OBSTACLE_SCANNED,left?1U:2U,
-                (unsigned)((scan.object_width_max_mm+5U)/10U)));
+                (unsigned)((shown_left+shown_right+5U)/10U)));
             if(bypass_edge) {
                 UW half=(scan.object_width_max_mm+1U)/2U;
                 bypass_x=range*s5_cosine_q10000[90-bound]/10000U;
@@ -897,25 +931,39 @@ static void vehicle_task(INT code,void *context) {
         {
             int32_t p=terrain_pitch_cdeg(&terrain),r=terrain_roll_cdeg(&terrain);
             int32_t tilt=(int32_t)lround(sqrt((double)p*p+(double)r*r));
-            ramp.level_blocked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST;
+            /* The controller's hump height: back to 0 on level ground while
+             * no ramp is in progress (this tick's ramp state is not known
+             * yet: last tick's). While it is still up on a hump it climbed,
+             * the hump is not over, as while S4 tracks a climb: S4 misses
+             * low (2-5 cm) humps, which otherwise ended at the top and
+             * came down at full speed as a new "climb". */
+            vehicle_hump_step(&hump,state.vehicle.armed,
+                ramp.state==RAMP_FLAT && !ramp.timing && terrain.tilt_valid && tilt<=BOARD_RAMP_LEVEL_CDEG,
+                terrain.tilt_valid,p,odom->valid,odom->distance_um,now.lo,BOARD_IMU_SMOOTH_MS,
+                VC_HUMP_MAX_STEP_UM,VC_HUMP_STALE_TICKS);
+            ramp.level_blocked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST ||
+                vehicle_hump_up(&hump,VC_HUMP_MIN_UM,VC_HUMP_TOP_UM);
             unsigned rs=vehicle_ramp_step(&ramp,now.lo,state.vehicle.armed,terrain.tilt_valid,
                 tilt,p,r,BOARD_RAMP_TILT_CDEG,BOARD_RAMP_LEVEL_CDEG,
                 BOARD_RAMP_CREST_DROP_CDEG,BOARD_RAMP_HOLD_MS,BOARD_RAMP_LEVEL_MS);
             if(rs!=ramp_seen) {
                 /* Event log: hump climbing, crest (slow down), level again.
-                 * Heights are this hump's, in 2 mm: S4's running peak while
-                 * it tracks the hump; level uses only this traversal's
+                 * Heights are this hump's, in 2 mm: the controller's
+                 * estimate (its height so far, then its highest point) when
+                 * it has one; otherwise S4's running peak while it tracks
+                 * the hump, and at the level only this traversal's
                  * completed-height latch, or zero. */
                 BOOL hump_tracked=terrain.state==TERRAIN_ASCENT || terrain.state==TERRAIN_CREST ||
                     terrain.state==TERRAIN_DESCENT;
-                unsigned peak=((unsigned)terrain.peak_um+1000U)/2000U;
+                unsigned peak=((unsigned)terrain.peak_um+1000U)/2000U,estimate=vehicle_hump_peak_2mm(&hump);
                 if(rs==RAMP_UP) {
                     hump_seen=terrain.humps;
                     s1_event_post(EV_HUMP,ev_hump(EV_HUMP_DETECTED,(unsigned)(tilt/10)));
                 }
-                else if(rs==RAMP_DOWN) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_CREST,hump_tracked?peak:0U));
-                else if(rs==RAMP_DONE) s1_event_post(EV_HUMP,ev_hump(EV_HUMP_LEVEL,
-                    terrain.humps!=hump_seen?(unsigned)terrain.hump_mm/2U:0U));
+                else if(rs==RAMP_DOWN) s1_event_post(EV_HUMP,estimate?ev_hump(EV_HUMP_CREST_EST,estimate):
+                    ev_hump(EV_HUMP_CREST,hump_tracked?peak:0U));
+                else if(rs==RAMP_DONE) s1_event_post(EV_HUMP,estimate?ev_hump(EV_HUMP_LEVEL_EST,estimate):
+                    ev_hump(EV_HUMP_LEVEL,terrain.humps!=hump_seen?(unsigned)terrain.hump_mm/2U:0U));
                 ramp_seen=rs;
             }
             if(rs==RAMP_DONE) {
@@ -929,6 +977,33 @@ static void vehicle_task(INT code,void *context) {
             }
         }
 #endif
+        {
+            /* Obstacle approach (vehicle_approach.h): detected at 30 cm, the
+             * robot follows the line on to about 20 cm and holds still there
+             * for S5's scan (8c: S5's 20 cm trigger alone, which this sonar
+             * often met only 3-4 cm from a box face). */
+            BOOL tracking=state.vehicle.armed && state.vehicle.phase==VC_TRACK;
+#if BOARD_BARCODE_RETRY_DRIVE
+            tracking=tracking && br_state==BR_IDLE;
+#endif
+            BOOL detected=detect_confirmed && forward && scan.valid && scan.distance_mm<=VC_DETECT_MM;
+            BOOL far=so && forward && ((scan.valid && scan.distance_mm>VC_DETECT_MM) || open);
+            unsigned a=vehicle_approach_step(&approach,tracking,detected,scan.distance_mm,far,
+                input.odom_valid,odom->distance_um,now.lo,VC_APPROACH_STOP_MM+VC_APPROACH_BRAKE_MM,
+                VC_APPROACH_HOLD_MS,VC_APPROACH_SLACK_MM);
+            if(a==APPROACH_HOLD) {state.vehicle.command=0;state.vehicle.power=0;}
+            if(a!=approach_seen) {
+                if(a==APPROACH_DRIVE && approach_seen==APPROACH_NONE)
+                    tm_printf((UB *)"[APPROACH] obstacle %u mm ahead: driving %u mm on, then holding for the scan\n",
+                        (unsigned)approach.range_mm,(unsigned)approach.go_mm);
+                else if(a==APPROACH_HOLD)
+                    tm_printf((UB *)"[APPROACH] at the manoeuvre distance: holding for S5's scan\n");
+                else if(a==APPROACH_DRIVE)
+                    tm_printf((UB *)"[APPROACH] no scan after %u ms: following on\n",(unsigned)VC_APPROACH_HOLD_MS);
+                else tm_printf((UB *)"[APPROACH] ended (phase %u)\n",(unsigned)state.vehicle.phase);
+                approach_seen=a;
+            }
+        }
         /* Avoidance smoothing restarts from 0 outside a forward avoidance arc;
          * its ramps are timed from the last tick outside it. */
         if(state.vehicle.command!=S2_MOVE_FORWARD || state.vehicle.phase<VC_TURN_OUT ||

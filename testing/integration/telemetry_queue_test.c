@@ -215,7 +215,7 @@ int main(void) {
             assert(id==0U && data==((12U<<8U)|wraps[n].sent));
         }
     }
-    puts("INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 14-byte events PASS");
+    puts("INT-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 14-byte events PASS");
     puts("Robot event queue: EDR16-format words, FIFO, 16 deep, full queue drops and counts, bad ids ignored PASS");
     puts("Drop counter: wraps past 65535, status subtype 12 is drops modulo 256 PASS");
     puts("Snapshots: newest first, older/stale and full-queue drops counted, impact and IMU fault handed on PASS");

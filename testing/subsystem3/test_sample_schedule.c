@@ -69,9 +69,9 @@ static void test_publish_wait_safety(void)
 }
 int main(void)
 {
-    RUN("S3-U48 cyclic/no burst/no ADC callback",test_cyclic_release);
-    RUN("S3-U49 cyclic lifecycle cleanup",test_cycle_failure_cleanup);
-    RUN("S3-U50 publication wait freshness/STOP/lease/clock",test_publish_wait_safety);
+    RUN("S3-U44 cyclic/no burst/no ADC callback",test_cyclic_release);
+    RUN("S3-U45 cyclic lifecycle cleanup",test_cycle_failure_cleanup);
+    RUN("S3-U46 publication wait freshness/STOP/lease/clock",test_publish_wait_safety);
     printf("Buddy3 sample schedule: %u groups, %u checks, %u failures\n",groups,checks,failures);
     return failures?1:0;
 }

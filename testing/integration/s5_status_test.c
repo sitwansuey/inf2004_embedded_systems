@@ -86,6 +86,6 @@ int main(void)
     REQUIRE(s5_get_status(&copy)==E_SYS && s5_controller_bind()==E_SYS);
     forced_unlock=E_OK;
     REQUIRE(subsystem5_start()==E_OK && locks>0);
-    puts("INT-CR1-09: preempted publisher handoff, ownership, timeout, unchanged failed output, unlock/lifecycle errors PASS");
+    puts("INT-09: preempted publisher handoff, ownership, timeout, unchanged failed output, unlock/lifecycle errors PASS");
     return 0;
 }

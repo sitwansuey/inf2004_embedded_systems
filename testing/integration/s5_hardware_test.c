@@ -133,6 +133,6 @@ int main(void)
     EXPECT(!status.valid && status.distance_mm == 0 && status.echo_result == S5_ECHO_NO_RISE);
     allow_tick = FALSE; tick_running = FALSE; accesses = 0;
     EXPECT(s5_hw_timer_init() == E_SYS);
-    puts("INT-CR1-08: GP1 trigger/GP0 echo, valid pulse, faults, timer wrap/start failure, narrow sample PASS");
+    puts("INT-08: GP1 trigger/GP0 echo, valid pulse, faults, timer wrap/start failure, narrow sample PASS");
     return 0;
 }

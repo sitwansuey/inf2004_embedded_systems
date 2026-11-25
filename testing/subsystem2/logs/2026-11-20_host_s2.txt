@@ -1,0 +1,87 @@
+# Host test run - subsystem 2 (app_program/subsystem2/tests/host)
+# Date: 2026-11-20   Commit: ed197b3 (clean export of the commit, git archive)
+# Host: Windows 11, MSYS2 UCRT64 gcc.exe (Rev6, Built by MSYS2 project) 16.2.0, GNU Make 4.4.1, [WARNING] Failed to read unmanaged installs: expected str, bytes or os.PathLike object, not NoneType
+Python 3.15.2
+# Commands, in order:
+#   python app_program/subsystem2/tests/host/run.py --compiler gcc
+
+$ python app_program/subsystem2/tests/host/run.py --compiler gcc
+Buddy 2 host compiler: C:\msys64\ucrt64\bin\gcc.exe
+BUILD Buddy 2 standalone-no-encoder
+RUN Buddy 2 standalone-no-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-no-encoder
+BUILD Buddy 2 standalone-dual-encoder
+RUN Buddy 2 standalone-dual-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder
+BUILD Buddy 2 standalone-dual-encoder-swapped
+RUN Buddy 2 standalone-dual-encoder-swapped
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder-swapped
+BUILD Buddy 2 standalone-dual-encoder-shared-bank
+RUN Buddy 2 standalone-dual-encoder-shared-bank
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder-shared-bank
+BUILD Buddy 2 standalone-dual-encoder-cross-bank
+RUN Buddy 2 standalone-dual-encoder-cross-bank
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 standalone-dual-encoder-cross-bank
+BUILD Buddy 2 integrated-no-encoder
+RUN Buddy 2 integrated-no-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+Integrated STOP epoch: saturated pool, old commands, running motor and bounded poll PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-no-encoder
+BUILD Buddy 2 integrated-dual-encoder
+RUN Buddy 2 integrated-dual-encoder
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+Integrated STOP epoch: saturated pool, old commands, running motor and bounded poll PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-dual-encoder
+BUILD Buddy 2 integrated-custom-timeout
+RUN Buddy 2 integrated-custom-timeout
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+Status lock timeouts: task keeps running, copy retried each poll PASS
+Init failure: PWM off, FAULT kept for VC fault 7, task never returns PASS
+Integrated STOP epoch: saturated pool, old commands, running motor and bounded poll PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-custom-timeout
+BUILD Buddy 2 integrated-pid-turn
+RUN Buddy 2 integrated-pid-turn
+Turn drive helpers: spin ceiling, per-wheel kick until real motion, re-kick on re-stall, stall time PASS
+PID spins: kick until real motion, re-kick, raised ceiling, longer stall; straight and pivots unchanged PASS
+STOP in a command change's dead time or a speed update: STOPPED, no [S2 FAULT] PASS
+Stall time: kept across FORWARD<->PIVOT and short STOPs, idle wheel unchecked, spins unchanged PASS
+Follower FORWARD<->PIVOT with a held wheel: fault within 0.6 s; free wheels never fault PASS
+Motor-control host checks passed
+PASS Buddy 2 integrated-pid-turn
+[exit code 0]
+

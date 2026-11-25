@@ -312,15 +312,15 @@ static void test_integration_device_errors(void)
 
 int main(void)
 {
-    RUN("S3-U22 ADC pipeline/timestamp/rollover", test_pipeline);
-    RUN("S3-U23 ADC deadline and late completion", test_timeout);
-    RUN("S3-U24 ADC unavailable/read error", test_unavailable);
-    RUN("S3-U25 ADC invalid/partial readings", test_invalid_readings);
-    RUN("S3-U26 ADC lifecycle/ownership", test_lifecycle_and_ownership);
-    RUN("S3-U27 ADC transport/request validation", test_transport_and_request_validation);
-    RUN("S3-U28 ADC controller integration", test_integration_success_and_hold);
-    RUN("S3-U29 blocked worker isolation/fault", test_worker_stall_isolation);
-    RUN("S3-U30 acquisition errors/raw snapshot", test_integration_device_errors);
+    RUN("S3-U20 ADC pipeline/timestamp/rollover", test_pipeline);
+    RUN("S3-U21 ADC deadline and late completion", test_timeout);
+    RUN("S3-U22 ADC unavailable/read error", test_unavailable);
+    RUN("S3-U23 ADC invalid/partial readings", test_invalid_readings);
+    RUN("S3-U24 ADC lifecycle/ownership", test_lifecycle_and_ownership);
+    RUN("S3-U25 ADC transport/request validation", test_transport_and_request_validation);
+    RUN("S3-U26 ADC controller integration", test_integration_success_and_hold);
+    RUN("S3-U27 blocked worker isolation/fault", test_worker_stall_isolation);
+    RUN("S3-U28 acquisition errors/raw snapshot", test_integration_device_errors);
     (void)printf("Buddy 3 ADC: %u groups, %u checks, %u failures\n", groups, checks, failures);
     return (failures == 0U) ? 0 : 1;
 }

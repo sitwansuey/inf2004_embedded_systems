@@ -67,6 +67,27 @@ static UW half_width(UW depth, UW edge_mm, UINT degree)
     return (UW)((tangent + 5000U) / 10000U);
 }
 
+static UW reported_half(UW depth, INT bound_deg)
+{
+    INT corrected = bound_deg - (INT)S5_BEAM_HALF_DEG;
+    if (corrected < 0) corrected = 0;
+    return (UW)(((unsigned long long)depth * (UW)tangent_q[corrected] + 5000U) / 10000U);
+}
+
+EXPORT void s5_width_reported(const s5_status_t *scan, UW *left_mm, UW *right_mm)
+{
+    UW left = 0U, right = 0U;
+    if (scan && scan->object_width_valid && scan->obstacle_distance_mm != 0U &&
+        scan->obstacle_distance_mm <= S5_OBSTACLE_MM &&
+        scan->left_bound_deg >= 0 && scan->left_bound_deg < 80 &&
+        scan->right_bound_deg <= 0 && scan->right_bound_deg > -80) {
+        left = reported_half(scan->obstacle_distance_mm, scan->left_bound_deg);
+        right = reported_half(scan->obstacle_distance_mm, -scan->right_bound_deg);
+    }
+    if (left_mm) *left_mm = left;
+    if (right_mm) *right_mm = right;
+}
+
 EXPORT void s5_width_from_bounds(s5_status_t *result)
 {
     if (!result) return;

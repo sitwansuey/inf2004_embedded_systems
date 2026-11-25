@@ -287,7 +287,7 @@ int main(void) {
      * cancels the join. */
     wifi_hold(2,499U);assert(wifi_poll(2)==WIFI_REJOIN_LEAVE && leaves==3 && disconnects==3 && timers==1);
     wifi_hold(3,1U);wifi_hold(0,499U);assert(joins==2 && wifi_poll(0)==WIFI_REJOIN_LEAVE);
-    puts("INT-CR1-07 actual MQTT port: binary length/NULs, fragments, malformed input, backpressure, autonomous link-loss independence and retry guard PASS");
+    puts("INT-07 actual MQTT port: binary length/NULs, fragments, malformed input, backpressure, autonomous link-loss independence and retry guard PASS");
     puts("MQTT replies: RESET-needed and refused offers answered with the VC state (s1_command_reply), none for a wrong length/topic; no broker login by default PASS");
     puts("Abandoned snapshot: counted as dropped; an unsent IMU fault/impact goes on in the next snapshot, once PASS");
     puts("MQTT robot events: EV_LINK boot/reconnected held by the port and sent first (a full event queue cannot drop it), queued events through a link drop, one per poll on their own topic, backpressure keeps the record, held after 3 s without a broker ACK, outage dated from the first unacknowledged publish PASS");

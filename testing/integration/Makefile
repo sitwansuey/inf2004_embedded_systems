@@ -26,6 +26,10 @@ test:
 	./.build/bypass_return
 	$(CC) $(CFLAGS) -D_USE_MATH_DEFINES reverse_track_test.c $(LDFLAGS) -lm -o .build/reverse_track
 	.build/reverse_track
+	$(CC) $(CFLAGS) approach_test.c $(LDFLAGS) -o .build/approach
+	.build/approach
+	$(CC) $(CFLAGS) -D_USE_MATH_DEFINES hump_height_test.c $(LDFLAGS) -lm -o .build/hump_height
+	.build/hump_height
 	$(CC) $(CFLAGS) line_steer_test.c $(LDFLAGS) -o .build/line_steer
 	.build/line_steer
 	$(CC) $(CFLAGS) obstacle_confirm_test.c $(LDFLAGS) -o .build/obstacle_confirm
@@ -62,7 +66,7 @@ test:
 	./.build/sonar_slope
 	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_status_test.c ../../app_program/subsystem5/s5_data.c $(LDFLAGS) -o .build/sonar_status
 	./.build/sonar_status
-	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time
+	$(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c ../../app_program/subsystem5/s5_width.c $(LDFLAGS) -lm -o .build/snapshot_time
 	./.build/snapshot_time
 	$(CC) $(CFLAGS) protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/protocol
 	python3 protocol_test.py

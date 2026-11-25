@@ -89,6 +89,9 @@ static unsigned reverse_tick, after_reverse;
 #define READ_FROM 12U
 #define READ_UNTIL 16U
 static unsigned read_count, read_max, normal_count, normal_min;
+/* The first slow tick of mode 11: the stub reports 2 elements at READ_FROM-1,
+ * which counts as reading when BOARD_BARCODE_READ_MIN_ELEMENTS <= 2. */
+#define READ_SLOW_FROM (BOARD_BARCODE_READ_MIN_ELEMENTS<=2U?READ_FROM-1U:READ_FROM)
 /* Mode 12: one >1.8 g accelerometer sample while armed and tracking.
  * Mode 21: the same impact clipped at +/-2 g (the driver marks it invalid). */
 #define SHOCK_AT 9U
@@ -100,7 +103,7 @@ static bool reset_offered;
  * past one second; the others ARM at 30% with a 1000 ms lease. */
 static bool renew_mode(void) { return failure_mode==46U || failure_mode==48U || failure_mode==49U; }
 static bool starts(void) { return failure_mode==7U || (failure_mode>=13U && failure_mode<=20U) || (failure_mode>=22U && !renew_mode()); }
-#define MODE_COUNT 50U
+#define MODE_COUNT 51U
 /* Mode 46: ARM with a 500 ms lease at tick 7 (tools/robot_console.py --arm),
  * the same ARM again every RENEW_EVERY ticks (100 ms) up to RENEW_UNTIL, and
  * one START at RENEW_START_AT. Mode 47: START at tick 7, ARM at tick 10.
@@ -264,7 +267,17 @@ static bool scenario_nose_up(unsigned n) { return failure_mode==17U && n>=HUMP_F
  * BOARD_LINE_LOST_MM of the line. */
 #define HUMP_CROSS_TICKS 20U
 _Static_assert(!BOARD_LINE_LOST_MM || HUMP_CROSS_TICKS*HUMP_COUNTS_PER_TICK*2U<BOARD_LINE_LOST_MM,"mode 17 line contact");
-static bool hump_cross(unsigned n) { return BOARD_LINE_MASK_PIVOT && (failure_mode==17U || failure_mode==38U) && n%HUMP_CROSS_TICKS==0U; }
+static bool hump_cross(unsigned n) { return BOARD_LINE_MASK_PIVOT && (failure_mode==17U || failure_mode==38U || failure_mode==50U) && n%HUMP_CROSS_TICKS==0U; }
+/* Mode 50: a low hump, 3.3 cm: 4.8 deg up for 400 mm from LOW_FROM, then
+ * straight down at 4.8 deg (4 mm per tick). The ramp handling sees it (4 deg
+ * held 400 ms); S4 terrain never does (it needs a 5 deg climb), so before
+ * the controller's estimate it had no height, and it ended at the top: the
+ * way down was a second hump, at full speed. */
+#define LOW_FROM 10U
+#define LOW_DOWN 110U
+#define LOW_BOTTOM 210U
+#define LOW_ITERATIONS 320U
+#define LOW_COUNTS_PER_TICK 2U /* 4 mm per tick */
 /* Mode 18: two decoded markers (straight on). S3 queues the first turn one
  * tick before its status shows the decode (DEC1_AT, then DEC1_AT+1); the
  * second turn and its decode arrive in the same tick (DEC2_AT). The event log
@@ -451,6 +464,7 @@ static unsigned iterations(void)
     case 15U: return OC_ITERATIONS;
     case 16U: return LIFT_AT+LIFT_TICKS+3U;
     case 17U: return HUMP_ITERATIONS;
+    case 50U: return LOW_ITERATIONS;
     case 18U: return DEC_ITERATIONS;
     case 20U: return 14U;
     case 22U: return MARKER2_AT+70U; /* the decode is 63 ticks after it starts */
@@ -504,7 +518,7 @@ static void count_move(s2_move_command_t command,UINT power)
     else if(reverse_tick==iteration+1U)++after_reverse;
     if(shock_mode() && iteration>SHOCK_AT && command==S2_MOVE_FORWARD && power)++after_shock;
     if(failure_mode==11U && command==S2_MOVE_FORWARD) {
-        if(iteration>=READ_FROM && iteration<READ_UNTIL) {++read_count;if(power>read_max)read_max=power;}
+        if(iteration>=READ_SLOW_FROM && iteration<READ_UNTIL) {++read_count;if(power>read_max)read_max=power;}
         else {++normal_count;if(power<normal_min)normal_min=power;}
     }
     if(command==S2_MOVE_REVERSE) {++reverse_requests;if(iteration>BR_GLITCH_AT)++reverse_after_glitch;}
@@ -535,7 +549,8 @@ ER s2_encoder_snapshot(uint8_t *p,size_t capacity)
 {
     uint32_t stamp=clock_ms;
     if(failure_mode==1U && iteration>=8U)stamp+=100U;
-    uint32_t counts=failure_mode==17U?iteration*HUMP_COUNTS_PER_TICK:failure_mode==22U?iteration:0U;
+    uint32_t counts=failure_mode==17U?iteration*HUMP_COUNTS_PER_TICK:failure_mode==50U?iteration*LOW_COUNTS_PER_TICK:
+                    failure_mode==22U?iteration:0U;
     encoder_snapshot_t e={counts,counts,stamp,ENCODER_SNAPSHOT_VALID};
     if(kinematic()) {
         e.left_counts=kin_counts[0];e.right_counts=kin_counts[1];
@@ -561,8 +576,9 @@ ER s3_status_get(s3_status_t *s) {
             s->output.last_symbol=ok==1U?'F':'B';
         }
     }
-    /* A marker in progress (bar, gap, bar...): a single crossing line with
-     * fewer than 3 elements must not slow the robot (checked at READ_FROM-1). */
+    /* A marker in progress (bar, gap, bar...): with fewer completed elements
+     * than BOARD_BARCODE_READ_MIN_ELEMENTS (8f: 3) it must not slow the robot
+     * (checked at READ_FROM-1, 2 elements); from the default 0 it does. */
     if(failure_mode==11U && iteration>=READ_FROM-1U && iteration<READ_UNTIL) {
         s->output.barcode_result=S3_BARCODE_RESULT_READING;
         s->output.barcode_elements=(uint8_t)(iteration<READ_FROM?2U:3U+iteration-READ_FROM);
@@ -677,6 +693,10 @@ ER s4_sensor_get_record(s4_sensor_cache_t *s)
     }
     if(failure_mode==17U && iteration>=HUMP_DOWN && iteration<HUMP_BOTTOM) {
         frame.accel.raw[1]=-88;frame.accel.raw[2]=948; /* 10 deg nose-down */
+    }
+    if(failure_mode==50U && iteration>=LOW_FROM && iteration<LOW_BOTTOM) {
+        if(iteration<LOW_DOWN) {frame.accel.raw[1]=-325;frame.accel.raw[2]=885;} /* 4.8 deg more nose-up */
+        else {frame.accel.raw[1]=-173;frame.accel.raw[2]=927;}                    /* 4.8 deg nose-down */
     }
     /* Drop the current height after completion, before ramp DONE (I3). */
     if(failure_mode==17U && iteration>=HUMP_BOTTOM+35U && iteration<HUMP_BOTTOM+40U)frame.accel.overrun=1;
@@ -870,7 +890,7 @@ static void check_published(void)
 static void check_read_steer(void)
 {
     const int32_t cap=BOARD_BARCODE_READ_LINE_STEER;
-    assert(cap>0);
+    assert(cap>=0); /* 0 (the default): straight on while reading */
     unsigned right=0,left=0,straight=0;
     for(unsigned n=8U;n<SR_ITERATIONS;++n) {
         assert(pub_armed[n] && pub_phase[n]==VC_TRACK && sent_kind[n]==SENT_FOLLOW);
@@ -880,8 +900,8 @@ static void check_read_steer(void)
         assert(sent_power[n]<30U); /* the marker is read at the slow speed */
 #endif
         switch(scenario_mask(n)) {
-        case 1U: assert(steer>0 && steer<=cap);++right;break;
-        case 2U: assert(steer<0 && steer>=-cap);++left;break;
+        case 1U: if(cap){assert(steer>0 && steer<=cap);}else assert(steer==0);++right;break;
+        case 2U: if(cap){assert(steer<0 && steer>=-cap);}else assert(steer==0);++left;break;
         default: assert(steer==0);++straight;break;
         }
     }
@@ -1321,13 +1341,25 @@ int main(void)
             assert((event_value[0]>>3U)>=(unsigned)BOARD_RAMP_TILT_CDEG/10U && (event_value[0]>>3U)<=100U);
             assert(event_tick[1]>=HUMP_LEVEL && event_tick[2]>event_tick[1]+BOARD_RAMP_LEVEL_MS/TICK_MS &&
                    event_tick[2]<HUMP_ITERATIONS);
-            /* Heights in 2 mm (the robot climbs 10 deg at 10 mm per tick, so
-             * ~104 mm by HUMP_LEVEL; S4 sees the smoothed, lagging tilt): the
-             * crest reports this hump's height so far (S4 has not completed
-             * it), the level its highest point. */
+            /* Heights in 2 mm, the controller's estimate (the robot climbs
+             * 10 deg at 10 mm per tick, so 104 mm by HUMP_LEVEL): the crest
+             * its height so far, the level its highest point. */
             unsigned crest=event_value[1]>>3U,level=event_value[2]>>3U;
-            assert(crest>=20U && crest<=level && level<=60U);
+            assert(crest>=40U && crest<=level && level>=48U && level<=53U);
             assert(event_tick[2]>HUMP_BOTTOM); /* no DONE on the flat top */
+        }
+        else if(failure_mode==50U) {
+            /* One hump: detected on the way up, crest at the top (the
+             * controller's height so far), level only after the way down
+             * with its highest point, 33.5 mm. */
+            assert(event_count==3U && event_id[0]==EV_HUMP && event_id[1]==EV_HUMP && event_id[2]==EV_HUMP);
+            assert((event_value[0]&7U)==EV_HUMP_DETECTED && (event_value[1]&7U)==EV_HUMP_CREST_EST &&
+                   (event_value[2]&7U)==EV_HUMP_LEVEL_EST);
+            assert(event_tick[0]>LOW_FROM+BOARD_RAMP_HOLD_MS/TICK_MS && event_tick[0]<LOW_DOWN);
+            assert(event_tick[1]>=LOW_DOWN && event_tick[1]<LOW_DOWN+10U);
+            assert(event_tick[2]>LOW_BOTTOM && event_tick[2]<LOW_ITERATIONS);
+            unsigned crest=event_value[1]>>3U,level=event_value[2]>>3U;
+            assert(crest>=13U && crest<=level && level>=15U && level<=17U);
         }
 #endif
         else if(failure_mode==38U) {
@@ -1356,7 +1388,7 @@ int main(void)
             assert(slow<30U);
 #endif
             assert(saved.vehicle.armed && saved.vehicle.phase==VC_TRACK);
-            assert(read_count==READ_UNTIL-READ_FROM && read_max==slow);
+            assert(read_count==READ_UNTIL-READ_SLOW_FROM && read_max==slow);
             assert(normal_count>=6U && normal_min==30U); /* full speed before and after */
         }
         if(failure_mode==20U)
@@ -1395,6 +1427,18 @@ int main(void)
                 if(sent_power[n]==20U) {++slope_ticks;assert(n>=HUMP_FROM);}
             }
             assert(slope_ticks>0U && sent_power[HUMP_ITERATIONS-1U]==30U);
+        }
+        if(failure_mode==50U) {
+            /* S4 never sees a slope (no 20% cap); the way down from the crest
+             * to the level is capped at BOARD_RAMP_DOWN_POWER (with
+             * BOARD_RAMP_SPEED 0: full power all the way). */
+            for(unsigned n=8U;n<LOW_ITERATIONS;++n) {
+                assert(pub_armed[n] && pub_phase[n]==VC_TRACK && sent_kind[n]==SENT_FOLLOW && !sent_steer[n]);
+#if BOARD_RAMP_SPEED
+                if(n>=event_tick[1] && n<event_tick[2]) {assert(sent_power[n]==BOARD_RAMP_DOWN_POWER);continue;}
+#endif
+                assert(sent_power[n]==30U);
+            }
         }
         if(failure_mode==36U) {
             assert(saved.shock_count==2U);
@@ -1456,10 +1500,11 @@ int main(void)
 #if BOARD_RAMP_SPEED
     puts("8c: skipped impacts/faults and counter wrap, dropped-traversal cap, tipped lift, fresh forward pans and checked reverse replans PASS");
     puts("Hump: EV_HUMP detected after the 400 ms hold, crest caps the power to BOARD_RAMP_DOWN_POWER (this hump's height so far), level restores it (its height) PASS");
+    puts("Low hump (3.3 cm at 4.8 deg, below S4's 5 deg climb): one detected/crest/level cycle with the controller's height, slowed all the way down PASS");
 #else
     puts("Hump with BOARD_RAMP_SPEED 0: no events, no power cap PASS");
 #endif
-    puts("INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");
+    puts("INT-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS");
     puts("Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read; no forward request or STOP follows a reverse in its tick PASS");
     puts("Barcode first pass: S3 READING caps the forward power to the re-read speed PASS");
     puts("MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS");

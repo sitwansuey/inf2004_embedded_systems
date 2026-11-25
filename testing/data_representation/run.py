@@ -54,7 +54,6 @@ INPUTS = (
     "testing/data_representation/run.py",
     "app_program/subsystem2/subsystem2.c",
     "app_program/subsystem2/subsystem2.h",
-    "app_program/subsystem2/subsystem2_test.c",
     "app_program/subsystem2/s2_data.c",
     "app_program/subsystem2/s2_data.h",
     "app_program/subsystem2/speed_pid.h",

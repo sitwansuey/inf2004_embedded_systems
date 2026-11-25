@@ -483,7 +483,9 @@ static ER motor_apply(s2_move_command_t command, UINT power_percent,
         {
 #if BOARD_PID_ENABLED
             /* A new spin starts both wheels at the breakaway kick;
-             * motor_regulate keeps it until each wheel really moves. */
+             * motor_regulate keeps it until each wheel really moves. (A slow
+             * straight/reverse/pivot move is kicked only in motor_regulate,
+             * and only once a wheel has stopped making progress.) */
             if(direction_changed) {
                 UW kick=(UW)((uint64_t)(MOTOR_PWM_WRAP+1U)*s2_turn_kick_milli(command,0U,
                     BOARD_TURN_KICK_MS,BOARD_TURN_KICK_POWER,
@@ -555,6 +557,19 @@ static ER motor_regulate(uint16_t word)
     default:return E_PAR;
     }
     uint32_t stall=s2_stall_ms(command,500U,BOARD_TURN_STALL_MS);
+    /* Spins scrub: more PWM headroom, a breakaway kick for each wheel until
+     * it really moves (and again if it re-stalls), and a longer stall
+     * allowance (turn_drive.h). A very slow straight, reverse or pivot move
+     * is not kicked at its start: only a wheel that has made no progress for
+     * REKICK_MS gets the kick (s2_kick_step), so a rolling wheel, a soft
+     * start that is already moving and the slow barcode read are untouched,
+     * and a wheel that would otherwise reach the 500 ms stall breaks away.
+     * Speed targets are unchanged. */
+    unsigned limit=s2_turn_limit(command,BOARD_PID_MAX_POWER,BOARD_PID_TURN_MAX_POWER);
+    unsigned kick=s2_turn_kick_milli(command,0U,BOARD_TURN_KICK_MS,BOARD_TURN_KICK_POWER,limit);
+#if BOARD_TURN_KICK_MS
+    if(!kick)kick=s2_low_kick_milli(command,power,BOARD_LOW_KICK_BELOW,BOARD_LOW_KICK_POWER,limit);
+#endif
     if (!pid_initialized || pid_command!=command) {
         /* The PI restarts, but each wheel's stall time carries over, so a
          * held wheel still faults while the follower switches commands. */
@@ -575,11 +590,6 @@ static ER motor_regulate(uint16_t word)
     filtered_steering=s2_steering_step(filtered_steering,
         s2_steerable(command)?requested_steering:0,dt);
     unsigned output[2]={0,0};
-    /* Spins scrub: more PWM headroom, a breakaway kick for each wheel until
-     * it really moves (and again if it re-stalls), and a longer stall
-     * allowance (turn_drive.h). Speed targets are unchanged. */
-    unsigned limit=s2_turn_limit(command,BOARD_PID_MAX_POWER,BOARD_PID_TURN_MAX_POWER);
-    unsigned kick=s2_turn_kick_milli(command,0U,BOARD_TURN_KICK_MS,BOARD_TURN_KICK_POWER,limit);
     for(unsigned n=0;n<2;++n) {
         int32_t delta;
         if(!edr_count_delta(counts[n],pid_counts[n],&delta) || delta>10000 || delta< -10000)return E_SYS;

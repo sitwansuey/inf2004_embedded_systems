@@ -582,20 +582,20 @@ static void test_enum_boundaries(void)
 
 int main(int argc, char **argv)
 {
-    RUN("S3-U02 normalization", test_normalization);
-    RUN("S3-U04 calibration", test_calibration);
-    RUN("S3-U05 line positions", test_line_positions);
-    RUN("S3-U06 hysteresis/loss/rollover", test_hysteresis_loss_rollover);
-    RUN("S3-U07 configuration bounds", test_config_boundaries);
+    RUN("S3-U01 normalization", test_normalization);
+    RUN("S3-U02 calibration", test_calibration);
+    RUN("S3-U03 line positions", test_line_positions);
+    RUN("S3-U04 hysteresis/loss/rollover", test_hysteresis_loss_rollover);
+    RUN("S3-U05 configuration bounds", test_config_boundaries);
     RUN("S3 four-command navigation handoff", test_four_navigation_commands);
-    RUN("S3-U08 barcode scales/speed/direction", test_barcode_scale_direction_speed);
-    RUN("S3-U09 barcode corruption", test_barcode_corruption);
-    RUN("S3-U10 capture/rearm/duplicates", test_capture_duplicate_rearm);
-    RUN("S3-U11 capture failures/capacity", test_capture_failures);
-    RUN("S3-U12 navigation/override", test_navigation_handoff_override);
-    RUN("S3-U13 unmapped/corrupted/fault", test_unmapped_corrupt_and_fault);
-    RUN("S3-U14 recovery and time", test_core_loss_and_time);
-    RUN("S3-U31 enum bounds", test_enum_boundaries);
+    RUN("S3-U06 barcode scales/speed/direction", test_barcode_scale_direction_speed);
+    RUN("S3-U07 barcode corruption", test_barcode_corruption);
+    RUN("S3-U08 capture/rearm/duplicates", test_capture_duplicate_rearm);
+    RUN("S3-U09 capture failures/capacity", test_capture_failures);
+    RUN("S3-U10 navigation/override", test_navigation_handoff_override);
+    RUN("S3-U11 unmapped/corrupted/fault", test_unmapped_corrupt_and_fault);
+    RUN("S3-U12 recovery and time", test_core_loss_and_time);
+    RUN("S3-U29 enum bounds", test_enum_boundaries);
     if ((argc == 2) && (strcmp(argv[1], "--force-failure") == 0))
     {
         CHECK(2 + 2 == 5);

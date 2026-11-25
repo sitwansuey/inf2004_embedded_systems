@@ -169,12 +169,12 @@ static void test_calibrated_paused_jitter(void)
 
 int main(void)
 {
-    RUN("S3-U37 current scan/jitter/rollover/raw authority", test_current_scan_with_jitter);
-    RUN("S3-U38 STOP during reply wait", test_stop_wins_wait);
-    RUN("S3-U39 lease expires during reply wait", test_lease_expires_in_wait);
-    RUN("S3-U40 clock/delivery/transport failure", test_wait_failures);
-    RUN("S3-U41 absent reply bounded", test_bounded_absent_reply);
-    RUN("S3-U45 configured paused jitter/rollover", test_calibrated_paused_jitter);
+    RUN("S3-U35 current scan/jitter/rollover/raw authority", test_current_scan_with_jitter);
+    RUN("S3-U36 STOP during reply wait", test_stop_wins_wait);
+    RUN("S3-U37 lease expires during reply wait", test_lease_expires_in_wait);
+    RUN("S3-U38 clock/delivery/transport failure", test_wait_failures);
+    RUN("S3-U39 absent reply bounded", test_bounded_absent_reply);
+    RUN("S3-U43 configured paused jitter/rollover", test_calibrated_paused_jitter);
     (void)printf("Buddy 3 ADC acquisition: %u groups, %u checks, %u failures\n", groups, checks, failures);
     return failures == 0U ? 0 : 1;
 }

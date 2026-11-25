@@ -41,7 +41,7 @@ static void test_empty_and_init(void)
     s4_data_init_result(&state, LSM303_OK);
     s4_data_snapshot(&state,10000,&copy);
     REQUIRE(copy.configured && copy.init_attempts == 2);
-    puts("[TEST] S4-U15 PASS  absent/uninitialized state cannot publish usable data");
+    puts("[TEST] S4-U06 PASS  absent/uninitialized state cannot publish usable data");
 }
 
 static void test_freshness(void)
@@ -64,7 +64,7 @@ static void test_freshness(void)
     s4_data_snapshot(&state, 110001, &copy);
     REQUIRE(!copy.accel_usable && !copy.mag_usable);
     REQUIRE(copy.latest.accel.milli_units[2] == 1000);
-    puts("[TEST] S4-U16 PASS  no-data polls preserve timestamps; stale data expires");
+    puts("[TEST] S4-U07 PASS  no-data polls preserve timestamps; stale data expires");
 }
 
 static void test_fault_and_recovery(void)
@@ -92,7 +92,7 @@ static void test_fault_and_recovery(void)
     REQUIRE(!copy.accel_usable && !copy.mag_usable);
     REQUIRE(copy.accel_samples == 2 && copy.init_attempts == 2);
     REQUIRE(copy.accel_age_ms == S4_NO_SAMPLE_AGE);
-    puts("[TEST] S4-U17 PASS  per-channel faults, recovery and reinitialization");
+    puts("[TEST] S4-U08 PASS  per-channel faults, recovery and reinitialization");
 }
 
 static void test_clipping_and_time_boundaries(void)
@@ -115,7 +115,7 @@ static void test_clipping_and_time_boundaries(void)
     REQUIRE(copy.mag_age_ms == S4_NO_SAMPLE_AGE - 1u && !copy.mag_usable);
     s4_data_snapshot(&state, UINT64_MAX, &copy);
     REQUIRE(!copy.mag_usable && copy.mag_age_ms == S4_NO_SAMPLE_AGE);
-    puts("[TEST] S4-U18 PASS  clipping, future timestamps, 64-bit time and age saturation");
+    puts("[TEST] S4-U09 PASS  clipping, future timestamps, 64-bit time and age saturation");
 }
 
 /* A clipped accel sample (driver: an axis at -2048/2047, valid false) is
@@ -166,7 +166,7 @@ static void test_clipped_impact(void)
     s4_data_update(&state, &fault, LSM303_IO_ERROR);
     s4_data_snapshot(&state, 170000, &copy);
     REQUIRE(!copy.accel_usable && !copy.accel_clipped);
-    puts("[TEST] S4-U34 PASS  a current clipped accel sample is reported clipped, never usable");
+    puts("[TEST] S4-U25 PASS  a current clipped accel sample is reported clipped, never usable");
 }
 
 /* I4/I5: impacts and accel faults are counted on every sample or poll, so
@@ -233,7 +233,7 @@ static void test_event_counters(void)
     s4_data_invalidate(&state);
     s4_data_snapshot(&state, 160000, &copy);
     REQUIRE(copy.accel_faults == 5 && copy.accel_impacts == 2);
-    puts("[TEST] S4-U40 PASS  impacts and accel faults are counted per sample, mag faults never");
+    puts("[TEST] S4-U31 PASS  impacts and accel faults are counted per sample, mag faults never");
 }
 
 int main(void)
@@ -261,7 +261,7 @@ int main(void)
     frame=good_frame(12345);s4_data_update(&state,&frame,LSM303_OK);
     s4_data_snapshot(&state,13000,&view);REQUIRE(!view.accel_usable && !view.mag_usable);
     REQUIRE((state.bytes[S4_CACHE_BYTES-1U]&0xf0U)==0);
-    printf("S4-U29 compact cache: %u bits/%u bytes, raw/time boundaries, exact units, counter isolation/wrap PASS\n",
+    printf("S4-U20 compact cache: %u bits/%u bytes, raw/time boundaries, exact units, counter isolation/wrap PASS\n",
         (unsigned)S4_CACHE_BITS,(unsigned)S4_CACHE_BYTES);
     return EXIT_SUCCESS;
 }

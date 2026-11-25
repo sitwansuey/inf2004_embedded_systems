@@ -88,15 +88,20 @@ def describe_event(payload):
     if name == "hump":
         if e["kind"] == 1:
             return "Terrain", "INFO", f"Hump detected: climbing, tilt {e['value'] / 10:.1f} deg"
-        # Heights in 2 mm; 0 when subsystem 4 lost the hump's height.
-        height = f"{e['value'] * 2 / 10:.1f} cm" if e["value"] else "not measured"
-        if e["kind"] == 2:
+        # Heights in 2 mm. Kinds 2/3: subsystem 4's height, 0 when it lost
+        # it. Kinds 4/5: the controller's estimate (wheel distance x tilt).
+        height = f"{e['value'] * 2 / 10:.1f} cm" if e["value"] or e["kind"] >= 4 else "not measured"
+        if e["kind"] >= 4:
+            height += " (estimated from wheel distance and tilt)"
+        if e["kind"] in (2, 4):
             return "Terrain", "INFO", f"Hump crest: going down slowly, height {height}"
         return "Terrain", "INFO", f"Hump cleared: level again, highest {height}"
     if name == "obstacle":
         kind, side, value = e["kind"], e["side"], e["value"]
         if kind == 1:
             return "Obstacle", "WARN", f"Obstacle detected {value} cm ahead"
+        if kind == 2 and side == 0:
+            return "Obstacle", "WARN", f"No way round found: scanning again (retry {value})"
         if kind == 2:
             return "Obstacle", "INFO", f"Obstacle scanned: {value} cm wide, bypass on the {SIDES[side]}"
         if kind == 3:

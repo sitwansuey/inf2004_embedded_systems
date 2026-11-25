@@ -31,5 +31,4 @@ ER tk_get_otm(SYSTIM *now);
 void tk_ext_tsk(void);
 void tm_printf(const UB *format, ...);
 ID app_start_task(FP entry, PRI pri, UW core, const char *name);
-void subsystem5_test(void);
 #endif

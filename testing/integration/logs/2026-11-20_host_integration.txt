@@ -1,0 +1,301 @@
+# Host test run - integration (testing/integration)
+# Date: 2026-11-20   Commit: ed197b3 (clean export of the commit, git archive)
+# Host: Windows 11, MSYS2 UCRT64 gcc.exe (Rev6, Built by MSYS2 project) 16.2.0, GNU Make 4.4.1, [WARNING] Failed to read unmanaged installs: expected str, bytes or os.PathLike object, not NoneType
+Python install manager was successfully updated to 26.4.
+
+Please see https://github.com/python/pymanager/releases/tag/26.4 for all changes.
+
+********************************************************************************
+The signature for https://www.python.org/ftp/python/index-windows.json was successfully verified.
+Installing Python 3.15.2.
+Downloading: ..................................................................✅
+Extracting: ...................................................................✅
+To see all available commands, run 'py help'
+********************************************************************************
+[WARNING] Failed to read unmanaged installs: expected str, bytes or os.PathLike object, not NoneType
+Python 3.15.2
+# Commands, in order:
+#   python -B testing/integration/run.py --compiler gcc
+
+$ python -B testing/integration/run.py --compiler gcc
+[WARNING] Failed to read unmanaged installs: expected str, bytes or os.PathLike object, not NoneType
+CHECK $(CC) $(CFLAGS) -include host.h width_avoidance_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem5/s5_width.c ../../app_program/subsystem5/s5_policy.c ../../app_program/subsystem5/s5_data.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -lm -o .build/width_avoidance
+CHECK ./.build/width_avoidance
+PASS: estimated width -> EDR16; width-based legs; bounded reverse before turn-out; side look at the diagonal end, pass in steps, clear run, mirrored return, restore and spot search; 3 fresh consistent side readings; cached/invalid/occupied checks, sonar gap and pan stops.
+CHECK $(CC) $(CFLAGS) smooth_motor_test.c $(LDFLAGS) -o .build/smooth_motor
+CHECK ./.build/smooth_motor
+PASS: fractional PI corrections retained; legacy rounding preserved; saturation anti-windup; calibrated wheel ratios remain capped.
+CHECK $(CC) $(CFLAGS) speed30_test.c $(LDFLAGS) -o .build/speed30
+CHECK .build/speed30
+PASS: 30-percent straight demand; calibrated feedforward; mirrored 30/18 bend targets; all steering targets and PID outputs bounded at 30 percent.
+CHECK $(CC) $(CFLAGS) obstacle_bend_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/obstacle_bend
+CHECK .build/obstacle_bend
+PASS: both-black keeps the last side; bounded straight reverse then mirrored left/right bypass; clear side look at the diagonal end returns straight through 2x the heading; restore and spot search; STOP, sonar gap and disabled bypass stop.
+CHECK $(CC) $(CFLAGS) bypass_return_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/bypass_return
+CHECK ./.build/bypass_return
+no line: RETURN ended at 392 mm (expected 141 + extra 250)
+clear run before turning back: 51 mm
+direct TURN_IN turned 75 deg (turn_deg 30, return heading 45)
+first pass leg 100 mm (step 100)
+restored to yaw 0 mdeg (original 0)
+Bypass return: diagonal side look (clear run, direct 2x return), align and pass in steps, return until the line is under the robot or the extra distance, RESTORE to the detection heading, TRACK or spot search; line-data and sonar gap holds PASS
+CHECK $(CC) $(CFLAGS) -D_USE_MATH_DEFINES reverse_track_test.c $(LDFLAGS) -lm -o .build/reverse_track
+CHECK .build/reverse_track
+reverse_track: ok (worst sensor offset 14.2 mm, worst heading 9.9 deg)
+CHECK $(CC) $(CFLAGS) line_steer_test.c $(LDFLAGS) -o .build/line_steer
+CHECK .build/line_steer
+line_steer: ok
+CHECK $(CC) $(CFLAGS) obstacle_confirm_test.c $(LDFLAGS) -o .build/obstacle_confirm
+CHECK .build/obstacle_confirm
+Obstacle confirmation: 3 consecutive new near samples, re-reads count once, any other sample resets PASS
+CHECK $(CC) $(CFLAGS) barcode_retry_test.c $(LDFLAGS) -o .build/barcode_retry
+CHECK .build/barcode_retry
+barcode_retry: reverse runs past the first bar with run-up; noise-early count does not stop it PASS
+CHECK $(CC) $(CFLAGS) edr_stream_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/edr_stream
+CHECK python3 edr_stream_test.py
+EDR16 production snapshot through Python/dashboard PASS
+CHECK $(CC) $(CFLAGS) mission_test.c ../../app_program/vehicle_policy.c ../../app_program/subsystem3/buddy3_barcode.c $(LDFLAGS) -o .build/mission
+CHECK ./.build/mission
+Mission handoffs: obstacle priority, deferred navigation to the junction, TRACK acknowledgement, timeout/wrap and STOP PASS
+Mission: autonomous start, bounded reacquisition, PID limits/anti-windup, A-D forward/reverse PASS
+CHECK $(CC) $(CFLAGS) nav_junction_test.c ../../app_program/vehicle_policy.c $(LDFLAGS) -o .build/nav_junction
+CHECK ./.build/nav_junction
+Right turn waits through tracking, then 90 mm straight from the junction PASS
+Junction ignored during the re-read hold; 600 mm search limit; STRAIGHT and 0/0 immediate PASS
+Leaving TRACK resets the junction progress and keeps the turn PASS
+U-turn spot scan: sweeps until a sensor is on black, immediate when touching, bounded PASS
+U-turn repeat: the same marker read on the way back does not turn again PASS
+Line-guided turns: 25% to 60 deg, early touches ignored, touch then release (centred) to 120 deg ends it, else spot scan PASS
+Line-guided U-turn: side arm ignored before 150 deg, touch then release ends it, guard kept PASS
+Line lost while tracking: line_lost_mm without black spot-scans toward its side; found -> TRACK, never -> VC_LINE not found; touches, off, reversing, TRACK entry and a pending turn restart it PASS
+Spot search held by the sonar or late line data: VC_LINE not found at 4 s, not the phase limit; a found line still settles PASS
+CHECK $(CC) $(CFLAGS) line_trace_test.c $(STRADDLE_SRC) $(LDFLAGS) -o .build/line_trace
+CHECK ./.build/line_trace
+Straddle line observer (IR mode 3): 178 checks, 0 failures
+CHECK $(CC) $(CFLAGS) -DBOARD_IR_MODE=2 line_trace_test.c $(STRADDLE_SRC) $(LDFLAGS) -o .build/line_trace_mode2
+CHECK ./.build/line_trace_mode2
+Straddle line observer (IR mode 2): 178 checks, 0 failures
+CHECK $(CC) $(CFLAGS) policy_test.c $(CORE) $(LDFLAGS) -lm -o .build/policy
+CHECK ./.build/policy
+Sensor waits: APPROACH sample, full reverse, forward pan bound, phase deadlines and intermittent side echoes PASS
+INT-CR1-01 controller: priority, expiry, stale data, complete bounded bypass, STOP handoffs PASS
+INT-CR1-02 odometry: wrap, scale, speed, yaw, gaps and discontinuities PASS
+INT-CR1-03 terrain: calibration gate, ordered hump, maximum, impact and invalid samples PASS
+IMU mount: axis remap, saturation, nose-up pitch and side roll PASS
+Avoidance ramps: real ms at 5/10/20 ms ticks, tested 20 ms steps, drops and slews PASS
+CHECK $(CC) $(CFLAGS) watchdog_test.c ../../app_program/shared/watchdog_policy.c $(LDFLAGS) -o .build/watchdog
+CHECK ./.build/watchdog
+Watchdog supervisor: no arming before the 20 s grace, the network's first join and every loop running; all loops fresh feed; one loop older than 1 s trips once and feeding stops for good; the highest-priority stale loop on its core is named (a network hang is not blamed on the starved VC) with every stale loop in the mask; a loop dead at boot keeps it off PASS
+Crash record: every reason round-trips (value, value2, uptime, crash count); zeroed, damaged or unknown records are rejected PASS
+Early crashes: counted across reboots, reset by a late crash or a heartbeat stop; the third in a row holds the board PASS
+CHECK $(CC) $(CFLAGS) -include host.h obstacle_motion_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_motion
+CHECK .build/obstacle_motion
+PASS: 1-3 encoder counts tolerated; larger displacement recentres and retries twice; retry budget survives acquisition; repeated motion blocks; width hold cleared by motion; encoder wrap is handled.
+CHECK $(CC) $(CFLAGS) -include host.h obstacle_open_space_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_open_space
+CHECK .build/obstacle_open_space
+PASS: no-rise/no-fall clear after 3 settled samples; open left or right plans that side (one measured edge mirrored), neither blocks; READY verification; forward bypass guidance; angle reset; hard faults remain closed.
+CHECK $(CC) $(CFLAGS) -include host.h obstacle_scan_test.c $(SCAN) $(LDFLAGS) -o .build/obstacle_scan
+CHECK .build/obstacle_scan
+PASS: 20/40/60 deg coarse search, edge bisection, mirror check then outward search; one open side plans it with the edge mirrored (width_one_sided), none blocks; hard echo faults count as the object; unknown stays blocked.
+PASS: an edge flicker while averaging retreats that bound 1 deg inward and still reaches READY; S5_EDGE_RETREATS+1 flickers fail the side.
+CHECK $(CC) $(CFLAGS) -include host.h scan_test.c $(SCAN) $(LDFLAGS) -o .build/scan
+CHECK ./.build/scan
+S5 width: Pythagoras halves 86/86/172, tangent fallback, invalid bound zeroes halves, max never below the width PASS
+INT-CR1-04 scan: 3 consecutive near echoes start it (far or open resets, a no-echo retry does not), wrap, angle association, inclusive stop, failed echo, moving scan, geometric bounds PASS
+S5 side choice: smaller half-width first, ties keep the smaller heading then LEFT PASS
+S5 verify fallback: blocked heading re-plans the other side once PASS
+S5 edge flicker: 1-3 averaging misses retreat the bound inward to READY, 4 fail the side (the right is planned instead) PASS
+box 100 mm offset 30 mm right, background 0: width 98 mm, 47 pings, 7935 ms
+box 100 mm offset 30 mm right, background 1000: width 98 mm, 29 pings, 4354 ms
+off-centre 41/-5 deg, no background: width 147 mm, 55 pings, 9981 ms
+centred +-20 deg, no background: 39 pings, 7265 ms; worst case over edges 0..60 deg: 11303 ms
+S5 scan geometry: off-centre/offset objects measure both edges (within 10%), one-sided widths flagged and only the measured side planned, every edge pair to 60 deg within 15 s without background echoes PASS
+stray far echo at the 30 deg probe, edges 38/-30 deg: left 38 deg, plan -51 deg, 39 pings, 6114 ms
+stray sweep: 337080 scans, 5618 with an edge 1 deg inward, 105 side flips (edges 1 deg apart), closest centre to real edge 71 mm, worst 7737 ms
+S5 edge check: one far echo moves an edge at most 1 deg inward (two clear angles in a row outward of every edge) PASS
+post 95-115 mm left of a 25/-30 deg box, background 0: plan -51 deg, 49 pings, 9869 ms
+post 95-115 mm left of a 25/-30 deg box, background 1000: plan -51 deg, 29 pings, 5484 ms
+parallel wall left of a centred 100 mm box: RIGHT planned for 21 of 61 walls 100-400 mm
+S5 side corridor: a post between edge and heading or a wall beside the box rejects that side; equal halves go to the farther echoes PASS
+S5 braking: the first restart at the first sample after a moving origin is free; later and repeated motion counts PASS
+S5 servo slope: BOARD_SERVO_US_PER_90 750 keeps the old pulses, other slopes stay in 750..2250 us PASS
+CHECK $(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_MOTORS_DISABLED=1 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar
+CHECK ./.build/sonar
+INT-CR1-08: GP1 trigger/GP0 echo, valid pulse, faults, timer wrap/start failure, narrow sample PASS
+CHECK $(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_SERVO_CENTER_US=1300 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar_low_centre
+CHECK ./.build/sonar_low_centre
+INT-CR1-08: GP1 trigger/GP0 echo, valid pulse, faults, timer wrap/start failure, narrow sample PASS
+CHECK $(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DBOARD_MOTORS_DISABLED=1 -DBOARD_SERVO_US_PER_90=1000 -Imocks -include s5_hardware_host.h s5_hardware_test.c ../../app_program/subsystem5/s5_hardware.c $(LDFLAGS) -o .build/sonar_slope
+CHECK ./.build/sonar_slope
+INT-CR1-08: GP1 trigger/GP0 echo, valid pulse, faults, timer wrap/start failure, narrow sample PASS
+CHECK $(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -Imocks -include s5_hardware_host.h s5_status_test.c ../../app_program/subsystem5/s5_data.c $(LDFLAGS) -o .build/sonar_status
+CHECK ./.build/sonar_status
+INT-CR1-09: preempted publisher handoff, ownership, timeout, unchanged failed output, unlock/lifecycle errors PASS
+CHECK $(CC) $(CFLAGS) -DBOARD_UART0_FREE=1 -DTM_MQTT=1 -include s5_hardware_host.h snapshot_time_test.c ../../app_program/app_logging.c $(S4_RESULT) ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/snapshot_time
+CHECK ./.build/snapshot_time
+Straddle line telemetry: TEL_LINE_STATE/BLACK_MASK/LINE_ERROR from app_state line_follow/mask/steer (+-1000) PASS
+Fault cause: sent for VC_SENSOR and VC_LINE only; fault 8 (lifted) round-trips PASS
+Shock count: a new shock is sent at once with the impact bit PASS
+IMU fault: a one-tick S4 IMU fault is held for the next snapshot, ID 12 bit 0x04, then cleared PASS
+Shock extras: at most one per 200 ms; a failed send or a snapshot without ID 12 keeps impact/IMU fault for the next PASS
+IMU fault count: a VC count change sets ID 12 bit 0x04 once, even if no VC result this loop read had the fault PASS
+INT-CR1-10: post-snapshot clock, freshness/errors, packed signed speed, actual binary codec PASS
+CHECK $(CC) $(CFLAGS) protocol_cli.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/protocol
+CHECK python3 protocol_test.py
+INT-CR1-05 protocol: 302 C/Python vectors, 90 bound rejections, malformed length/version/fault PASS
+CHECK $(CC) $(CFLAGS) telemetry_queue_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/queue
+CHECK ./.build/queue
+INT-CR1-06 actual queues: copy ownership, full queue, urgent STOP, stale telemetry, validation and 14-byte events PASS
+Robot event queue: EDR16-format words, FIFO, 16 deep, full queue drops and counts, bad ids ignored PASS
+Drop counter: wraps past 65535, status subtype 12 is drops modulo 256 PASS
+Snapshots: newest first, older/stale and full-queue drops counted, impact and IMU fault handed on PASS
+Command replies: superseded commands rejected with the VC state, two STOPs both answered, full reply buffer drops the oldest PASS
+CHECK $(CC) $(CFLAGS) -Imocks mqtt_test.c ../../app_program/subsystem1/telemetry_codec.c $(LDFLAGS) -o .build/mqtt
+CHECK ./.build/mqtt
+INT-CR1-07 actual MQTT port: binary length/NULs, fragments, malformed input, backpressure, autonomous link-loss independence and retry guard PASS
+MQTT replies: RESET-needed and refused offers answered with the VC state (s1_command_reply), none for a wrong length/topic; no broker login by default PASS
+Abandoned snapshot: counted as dropped; an unsent IMU fault/impact goes on in the next snapshot, once PASS
+MQTT robot events: EV_LINK boot/reconnected held by the port and sent first (a full event queue cannot drop it), queued events through a link drop, one per poll on their own topic, backpressure keeps the record, held after 3 s without a broker ACK, outage dated from the first unacknowledged publish PASS
+Wi-Fi re-join: before the first UP 20 s from the boot join, after it 10 s without UP: leave and re-join 1 s later for ever, NONET left to the 5 s retry, session dropped and 3 s retry reconnects with EV_LINK PASS
+CHECK $(CC) $(CFLAGS) -include host.h -DBOARD_RAMP_SPEED=0 -DBOARD_LIFT_FAULT_MS=0U buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_no_ramp_lift
+CHECK ./.build/buddy4_vehicle_no_ramp_lift
+Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS
+Mask-pivot follower: right/left IR black pivots that way at once, both/neither straight; a TRACK STOP resumes on the current sample PASS
+Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS
+Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 3 consecutive new near echoes acquire PASS
+Obstacle detected through S5's real step (third echo published turning, invalid): EV_OBSTACLE carries its 15 cm PASS
+Sonar gap: tracking holds still, a sonar fault only after VC_SONAR_GAP_MS PASS
+S5 lock busy across a phase change: the last snapshot is reused, the sensor mode is requested after a fresh read PASS
+Avoidance ended by a STOP: EV_OBSTACLE back with how 0 PASS
+Lifted (no surface, GP28 black): no fault (BOARD_LIFT_FAULT_MS 0) PASS
+Event log: EV_BARCODE for a failed first read, EV_OBSTACLE on acquisition, each EV_BARCODE attempt before its EV_INSTRUCTION PASS
+Hump with BOARD_RAMP_SPEED 0: no events, no power cap PASS
+INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS
+Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read; no forward request or STOP follows a reverse in its tick PASS
+Barcode first pass: S3 READING caps the forward power to the re-read speed PASS
+MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS
+ARM lease renewal: ARM re-sent every 100 ms keeps a 500 ms leased run going (ACK 0) with its phase timer, origin and demand, it times out 500 ms after the last one; START while armed and ARM during a START run refused (ACK 1) PASS
+ARM renewal limits: another demand refused (ACK 1), a 100 ms old one refused (ACK 3) and the old lease still ends the run; an S3 status miss does not turn a renewal into fault 6 PASS
+STOP during renewals: the run stays stopped while ARM keeps coming (ACK 1); RESET, or 1 s with no ARM, lets ARM in again PASS
+Silent S3 latch (STALE/SENSOR) while tracking: TRACK re-sent at once, at most every 100 ms, keeping a pending turn's hold; the robot drives on and the next marker decodes; a latch still returning after 1 s is VC_LINE cause event; no re-send while a re-read brakes PASS
+Marker cut short by the latch: a failed read (EV_BARCODE attempt 1, 5 elements), re-read, TRACK re-sent as it reverses PASS
+Short timing faults ride through: an odometry gap holds still (fault 1 cause 3 after 200 ms), a failed motor status copy reuses the last (fault 7 after 3 ticks; a published FAULT at once), a busy S3 lock is retried (fault 4 once the 100 ms lease would run out), a command stamped a tick ahead is fresh PASS
+Loop timing: VC run and release gap measured on the hardware timer, a late period counted, one [TIMING] console line per report interval PASS
+S3 holding a decoded marker with no turn pending: TRACK (marker clear) re-sent after 100 ms, once; a turn delivered with a latch stays pending and keeps its marker PASS
+Line lost while tracking: 600 mm with both IRs white spot-searches toward the line's side; found -> tracking, never -> fault 2 cause 3; a barcode read or re-read never counts PASS
+Shock while tracking, unclipped and clipped at +/-2 g (also an IMU fault): published, counted, run continues (BOARD_SHOCK_STOP 0) PASS
+CHECK $(CC) $(CFLAGS) -include host.h buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle
+CHECK ./.build/buddy4_vehicle
+Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS
+Mask-pivot follower: right/left IR black pivots that way at once, both/neither straight; a TRACK STOP resumes on the current sample PASS
+Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS
+Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 3 consecutive new near echoes acquire PASS
+Obstacle detected through S5's real step (third echo published turning, invalid): EV_OBSTACLE carries its 15 cm PASS
+Sonar gap: tracking holds still, a sonar fault only after VC_SONAR_GAP_MS PASS
+S5 lock busy across a phase change: the last snapshot is reused, the sensor mode is requested after a fresh read PASS
+Avoidance ended by a STOP: EV_OBSTACLE back with how 0 PASS
+Lifted (no surface, GP28 black): VC_LIFTED after BOARD_LIFT_FAULT_MS PASS
+Event log: EV_BARCODE for a failed first read, EV_OBSTACLE on acquisition, each EV_BARCODE attempt before its EV_INSTRUCTION PASS
+8c: skipped impacts/faults and counter wrap, dropped-traversal cap, tipped lift, fresh forward pans and checked reverse replans PASS
+Hump: EV_HUMP detected after the 400 ms hold, crest caps the power to BOARD_RAMP_DOWN_POWER (this hump's height so far), level restores it (its height) PASS
+INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS
+Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read; no forward request or STOP follows a reverse in its tick PASS
+Barcode first pass: S3 READING caps the forward power to the re-read speed PASS
+MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS
+ARM lease renewal: ARM re-sent every 100 ms keeps a 500 ms leased run going (ACK 0) with its phase timer, origin and demand, it times out 500 ms after the last one; START while armed and ARM during a START run refused (ACK 1) PASS
+ARM renewal limits: another demand refused (ACK 1), a 100 ms old one refused (ACK 3) and the old lease still ends the run; an S3 status miss does not turn a renewal into fault 6 PASS
+STOP during renewals: the run stays stopped while ARM keeps coming (ACK 1); RESET, or 1 s with no ARM, lets ARM in again PASS
+Silent S3 latch (STALE/SENSOR) while tracking: TRACK re-sent at once, at most every 100 ms, keeping a pending turn's hold; the robot drives on and the next marker decodes; a latch still returning after 1 s is VC_LINE cause event; no re-send while a re-read brakes PASS
+Marker cut short by the latch: a failed read (EV_BARCODE attempt 1, 5 elements), re-read, TRACK re-sent as it reverses PASS
+Short timing faults ride through: an odometry gap holds still (fault 1 cause 3 after 200 ms), a failed motor status copy reuses the last (fault 7 after 3 ticks; a published FAULT at once), a busy S3 lock is retried (fault 4 once the 100 ms lease would run out), a command stamped a tick ahead is fresh PASS
+Loop timing: VC run and release gap measured on the hardware timer, a late period counted, one [TIMING] console line per report interval PASS
+S3 holding a decoded marker with no turn pending: TRACK (marker clear) re-sent after 100 ms, once; a turn delivered with a latch stays pending and keeps its marker PASS
+Line lost while tracking: 600 mm with both IRs white spot-searches toward the line's side; found -> tracking, never -> fault 2 cause 3; a barcode read or re-read never counts PASS
+Shock while tracking, unclipped and clipped at +/-2 g (also an IMU fault): published, counted, run continues (BOARD_SHOCK_STOP 0) PASS
+CHECK $(CC) $(CFLAGS) -include host.h -DBOARD_SHOCK_STOP=1 buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_shock_stop
+CHECK ./.build/buddy4_vehicle_shock_stop
+Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS
+Mask-pivot follower: right/left IR black pivots that way at once, both/neither straight; a TRACK STOP resumes on the current sample PASS
+Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS
+Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 3 consecutive new near echoes acquire PASS
+Obstacle detected through S5's real step (third echo published turning, invalid): EV_OBSTACLE carries its 15 cm PASS
+Sonar gap: tracking holds still, a sonar fault only after VC_SONAR_GAP_MS PASS
+S5 lock busy across a phase change: the last snapshot is reused, the sensor mode is requested after a fresh read PASS
+Avoidance ended by a STOP: EV_OBSTACLE back with how 0 PASS
+Lifted (no surface, GP28 black): VC_LIFTED after BOARD_LIFT_FAULT_MS PASS
+Event log: EV_BARCODE for a failed first read, EV_OBSTACLE on acquisition, each EV_BARCODE attempt before its EV_INSTRUCTION PASS
+8c: skipped impacts/faults and counter wrap, dropped-traversal cap, tipped lift, fresh forward pans and checked reverse replans PASS
+Hump: EV_HUMP detected after the 400 ms hold, crest caps the power to BOARD_RAMP_DOWN_POWER (this hump's height so far), level restores it (its height) PASS
+INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS
+Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read; no forward request or STOP follows a reverse in its tick PASS
+Barcode first pass: S3 READING caps the forward power to the re-read speed PASS
+MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS
+ARM lease renewal: ARM re-sent every 100 ms keeps a 500 ms leased run going (ACK 0) with its phase timer, origin and demand, it times out 500 ms after the last one; START while armed and ARM during a START run refused (ACK 1) PASS
+ARM renewal limits: another demand refused (ACK 1), a 100 ms old one refused (ACK 3) and the old lease still ends the run; an S3 status miss does not turn a renewal into fault 6 PASS
+STOP during renewals: the run stays stopped while ARM keeps coming (ACK 1); RESET, or 1 s with no ARM, lets ARM in again PASS
+Silent S3 latch (STALE/SENSOR) while tracking: TRACK re-sent at once, at most every 100 ms, keeping a pending turn's hold; the robot drives on and the next marker decodes; a latch still returning after 1 s is VC_LINE cause event; no re-send while a re-read brakes PASS
+Marker cut short by the latch: a failed read (EV_BARCODE attempt 1, 5 elements), re-read, TRACK re-sent as it reverses PASS
+Short timing faults ride through: an odometry gap holds still (fault 1 cause 3 after 200 ms), a failed motor status copy reuses the last (fault 7 after 3 ticks; a published FAULT at once), a busy S3 lock is retried (fault 4 once the 100 ms lease would run out), a command stamped a tick ahead is fresh PASS
+Loop timing: VC run and release gap measured on the hardware timer, a late period counted, one [TIMING] console line per report interval PASS
+S3 holding a decoded marker with no turn pending: TRACK (marker clear) re-sent after 100 ms, once; a turn delivered with a latch stays pending and keeps its marker PASS
+Line lost while tracking: 600 mm with both IRs white spot-searches toward the line's side; found -> tracking, never -> fault 2 cause 3; a barcode read or re-read never counts PASS
+Shock while tracking, unclipped and clipped at +/-2 g (also an IMU fault): published, counted, stops the run (VC_SHOCK) PASS
+CHECK $(CC) $(CFLAGS) -include host.h -DBOARD_LINE_MASK_PIVOT=0 -DBOARD_LINE_EDGE_TRACE=1 buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_edge_trace
+CHECK ./.build/buddy4_vehicle_edge_trace
+Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS
+Edge tracing: proportional steer with power drop, far-side pivot, crossing straight, deep-edge pivot after 250 ms PASS
+Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS
+Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 3 consecutive new near echoes acquire PASS
+Obstacle detected through S5's real step (third echo published turning, invalid): EV_OBSTACLE carries its 15 cm PASS
+Sonar gap: tracking holds still, a sonar fault only after VC_SONAR_GAP_MS PASS
+S5 lock busy across a phase change: the last snapshot is reused, the sensor mode is requested after a fresh read PASS
+Avoidance ended by a STOP: EV_OBSTACLE back with how 0 PASS
+Lifted (no surface, GP28 black): VC_LIFTED after BOARD_LIFT_FAULT_MS PASS
+Event log: EV_BARCODE for a failed first read, EV_OBSTACLE on acquisition, each EV_BARCODE attempt before its EV_INSTRUCTION PASS
+8c: skipped impacts/faults and counter wrap, dropped-traversal cap, tipped lift, fresh forward pans and checked reverse replans PASS
+Hump: EV_HUMP detected after the 400 ms hold, crest caps the power to BOARD_RAMP_DOWN_POWER (this hump's height so far), level restores it (its height) PASS
+INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS
+Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read; no forward request or STOP follows a reverse in its tick PASS
+Barcode first pass: S3 READING caps the forward power to the re-read speed PASS
+MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS
+ARM lease renewal: ARM re-sent every 100 ms keeps a 500 ms leased run going (ACK 0) with its phase timer, origin and demand, it times out 500 ms after the last one; START while armed and ARM during a START run refused (ACK 1) PASS
+ARM renewal limits: another demand refused (ACK 1), a 100 ms old one refused (ACK 3) and the old lease still ends the run; an S3 status miss does not turn a renewal into fault 6 PASS
+STOP during renewals: the run stays stopped while ARM keeps coming (ACK 1); RESET, or 1 s with no ARM, lets ARM in again PASS
+Silent S3 latch (STALE/SENSOR) while tracking: TRACK re-sent at once, at most every 100 ms, keeping a pending turn's hold; the robot drives on and the next marker decodes; a latch still returning after 1 s is VC_LINE cause event; no re-send while a re-read brakes PASS
+Marker cut short by the latch: a failed read (EV_BARCODE attempt 1, 5 elements), re-read, TRACK re-sent as it reverses PASS
+Short timing faults ride through: an odometry gap holds still (fault 1 cause 3 after 200 ms), a failed motor status copy reuses the last (fault 7 after 3 ticks; a published FAULT at once), a busy S3 lock is retried (fault 4 once the 100 ms lease would run out), a command stamped a tick ahead is fresh PASS
+Loop timing: VC run and release gap measured on the hardware timer, a late period counted, one [TIMING] console line per report interval PASS
+S3 holding a decoded marker with no turn pending: TRACK (marker clear) re-sent after 100 ms, once; a turn delivered with a latch stays pending and keeps its marker PASS
+Line lost with edge tracing: no line-lost distance, its own full-turn VC_LINE PASS
+Shock while tracking, unclipped and clipped at +/-2 g (also an IMU fault): published, counted, run continues (BOARD_SHOCK_STOP 0) PASS
+CHECK $(CC) $(CFLAGS) -include host.h -DBOARD_BARCODE_READ_LINE_STEER=150 buddy4_vehicle_test.c $(VEHICLE_SRC) $(LDFLAGS) -lm -o .build/buddy4_vehicle_read150
+CHECK ./.build/buddy4_vehicle_read150
+Straddle barcode read: one straddle sensor on black steers toward it (capped, no pivot), both/neither straight PASS
+Mask-pivot follower: right/left IR black pivots that way at once, both/neither straight; a TRACK STOP resumes on the current sample PASS
+Straddle app_state line_follow/line_mask/line_steer match the S2 request every tick PASS
+Obstacle while tracking: re-reads count once, no-echo is no reading, 5 cm/invalidated/no-echo-after-near hold; 3 consecutive new near echoes acquire PASS
+Obstacle detected through S5's real step (third echo published turning, invalid): EV_OBSTACLE carries its 15 cm PASS
+Sonar gap: tracking holds still, a sonar fault only after VC_SONAR_GAP_MS PASS
+S5 lock busy across a phase change: the last snapshot is reused, the sensor mode is requested after a fresh read PASS
+Avoidance ended by a STOP: EV_OBSTACLE back with how 0 PASS
+Lifted (no surface, GP28 black): VC_LIFTED after BOARD_LIFT_FAULT_MS PASS
+Event log: EV_BARCODE for a failed first read, EV_OBSTACLE on acquisition, each EV_BARCODE attempt before its EV_INSTRUCTION PASS
+8c: skipped impacts/faults and counter wrap, dropped-traversal cap, tipped lift, fresh forward pans and checked reverse replans PASS
+Hump: EV_HUMP detected after the 400 ms hold, crest caps the power to BOARD_RAMP_DOWN_POWER (this hump's height so far), level restores it (its height) PASS
+INT-S4-11 actual vehicle path: encoded getter errors, future samples, IMU skew, reset and motor STOP PASS
+Barcode retry: a one-sample forward sonar glitch does not abort the reverse re-read; no forward request or STOP follows a reverse in its tick PASS
+Barcode first pass: S3 READING caps the forward power to the re-read speed PASS
+MAP command: applied in any phase, invalid rejected, stale ACK 3 PASS
+ARM lease renewal: ARM re-sent every 100 ms keeps a 500 ms leased run going (ACK 0) with its phase timer, origin and demand, it times out 500 ms after the last one; START while armed and ARM during a START run refused (ACK 1) PASS
+ARM renewal limits: another demand refused (ACK 1), a 100 ms old one refused (ACK 3) and the old lease still ends the run; an S3 status miss does not turn a renewal into fault 6 PASS
+STOP during renewals: the run stays stopped while ARM keeps coming (ACK 1); RESET, or 1 s with no ARM, lets ARM in again PASS
+Silent S3 latch (STALE/SENSOR) while tracking: TRACK re-sent at once, at most every 100 ms, keeping a pending turn's hold; the robot drives on and the next marker decodes; a latch still returning after 1 s is VC_LINE cause event; no re-send while a re-read brakes PASS
+Marker cut short by the latch: a failed read (EV_BARCODE attempt 1, 5 elements), re-read, TRACK re-sent as it reverses PASS
+Short timing faults ride through: an odometry gap holds still (fault 1 cause 3 after 200 ms), a failed motor status copy reuses the last (fault 7 after 3 ticks; a published FAULT at once), a busy S3 lock is retried (fault 4 once the 100 ms lease would run out), a command stamped a tick ahead is fresh PASS
+Loop timing: VC run and release gap measured on the hardware timer, a late period counted, one [TIMING] console line per report interval PASS
+S3 holding a decoded marker with no turn pending: TRACK (marker clear) re-sent after 100 ms, once; a turn delivered with a latch stays pending and keeps its marker PASS
+Line lost while tracking: 600 mm with both IRs white spot-searches toward the line's side; found -> tracking, never -> fault 2 cause 3; a barcode read or re-read never counts PASS
+Shock while tracking, unclipped and clipped at +/-2 g (also an IMU fault): published, counted, run continues (BOARD_SHOCK_STOP 0) PASS
+Integration recipes PASS
+[exit code 0]
+

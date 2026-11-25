@@ -88,6 +88,7 @@ typedef struct {
     uint8_t junction : 1; /* crossing line: both line sensors and GP28 on black */
     uint8_t line_touch : 1; /* fresh sample with a line sensor on black */
     uint8_t spot_scan_all : 1; /* left/right nav turns also spot-scan (a U-turn always does) unless ended on a touch */
+    uint32_t scan_id; /* S5's scan_id in this snapshot: a rescan waits for a new one */
 } vc_input_t;
 typedef struct {
     uint32_t entered_ms, armed_ms, lease_ms;
@@ -148,6 +149,19 @@ typedef struct {
     uint8_t odom_gap : 1; /* no valid odometry since odom_gap_ms */
     uint8_t line_found : 1; /* bypass return found the line: RESTORE the heading, then TRACK */
     uint8_t line_seen : 1; /* line_seen_um is set (cleared on every phase entry) */
+    /* No way round: rescans used for this obstacle; waiting for S5 to start a
+     * scan other than rescan_id (since rescan_ms); vehicle.c still has to send
+     * S5 its MONITOR reset. */
+    uint8_t rescans : 2;
+    uint8_t rescan_wait : 1;
+    uint8_t rescan_request : 1;
+    uint32_t rescan_id, rescan_ms;
+    /* Bypass turn-in: the turn has driven; turn_in_driven_ms is its driving
+     * time since its first drive tick (holds do not count; turn_in_ms is the
+     * last drive tick). The line search waits AVOID_TURN_IN_LINE_DELAY_MS of
+     * it. Kept across TURN_IN -> RETURN -> RESTORE like nav_touched. */
+    uint8_t turn_in_timing : 1;
+    uint32_t turn_in_ms, turn_in_driven_ms;
 } vc_state_t;
 enum { VC_CAUSE_OTHER,VC_CAUSE_SONAR,VC_CAUSE_TILT,VC_CAUSE_ODOM };
 /* VC_LINE causes (same 2-bit fault_cause field). */

@@ -75,7 +75,7 @@ static void invalid_records(void)
     apply(sizeof(payload), false, 0);
     assert(input.fault == S4_INPUT_UNAVAILABLE && !input.odometry.valid);
     assert(terrain.maximum_mm == 50U);
-    puts("S4-U23 PASS exact lengths, reserved bits, invalid records, failed API and retained maximum");
+    puts("S4-U14 PASS exact lengths, reserved bits, invalid records, failed API and retained maximum");
 }
 static void clocks_and_repeats(void)
 {
@@ -99,7 +99,7 @@ static void clocks_and_repeats(void)
     assert(input.fault == S4_INPUT_HISTORY && !input.odometry.initialized);
     baseline(); now = 1; encode(now, 0); apply(sizeof(payload), true, 1000);
     assert(input.fault == S4_INPUT_HISTORY);
-    puts("S4-U24 PASS duplicates, zero intervals, stale/future input, skew, gaps and reboot history");
+    puts("S4-U15 PASS duplicates, zero intervals, stale/future input, skew, gaps and reboot history");
 }
 static void wraps(void)
 {
@@ -114,7 +114,7 @@ static void wraps(void)
     assert(!input.odometry.valid);
     reset(); counts = (uint32_t)INT32_MAX - 5U; baseline(); tick(flat, 10);
     assert(input.odometry.valid && odom_delta_um(&input.odometry) == 20000);
-    puts("S4-U25 PASS unsigned/signed count boundaries, timer wrap, half-range and discontinuity");
+    puts("S4-U16 PASS unsigned/signed count boundaries, timer wrap, half-range and discontinuity");
 }
 static void traversals(void)
 {
@@ -145,7 +145,7 @@ static void traversals(void)
     terrain_step(&terrain, now + 20U, flat, true, 0, true, false, 0, 0);
     assert(!terrain.tilt_valid && terrain.maximum_mm == 50U);
     reset(); assert(!terrain.maximum_mm);
-    puts("S4-U26 PASS completed humps, partial recovery, reversal, shock, pause, calibration and run reset");
+    puts("S4-U17 PASS completed humps, partial recovery, reversal, shock, pause, calibration and run reset");
 }
 /* vehicle.c passes a current sample clipped at +/-2 g (S4 accel_clipped) to
  * terrain as an impact: any clipped robot-frame axis (2047, or -2047/-2048
@@ -170,7 +170,7 @@ static void clipped_impacts(void)
             tick(flat, 0);
             assert(!terrain.shock && terrain.tilt_valid);
         }
-    puts("S4-U33 PASS a clipped (+/-2 g) sample is a shock on every axis, never tilt or height");
+    puts("S4-U24 PASS a clipped (+/-2 g) sample is a shock on every axis, never tilt or height");
 }
 /* I1: a descent entered from FLAT is DESCENT (the 20% slope cap), with no
  * height; it never abandons for being below the start, and it is no hump. */
@@ -198,7 +198,7 @@ static void plain_descents(void)
     const int32_t gentle[3] = {-70, 0, 998};
     for (unsigned n = 0; n < 5U; ++n) tick(gentle, 10);
     assert(terrain.state == TERRAIN_FLAT);
-    puts("S4-U35 PASS a plain descent is DESCENT without a height, a deep far side stays DESCENT");
+    puts("S4-U26 PASS a plain descent is DESCENT without a height, a deep far side stays DESCENT");
 }
 /* I2: one shock, clipped, skewed or missing sample mid-hump keeps the
  * traversal and its height (its distance at the last good pitch); a run
@@ -243,7 +243,7 @@ static void bridged_samples(void)
     reset(); baseline(); tick(up, 10); tick(shock, 10);
     apply(sizeof(payload), false, 0);
     assert(terrain.state == TERRAIN_INVALID);
-    puts("S4-U36 PASS one shock/clipped/skewed/missing sample keeps a hump; more than 60 ms abandons it");
+    puts("S4-U27 PASS one shock/clipped/skewed/missing sample keeps a hump; more than 60 ms abandons it");
 }
 /* I3: the completed height and a completion count are latched at DESCENT
  * to FLAT; a later shock or an invalid hump cannot change a reported one. */
@@ -266,7 +266,7 @@ static void hump_latch(void)
     assert(terrain.height_mm == 50U && terrain.maximum_mm == 50U);
     hump_scaled(5, 25);
     assert(terrain.humps == 3U && terrain.hump_mm == 25U && terrain.maximum_mm == 50U);
-    puts("S4-U37 PASS hump end latched with a count; invalid end reports 0 and clears the peak");
+    puts("S4-U28 PASS hump end latched with a count; invalid end reports 0 and clears the peak");
 }
 /* I9: the shock flag describes the current sample only. */
 static void shock_clears(void)
@@ -282,7 +282,7 @@ static void shock_clears(void)
     assert(terrain.shock);
     terrain_step(&terrain, now, flat, false, 0, true, true, 0, 0);
     assert(!terrain.shock);
-    puts("S4-U38 PASS the shock flag clears on the next sample, usable or not");
+    puts("S4-U29 PASS the shock flag clears on the next sample, usable or not");
 }
 /* I11: a pivot's stopped wheel turning back a count does not end a hump;
  * a robot-level reversal does. */
@@ -302,7 +302,7 @@ static void pivot_backlash(void)
     assert(terrain.height_mm == 44U && terrain.humps == 1U);
     tick(up, 10); left_bias -= 5U; tick(up, 0); /* one wheel back 5 counts */
     assert(terrain.state == TERRAIN_INVALID);
-    puts("S4-U39 PASS one wheel back a count during a pivot keeps the hump; a reversal ends it");
+    puts("S4-U30 PASS one wheel back a count during a pivot keeps the hump; a reversal ends it");
 }
 int main(void)
 {
@@ -312,6 +312,6 @@ int main(void)
     assert(terrain.maximum_mm==50U);
     hump_scaled(15,75);assert(terrain.maximum_mm==75U);
     apply(sizeof(payload),false,0);assert(terrain.maximum_mm==75U);
-    puts("S4-U28 PASS smaller/larger completed humps update maximum only upward");
+    puts("S4-U19 PASS smaller/larger completed humps update maximum only upward");
     return 0;
 }

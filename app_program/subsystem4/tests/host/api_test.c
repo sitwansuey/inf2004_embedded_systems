@@ -115,7 +115,7 @@ int main(void)
     REQUIRE(subsystem4_init() == E_OK);
     REQUIRE(subsystem4_init() == E_OBJ);
     REQUIRE(s4_sensor_get_status(&output) == E_OK && !output.configured);
-    puts("[TEST] S4-U19 PASS  two-phase lifecycle, mutex failure retry and argument checks");
+    puts("[TEST] S4-U10 PASS  two-phase lifecycle, mutex failure retry and argument checks");
 
     s4_data_reset(&state);
     s4_data_init_result(&state, LSM303_OK);
@@ -129,7 +129,7 @@ int main(void)
     wall_clock_ms = INT64_C(123456789000);
     REQUIRE(s4_kernel_now_us(NULL) == UINT64_C(30000));
     REQUIRE(wall_clock_reads == 0);
-    puts("[TEST] S4-U22 PASS  unset/changed wall clock cannot alter shared operating time");
+    puts("[TEST] S4-U13 PASS  unset/changed wall clock cannot alter shared operating time");
     REQUIRE(s4_status_publish(&state) == E_OK);
     REQUIRE(s4_status_publish(&state) == E_OK);
     REQUIRE(s4_sensor_get_status(&output) == E_OK);
@@ -157,13 +157,13 @@ int main(void)
     clock_ms = (UINT64_C(1) << 32) + 123;
     REQUIRE(s4_kernel_now_us(NULL) == clock_ms * 1000u);
     REQUIRE(s4_sensor_get_status(&output) == E_OK && !output.accel_usable);
-    puts("[TEST] S4-U20 PASS  protected snapshot, timeout propagation and kernel-clock wrap");
+    puts("[TEST] S4-U11 PASS  protected snapshot, timeout propagation and kernel-clock wrap");
     clock_failed = true;
     output.task_heartbeat = 99;
     REQUIRE(s4_kernel_now_us(NULL) == UINT64_MAX);
     REQUIRE(s4_sensor_get_status(&output) == E_SYS && output.task_heartbeat == 99);
     clock_failed = false;
-    puts("[TEST] S4-U27 PASS  clock errors cannot publish a fresh sample or replace caller output");
+    puts("[TEST] S4-U18 PASS  clock errors cannot publish a fresh sample or replace caller output");
 
     cycle_create_failed = true;
     REQUIRE(subsystem4_start() == E_NOMEM && tasks_started == 0);
@@ -175,6 +175,6 @@ int main(void)
     sensor_release(NULL);
     REQUIRE(sensor_wakes == 1);
     REQUIRE(subsystem4_start() == E_OBJ);
-    puts("[TEST] S4-U21 PASS  task priorities/affinity and duplicate-start rejection");
+    puts("[TEST] S4-U12 PASS  task priorities/affinity and duplicate-start rejection");
     return EXIT_SUCCESS;
 }

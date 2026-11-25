@@ -24,7 +24,14 @@
  */
 #define INITTASK_EXINF		(0x0)
 #define INITTASK_ITSKPRI	(1)
+/* A make TEST=1 image runs the on-target self-test in this task
+ * (app_main.c usermain); with nested interrupts on the same stack that
+ * needs more than the normal 1 KB. Normal images keep 1 KB. */
+#if defined(APP_TEST) && APP_TEST
+#define INITTASK_STKSZ		(4*1024)
+#else
 #define INITTASK_STKSZ		(1*1024)
+#endif
 #define INITTASK_DSNAME		"inittsk"
 
 #if USE_IMALLOC

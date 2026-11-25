@@ -43,6 +43,6 @@ int main(void)
 #endif
 #endif
     ++groups;
-    (void)printf("S3-U33 raw bring-up: %u groups, %u checks, %u failures\n",groups,checks,failures);
+    (void)printf("S3-U31 raw bring-up: %u groups, %u checks, %u failures\n",groups,checks,failures);
     return failures==0U?0:1;
 }

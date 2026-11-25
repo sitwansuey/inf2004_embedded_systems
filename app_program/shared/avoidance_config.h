@@ -29,10 +29,49 @@
  * shallowest heading, not below this, that still clears the obstacle edge. */
 #define AVOID_MIN_TURN_DEG 20U
 #define AVOID_STEER_RAMP_MS 615U
-/* VC_RETURN heads back toward the line until a sensor finds it. The mirrored
- * diagonal is only where the line is expected: drive on up to this much
- * further before restoring the heading for an on-the-spot search. */
+/* VC_RETURN heads back toward the line in a straight line until a sensor
+ * finds it, however far out the bypass ended (8d gave up 250 mm past the
+ * expected distance, turned back to the old heading and searched on the spot,
+ * so a bypass that ended further out never turned back in). Only after
+ * AVOID_RETURN_MAX_MM without the line (or the expected distance plus
+ * AVOID_RETURN_EXTRA_MM, if further) does it restore the heading and search.
+ * At AVOID_POWER (~0.3 m/s) 1 m takes 3-4 s, inside the 10 s phase limit. */
 #define AVOID_RETURN_EXTRA_MM 250U
+#ifndef AVOID_RETURN_MAX_MM
+#define AVOID_RETURN_MAX_MM 1000U
+#endif
+/* Turning back in (VC_TURN_IN, after the clear side look and the clear run):
+ * the line search that hands back to line tracking stays off for this much
+ * driving, counted from the turn's first drive tick (holds for a sonar or
+ * odometry gap or the forward check do not count), and on into VC_RETURN if
+ * the turn ends sooner. 25 Nov (8g): a sensor on black as the turn began counted as
+ * the line at once; the robot restored its heading and tracked from there,
+ * lost the line and faulted (VC_LINE, not found). For AVOID_TURN_IN_FAR_MS
+ * after the wait the far sensor alone also counts as the line: the lead
+ * sensor may have crossed it during the wait (the 8g runs found the line
+ * about 1 s into the turn). 0: search from the start of the turn (8g). */
+#ifndef AVOID_TURN_IN_LINE_DELAY_MS
+#define AVOID_TURN_IN_LINE_DELAY_MS 1000U
+#endif
+#ifndef AVOID_TURN_IN_FAR_MS
+#define AVOID_TURN_IN_FAR_MS 500U
+#endif
+/* No way round (S5 BLOCKED, or a finished scan with no valid width): scan
+ * again from the same spot up to AVOID_RESCAN_RETRIES times before the sonar
+ * fault. Each retry resets S5 (MONITOR) and waits up to AVOID_RESCAN_WAIT_MS
+ * for it to start its next scan; a stray echo beside the box often blocks one
+ * scan and not the next (25 Nov: the scan right after such a fault found a way
+ * round). Only with the bypass enabled; the count restarts for each new
+ * obstacle. 0: fault at once (8e). */
+#ifndef AVOID_RESCAN_RETRIES
+#define AVOID_RESCAN_RETRIES 2U
+#endif
+#ifndef AVOID_RESCAN_WAIT_MS
+#define AVOID_RESCAN_WAIT_MS 3000U
+#endif
+#if AVOID_RESCAN_RETRIES > 3
+#error AVOID_RESCAN_RETRIES must be 0..3
+#endif
 /* VC_RETURN heads back toward the line at least this steeply (deg from the
  * pre-obstacle heading), so it rejoins nearer the obstacle. A steeper
  * diagonal keeps its own angle. The return distance is the diagonal's

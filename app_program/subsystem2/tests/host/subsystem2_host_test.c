@@ -1152,6 +1152,20 @@ static void test_turn_drive_helpers(void)
     assert(s2_turn_kick_milli(S2_MOVE_LEFT, 0U, 0U, 45U, 55U) == 0U);
     assert(s2_turn_kick_milli(S2_MOVE_LEFT, UINT32_MAX, 150U, 45U, 55U) == 0U);
     assert(s2_turn_kick_milli(S2_MOVE_RIGHT, 0U, 150U, 70U, 55U) == 55000U);
+    /* Low-speed kick: straight, reverse and pivots below the threshold only;
+     * never spins (own kick), STOP or zero power; capped at the ceiling. */
+    assert(s2_low_kick_milli(S2_MOVE_FORWARD, 6U, 15U, 30U, 35U) == 30000U);
+    assert(s2_low_kick_milli(S2_MOVE_REVERSE, 10U, 15U, 30U, 35U) == 30000U);
+    assert(s2_low_kick_milli(S2_MOVE_PIVOT_LEFT, 6U, 15U, 30U, 35U) == 30000U);
+    assert(s2_low_kick_milli(S2_MOVE_PIVOT_RIGHT, 14U, 15U, 30U, 35U) == 30000U);
+    assert(s2_low_kick_milli(S2_MOVE_FORWARD, 15U, 15U, 30U, 35U) == 0U);
+    assert(s2_low_kick_milli(S2_MOVE_FORWARD, 20U, 15U, 30U, 35U) == 0U);
+    assert(s2_low_kick_milli(S2_MOVE_LEFT, 6U, 15U, 30U, 35U) == 0U);
+    assert(s2_low_kick_milli(S2_MOVE_RIGHT, 6U, 15U, 30U, 35U) == 0U);
+    assert(s2_low_kick_milli(S2_MOVE_STOP, 6U, 15U, 30U, 35U) == 0U);
+    assert(s2_low_kick_milli(S2_MOVE_FORWARD, 0U, 15U, 30U, 35U) == 0U);
+    assert(s2_low_kick_milli(S2_MOVE_FORWARD, 6U, 0U, 30U, 35U) == 0U);
+    assert(s2_low_kick_milli(S2_MOVE_REVERSE, 6U, 15U, 50U, 35U) == 35000U);
     /* Per-wheel kick: one backlash count does not end it, 5 real counts do;
      * the window bounds it; a wheel that re-stalls for 100 ms is kicked again. */
     s2_kick_t k;
@@ -1189,6 +1203,8 @@ static UW sim_after_min[4];
 static UW sim_late_max[4];
 static UW sim_late[4];
 static UINT sim_lock_at; /* receive that queues 3 status-lock timeouts, 0: none */
+static UINT sim_power = 25U; /* demand of sim_run's moves */
+static UW sim_breakaway; /* 0: sim_still never turns; else it turns at this duty or more */
 
 /* Turns the wheels that the published command drives, except sim_still;
  * records the first FAULT. Returns the published state. */
@@ -1207,11 +1223,17 @@ static UINT sim_wheels(void)
     {
         return state;
     }
+    /* The sim_still wheel turns only with static friction overcome: at
+     * sim_breakaway duty or more (never when sim_breakaway is 0). */
+    BOOL left_turns = sim_still != 0U ||
+        (sim_breakaway != 0U && (duties[8] >= sim_breakaway || duties[9] >= sim_breakaway));
+    BOOL right_turns = sim_still != 1U ||
+        (sim_breakaway != 0U && (duties[10] >= sim_breakaway || duties[11] >= sim_breakaway));
     /* Left forward counts = negative - positive; right = positive - negative. */
-    if (sim_still != 0U && sim_left[command] > 0) encoder1_negative += counts;
-    if (sim_still != 0U && sim_left[command] < 0) encoder1_positive += counts;
-    if (sim_still != 1U && sim_right[command] > 0) encoder_positive += counts;
-    if (sim_still != 1U && sim_right[command] < 0) encoder_negative += counts;
+    if (left_turns && sim_left[command] > 0) encoder1_negative += counts;
+    if (left_turns && sim_left[command] < 0) encoder1_positive += counts;
+    if (right_turns && sim_right[command] > 0) encoder_positive += counts;
+    if (right_turns && sim_right[command] < 0) encoder_negative += counts;
     return state;
 }
 
@@ -1242,7 +1264,7 @@ static void sim_wheels_hook(void)
     }
     else if (receive_count % 10U == 0U)
     {
-        assert(s2_movement_send(sim_command, 25U) == E_OK);
+        assert(s2_movement_send(sim_command, sim_power) == E_OK);
     }
 }
 
@@ -1260,7 +1282,7 @@ static void sim_run(s2_move_command_t command, UINT still, UW stop_ms)
     memset(sim_late_max, 0, sizeof(sim_late_max));
     memset(sim_late, 0, sizeof(sim_late));
     p_receive_hook = sim_wheels_hook;
-    assert(s2_movement_send(command, 25U) == E_OK);
+    assert(s2_movement_send(command, sim_power) == E_OK);
     run_task();
 }
 
@@ -1324,6 +1346,49 @@ static void test_pid_turn_drive(void)
     assert(sim_late_max[3] == straight_cap);
     assert(sim_fault_ms > 500U && sim_fault_ms <= 520U);
     puts("PID spins: kick until real motion, re-kick, raised ceiling, longer stall; straight and pivots unchanged PASS");
+}
+
+/* Robot logs 2026-11-20 and 2026-11-24: the barcode re-read reverses at the
+ * 10 % floor (heading-hold steering can put one wheel lower) and a wheel does
+ * not break away from standstill, so S2 faulted after 500 ms (VC fault 7).
+ * Index 1 is the left wheel's reverse pin, index 2 the right's. */
+static void test_pid_low_speed_kick(void)
+{
+    const UW low_kick = (MOTOR_PWM_WRAP + 1U) * BOARD_LOW_KICK_POWER / 100U;
+
+    sim_power = 10U;
+    /* A left wheel that never turns: not kicked at the start (a slow move
+     * may already be rolling), kicked once it has made no progress for
+     * REKICK_MS, and still faulted by the 500 ms stall. The rolling right
+     * wheel is never kicked. */
+    sim_breakaway = 0U;
+    sim_run(S2_MOVE_REVERSE, 0U, 0U);
+    assert(sim_first[1] == (MOTOR_PWM_WRAP + 1U) * 10U * S2_MOTOR1_TRIM_PERCENT / 10000U);
+    assert(sim_first[1] < low_kick && sim_first[2] < low_kick);
+    assert(sim_after_min[1] >= low_kick);
+    assert(sim_after_min[2] < low_kick);
+    assert(sim_fault_ms > 500U && sim_fault_ms <= 520U);
+    assert_status(S2_MOTION_FAULT, E_TMOUT);
+
+    /* The same wheel turns once it gets 20 % PWM (static friction): the
+     * feed-forward and PI alone stay below that, the kick breaks it away,
+     * and the reverse runs without a fault until its STOP. */
+    sim_breakaway = (MOTOR_PWM_WRAP + 1U) * 20U / 100U;
+    sim_run(S2_MOVE_REVERSE, 0U, 400U);
+    assert(sim_first[1] < sim_breakaway);
+    assert(sim_fault_ms == 0U);
+    assert_status(S2_MOTION_STOPPED, E_OK);
+
+    /* Both wheels already turning: no kick at any time. */
+    sim_breakaway = 0U;
+    sim_run(S2_MOVE_REVERSE, 2U, 300U);
+    assert(sim_first[1] < low_kick && sim_first[2] < low_kick);
+    assert(sim_after_min[1] < low_kick && sim_after_min[2] < low_kick);
+    assert(sim_late_max[1] < low_kick && sim_late_max[2] < low_kick);
+    assert(sim_fault_ms == 0U);
+    assert_status(S2_MOTION_STOPPED, E_OK);
+    sim_power = 25U;
+    puts("PID low-speed kick: a stuck wheel reversing at 10 % is kicked after 100 ms and breaks away; rolling wheels are never kicked; a wheel that never turns still faults at 500 ms PASS");
 }
 
 /* C6: the stall time is driven time without progress. It must not start
@@ -1536,6 +1601,7 @@ int main(void)
     /* The scenarios below model open-loop wheels; speed regulation would
      * fault their motionless encoders, so this profile checks turns only. */
     test_pid_turn_drive();
+    test_pid_low_speed_kick();
     test_stop_in_dead_time();
     test_pid_stall_carry();
     test_pid_follower_stall();
