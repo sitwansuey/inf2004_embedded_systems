@@ -216,14 +216,14 @@ every push):
 
 | Workflow | Runs |
 |---|---|
-| `Buddy 3 CI` (`buddy3-ci.yml`) | the S3 `test`, `analyze`, `check-headers` and `verify-failure` targets, then `arm-check` and a default firmware build with SDK 2.2.0 |
+| `Buddy 3 CI` (`buddy3-ci.yml`) | the S3 `test`, `analyze`, `check-headers` and `verify-failure` targets, then `arm-check`, a default firmware build and a mission (`NET=lwip MQTT=1`) firmware build with SDK 2.2.0 |
 | `Buddy 4 integration` (`buddy4-integration.yml`) | `make -C app_program/subsystem4/tests/host analyze sizes`, `make -C testing/integration test` and both `sanitize` targets |
 | `Data representation contract` (`data-representation.yml`) | `python -B testing/data_representation/run.py` with GCC and with Clang |
 
 The workflows use Linux GCC and glibc; a host test that passes with MinGW on
 Windows can still fail there, and the other way round, so check the workflow
-result as well as a local run. The CI does not
-build the mission (`NET=lwip MQTT=1`) image and runs nothing on the robot.
+result as well as a local run. The CI does not build the `TEST=1` image
+and runs nothing on the robot.
 
 *micro T-Kernel 3.0 © Ken Sakamura / TRON Forum, distributed under the
 T-License 2.2. This dual-core RP2040 port is derived from the official
