@@ -1,0 +1,30 @@
+# Code owners, from TEAM.md section 1 (owners and GitHub usernames).
+# GitHub requests a review from the owners of every file a pull request
+# changes. The last matching pattern wins, so the team-wide default comes
+# first and each subsystem's folders override it.
+
+# Shared code (the vehicle controller, app_program/*.c/*.h, app_program/shared/,
+# the robot profile, kernel/lib/device/config/include/build_make, TEAM.md,
+# testing/integration/ and testing/system/) belongs to the whole team.
+*                                             @ronbotan @jordecoder @youzerwan @vojm @ncht88
+
+# S1 telemetry, commands and the dashboard: Ron Tan
+/app_program/subsystem1/                      @ronbotan
+/app_program/external_systems/Dashboard/      @ronbotan
+/testing/subsystem1/                          @ronbotan
+
+# S2 motion control: Jordan Goh
+/app_program/subsystem2/                      @jordecoder
+/testing/subsystem2/                          @jordecoder
+
+# S3 IR line following and barcodes: Jun Kang
+/app_program/subsystem3/                      @youzerwan
+/testing/subsystem3/                          @youzerwan
+
+# S4 GY-511 IMU and terrain: Joshua Tan
+/app_program/subsystem4/                      @vojm
+/testing/subsystem4/                          @vojm
+
+# S5 ultrasonic ranger and servo: Terrence Ng
+/app_program/subsystem5/                      @ncht88
+/testing/subsystem5/                          @ncht88

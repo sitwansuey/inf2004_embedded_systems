@@ -13,13 +13,21 @@ start and stop a mission and remap barcode letters.
 - [videos/](videos/README.md): unlisted YouTube videos of hardware tests and demos.
 - [Calibration](calibration/README.md): current settings and measurement records.
 - [Wire format](docs/DATA_REPRESENTATION.md): EDR16 telemetry and robot events.
+- Subsystem guides: [S1 telemetry](app_program/subsystem1/README.md),
+  [S2 motion](app_program/subsystem2/README.md),
+  [S3 line and barcodes](app_program/subsystem3/README.md),
+  [S4 IMU and terrain](app_program/subsystem4/README.md),
+  [S5 ranger and servo](app_program/subsystem5/README.md).
 
 ## 1. Set up the build tools
 
 Install the Pico C SDK, the Arm GNU Toolchain (`arm-none-eabi-gcc`), GNU Make
 and a host C++ compiler for `elf2uf2`. The SDK needs its `lib/tinyusb`,
 `lib/cyw43-driver` and `lib/lwip` submodules for the MQTT mission build.
-The SDK and compiler are separate installations.
+The SDK and compiler are separate installations. Every build of this robot
+needs `PICO_SDK_PATH`, including `CONSOLE=uart WIFI=none`: S4 compiles the
+SDK's I2C driver (`app_program/subsystem4/sdk.mk`; see TEAM.md section 5).
+The example below uses SDK 2.3.0; the CI firmware job fetches SDK 2.2.0.
 
 On Windows, the build helper supports WSL Ubuntu or native MSYS2. A native
 build needs MSYS2's `bash` and `make` in `C:\msys64\usr\bin` (pass `-MsysBin`
@@ -93,14 +101,24 @@ Plain `make -C build_make -j8` uses `SMP=1 CONSOLE=usb_cdc WIFI=cyw43`
 with `NET=none MQTT=0 TEST=0 CRASH_REPORT=0` and encoders enabled. Give options
 on every build; the profile stamp rebuilds objects when these options change.
 
-| Helper profile | Make options added |
-|---|---|
-| `Default` | None |
-| `Mqtt` | `NET=lwip MQTT=1` |
-| `PassiveTest` | `TEST=1` (no MQTT) |
-| `SingleCore` | `SMP=0` |
-| `Uart` | `CONSOLE=uart WIFI=none` |
-| `S4Bench` | `S4_ONLY=1` |
+| Helper profile | Make options added | Image in `build_make/` |
+|---|---|---|
+| `Default` | None | `mtk3pico_smp1_usb_cdc_wifi_enc.uf2` |
+| `Mqtt` | `NET=lwip MQTT=1` (the mission build) | `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc.uf2` |
+| `PassiveTest` | `TEST=1` (no MQTT) | `mtk3pico_smp1_usb_cdc_wifi_enc_test.uf2` |
+| `SingleCore` | `SMP=0` | `mtk3pico_smp0_usb_cdc_wifi_enc.uf2` |
+| `Uart` | `CONSOLE=uart WIFI=none` (no S5, see below) | `mtk3pico_smp1_uart_enc.uf2` |
+| `S4Bench` | `S4_ONLY=1` | `mtk3pico_smp1_usb_cdc_wifi_enc_s4.uf2` |
+| none | `TEST=1 NET=lwip MQTT=1` | `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_enc_test.uf2` |
+| none | `NET=lwip MQTT=1 CRASH_REPORT=1` | `mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_crash_enc.uf2` |
+| none | `S2_ONLY=1` | `mtk3pico_smp1_usb_cdc_wifi_s2_enc.uf2` |
+
+S2 also has `S2_ENCODER_ENABLED` (default 1) and `S2_COMMAND_TIMEOUT_MS`
+(default 1000); see the [S2 guide](app_program/subsystem2/README.md). The S5
+diagnostic builds are `TEST=1` with a setting in `robot_config.local.h`; see
+the [S5 guide](app_program/subsystem5/README.md). The template's other board
+makefiles (`build_make/iote_*.mk`, `nucleo_h723.mk`) are not used or tested
+for this robot.
 
 `S2_ONLY=1` and `S4_ONLY=1` are bench builds that start only that
 subsystem: no vehicle controller, no other subsystem and no watchdog.
@@ -161,9 +179,10 @@ for credentials, display behaviour and barcode mappings.
 ## 5. Run the host tests
 
 Run from the repository root with Python 3, native GCC and GNU Make on
-`PATH` (use `python3` where `python` is not found). The S3 `arm-check` target
-also needs the Arm compiler; browser display checks need Node.js. GCC analysis
-targets use `-fanalyzer`.
+`PATH` (use `python3` where `python` is not found; on Windows with MSYS2,
+GNU Make may be called `mingw32-make`). The S3 `arm-check` target also needs
+the Arm compiler; the S4 suite runs `python3`; browser display checks need
+Node.js. GCC analysis targets use `-fanalyzer`.
 
 ```sh
 python -B testing/data_representation/run.py
@@ -181,6 +200,28 @@ checks. [testing/README.md](testing/README.md) explains dependencies, skipped
 checks and how to save results. Test records and logs are tracked. Host tests
 check software with simulated hardware; physical results belong in the
 subsystem and system test records.
+
+`make -C app_program/subsystem4/tests/host sanitize` and
+`make -C testing/integration sanitize` add AddressSanitizer and
+UndefinedBehaviorSanitizer. They need a compiler and C library that support
+them, such as GCC or Clang on Linux; MinGW GCC on Windows does not.
+
+### Continuous integration
+
+Three GitHub Actions workflows in `.github/workflows/` run on Ubuntu 24.04 for
+pushes to `main` and for pull requests (the data representation workflow on
+every push):
+
+| Workflow | Runs |
+|---|---|
+| `Buddy 3 CI` (`buddy3-ci.yml`) | the S3 `test`, `analyze`, `check-headers` and `verify-failure` targets, then `arm-check` and a default firmware build with SDK 2.2.0 |
+| `Buddy 4 integration` (`buddy4-integration.yml`) | `make -C app_program/subsystem4/tests/host analyze sizes`, `make -C testing/integration test` and both `sanitize` targets |
+| `Data representation contract` (`data-representation.yml`) | `python -B testing/data_representation/run.py` with GCC and with Clang |
+
+The workflows use Linux GCC and glibc; a host test that passes with MinGW on
+Windows can still fail there, and the other way round, so check the workflow
+result as well as a local run. The CI does not
+build the mission (`NET=lwip MQTT=1`) image and runs nothing on the robot.
 
 *micro T-Kernel 3.0 © Ken Sakamura / TRON Forum, distributed under the
 T-License 2.2. This dual-core RP2040 port is derived from the official
