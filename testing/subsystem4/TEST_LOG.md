@@ -153,18 +153,18 @@ commit; record the team's actual tested commit for later board tests.
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
 | YYYY-MM-DD | S4-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
-| 2026-10-17 | S4-U01 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U02 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U03 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U04 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U05 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U06 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U07 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U08 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U09 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U10 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U11 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
-| 2026-10-17 | S4-U12 | `9b6de29ae296` (local) [^s4-c1] | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U01 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U02 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U03 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U04 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U05 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U06 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U07 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U08 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U09 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U10 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U11 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
+| 2026-10-17 | S4-U12 | `9b6de29ae296` (local) | Codex / host | PASS | `logs/2026-10-17_host.txt`, `logs/2026-10-17_sanitizers.txt` | software / simulated kernel and bus only |
 | 2026-11-20 | S4-U01 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U10 PASS` (driver_test); mock bus, host only |
 | 2026-11-20 | S4-U02 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U11 PASS` (driver_test); mock bus, host only |
 | 2026-11-20 | S4-U03 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_s4.txt` | `[TEST] S4-U12 PASS` (driver_test); mock bus, host only |
@@ -341,7 +341,7 @@ IDs as they stood at `d18dd38` and what they became in `5f93cb6`. "Test case tex
 
 ### Commit cells checked
 
-Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit is not marked. Any other cell keeps its original text and carries a footnote; the footnotes are at the end of this file.
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The result rows themselves are left exactly as recorded; every other cell is listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file.
 
 ### Evidence paths checked
 
@@ -349,4 +349,6 @@ Every `logs/` path named in a *Log / evidence* cell of this file, including the 
 
 Files named in the prose sections of this log that are not in the repository at `0bac48c` (each was deleted in `54a371f`, 2026-10-27; the last versions are in its parent `efedeb1`): `testing/subsystem4/verification-20261027.json`, `testing/subsystem4/cr1-verification.json`, `testing/subsystem4/ready-verification.json`, `testing/subsystem4/sanitizers.log`, the `ready`-prefixed logs, `app_program/subsystem4/README.md`, `docs/BUDDY4_TESTING.md` and `docs/BUDDY4_IMPLEMENTATION.md`.
 
-[^s4-c1]: Hash `9b6de29ae296` not found in repository history (`git cat-file`, all branches, 2026-11-25). The original entry marks it "(local)": a development commit that was never pushed, so the code these rows ran on is not in the repository.
+### Notes on unclear commit and evidence cells
+
+- **2026-10-17 S4-U01; 2026-10-17 S4-U02; 2026-10-17 S4-U03; 2026-10-17 S4-U04; 2026-10-17 S4-U05; 2026-10-17 S4-U06; 2026-10-17 S4-U07; 2026-10-17 S4-U08; 2026-10-17 S4-U09; 2026-10-17 S4-U10; 2026-10-17 S4-U11; 2026-10-17 S4-U12:** Hash `9b6de29ae296` not found in repository history (`git cat-file`, all branches, 2026-11-25). The original entry marks it "(local)": a development commit that was never pushed, so the code these rows ran on is not in the repository.

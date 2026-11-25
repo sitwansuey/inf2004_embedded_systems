@@ -99,7 +99,7 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-11-19 | S1-U06 | `7a6c373` | Ron Tan | PASS | `../system/logs/2026-11-19_mqtt_rate60.txt` | Robot disarmed with no fault (last status: phase 0, fault 0, pitch and roll 0, motor command 0, lines 72-85) and no robot events (line 53). 62 s capture by a bench MQTT client instead of `mosquitto_sub -W 60`, counted the same way (sequence steps + 1): 311 snapshots built (line 6) over the 61.8 s between the first and last sequence record (60 × 259 / 251.5 received per minute, line 8), so about 301 per 60 s (target 300 ± 2) |
 | 2026-11-19 | S1-U06 | `7a6c373` | Ron Tan | PASS | `../system/logs/2026-11-19_t7_mqtt_idle.txt` | 89 s idle capture: in every snapshot the robot is Disarmed, fault 0, pitch and roll 0, encoders 0, no impact. First 60 s of the capture: sequence 106 at 0.052 s (line 14) to 150 at 59.994 s (line 11997) is 300 steps (one wrap), so 301 snapshots built (target 300 ± 2). Whole capture: 446 built in 88.9 s (300.2 per 60 s) |
 | 2026-11-19 | S1-U07 | `7a6c373` | Ron Tan | INCOMPLETE | `../system/logs/2026-11-19_t7_usb_no_imu_broker_restart.txt` | Broker restarted with the robot disarmed (armed=0) and the USB console logging. `mqtt: connection status 256, retrying in 3s` at 87.1 s (line 1482), then `mqtt: connected to ...` at 90.2 s (line 1533): 3.1 s after the robot lost the broker, on its first retry. Uptime keeps counting (t=110040 ms at 86.7 s, t=113610 ms at 90.3 s), so no reboot. Not shown: the length of the broker stop (20 s in the test) and its start time, records returning, and the "Robot reconnected to the MQTT broker" event (no MQTT capture across the restart) |
-| 2026-11-24 | S1-U07 | `f8b68dd` + uncommitted S2 low-speed kick [^s1-c1] | Ron Tan | PASS | https://youtu.be/qj4SRrp7bfA | Robot disarmed and linked (same image as SYS-08 that evening). Broker stopped with `net stop mosquitto` (0:06) for about 6 s, then started with `net start mosquitto` (0:12). Dashboard: "MQTT disconnected; reconnecting" (0:06), "MQTT broker unavailable; retrying" (0:09), "MQTT subscribed" again (0:12). The robot's cards were back with live values (5 of 5 supplied, Disarmed) by 0:15, about 3 s after the broker start; the barcode card still showed the last letter (F, Left). |
+| 2026-11-24 | S1-U07 | `f8b68dd` + uncommitted S2 low-speed kick | Ron Tan | PASS | https://youtu.be/qj4SRrp7bfA | Robot disarmed and linked (same image as SYS-08 that evening). Broker stopped with `net stop mosquitto` (0:06) for about 6 s, then started with `net start mosquitto` (0:12). Dashboard: "MQTT disconnected; reconnecting" (0:06), "MQTT broker unavailable; retrying" (0:09), "MQTT subscribed" again (0:12). The robot's cards were back with live values (5 of 5 supplied, Disarmed) by 0:15, about 3 s after the broker start; the barcode card still showed the last letter (F, Left). |
 
 ### Restored result rows (audit, 2026-11-25)
 
@@ -156,10 +156,12 @@ IDs as they stood at `d18dd38` and what they became in `5f93cb6`. "Test case tex
 
 ### Commit cells checked
 
-Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit is not marked. Any other cell keeps its original text and carries a footnote; the footnotes are at the end of this file.
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The result rows themselves are left exactly as recorded; every other cell is listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file.
 
 ### Evidence paths checked
 
 Every `logs/` path named in a *Log / evidence* cell of this file, including the restored rows, exists at `0bac48c`. YouTube links were not opened.
 
-[^s1-c1]: Commit not recorded precisely: per the original entry the robot ran `f8b68dd` plus uncommitted changes ("S2 low-speed kick"), so the exact tested code is not in the repository. `f8b68dd` itself exists in the repository history.
+### Notes on unclear commit and evidence cells
+
+- **2026-11-24 S1-U07:** Commit not recorded precisely: per the original entry the robot ran `f8b68dd` plus uncommitted changes ("S2 low-speed kick"), so the exact tested code is not in the repository. `f8b68dd` itself exists in the repository history.

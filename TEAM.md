@@ -40,8 +40,9 @@ template's `app_main.c` and `app.h`, and it sits beside them at the top of
 `app_program/` rather than in a `subsystemN/` folder, where the section 1 rule
 would make one student the only person allowed to change it. Any member may
 propose a change to shared code, by a pull request; `.github/CODEOWNERS`
-requests a review from all five members for every file outside the subsystem
-and dashboard folders. The data formats between the VC and each subsystem
+requests a review from all five members for every file outside the subsystem,
+subsystem test (`testing/subsystemN/`) and dashboard folders, which go to
+their owners. The data formats between the VC and each subsystem
 are agreed with that subsystem's owner (section 5, *Agreed by*).
 
 Shared code is changed only by agreement of the team; claiming an empty row in

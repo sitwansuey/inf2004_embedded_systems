@@ -29,7 +29,7 @@ The IDs were renumbered on 2026-11-21 so they run in order with no gaps. The old
 
 *Method:* **auto (host)** = a test runs on a PC without the robot; **auto (integrated TEST=1)** = a `TEST_CHECK` that runs on the robot in the integrated test image; **auto (TEST=1 S2_ONLY=1)** = the same check in the S2 bench test image.
 
-S2-U29 to S2-U33 (added 2026-11-25) are passive on-target checks in `app_program/subsystem2/subsystem2_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command. No result is recorded yet; they have not been run on the robot. S2-U30 expects the integrated image without an S5 diagnostic setting, which would drive the motors itself.
+S2-U29 to S2-U33 (added 2026-11-25) are passive on-target checks in `app_program/subsystem2/subsystem2_test.c`, restored after `5f93cb6` deleted the old self-test file. They take new numbers because every lower number has already named another test (see the ID history at the end of this log). They read status only: no motor, servo, sonar or MQTT command takes effect (S2-U33 sends one STOP from a task that is not the bound controller and checks that S2 refuses it with `E_OACV`). No result is recorded yet; they have not been run on the robot. S2-U30 expects the integrated image without an S5 diagnostic setting, which would drive the motors itself.
 
 <details>
 <summary>ID changes on 2026-11-21 (old ID → new ID)</summary>
@@ -48,7 +48,7 @@ On 2026-11-21 the IDs were renumbered so they run in order with no gaps. The tes
 | S2-U22 | S2-U08 |
 | S2-U23 | S2-U09 |
 
-Removed before the renumbering (old IDs; a new ID with the same number is a different test): S2-U01 to S2-U14 (raised-wheel motor self-test, removed with `subsystem2_test.c`) and S2-U24 to S2-U28 (never run). All removed on 2026-11-20.
+Removed before the renumbering (old IDs; a new ID with the same number is a different test): S2-U01 to S2-U14 (raised-wheel motor self-test, removed with the old motor self-test in `subsystem2_test.c`) and S2-U24 to S2-U28 (never run). All removed on 2026-11-20.
 
 </details>
 

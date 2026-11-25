@@ -1,6 +1,8 @@
 /*
  * subsystem2_test.c
- * Buddy 2 -- On-target passive checks. Student ID: 2500613.
+ * Buddy 2 -- On-target passive checks.  Subsystem owner: Student ID 2500613.
+ * Rewritten 2026-11-25 (repository cleanup) to replace the motor self-test
+ * deleted in 5f93cb6; owner review pending.
  * Built only with: make TEST=1.  The integrated test image
  * (make TEST=1 NET=lwip MQTT=1) and the S2_ONLY=1 TEST=1 bench image run
  * them from usermain() once the subsystems have started.

@@ -45,6 +45,8 @@ Define a test here before running it. Test IDs never change.
 | INT-33 | controller reports humps, shocks and events | S4 -> VC/S1, VC -> S1; FR2, FR3, FR7, FR10 | auto (host) | `buddy4_vehicle_test.c` via `python -B testing/integration/run.py` (all five `buddy4_vehicle` recipes) | lines starting `Hump:` (`Hump with BOARD_RAMP_SPEED 0:` in `buddy4_vehicle_no_ramp_lift`), `Shock while tracking`, `Event log:` and `8c:` (not in `buddy4_vehicle_no_ramp_lift`), each ending in PASS |
 | INT-34 | snapshots preserve vehicle state and IMU events | VC -> S1, S4 -> VC/S1; FR3, FR7, FR11, NFR7 | auto (host) | `snapshot_time_test.c` via `python -B testing/integration/run.py` | six lines before the `INT-10:` line, starting `Straddle line telemetry:`, `Fault cause:`, `Shock count:`, `IMU fault:`, `Shock extras:` and `IMU fault count:`, each ending in PASS |
 
+INT-19 tests the shared confirmation helper with `required` = 3, as written in its test. Since `d3d4bbf` the robot calls the same helper with 2 (`S5_ACQUISITION_SAMPLES` and `VC_DETECT_SAMPLES`); INT-04 (`scan_test.c`) and the `buddy4_vehicle` recipes cover that production setting.
+
 *Method:* **auto (host)** and **native** = a test runs on a PC without the robot.
 
 **auto (host)** = a host program in `testing/integration`. Run `python -B testing/integration/run.py` from the
@@ -188,8 +190,8 @@ Add a new row for every run. Never edit or delete old rows.
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
 | YYYY-MM-DD | INT-01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
-| 2026-10-22 | INT-08 | `b02e335` + local working changes [^int-c1] | Codex | PASS (native) | `logs/2026-10-22_sonar_pin_fix.txt` | Production driver, old-role negative control, scan policy, real headers SMP 0/1 and lock 0/1; ARM/physical retest pending |
-| 2026-10-22 | INT-09, INT-10 | `b02e335` + local working changes [^int-c1] | Codex | PASS (native) | `logs/2026-10-22_s5_status_fix.txt` | Production S5 API/telemetry task, old-poll negative control, real headers SMP 0/1 and lock 0/1; ARM/physical validation pending |
+| 2026-10-22 | INT-08 | `b02e335` + local working changes | Codex | PASS (native) | `logs/2026-10-22_sonar_pin_fix.txt` | Production driver, old-role negative control, scan policy, real headers SMP 0/1 and lock 0/1; ARM/physical retest pending |
+| 2026-10-22 | INT-09, INT-10 | `b02e335` + local working changes | Codex | PASS (native) | `logs/2026-10-22_s5_status_fix.txt` | Production S5 API/telemetry task, old-poll negative control, real headers SMP 0/1 and lock 0/1; ARM/physical validation pending |
 | 2026-11-20 | INT-01 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-01 controller`, `Sensor waits` and `Avoidance ramps` lines PASS. All 33 recipes ran, last line `Integration recipes PASS`, exit code 0 |
 | 2026-11-20 | INT-02 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-02 odometry` line PASS |
 | 2026-11-20 | INT-03 | `ed197b3` | Ron Tan | PASS | `logs/2026-11-20_host_integration.txt` | Recipe `policy`: `INT-CR1-03 terrain` and `IMU mount` lines PASS |
@@ -292,10 +294,12 @@ IDs as they stood at `d18dd38` and what they became in `5f93cb6`. "Test case tex
 
 ### Commit cells checked
 
-Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit is not marked. Any other cell keeps its original text and carries a footnote; the footnotes are at the end of this file. The restored October INT-03 row names `78f6171`, which is not found in repository history; its cell is left as written and the note is in its first column.
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The result rows themselves are left exactly as recorded; every other cell is listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file. The restored October INT-03 row names `78f6171`, which is not found in repository history; its cell is left as written and the note is in its first column.
 
 ### Evidence paths checked
 
 Every `logs/` path named in a *Log / evidence* cell of this file, including the restored rows, exists at `0bac48c`. YouTube links were not opened.
 
-[^int-c1]: Hash `b02e335` not found in repository history (`git cat-file`, all branches, 2026-11-25), and the entry adds uncommitted local changes, so the code these rows ran on is not in the repository.
+### Notes on unclear commit and evidence cells
+
+- **2026-10-22 INT-08; 2026-10-22 INT-09, INT-10:** Hash `b02e335` not found in repository history (`git cat-file`, all branches, 2026-11-25), and the entry adds uncommitted local changes, so the code these rows ran on is not in the repository.

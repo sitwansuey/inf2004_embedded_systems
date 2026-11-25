@@ -324,7 +324,7 @@ this later records-only commit does not change code or the workflow.
 | 2026-10-15 | S3-B02 UART/no-radio firmware | 93f71ae | Codex/project Makefile | BLOCKED | [UART build](logs/2026-10-15_firmware_uart.txt) | Real exit 2, same missing compiler. SDK not installed; independent source blockers documented in AUDIT.md |
 | 2026-10-15 | Whitespace | 93f71ae | Codex/Git | PASS | [diff check](logs/2026-10-15_whitespace.txt) | git diff --check clean |
 | 2026-10-15 | GitHub Actions / PR | 93f71ae | GitHub connector | NOT RUN / BLOCKED | [publication](logs/2026-10-15_publication.txt) | Connector cannot create remote branch (403); no Actions run or PR link exists |
-| 2026-10-15 | On-target smoke S3-U02/U03 and S3-M01 through S3-M11 | 93f71ae | No hardware available | NOT RUN | HARDWARE_VALIDATION.md [^s3-e1] | No flashing, ADC read, waveform capture or physical robot verification |
+| 2026-10-15 | On-target smoke S3-U02/U03 and S3-M01 through S3-M11 | 93f71ae | No hardware available | NOT RUN | HARDWARE_VALIDATION.md | No flashing, ADC read, waveform capture or physical robot verification |
 
 Exact root-relative commands (local PATH was prefixed with MSYS2 ucrt64/bin and
 usr/bin; no provisioning or fake compiler wrapper was used):
@@ -380,9 +380,9 @@ its old E_NOSPT gate is now supplemented by the pad-enabled worker tests below.
 | 2026-10-15 | S3-B03 | e0a4448 | Codex/actual arm-check command | BLOCKED | [ARM objects](logs/2026-10-15_phase2_arm_objects.txt) | Compiler executable absent; Make exit 2, no ARM object produced |
 | 2026-10-15 | S3-B02 default firmware | e0a4448 | Codex/project Makefile | BLOCKED | [default](logs/2026-10-15_phase2_firmware_default.txt) | Actual exit 2 at missing Arm GCC guard; no successful compile/link/UF2 |
 | 2026-10-15 | S3-B02 UART/no-radio firmware | e0a4448 | Codex/project Makefile | BLOCKED | [UART](logs/2026-10-15_phase2_firmware_uart.txt) | Actual exit 2 at same prerequisite; not a substituted SDK/stub build |
-| 2026-10-15 | Ownership and whitespace | Phase 2 tree [^s3-c1] | Codex/Git | PASS | [scope](logs/2026-10-15_phase2_ownership.txt) | Other buddies, kernel/device/config/lib and shared app code unchanged; only empty ADC ownership row claimed in TEAM.md |
-| 2026-10-15 | GitHub upload, PR, CI, merge | Phase 2 local commits [^s3-c1] | GitHub API | BLOCKED / NOT RUN | [publication](logs/2026-10-15_phase2_publication.txt) | Git tree and PR creation HTTP 403 despite account Write/Admin; no successful refresh action exposed; remote branch still e292334, no PR exists |
-| 2026-10-15 | S3-M01..M11 and on-target smoke | Phase 2 [^s3-c1] | No hardware | NOT RUN | [bench protocol](HARDWARE_VALIDATION.md) [^s3-e1] | No physical measurements, flashing or vehicle movement |
+| 2026-10-15 | Ownership and whitespace | Phase 2 tree | Codex/Git | PASS | [scope](logs/2026-10-15_phase2_ownership.txt) | Other buddies, kernel/device/config/lib and shared app code unchanged; only empty ADC ownership row claimed in TEAM.md |
+| 2026-10-15 | GitHub upload, PR, CI, merge | Phase 2 local commits | GitHub API | BLOCKED / NOT RUN | [publication](logs/2026-10-15_phase2_publication.txt) | Git tree and PR creation HTTP 403 despite account Write/Admin; no successful refresh action exposed; remote branch still e292334, no PR exists |
+| 2026-10-15 | S3-M01..M11 and on-target smoke | Phase 2 | No hardware | NOT RUN | [bench protocol](HARDWARE_VALIDATION.md) | No physical measurements, flashing or vehicle movement |
 
 Exact root-relative commands:
 
@@ -553,11 +553,13 @@ The October tables further up (*Buddy 3 implementation test definitions*, *Phase
 
 ### Commit cells checked
 
-Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit is not marked. Any other cell keeps its original text and carries a footnote; the footnotes are at the end of this file.
+Every hash in a *Commit* cell of this file, including the restored rows, was looked up with `git cat-file -t` in this repository (all branches) on 2026-11-25. A cell that names exactly one existing commit needs no note. The result rows themselves are left exactly as recorded; every other cell is listed by date and test ID under *Notes on unclear commit and evidence cells* at the end of this file.
 
 ### Evidence paths checked
 
-Every `logs/` path named in a *Log / evidence* cell of this file, including the restored rows, exists at `0bac48c`. YouTube links were not opened. Exception: two October rows name `HARDWARE_VALIDATION.md`, which is no longer in the repository (footnote [^s3-e1]); the sentence "Manual tests S3-M01 through S3-M11 are defined in HARDWARE_VALIDATION.md" refers to the same deleted file.
+Every `logs/` path named in a *Log / evidence* cell of this file, including the restored rows, exists at `0bac48c`. YouTube links were not opened. Exception: two October rows name `HARDWARE_VALIDATION.md`, which is no longer in the repository (see the notes at the end of this file); the sentence "Manual tests S3-M01 through S3-M11 are defined in HARDWARE_VALIDATION.md" refers to the same deleted file.
 
-[^s3-c1]: No commit hash recorded in the original entry (it says only "Phase 2 ..."). The Phase 2 rows above it name `e0a4448` (2026-10-15), but which code this row describes is not recorded.
-[^s3-e1]: `testing/subsystem3/HARDWARE_VALIDATION.md` is not in the repository at `0bac48c`: it was deleted in `54a371f` (2026-10-27). Its last version is in `efedeb1`, the parent of `54a371f` (`git show efedeb1:testing/subsystem3/HARDWARE_VALIDATION.md`).
+### Notes on unclear commit and evidence cells
+
+- **2026-10-15 Ownership and whitespace; 2026-10-15 GitHub upload, PR, CI, merge; 2026-10-15 S3-M01..M11 and on-target smoke:** No commit hash recorded in the original entry (it says only "Phase 2 ..."). The Phase 2 rows above it name `e0a4448` (2026-10-15), but which code this row describes is not recorded.
+- **2026-10-15 On-target smoke S3-U02/U03 and S3-M01 through S3-M11; 2026-10-15 S3-M01..M11 and on-target smoke:** `testing/subsystem3/HARDWARE_VALIDATION.md` is not in the repository at `0bac48c`: it was deleted in `54a371f` (2026-10-27). Its last version is in `efedeb1`, the parent of `54a371f` (`git show efedeb1:testing/subsystem3/HARDWARE_VALIDATION.md`).
